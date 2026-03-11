@@ -13,8 +13,8 @@ export const memberCreateSchema = z.object({
     .min(2, '이름은 2자 이상이어야 합니다.')
     .max(20, '이름은 20자 이하여야 합니다.')
     .regex(/^[가-힣a-zA-Z]+$/, '이름은 한글 또는 영문만 입력 가능합니다.'),
-  gender: z.enum(['M', 'F'], {
-    errorMap: () => ({ message: '성별을 선택해주세요.' }),
+  gender: z.enum(['M', 'F'] as const, {
+    error: '성별을 선택해주세요.',
   }),
   phone: z
     .string()
@@ -49,7 +49,7 @@ export type MemberCreateInput = z.infer<typeof memberCreateSchema>;
 // 회원 수정 스키마: 모든 필드 선택 + id 필수
 export const memberUpdateSchema = memberCreateSchema.partial().extend({
   id: z
-    .number({ required_error: '회원 ID는 필수입니다.' })
+    .number({ error: '회원 ID는 필수입니다.' })
     .int('회원 ID는 정수여야 합니다.'),
 });
 
