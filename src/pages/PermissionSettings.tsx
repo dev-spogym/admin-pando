@@ -333,7 +333,7 @@ export default function PermissionSettings() {
                 onClick={handleSave}
                 className={cn(
                   "flex items-center gap-xs rounded-button px-md py-sm text-Label text-white transition-all",
-                  isDirty && !isPrimary ? "bg-primary shadow-sm hover:opacity-90" : "bg-surface-tertiary cursor-not-allowed"
+                  isDirty && !isPrimary ? "bg-primary shadow-sm hover:opacity-90" : "bg-surface-secondary cursor-not-allowed"
                 )} >
                 <Save size={16} />
                 변경 사항 저장
@@ -346,7 +346,7 @@ export default function PermissionSettings() {
           <div className="flex w-[280px] flex-col gap-md" >
             <div className="flex flex-1 flex-col overflow-hidden rounded-lg bg-surface shadow-sm" >
               <div className="flex items-center justify-between border-b border-line p-md" >
-                <h2 className="text-KPI-Large text-content" >역할 목록</h2>
+                <h2 className="text-xl font-bold text-content" >역할 목록</h2>
                 <button
                   className="rounded-full bg-primary-light p-xs text-primary hover:bg-primary hover:text-white transition-all" onClick={() => setIsCreateModalOpen(true)}>
                   <Plus size={20}/>
@@ -363,22 +363,22 @@ export default function PermissionSettings() {
                     )} key={role.id} onClick={() => setSelectedRoleId(role.id)}>
                     <div className="flex items-center justify-between" >
                       <span className={cn(
-                        "text-Section-Title",
+                        "text-sm font-semibold",
                         selectedRoleId === role.id ? "text-primary" : "text-content"
                       )} >
                         {role.name}
                       </span>
-                      <span className="text-Body-Primary-KR text-content-secondary" >
+                      <span className="text-sm text-content-secondary" >
                         {role.userCount}명
                       </span>
                     </div>
-                    <p className="mt-xs line-clamp-1 text-Body-Primary-KR text-content-secondary opacity-70" >
+                    <p className="mt-xs line-clamp-1 text-sm text-content-secondary opacity-70" >
                       {role.description}
                     </p>
                     {!role.isSystem && selectedRoleId === role.id && (
                       <div className="mt-sm flex justify-end gap-sm" >
                         <button
-                          className="text-Body-Primary-KR text-content hover:underline" onClick={(e) => {
+                          className="text-sm text-content hover:underline" onClick={(e) => {
                             e.stopPropagation();
                             setRoleToDelete(role);
                             setIsDeleteConfirmOpen(true);
@@ -394,19 +394,19 @@ export default function PermissionSettings() {
 
             {/* E. 역할 배정 현황 */}
             <div className="rounded-lg bg-surface p-md shadow-sm" >
-              <h3 className="mb-sm flex items-center gap-xs text-Body-Primary-KR text-content" >
+              <h3 className="mb-sm flex items-center gap-xs text-sm text-content" >
                 <Users className="text-content-secondary" size={14}/>
                 배정 직원 ({selectedRole.userCount}명)
               </h3>
               <div className="flex flex-wrap gap-xs" >
                 {(MOCK_EMPLOYEES[selectedRole.code] || []).map(name => (
                   <button
-                    className="rounded-full bg-surface-secondary px-sm py-xs text-Body-Primary-KR text-content-secondary hover:bg-primary/10 hover:text-primary transition-colors" key={name} onClick={() => moveToPage(974)}>
+                    className="rounded-full bg-surface-secondary px-sm py-xs text-sm text-content-secondary hover:bg-primary/10 hover:text-primary transition-colors" key={name} onClick={() => moveToPage(974)}>
                     {name}
                   </button>
                 ))}
                 {(!MOCK_EMPLOYEES[selectedRole.code] || MOCK_EMPLOYEES[selectedRole.code].length === 0) && (
-                  <span className="text-Body-Primary-KR text-content-secondary italic" >배정된 직원이 없습니다.</span>
+                  <span className="text-sm text-content-secondary italic" >배정된 직원이 없습니다.</span>
                 )}
               </div>
             </div>
@@ -417,30 +417,30 @@ export default function PermissionSettings() {
             {isPrimary && (
               <div className="flex items-center gap-sm bg-surface-secondary p-md text-primary" >
                 <Shield size={20}/>
-                <p className="text-Body-Primary-KR font-medium" >최고관리자는 시스템의 모든 권한을 가지며 수정할 수 없습니다.</p>
+                <p className="text-sm font-medium" >최고관리자는 시스템의 모든 권한을 가지며 수정할 수 없습니다.</p>
               </div>
             )}
 
             <div className="flex items-center justify-between border-b border-line p-md" >
               <div >
-                <h2 className="text-KPI-Large text-content" >
+                <h2 className="text-xl font-bold text-content" >
                   {selectedRole.name} 권한 설정
                 </h2>
-                <p className="mt-xs text-Body-Primary-KR text-content-secondary" >
+                <p className="mt-xs text-sm text-content-secondary" >
                   {selectedRole.description}
                 </p>
               </div>
               <div className="flex gap-sm" >
                 <button
-                  className="rounded-lg border border-line px-md py-sm text-Body-Primary-KR text-content-secondary hover:bg-surface-secondary hover:text-primary transition-colors disabled:opacity-50" disabled={isPrimary} onClick={handleAllAllow}>
+                  className="rounded-lg border border-line px-md py-sm text-sm text-content-secondary hover:bg-surface-secondary hover:text-primary transition-colors disabled:opacity-50" disabled={isPrimary} onClick={handleAllAllow}>
                   전체 허용
                 </button>
                 <button
-                  className="rounded-lg border border-line px-md py-sm text-Body-Primary-KR text-content-secondary hover:bg-primary-light hover:text-primary transition-colors disabled:opacity-50" disabled={isPrimary} onClick={handleAllDeny}>
+                  className="rounded-lg border border-line px-md py-sm text-sm text-content-secondary hover:bg-primary-light hover:text-primary transition-colors disabled:opacity-50" disabled={isPrimary} onClick={handleAllDeny}>
                   전체 차단
                 </button>
                 <button
-                  className="flex items-center gap-xs rounded-lg border border-line px-md py-sm text-Body-Primary-KR text-content-secondary hover:bg-surface-secondary transition-colors disabled:opacity-50"
+                  className="flex items-center gap-xs rounded-lg border border-line px-md py-sm text-sm text-content-secondary hover:bg-surface-secondary transition-colors disabled:opacity-50"
                   disabled={isPrimary}
                   onClick={() => {
                     setCopySourceRoleId(selectedRoleId);
@@ -457,13 +457,13 @@ export default function PermissionSettings() {
               <table className="w-full border-collapse text-left" >
                 <thead className="sticky top-0 z-10 bg-surface" >
                   <tr className="border-b border-line" >
-                    <th className="p-md text-Body-Primary-KR text-content-secondary" >메뉴 그룹</th>
-                    <th className="p-md text-Body-Primary-KR text-content-secondary" >메뉴명</th>
-                    <th className="p-md text-center text-Body-Primary-KR text-content-secondary" >접근</th>
-                    <th className="p-md text-center text-Body-Primary-KR text-content-secondary" >조회</th>
-                    <th className="p-md text-center text-Body-Primary-KR text-content-secondary" >등록</th>
-                    <th className="p-md text-center text-Body-Primary-KR text-content-secondary" >수정</th>
-                    <th className="p-md text-center text-Body-Primary-KR text-content-secondary" >삭제</th>
+                    <th className="p-md text-sm text-content-secondary" >메뉴 그룹</th>
+                    <th className="p-md text-sm text-content-secondary" >메뉴명</th>
+                    <th className="p-md text-center text-sm text-content-secondary" >접근</th>
+                    <th className="p-md text-center text-sm text-content-secondary" >조회</th>
+                    <th className="p-md text-center text-sm text-content-secondary" >등록</th>
+                    <th className="p-md text-center text-sm text-content-secondary" >수정</th>
+                    <th className="p-md text-center text-sm text-content-secondary" >삭제</th>
                   </tr>
                 </thead>
                 <tbody >
@@ -478,11 +478,11 @@ export default function PermissionSettings() {
                           <tr className="group border-b border-line/50 hover:bg-surface-secondary/30" key={menuId}>
                             {menuIdx === 0 && (
                               <td
-                                className="border-r border-line bg-surface-secondary p-md text-Body-Primary-KR font-semibold text-content" rowSpan={group.menus.length}>
+                                className="border-r border-line bg-surface-secondary p-md text-sm font-semibold text-content" rowSpan={group.menus.length}>
                                 {group.group}
                               </td>
                             )}
-                            <td className="p-md text-Body-Primary-KR text-content" >
+                            <td className="p-md text-sm text-content" >
                               {menuName}
                             </td>
                             {(["access", "read", "create", "update", "delete"] as PermissionType[]).map((type) => {
@@ -531,26 +531,26 @@ export default function PermissionSettings() {
         {isCreateModalOpen && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-white/50 backdrop-blur-sm p-md" >
             <div className="w-full max-w-md rounded-lg bg-surface p-xl shadow-md" >
-              <h3 className="text-KPI-Large text-content mb-xl" >새 역할 생성</h3>
+              <h3 className="text-xl font-bold text-content mb-xl" >새 역할 생성</h3>
               <form className="space-y-md" onSubmit={handleCreateRole}>
                 <div >
-                  <label className="mb-xs block text-Body-Primary-KR text-content-secondary" >역할 이름</label>
+                  <label className="mb-xs block text-sm text-content-secondary" >역할 이름</label>
                   <input
-                    className="w-full rounded-lg border border-line bg-surface-secondary px-md py-sm text-Body-Primary-KR focus:ring-2 focus:ring-primary focus:outline-none" name="name" required={true} placeholder="예: 필라테스 팀장"/>
+                    className="w-full rounded-lg border border-line bg-surface-secondary px-md py-sm text-sm focus:ring-2 focus:ring-primary focus:outline-none" name="name" required={true} placeholder="예: 필라테스 팀장"/>
                 </div>
                 <div >
-                  <label className="mb-xs block text-Body-Primary-KR text-content-secondary" >역할 코드</label>
+                  <label className="mb-xs block text-sm text-content-secondary" >역할 코드</label>
                   <input
-                    className="w-full rounded-lg border border-line bg-surface-secondary px-md py-sm text-Body-Primary-KR focus:ring-2 focus:ring-primary focus:outline-none" name="code" required={true} placeholder="예: pilates_lead"/>
+                    className="w-full rounded-lg border border-line bg-surface-secondary px-md py-sm text-sm focus:ring-2 focus:ring-primary focus:outline-none" name="code" required={true} placeholder="예: pilates_lead"/>
                 </div>
                 <div >
-                  <label className="mb-xs block text-Body-Primary-KR text-content-secondary" >설명</label>
+                  <label className="mb-xs block text-sm text-content-secondary" >설명</label>
                   <textarea
-                    className="w-full rounded-lg border border-line bg-surface-secondary px-md py-sm text-Body-Primary-KR focus:ring-2 focus:ring-primary focus:outline-none" name="description" rows={3} placeholder="역할에 대한 상세 설명을 입력하세요."/>
+                    className="w-full rounded-lg border border-line bg-surface-secondary px-md py-sm text-sm focus:ring-2 focus:ring-primary focus:outline-none" name="description" rows={3} placeholder="역할에 대한 상세 설명을 입력하세요."/>
                 </div>
                 <div >
-                  <label className="mb-xs block text-Body-Primary-KR text-content-secondary" >기준 역할 복사 (선택)</label>
-                  <select className="w-full rounded-lg border border-line bg-surface-secondary px-md py-sm text-Body-Primary-KR focus:ring-2 focus:ring-primary focus:outline-none" name="sourceRole">
+                  <label className="mb-xs block text-sm text-content-secondary" >기준 역할 복사 (선택)</label>
+                  <select className="w-full rounded-lg border border-line bg-surface-secondary px-md py-sm text-sm focus:ring-2 focus:ring-primary focus:outline-none" name="sourceRole">
                     <option value="">선택 안함</option>
                     {roles.map(r => <option key={r.id} value={r.code}>{r.name}</option>)}
                   </select>
@@ -558,11 +558,11 @@ export default function PermissionSettings() {
 
                 <div className="mt-xl flex justify-end gap-sm pt-md" >
                   <button
-                    className="rounded-lg border border-line px-md py-sm text-Body-Primary-KR text-content-secondary hover:bg-surface-secondary transition-colors" type="button" onClick={() => setIsCreateModalOpen(false)}>
+                    className="rounded-lg border border-line px-md py-sm text-sm text-content-secondary hover:bg-surface-secondary transition-colors" type="button" onClick={() => setIsCreateModalOpen(false)}>
                     취소
                   </button>
                   <button
-                    className="rounded-lg bg-primary px-md py-sm text-Body-Primary-KR text-white hover:opacity-90 transition-all" type="submit">
+                    className="rounded-lg bg-primary px-md py-sm text-sm text-white hover:opacity-90 transition-all" type="submit">
                     역할 생성
                   </button>
                 </div>
@@ -575,12 +575,12 @@ export default function PermissionSettings() {
         {isCopyModalOpen && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-white/50 backdrop-blur-sm p-md">
             <div className="w-full max-w-md rounded-lg bg-surface p-xl shadow-md">
-              <h3 className="text-KPI-Large text-content mb-xl">역할 복사</h3>
+              <h3 className="text-xl font-bold text-content mb-xl">역할 복사</h3>
               <div className="space-y-md">
                 <div>
-                  <label className="mb-xs block text-Body-Primary-KR text-content-secondary">복사할 기준 역할</label>
+                  <label className="mb-xs block text-sm text-content-secondary">복사할 기준 역할</label>
                   <select
-                    className="w-full rounded-lg border border-line bg-surface-secondary px-md py-sm text-Body-Primary-KR focus:ring-2 focus:ring-primary focus:outline-none"
+                    className="w-full rounded-lg border border-line bg-surface-secondary px-md py-sm text-sm focus:ring-2 focus:ring-primary focus:outline-none"
                     value={copySourceRoleId}
                     onChange={e => setCopySourceRoleId(e.target.value)}
                   >
@@ -589,18 +589,18 @@ export default function PermissionSettings() {
                   </select>
                 </div>
                 <div>
-                  <label className="mb-xs block text-Body-Primary-KR text-content-secondary">새 역할 이름 <span className="text-state-error">*</span></label>
+                  <label className="mb-xs block text-sm text-content-secondary">새 역할 이름 <span className="text-state-error">*</span></label>
                   <input
-                    className="w-full rounded-lg border border-line bg-surface-secondary px-md py-sm text-Body-Primary-KR focus:ring-2 focus:ring-primary focus:outline-none"
+                    className="w-full rounded-lg border border-line bg-surface-secondary px-md py-sm text-sm focus:ring-2 focus:ring-primary focus:outline-none"
                     placeholder="예: 필라테스 팀장"
                     value={copyNewRoleName}
                     onChange={e => setCopyNewRoleName(e.target.value)}
                   />
                 </div>
                 <div>
-                  <label className="mb-xs block text-Body-Primary-KR text-content-secondary">새 역할 코드 <span className="text-state-error">*</span></label>
+                  <label className="mb-xs block text-sm text-content-secondary">새 역할 코드 <span className="text-state-error">*</span></label>
                   <input
-                    className="w-full rounded-lg border border-line bg-surface-secondary px-md py-sm text-Body-Primary-KR focus:ring-2 focus:ring-primary focus:outline-none"
+                    className="w-full rounded-lg border border-line bg-surface-secondary px-md py-sm text-sm focus:ring-2 focus:ring-primary focus:outline-none"
                     placeholder="예: pilates_lead"
                     value={copyNewRoleCode}
                     onChange={e => setCopyNewRoleCode(e.target.value)}
@@ -609,13 +609,13 @@ export default function PermissionSettings() {
               </div>
               <div className="mt-xl flex justify-end gap-sm pt-md">
                 <button
-                  className="rounded-lg border border-line px-md py-sm text-Body-Primary-KR text-content-secondary hover:bg-surface-secondary transition-colors"
+                  className="rounded-lg border border-line px-md py-sm text-sm text-content-secondary hover:bg-surface-secondary transition-colors"
                   onClick={() => setIsCopyModalOpen(false)}
                 >
                   취소
                 </button>
                 <button
-                  className="rounded-lg bg-primary px-md py-sm text-Body-Primary-KR text-white hover:opacity-90 transition-all disabled:opacity-50"
+                  className="rounded-lg bg-primary px-md py-sm text-sm text-white hover:opacity-90 transition-all disabled:opacity-50"
                   disabled={!copySourceRoleId || !copyNewRoleName.trim() || !copyNewRoleCode.trim()}
                   onClick={handleCopyRole}
                 >
@@ -635,27 +635,27 @@ export default function PermissionSettings() {
                   <AlertTriangle className="text-amber-600" size={24}/>
                 </div>
                 <div>
-                  <h3 className="text-KPI-Large text-content">권한 충돌 경고</h3>
-                  <p className="text-Body-Primary-KR text-content-secondary mt-xs">다음 권한 조합에 충돌이 감지되었습니다.</p>
+                  <h3 className="text-xl font-bold text-content">권한 충돌 경고</h3>
+                  <p className="text-sm text-content-secondary mt-xs">다음 권한 조합에 충돌이 감지되었습니다.</p>
                 </div>
               </div>
               <div className="space-y-sm mb-xl max-h-[200px] overflow-y-auto">
                 {conflictWarnings.map((w, i) => (
                   <div key={i} className="flex items-start gap-xs p-sm rounded-lg bg-amber-600/5 border border-amber-600/20">
                     <AlertCircle className="text-amber-600 mt-xs flex-shrink-0" size={14}/>
-                    <p className="text-Body-Primary-KR text-content">{w.message}</p>
+                    <p className="text-sm text-content">{w.message}</p>
                   </div>
                 ))}
               </div>
               <div className="flex justify-end gap-sm">
                 <button
-                  className="rounded-lg border border-line px-md py-sm text-Body-Primary-KR text-content-secondary hover:bg-surface-secondary transition-colors"
+                  className="rounded-lg border border-line px-md py-sm text-sm text-content-secondary hover:bg-surface-secondary transition-colors"
                   onClick={() => setShowConflictModal(false)}
                 >
                   수정하기
                 </button>
                 <button
-                  className="rounded-lg bg-amber-600 px-md py-sm text-Body-Primary-KR text-white hover:opacity-90 transition-all"
+                  className="rounded-lg bg-amber-600 px-md py-sm text-sm text-white hover:opacity-90 transition-all"
                   onClick={() => {
                     setShowConflictModal(false);
                     doSave();

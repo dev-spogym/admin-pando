@@ -1,255 +1,638 @@
-import React, { useState } from 'react';
+import React, { useState } from "react";
 import {
   Plus,
   Settings,
   Trash2,
-  Layout,
   Grid,
   CheckCircle2,
   XCircle,
-  Edit2
-} from 'lucide-react';
-import AppLayout from '@/components/AppLayout';
-import PageHeader from '@/components/PageHeader';
-import TabNav from '@/components/TabNav';
-import DataTable from '@/components/DataTable';
-import StatCard from '@/components/StatCard';
-import StatusBadge from '@/components/StatusBadge';
-import ConfirmDialog from '@/components/ConfirmDialog';
+  Edit2,
+  Users,
+  Clock,
+  LayoutGrid,
+} from "lucide-react";
+import AppLayout from "@/components/AppLayout";
+import PageHeader from "@/components/PageHeader";
+import TabNav from "@/components/TabNav";
+import StatCard from "@/components/StatCard";
+import StatusBadge from "@/components/StatusBadge";
+import ConfirmDialog from "@/components/ConfirmDialog";
+import { cn } from "@/lib/utils";
 
-// --- Types ---
+/**
+ * SCR-053: 운동룸 관리
+ * UI-111 룸 카드 (GX룸/PT룸, 룸명/유형/수용인원/상태)
+ * UI-112 룸 등록 모달 (룸명/유형/수용인원/설명)
+ * 예약 가능 시간대 슬롯 시각화
+ */
+
+type RoomType   = "GX" | "PT" | "스피닝" | "필라테스" | "기타";
+type RoomStatus = "운영중" | "점검중" | "미사용";
+
 interface Room {
   id: number;
   name: string;
-  isActive: boolean;
+  type: RoomType;
+  capacity: number;
+  status: RoomStatus;
   gate: string;
-  createdAt: string;
-  processedBy: string;
+  description: string;
+  // 예약 슬롯: 시간대 → 예약 비율 (0~1)
+  slots: { hour: number; ratio: number; label?: string }[];
 }
 
-interface LayoutInfo {
-  id: number;
-  name: string;
-  capacity: number;
-  previewUrl?: string;
-  createdAt: string;
-}
+// --- Mock 룸 데이터 (GX룸 2개, PT룸 3개) ---
+const INITIAL_ROOMS: Room[] = [
+  {
+    id: 1, name: "GX룸 A", type: "GX", capacity: 20, status: "운영중", gate: "A-1 게이트",
+    description: "그룹 수업 전용 GX룸. 요가, 필라테스, 줌바 수업 진행.",
+    slots: [
+      { hour: 7,  ratio: 0.3 }, { hour: 8,  ratio: 0.7 }, { hour: 9,  ratio: 1.0, label: "만석" },
+      { hour: 10, ratio: 0.8 }, { hour: 11, ratio: 0.5 }, { hour: 12, ratio: 0.2 },
+      { hour: 13, ratio: 0.4 }, { hour: 14, ratio: 0.9 }, { hour: 15, ratio: 0.6 },
+      { hour: 16, ratio: 0.3 }, { hour: 17, ratio: 0.8 }, { hour: 18, ratio: 1.0, label: "만석" },
+      { hour: 19, ratio: 0.9 }, { hour: 20, ratio: 0.5 },
+    ],
+  },
+  {
+    id: 2, name: "GX룸 B", type: "GX", capacity: 16, status: "운영중", gate: "B-1 게이트",
+    description: "스피닝 전용룸. 고정식 사이클 21대 구비.",
+    slots: [
+      { hour: 7,  ratio: 0.1 }, { hour: 8,  ratio: 0.4 }, { hour: 9,  ratio: 0.7 },
+      { hour: 10, ratio: 0.5 }, { hour: 11, ratio: 0.3 }, { hour: 12, ratio: 0.0 },
+      { hour: 13, ratio: 0.2 }, { hour: 14, ratio: 0.8 }, { hour: 15, ratio: 1.0, label: "만석" },
+      { hour: 16, ratio: 0.6 }, { hour: 17, ratio: 0.4 }, { hour: 18, ratio: 0.7 },
+      { hour: 19, ratio: 0.5 }, { hour: 20, ratio: 0.2 },
+    ],
+  },
+  {
+    id: 3, name: "PT룸 1", type: "PT", capacity: 2, status: "운영중", gate: "C-1 게이트",
+    description: "1:1 PT 전용룸. 주요 운동기구 완비.",
+    slots: [
+      { hour: 7,  ratio: 0.5 }, { hour: 8,  ratio: 1.0, label: "예약" }, { hour: 9,  ratio: 1.0, label: "예약" },
+      { hour: 10, ratio: 0.5 }, { hour: 11, ratio: 0.0 }, { hour: 12, ratio: 0.0 },
+      { hour: 13, ratio: 1.0, label: "예약" }, { hour: 14, ratio: 1.0, label: "예약" }, { hour: 15, ratio: 0.5 },
+      { hour: 16, ratio: 0.0 }, { hour: 17, ratio: 1.0, label: "예약" }, { hour: 18, ratio: 1.0, label: "예약" },
+      { hour: 19, ratio: 0.5 }, { hour: 20, ratio: 0.0 },
+    ],
+  },
+  {
+    id: 4, name: "PT룸 2", type: "PT", capacity: 2, status: "점검중", gate: "-",
+    description: "시설 점검 중. 3월 15일 재오픈 예정.",
+    slots: [],
+  },
+  {
+    id: 5, name: "PT룸 3", type: "PT", capacity: 2, status: "운영중", gate: "D-1 게이트",
+    description: "여성 전용 PT룸. 프라이버시 보호 설계.",
+    slots: [
+      { hour: 7,  ratio: 0.0 }, { hour: 8,  ratio: 0.5 }, { hour: 9,  ratio: 1.0, label: "예약" },
+      { hour: 10, ratio: 1.0, label: "예약" }, { hour: 11, ratio: 0.5 }, { hour: 12, ratio: 0.0 },
+      { hour: 13, ratio: 0.0 }, { hour: 14, ratio: 0.5 }, { hour: 15, ratio: 1.0, label: "예약" },
+      { hour: 16, ratio: 1.0, label: "예약" }, { hour: 17, ratio: 0.5 }, { hour: 18, ratio: 0.0 },
+      { hour: 19, ratio: 0.0 }, { hour: 20, ratio: 0.0 },
+    ],
+  },
+];
+
+const ROOM_TYPE_STYLES: Record<RoomType, string> = {
+  GX:     "bg-state-info/10 text-state-info border-state-info/20",
+  PT:     "bg-primary/10 text-primary border-primary/20",
+  스피닝:  "bg-state-success/10 text-state-success border-state-success/20",
+  필라테스: "bg-amber-50 text-amber-700 border-amber-200",
+  기타:   "bg-surface-tertiary text-content-secondary border-line",
+};
+
+const STATUS_VARIANT: Record<RoomStatus, "success" | "error" | "default"> = {
+  운영중: "success",
+  점검중: "error",
+  미사용: "default",
+};
+
+// --- 예약 슬롯 시각화 바 ---
+const SlotBar = ({ slots }: { slots: Room["slots"] }) => {
+  if (!slots || slots.length === 0) {
+    return (
+      <div className="flex items-center justify-center h-8 bg-surface-secondary rounded text-[11px] text-content-tertiary">
+        점검 중 - 예약 불가
+      </div>
+    );
+  }
+
+  return (
+    <div>
+      <div className="flex gap-[2px] h-6">
+        {slots.map(slot => {
+          const bgClass =
+            slot.ratio === 0   ? "bg-surface-tertiary" :
+            slot.ratio < 0.5   ? "bg-state-success/40" :
+            slot.ratio < 1.0   ? "bg-amber-300" :
+            "bg-state-error/60";
+          return (
+            <div
+              key={slot.hour}
+              className={cn("flex-1 rounded-sm relative group cursor-default transition-all hover:scale-y-110", bgClass)}
+              title={`${slot.hour}:00 - ${slot.label || Math.round(slot.ratio * 100) + "% 예약"}`}
+            />
+          );
+        })}
+      </div>
+      <div className="flex justify-between mt-xs">
+        <span className="text-[10px] text-content-tertiary">{slots[0]?.hour}:00</span>
+        <span className="text-[10px] text-content-tertiary">{slots[slots.length - 1]?.hour}:00</span>
+      </div>
+    </div>
+  );
+};
+
+// --- UI-111 룸 카드 ---
+const RoomCard = ({
+  room,
+  onEdit,
+  onDelete,
+  onToggle,
+}: {
+  room: Room;
+  onEdit: (room: Room) => void;
+  onDelete: (room: Room) => void;
+  onToggle: (id: number) => void;
+}) => (
+  <div className={cn(
+    "bg-surface rounded-xl border shadow-xs overflow-hidden transition-all hover:shadow-md",
+    room.status === "점검중" ? "border-state-error/20 opacity-80" : "border-line"
+  )}>
+    {/* 카드 헤더 */}
+    <div className={cn(
+      "px-lg py-md border-b",
+      room.status === "운영중" ? "border-line bg-surface" : "border-state-error/10 bg-state-error/5"
+    )}>
+      <div className="flex items-start justify-between">
+        <div className="flex-1">
+          <div className="flex items-center gap-sm mb-xs">
+            {/* 룸명 */}
+            <h3 className="text-[15px] font-bold text-content">{room.name}</h3>
+            {/* 유형 배지 */}
+            <span className={cn("px-xs py-[2px] rounded text-[10px] font-bold border", ROOM_TYPE_STYLES[room.type])}>
+              {room.type}
+            </span>
+          </div>
+          <div className="flex items-center gap-md text-[12px] text-content-secondary">
+            {/* 수용인원 */}
+            <span className="flex items-center gap-xs">
+              <Users size={12} /> {room.capacity}명
+            </span>
+            <span className="flex items-center gap-xs">
+              <Clock size={12} /> {room.gate}
+            </span>
+          </div>
+        </div>
+        {/* 상태 + 토글 */}
+        <div className="flex items-center gap-sm flex-shrink-0">
+          <StatusBadge variant={STATUS_VARIANT[room.status]} label={room.status} dot />
+          <button
+            className="p-[5px] hover:bg-surface-secondary rounded-full transition-colors text-content-secondary"
+            onClick={() => onToggle(room.id)}
+            title="상태 전환"
+          >
+            <Settings size={14} />
+          </button>
+        </div>
+      </div>
+    </div>
+
+    {/* 설명 */}
+    <div className="px-lg py-sm">
+      <p className="text-[12px] text-content-secondary leading-relaxed">{room.description}</p>
+    </div>
+
+    {/* 예약 가능 시간대 슬롯 — 가로 바 시각화 */}
+    <div className="px-lg pb-sm">
+      <p className="text-[11px] font-semibold text-content-secondary mb-xs">오늘 예약 현황</p>
+      <SlotBar slots={room.slots} />
+    </div>
+
+    {/* 범례 */}
+    <div className="px-lg pb-sm flex items-center gap-md">
+      <div className="flex items-center gap-xs">
+        <div className="w-3 h-3 rounded-sm bg-state-success/40" />
+        <span className="text-[10px] text-content-tertiary">여유</span>
+      </div>
+      <div className="flex items-center gap-xs">
+        <div className="w-3 h-3 rounded-sm bg-amber-300" />
+        <span className="text-[10px] text-content-tertiary">혼잡</span>
+      </div>
+      <div className="flex items-center gap-xs">
+        <div className="w-3 h-3 rounded-sm bg-state-error/60" />
+        <span className="text-[10px] text-content-tertiary">만석</span>
+      </div>
+    </div>
+
+    {/* 액션 버튼 */}
+    <div className="px-lg py-sm border-t border-line flex items-center justify-end gap-sm">
+      <button
+        className="p-[6px] hover:bg-state-info/10 rounded-lg text-state-info transition-colors"
+        title="수정"
+        onClick={() => onEdit(room)}
+      >
+        <Edit2 size={14} />
+      </button>
+      <button
+        className="p-[6px] hover:bg-state-error/10 rounded-lg text-state-error transition-colors"
+        title="삭제"
+        onClick={() => onDelete(room)}
+      >
+        <Trash2 size={14} />
+      </button>
+    </div>
+  </div>
+);
+
+// --- UI-112 룸 등록 모달 ---
+const RoomModal = ({
+  room,
+  onClose,
+  onSave,
+}: {
+  room: Room | null;
+  onClose: () => void;
+  onSave: (data: { name: string; type: RoomType; capacity: number; description: string }) => void;
+}) => {
+  const [name,        setName]        = useState(room?.name        || "");
+  const [type,        setType]        = useState<RoomType>(room?.type || "GX");
+  const [capacity,    setCapacity]    = useState(room?.capacity    || 14);
+  const [description, setDescription] = useState(room?.description || "");
+
+  const isValid = name.trim().length > 0;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-md">
+      <div className="bg-surface rounded-xl w-full max-w-[500px] shadow-2xl animate-in fade-in zoom-in duration-200 overflow-hidden">
+        <div className="px-xl py-lg border-b border-line flex items-center justify-between">
+          <h3 className="text-[16px] font-bold text-content">{room ? "운동룸 수정" : "새 운동룸 등록"}</h3>
+          <button className="p-sm hover:bg-surface-secondary rounded-full transition-colors text-content-secondary" onClick={onClose}>
+            <XCircle size={20} />
+          </button>
+        </div>
+
+        <div className="p-xl space-y-lg">
+          {/* 룸명 (필수) */}
+          <div>
+            <label className="block text-[12px] font-semibold text-content-secondary mb-sm">
+              룸명 <span className="text-state-error">*</span>
+            </label>
+            <input
+              className="w-full h-11 rounded-lg bg-surface-secondary border border-line px-md text-[13px] focus:border-primary outline-none transition-all"
+              type="text"
+              placeholder="예: GX룸 A, PT룸 1"
+              value={name}
+              onChange={e => setName(e.target.value)}
+            />
+          </div>
+
+          {/* 유형 (GX/PT/기타) */}
+          <div>
+            <label className="block text-[12px] font-semibold text-content-secondary mb-sm">
+              룸 유형 <span className="text-state-error">*</span>
+            </label>
+            <div className="grid grid-cols-3 gap-sm">
+              {(["GX", "PT", "스피닝", "필라테스", "기타"] as RoomType[]).map(t => (
+                <button
+                  key={t}
+                  className={cn(
+                    "py-sm rounded-lg text-[12px] font-semibold border-2 transition-all",
+                    type === t
+                      ? `${ROOM_TYPE_STYLES[t]} border-current`
+                      : "bg-surface-secondary border-transparent text-content-secondary hover:border-line"
+                  )}
+                  onClick={() => setType(t)}
+                >
+                  {t}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* 수용인원 */}
+          <div>
+            <label className="block text-[12px] font-semibold text-content-secondary mb-sm">수용인원</label>
+            <div className="flex items-center gap-sm">
+              <input
+                className="w-28 h-11 rounded-lg bg-surface-secondary border border-line px-md text-[13px] text-center focus:border-primary outline-none transition-all"
+                type="number"
+                min={1}
+                max={100}
+                value={capacity}
+                onChange={e => setCapacity(Number(e.target.value))}
+              />
+              <span className="text-[13px] text-content-secondary">명</span>
+              <div className="flex items-center gap-xs ml-sm">
+                {[1, 2, 6, 10, 14, 16, 20, 22].map(n => (
+                  <button
+                    key={n}
+                    className={cn(
+                      "px-sm py-[3px] rounded text-[11px] font-semibold border transition-all",
+                      capacity === n
+                        ? "bg-primary text-white border-primary"
+                        : "bg-surface-secondary border-line text-content-secondary hover:border-primary hover:text-primary"
+                    )}
+                    onClick={() => setCapacity(n)}
+                  >
+                    {n}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* 설명 */}
+          <div>
+            <label className="block text-[12px] font-semibold text-content-secondary mb-sm">설명</label>
+            <textarea
+              className="w-full h-20 rounded-lg bg-surface-secondary border border-line p-md text-[13px] focus:border-primary outline-none resize-none transition-all"
+              placeholder="룸에 대한 설명을 입력하세요"
+              value={description}
+              onChange={e => setDescription(e.target.value)}
+            />
+          </div>
+        </div>
+
+        <div className="px-xl py-lg bg-surface-secondary flex gap-md">
+          <button
+            className="flex-1 h-11 rounded-lg border border-line text-content-secondary text-[13px] font-semibold hover:bg-surface-tertiary transition-colors"
+            onClick={onClose}
+          >취소</button>
+          <button
+            className={cn(
+              "flex-1 h-11 rounded-lg text-[13px] font-bold shadow-sm transition-all",
+              isValid ? "bg-primary text-white hover:opacity-90" : "bg-surface-tertiary text-content-tertiary cursor-not-allowed"
+            )}
+            disabled={!isValid}
+            onClick={() => {
+              if (!isValid) return;
+              onSave({ name, type, capacity, description });
+              onClose();
+            }}
+          >
+            {room ? "수정 완료" : "등록하기"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
 
 export default function RoomManagement() {
-  // --- States ---
-  const [activeTab, setActiveTab] = useState('rooms');
-  const [rooms, setRooms] = useState<Room[]>([
-    { id: 1, name: 'GX룸', isActive: true, gate: 'A-1 게이트', createdAt: '2024-01-10', processedBy: '홍길동' },
-    { id: 2, name: '스피닝룸', isActive: true, gate: 'B-1 게이트', createdAt: '2024-01-12', processedBy: '김매니저' },
-    { id: 3, name: '그룹기구필라테스룸', isActive: true, gate: 'C-1 게이트', createdAt: '2024-01-15', processedBy: '이팀장' },
-    { id: 4, name: '스피닝룸2', isActive: false, gate: '-', createdAt: '2024-02-01', processedBy: '홍길동' },
-    { id: 5, name: 'PT룸', isActive: true, gate: 'D-1 게이트', createdAt: '2024-02-10', processedBy: '김매니저' },
-  ]);
+  const [rooms,         setRooms]         = useState<Room[]>(INITIAL_ROOMS);
+  const [activeTab,     setActiveTab]     = useState("cards");
+  const [isRoomModal,   setRoomModal]     = useState(false);
+  const [isDeleteOpen,  setDeleteOpen]    = useState(false);
+  const [selectedRoom,  setSelectedRoom]  = useState<Room | null>(null);
+  const [filterType,    setFilterType]    = useState<RoomType | "">("");
 
-  const [layouts, setLayouts] = useState<LayoutInfo[]>([
-    { id: 1, name: '요가(GX룸)', capacity: 14, createdAt: '2024-01-10' },
-    { id: 2, name: '필라테스', capacity: 14, createdAt: '2024-01-15' },
-    { id: 3, name: '줌바', capacity: 16, createdAt: '2024-01-20' },
-    { id: 4, name: '스피닝', capacity: 22, createdAt: '2024-01-25' },
-  ]);
+  const filteredRooms = filterType ? rooms.filter(r => r.type === filterType) : rooms;
+  const gxRooms = filteredRooms.filter(r => r.type === "GX");
+  const ptRooms = filteredRooms.filter(r => r.type === "PT");
 
-  const [isRoomModalOpen, setIsRoomModalOpen] = useState(false);
-  const [isLayoutModalOpen, setIsLayoutModalOpen] = useState(false);
-  const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
-  const [selectedRoomId, setSelectedRoomId] = useState<number | null>(null);
-
-  // --- Handlers ---
-  const handleToggleRoomStatus = (id: number) => {
-    setRooms(rooms.map(room =>
-      room.id === id ? { ...room, isActive: !room.isActive } : room
-    ));
-  };
-
-  const handleDeleteRoom = () => {
-    if (selectedRoomId) {
-      setRooms(rooms.filter(room => room.id !== selectedRoomId));
-      setIsDeleteConfirmOpen(false);
-      setSelectedRoomId(null);
+  const handleSave = (data: { name: string; type: RoomType; capacity: number; description: string }) => {
+    if (selectedRoom) {
+      setRooms(prev => prev.map(r => r.id === selectedRoom.id ? { ...r, ...data } : r));
+    } else {
+      const newRoom: Room = {
+        id: Math.max(...rooms.map(r => r.id), 0) + 1,
+        ...data,
+        status: "운영중",
+        gate: "-",
+        slots: [],
+      };
+      setRooms(prev => [...prev, newRoom]);
     }
   };
 
-  const openDeleteConfirm = (id: number) => {
-    setSelectedRoomId(id);
-    setIsDeleteConfirmOpen(true);
+  const handleToggle = (id: number) => {
+    setRooms(prev => prev.map(r =>
+      r.id === id
+        ? { ...r, status: r.status === "운영중" ? "점검중" : "운영중" as RoomStatus }
+        : r
+    ));
   };
 
-  // --- Table Columns ---
-  const roomColumns = [
-    {
-      key: 'name',
-      header: '운동룸명',
-      render: (val: string) => <span className="font-semibold text-content" >{val}</span>
-    },
-    {
-      key: 'isActive',
-      header: '사용 여부',
-      render: (val: boolean, row: Room) => (
-        <div className="flex items-center gap-2" >
-          <StatusBadge variant={val ? 'mint' : 'default'} dot={true} label={val ? '사용 중' : '미사용'}/>
-          <button
-            className="p-1 hover:bg-primary-light rounded-full transition-colors" onClick={() => handleToggleRoomStatus(row.id)}>
-            <Settings className="text-content-secondary" size={16}/>
-          </button>
-        </div>
-      )
-    },
-    { key: 'gate', header: '연동 게이트' },
-    { key: 'createdAt', header: '등록일' },
-    { key: 'processedBy', header: '처리자' },
-    {
-      key: 'actions',
-      header: '메뉴',
-      render: (_: any, row: Room) => (
-        <div className="flex items-center gap-2" >
-          <button
-            className="p-2 hover:bg-accent-light rounded-lg text-accent transition-colors" title="수정">
-            <Edit2 size={16}/>
-          </button>
-          <button
-            className="p-2 hover:bg-primary-light rounded-lg text-error transition-colors" onClick={() => openDeleteConfirm(row.id)} title="삭제">
-            <Trash2 size={16}/>
-          </button>
-        </div>
-      )
-    },
-  ];
-
-  const layoutColumns = [
-    {
-      key: 'name',
-      header: '배치 이름',
-      render: (val: string) => <span className="font-semibold text-content" >{val}</span>
-    },
-    {
-      key: 'capacity',
-      header: '정원수',
-      render: (val: number) => <span >{val}명</span>
-    },
-    {
-      key: 'preview',
-      header: '미리보기',
-      render: () => (
-        <div className="w-[80px] h-[40px] bg-surface-secondary rounded border border-line flex items-center justify-center" >
-          <Grid className="text-content-secondary opacity-50" size={16}/>
-        </div>
-      )
-    },
-    { key: 'createdAt', header: '등록일' },
-    {
-      key: 'actions',
-      header: '메뉴',
-      render: (_: any, row: LayoutInfo) => (
-        <div className="flex items-center gap-2" >
-          <button
-            className="p-2 hover:bg-accent-light rounded-lg text-accent transition-colors" title="배치도 수정">
-            <Layout size={16}/>
-          </button>
-          <button
-            className="p-2 hover:bg-primary-light rounded-lg text-error transition-colors" title="삭제">
-            <Trash2 size={16}/>
-          </button>
-        </div>
-      )
-    },
-  ];
+  const handleDelete = () => {
+    if (selectedRoom) setRooms(prev => prev.filter(r => r.id !== selectedRoom.id));
+    setDeleteOpen(false);
+    setSelectedRoom(null);
+  };
 
   const tabs = [
-    { key: 'rooms', label: '운동룸 목록', icon: Grid },
-    { key: 'layouts', label: '좌석 배치 정보', icon: Layout },
+    { key: "cards",  label: "룸 카드 보기", icon: LayoutGrid },
+    { key: "list",   label: "목록 보기",   icon: Grid },
   ];
 
-  return (
-    <AppLayout >
-      <div className="flex flex-col gap-lg p-lg" >
-        {/* 헤더 섹션 */}
-        <PageHeader title="운동룸 관리" description="센터 내 운동룸 및 좌석 배치도를 관리합니다." actions={
-            <button
-              onClick={() => activeTab === 'rooms' ? setIsRoomModalOpen(true) : setIsLayoutModalOpen(true)}
-              className="flex items-center gap-2 bg-primary text-white px-md py-sm rounded-button font-semibold hover:opacity-90 transition-opacity shadow-card"
-            >
-              <Plus size={18} />
-              {activeTab === 'rooms' ? '새 운동룸 추가' : '새 배치도 등록'}
-            </button>
-          }/>
+  // 목록 뷰 컬럼
+  const tableData = filteredRooms.map(r => ({
+    ...r,
+    capacityLabel: `${r.capacity}명`,
+    typeLabel:     r.type,
+  }));
 
-        {/* 요약 통계 */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-md" >
-          <StatCard label="전체 운동룸" value={rooms.length} icon={<Grid className="text-primary" />}/>
-          <StatCard label="운영 중" value={rooms.filter(r => r.isActive).length} icon={<CheckCircle2 className="text-state-success" />} variant="mint"/>
-          <StatCard label="점검/미사용" value={rooms.filter(r => !r.isActive).length} icon={<XCircle className="text-error" />} variant="peach"/>
-          <StatCard label="등록된 배치도" value={layouts.length} icon={<Layout className="text-accent" />}/>
+  return (
+    <AppLayout>
+      <div className="flex flex-col gap-lg">
+        <PageHeader
+          title="운동룸 관리"
+          description="센터 내 운동룸의 현황, 예약 슬롯, 좌석 배치를 관리합니다."
+          actions={
+            <button
+              className="flex items-center gap-sm bg-primary text-white px-md py-sm rounded-lg text-[13px] font-bold shadow-sm hover:opacity-90 transition-all"
+              onClick={() => { setSelectedRoom(null); setRoomModal(true); }}
+            >
+              <Plus size={16} />
+              새 운동룸 등록
+            </button>
+          }
+        />
+
+        {/* 통계 카드 */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-md">
+          <StatCard label="전체 운동룸"   value={rooms.length}                           icon={<Grid />} />
+          <StatCard label="운영 중"       value={rooms.filter(r => r.status === "운영중").length} icon={<CheckCircle2 />} variant="mint" />
+          <StatCard label="점검/미사용"   value={rooms.filter(r => r.status !== "운영중").length} icon={<XCircle />}     variant="peach" />
+          <StatCard label="GX룸 / PT룸"  value={`${rooms.filter(r => r.type === "GX").length} / ${rooms.filter(r => r.type === "PT").length}`} icon={<Users />} />
         </div>
 
-        {/* 메인 콘텐츠 카드 */}
-        <div className="bg-surface rounded-xl shadow-card border border-line overflow-hidden" >
-          <TabNav
-            className="px-md pt-sm border-b border-line" tabs={tabs} activeTab={activeTab} onTabChange={setActiveTab}/>
+        {/* 탭 + 필터 */}
+        <div className="flex items-center justify-between">
+          <TabNav tabs={tabs} activeTab={activeTab} onTabChange={setActiveTab} />
+          <div className="flex items-center gap-sm">
+            <select
+              className="h-9 rounded-lg bg-surface border border-line px-md text-[13px] text-content outline-none focus:border-primary transition-colors"
+              value={filterType}
+              onChange={e => setFilterType(e.target.value as RoomType | "")}
+            >
+              <option value="">전체 유형</option>
+              {(["GX", "PT", "스피닝", "필라테스", "기타"] as RoomType[]).map(t => (
+                <option key={t} value={t}>{t}</option>
+              ))}
+            </select>
+          </div>
+        </div>
 
-          <div className="p-md" >
-            {activeTab === 'rooms' ? (
-              <DataTable columns={roomColumns} data={rooms} title="운동룸 목록" onDownloadExcel={() => alert('Excel 다운로드')}/>
-            ) : (
-              <DataTable columns={layoutColumns} data={layouts} title="좌석 배치도 목록"/>
+        {/* UI-111 룸 카드 뷰 */}
+        {activeTab === "cards" && (
+          <div className="space-y-xl">
+            {/* GX룸 섹션 */}
+            {gxRooms.length > 0 && (
+              <div>
+                <h3 className="text-[14px] font-bold text-content mb-md flex items-center gap-sm">
+                  <span className="w-2 h-2 rounded-full bg-state-info inline-block" />
+                  GX룸 ({gxRooms.length}개)
+                </h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-lg">
+                  {gxRooms.map(room => (
+                    <RoomCard
+                      key={room.id}
+                      room={room}
+                      onEdit={r => { setSelectedRoom(r); setRoomModal(true); }}
+                      onDelete={r => { setSelectedRoom(r); setDeleteOpen(true); }}
+                      onToggle={handleToggle}
+                    />
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* PT룸 섹션 */}
+            {ptRooms.length > 0 && (
+              <div>
+                <h3 className="text-[14px] font-bold text-content mb-md flex items-center gap-sm">
+                  <span className="w-2 h-2 rounded-full bg-primary inline-block" />
+                  PT룸 ({ptRooms.length}개)
+                </h3>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-lg">
+                  {ptRooms.map(room => (
+                    <RoomCard
+                      key={room.id}
+                      room={room}
+                      onEdit={r => { setSelectedRoom(r); setRoomModal(true); }}
+                      onDelete={r => { setSelectedRoom(r); setDeleteOpen(true); }}
+                      onToggle={handleToggle}
+                    />
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* 기타 룸 */}
+            {filteredRooms.filter(r => r.type !== "GX" && r.type !== "PT").length > 0 && (
+              <div>
+                <h3 className="text-[14px] font-bold text-content mb-md">기타 룸</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-lg">
+                  {filteredRooms.filter(r => r.type !== "GX" && r.type !== "PT").map(room => (
+                    <RoomCard
+                      key={room.id}
+                      room={room}
+                      onEdit={r => { setSelectedRoom(r); setRoomModal(true); }}
+                      onDelete={r => { setSelectedRoom(r); setDeleteOpen(true); }}
+                      onToggle={handleToggle}
+                    />
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {filteredRooms.length === 0 && (
+              <div className="py-xxl flex flex-col items-center justify-center text-content-secondary border border-dashed border-line rounded-xl">
+                <Grid className="mb-sm opacity-20" size={40} />
+                <p className="text-[13px]">등록된 운동룸이 없습니다.</p>
+              </div>
             )}
           </div>
-        </div>
+        )}
+
+        {/* 목록 뷰 (간단 테이블) */}
+        {activeTab === "list" && (
+          <div className="bg-surface rounded-xl border border-line shadow-xs overflow-hidden">
+            <table className="w-full border-collapse">
+              <thead className="bg-surface-secondary/50 border-b border-line">
+                <tr>
+                  {["운동룸명", "유형", "수용인원", "게이트", "상태", "메뉴"].map(h => (
+                    <th key={h} className="px-lg py-sm text-left text-[12px] font-semibold text-content-secondary">{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-line">
+                {filteredRooms.map(room => (
+                  <tr key={room.id} className="hover:bg-surface-secondary/20 transition-colors">
+                    <td className="px-lg py-md">
+                      <span className="text-[13px] font-semibold text-content">{room.name}</span>
+                    </td>
+                    <td className="px-lg py-md">
+                      <span className={cn("px-sm py-[2px] rounded text-[11px] font-bold border", ROOM_TYPE_STYLES[room.type])}>
+                        {room.type}
+                      </span>
+                    </td>
+                    <td className="px-lg py-md">
+                      <span className="text-[13px] text-content flex items-center gap-xs">
+                        <Users size={13} className="text-content-secondary" /> {room.capacity}명
+                      </span>
+                    </td>
+                    <td className="px-lg py-md text-[13px] text-content-secondary">{room.gate}</td>
+                    <td className="px-lg py-md">
+                      <div className="flex items-center gap-sm">
+                        <StatusBadge variant={STATUS_VARIANT[room.status]} label={room.status} dot />
+                        <button
+                          className="p-[4px] hover:bg-surface-secondary rounded transition-colors text-content-secondary"
+                          onClick={() => handleToggle(room.id)}
+                        >
+                          <Settings size={13} />
+                        </button>
+                      </div>
+                    </td>
+                    <td className="px-lg py-md">
+                      <div className="flex items-center gap-sm">
+                        <button
+                          className="p-[5px] hover:bg-state-info/10 rounded text-state-info transition-colors"
+                          onClick={() => { setSelectedRoom(room); setRoomModal(true); }}
+                        >
+                          <Edit2 size={14} />
+                        </button>
+                        <button
+                          className="p-[5px] hover:bg-state-error/10 rounded text-state-error transition-colors"
+                          onClick={() => { setSelectedRoom(room); setDeleteOpen(true); }}
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            {filteredRooms.length === 0 && (
+              <div className="py-xxl text-center text-[13px] text-content-secondary">등록된 운동룸이 없습니다.</div>
+            )}
+          </div>
+        )}
       </div>
 
-      {/* --- Modals --- */}
-
-      {/* 운동룸 등록 모달 (Simple Mock) */}
-      {isRoomModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm" >
-          <div className="bg-surface rounded-modal w-full max-w-[500px] overflow-hidden shadow-card animate-in fade-in zoom-in duration-200" >
-            <div className="p-lg border-b border-line flex justify-between items-center" >
-              <h3 className="text-Heading 2 text-content" >새 운동룸 등록</h3>
-              <button className="text-content-secondary hover:text-content" onClick={() => setIsRoomModalOpen(false)}>
-                <XCircle size={24}/>
-              </button>
-            </div>
-            <div className="p-lg space-y-md" >
-              <div className="space-y-sm" >
-                <label className="text-Body 2 font-semibold text-content-secondary" >운동룸명 <span className="text-error" >*</span></label>
-                <input
-                  className="w-full h-[48px] px-md rounded-input bg-surface-secondary border-none focus:ring-2 focus:ring-accent outline-none" type="text" placeholder="예: GX룸, 스피닝룸"/>
-              </div>
-              <div className="space-y-sm" >
-                <label className="text-Body 2 font-semibold text-content-secondary" >연동 게이트</label>
-                <select className="w-full h-[48px] px-md rounded-input bg-surface-secondary border-none focus:ring-2 focus:ring-accent outline-none appearance-none" >
-                  <option value="">연동 없음</option>
-                  <option value="A-1">A-1 게이트</option>
-                  <option value="B-1">B-1 게이트</option>
-                </select>
-              </div>
-              <div className="flex items-center justify-between p-md bg-accent-light rounded-xl" >
-                <span className="text-Body 1 font-medium text-content" >운동룸 즉시 사용</span>
-                <input className="w-5 h-5 accent-accent cursor-pointer" type="checkbox" defaultChecked={true}/>
-              </div>
-            </div>
-            <div className="p-lg bg-surface-secondary flex gap-md" >
-              <button
-                className="flex-1 h-[48px] rounded-button bg-surface border border-line text-content-secondary font-semibold" onClick={() => setIsRoomModalOpen(false)}>
-                취소
-              </button>
-              <button
-                className="flex-1 h-[48px] rounded-button bg-primary text-white font-semibold shadow-card" onClick={() => {
-                  alert('운동룸이 등록되었습니다.');
-                  setIsRoomModalOpen(false);
-                }}>
-                등록하기
-              </button>
-            </div>
-          </div>
-        </div>
+      {/* UI-112 룸 등록/수정 모달 */}
+      {isRoomModal && (
+        <RoomModal
+          room={selectedRoom}
+          onClose={() => { setRoomModal(false); setSelectedRoom(null); }}
+          onSave={handleSave}
+        />
       )}
 
-      {/* 삭제 확인 다이얼로그 */}
-      <ConfirmDialog open={isDeleteConfirmOpen} title="운동룸 삭제" description="정말로 이 운동룸을 삭제하시겠습니까? 삭제된 정보는 복구할 수 없으며, 연결된 예약 정보에 영향을 줄 수 있습니다." confirmLabel="삭제" variant="danger" confirmationText="삭제" onConfirm={handleDeleteRoom} onCancel={() => setIsDeleteConfirmOpen(false)}/>
+      {/* 삭제 확인 */}
+      <ConfirmDialog
+        open={isDeleteOpen}
+        title="운동룸 삭제"
+        description={`"${selectedRoom?.name}"을(를) 삭제하시겠습니까?\n삭제된 정보는 복구할 수 없으며, 연결된 예약 정보에 영향을 줄 수 있습니다.`}
+        confirmLabel="삭제"
+        variant="danger"
+        confirmationText="삭제"
+        onConfirm={handleDelete}
+        onCancel={() => { setDeleteOpen(false); setSelectedRoom(null); }}
+      />
     </AppLayout>
   );
 }

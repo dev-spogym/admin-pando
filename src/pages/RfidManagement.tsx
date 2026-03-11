@@ -1,531 +1,582 @@
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import {
   Plus,
   Search,
   RefreshCcw,
-  MoreVertical,
   Edit2,
   Trash2,
   History,
   CreditCard,
   UserCheck,
   ShieldCheck,
-  AlertCircle,
   X,
-  CreditCard as CardIcon
+  CheckCircle2,
+  AlertCircle,
+  Wifi,
 } from "lucide-react";
 import AppLayout from "@/components/AppLayout";
 import PageHeader from "@/components/PageHeader";
 import StatCard from "@/components/StatCard";
-import SearchFilter from "@/components/SearchFilter";
+import { SearchFilter } from "@/components/SearchFilter";
 import DataTable from "@/components/DataTable";
 import StatusBadge from "@/components/StatusBadge";
-import FormSection from "@/components/FormSection";
 import ConfirmDialog from "@/components/ConfirmDialog";
 import { cn } from "@/lib/utils";
 import { moveToPage } from "@/internal";
 
-// RFID 데이터 타입 정의
-interface RfidItem {
+/**
+ * SCR-052: RFID/밴드 카드 관리
+ * UI-108 카드 번호 입력 + 스캔 버튼
+ * UI-109 회원 매핑 (검색 → 선택 → 매핑)
+ * UI-110 카드 이력 테이블 (등록일/카드번호/회원명/상태)
+ */
+
+type CardStatus = "활성" | "분실" | "해제";
+
+interface RfidCard {
   no: number;
-  rfidId: string;
-  status: "사용" | "미사용";
+  cardNo: string;
+  memberName: string | null;
+  memberId: number | null;
+  status: CardStatus;
   registeredAt: string;
   issuedAt: string | null;
-  currentUser: string | null;
-  userType: "회원" | "직원" | null;
-  memberNo: number | null;
   lockerNo: string | null;
+  userType: "회원" | "직원" | null;
 }
 
-// 이력 데이터 타입 정의
-interface HistoryItem {
-  id: number;
-  date: string;
-  user: string;
-  memberNo: number | null;
-  status: string;
-  action: string;
+interface Member {
+  id: string;
+  name: string;
+  contact: string;
+  memberNo: string;
 }
+
+// --- Mock 카드 이력 데이터 (UI-110) ---
+const MOCK_CARDS: RfidCard[] = [
+  { no: 1, cardNo: "RF-10293847", memberName: "홍길동",  memberId: 10234, status: "활성", registeredAt: "2026-01-10", issuedAt: "2026-02-01", lockerNo: "A-102", userType: "회원" },
+  { no: 2, cardNo: "RF-55667788", memberName: "김민수",  memberId: null,  status: "활성", registeredAt: "2026-01-12", issuedAt: "2026-02-05", lockerNo: null,    userType: "직원" },
+  { no: 3, cardNo: "RF-99881122", memberName: null,     memberId: null,  status: "해제", registeredAt: "2026-01-15", issuedAt: null,          lockerNo: null,    userType: null  },
+  { no: 4, cardNo: "RF-33445566", memberName: "이영희",  memberId: 10567, status: "활성", registeredAt: "2026-01-20", issuedAt: "2026-02-10", lockerNo: "B-205", userType: "회원" },
+  { no: 5, cardNo: "RF-77112233", memberName: null,     memberId: null,  status: "해제", registeredAt: "2026-01-25", issuedAt: null,          lockerNo: null,    userType: null  },
+  { no: 6, cardNo: "RF-44332211", memberName: "박지성",  memberId: 10890, status: "분실", registeredAt: "2026-02-01", issuedAt: "2026-02-15", lockerNo: "C-301", userType: "회원" },
+  { no: 7, cardNo: "RF-88776655", memberName: "최유나",  memberId: 10901, status: "활성", registeredAt: "2026-02-05", issuedAt: "2026-02-20", lockerNo: null,    userType: "회원" },
+  { no: 8, cardNo: "RF-11223344", memberName: "정재욱",  memberId: 10456, status: "활성", registeredAt: "2026-02-10", issuedAt: "2026-02-25", lockerNo: "A-201", userType: "회원" },
+];
+
+const MOCK_MEMBERS: Member[] = [
+  { id: "m1", name: "홍길동",  contact: "010-1111-2222", memberNo: "M-10234" },
+  { id: "m2", name: "김민수",  contact: "010-2222-3333", memberNo: "M-10235" },
+  { id: "m3", name: "이영희",  contact: "010-3333-4444", memberNo: "M-10236" },
+  { id: "m4", name: "박지성",  contact: "010-4444-5555", memberNo: "M-10237" },
+  { id: "m5", name: "손흥민",  contact: "010-5555-6666", memberNo: "M-10238" },
+  { id: "m6", name: "최유나",  contact: "010-6666-7777", memberNo: "M-10239" },
+];
+
+const CARD_STATUS_VARIANT: Record<CardStatus, "success" | "error" | "default"> = {
+  활성: "success",
+  분실: "error",
+  해제: "default",
+};
+
+// --- 이력 상세 모달 ---
+const HistoryModal = ({ card, onClose }: { card: RfidCard; onClose: () => void }) => (
+  <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 p-md">
+    <div className="bg-surface rounded-xl w-full max-w-[600px] shadow-2xl animate-in fade-in zoom-in duration-200 overflow-hidden flex flex-col max-h-[85vh]">
+      <div className="flex items-center justify-between px-xl py-lg border-b border-line">
+        <div>
+          <h2 className="text-[16px] font-bold text-content flex items-center gap-sm">
+            <History className="text-primary" size={20} />
+            사용 이력 조회
+          </h2>
+          <p className="text-[12px] text-content-secondary mt-xs">
+            카드 ID: <span className="font-bold text-content">{card.cardNo}</span>
+          </p>
+        </div>
+        <button className="p-sm hover:bg-surface-secondary rounded-full transition-colors" onClick={onClose}>
+          <X className="text-content-secondary" size={22} />
+        </button>
+      </div>
+
+      <div className="flex-1 overflow-y-auto p-xl">
+        <div className="mb-lg flex items-center gap-sm">
+          <input className="rounded-lg border border-line px-md py-xs text-[13px] bg-surface-secondary outline-none focus:border-primary" type="date" defaultValue="2026-02-01" />
+          <span className="text-content-secondary">~</span>
+          <input className="rounded-lg border border-line px-md py-xs text-[13px] bg-surface-secondary outline-none focus:border-primary" type="date" defaultValue="2026-03-11" />
+          <button className="flex items-center gap-xs px-md py-xs bg-surface-secondary border border-line text-content-secondary rounded-lg text-[12px] font-semibold hover:bg-surface-tertiary transition-colors">
+            <RefreshCcw size={13} /> 조회
+          </button>
+        </div>
+
+        {/* UI-110 카드 이력 테이블 — 등록일/카드번호/회원명/상태 */}
+        <div className="rounded-xl border border-line overflow-hidden">
+          <table className="w-full border-collapse">
+            <thead className="bg-surface-secondary/50">
+              <tr>
+                <th className="px-md py-sm text-left text-[12px] font-semibold text-content-secondary">등록일</th>
+                <th className="px-md py-sm text-left text-[12px] font-semibold text-content-secondary">카드번호</th>
+                <th className="px-md py-sm text-left text-[12px] font-semibold text-content-secondary">회원명</th>
+                <th className="px-md py-sm text-center text-[12px] font-semibold text-content-secondary">상태</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-line">
+              {[
+                { date: "2026-02-01 10:20", cardNo: card.cardNo, user: "홍길동", status: "활성" as CardStatus },
+                { date: "2026-01-20 15:45", cardNo: card.cardNo, user: "이수진", status: "해제" as CardStatus },
+                { date: "2026-01-05 09:10", cardNo: card.cardNo, user: "박철수", status: "활성" as CardStatus },
+                { date: "2025-12-28 18:30", cardNo: card.cardNo, user: "정미영", status: "분실" as CardStatus },
+              ].map((item, idx) => (
+                <tr key={idx} className="hover:bg-surface-secondary/20 transition-colors">
+                  <td className="px-md py-sm text-[12px] text-content font-mono">{item.date}</td>
+                  <td className="px-md py-sm text-[12px] text-content font-mono">{item.cardNo}</td>
+                  <td className="px-md py-sm">
+                    <button className="text-[13px] font-semibold text-primary hover:underline" onClick={() => moveToPage(985)}>
+                      {item.user}
+                    </button>
+                  </td>
+                  <td className="px-md py-sm text-center">
+                    <StatusBadge variant={CARD_STATUS_VARIANT[item.status]} label={item.status} dot />
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div className="px-xl py-lg border-t border-line flex justify-end">
+        <button className="px-xl py-sm rounded-lg bg-surface-secondary text-content-secondary text-[13px] font-semibold hover:bg-surface-tertiary transition-colors" onClick={onClose}>
+          닫기
+        </button>
+      </div>
+    </div>
+  </div>
+);
+
+// --- 등록/수정 모달 ---
+const CardModal = ({
+  card,
+  onClose,
+  onSave,
+}: {
+  card: Partial<RfidCard> | null;
+  onClose: () => void;
+  onSave: (data: { cardNo: string; memberName: string; userType: "회원" | "직원"; lockerNo: string }) => void;
+}) => {
+  const [cardNo,     setCardNo]     = useState(card?.cardNo || "");
+  const [memberSearch, setMemberSearch] = useState(card?.memberName || "");
+  const [selectedMember, setSelectedMember] = useState<Member | null>(
+    card?.memberName ? { id: "", name: card.memberName, contact: "", memberNo: "" } : null
+  );
+  const [userType, setUserType]     = useState<"회원" | "직원">(card?.userType || "회원");
+  const [lockerNo, setLockerNo]     = useState(card?.lockerNo || "");
+  const [isScanning, setIsScanning] = useState(!card?.cardNo);
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+
+  const filteredMembers = memberSearch.trim()
+    ? MOCK_MEMBERS.filter(m => m.name.includes(memberSearch) || m.memberNo.includes(memberSearch))
+    : [];
+
+  // UI-108 스캔 시뮬레이션
+  const handleScan = () => {
+    const randomId = "RF-" + Math.floor(Math.random() * 100000000).toString().padStart(8, "0");
+    setCardNo(randomId);
+    setIsScanning(false);
+  };
+
+  const isValid = cardNo.trim() && selectedMember;
+
+  return (
+    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 p-md">
+      <div className="bg-surface rounded-xl w-full max-w-[560px] shadow-2xl animate-in fade-in zoom-in duration-200 overflow-hidden flex flex-col max-h-[90vh]">
+        <div className="flex items-center justify-between px-xl py-lg border-b border-line bg-surface-secondary/30">
+          <div>
+            <h2 className="text-[16px] font-bold text-content">
+              {card?.cardNo ? "카드 정보 수정" : "신규 카드 등록"}
+            </h2>
+            <p className="text-[12px] text-content-secondary mt-xs">RFID 리더기를 통해 카드 번호를 자동 입력하거나 수동으로 입력하세요.</p>
+          </div>
+          <button className="p-sm hover:bg-surface-secondary rounded-full transition-colors" onClick={onClose}>
+            <X className="text-content-secondary" size={22} />
+          </button>
+        </div>
+
+        <div className="flex-1 overflow-y-auto p-xl space-y-xl">
+          {/* UI-108 카드 번호 입력 + 스캔 버튼 */}
+          <div>
+            <label className="block text-[12px] font-semibold text-content-secondary mb-sm">
+              카드 번호 <span className="text-state-error">*</span>
+            </label>
+            {/* 스캔 대기 UI */}
+            <div className={cn(
+              "rounded-xl border-2 border-dashed p-lg flex flex-col items-center gap-md mb-md transition-all",
+              isScanning ? "border-primary bg-primary/5" : "border-line bg-surface-secondary/30"
+            )}>
+              <div className={cn(
+                "w-14 h-14 rounded-full flex items-center justify-center transition-all",
+                isScanning ? "bg-primary text-white animate-pulse" : "bg-surface-tertiary text-content-secondary"
+              )}>
+                <Wifi size={24} />
+              </div>
+              <div className="text-center">
+                <p className={cn("text-[13px] font-bold", isScanning ? "text-primary" : "text-content-secondary")}>
+                  {isScanning ? "카드를 리더기에 대주세요" : "리더기 대기 중..."}
+                </p>
+                <p className="text-[12px] text-content-secondary mt-xs">태그 시 카드 번호가 자동 입력됩니다.</p>
+              </div>
+              {isScanning && (
+                <button
+                  className="text-[12px] text-primary hover:underline font-semibold"
+                  onClick={handleScan}
+                >
+                  [시뮬레이션: 카드 스캔하기]
+                </button>
+              )}
+            </div>
+            <div className="flex gap-sm">
+              <input
+                className="flex-1 h-10 rounded-lg bg-surface-secondary border border-line px-md text-[13px] font-mono focus:border-primary outline-none transition-all"
+                placeholder="RF-XXXXXXXX (직접 입력)"
+                value={cardNo}
+                onChange={e => setCardNo(e.target.value)}
+              />
+              <button
+                className="px-lg h-10 rounded-lg bg-primary text-white text-[13px] font-bold hover:opacity-90 transition-all shadow-sm"
+                onClick={handleScan}
+              >
+                스캔
+              </button>
+            </div>
+            {cardNo && (
+              <div className="mt-xs flex items-center gap-xs text-state-success">
+                <CheckCircle2 size={13} />
+                <span className="text-[12px] font-semibold">카드 번호 입력됨: <span className="font-mono">{cardNo}</span></span>
+              </div>
+            )}
+          </div>
+
+          {/* UI-109 회원 매핑 */}
+          <div>
+            <label className="block text-[12px] font-semibold text-content-secondary mb-sm">
+              사용자 유형 <span className="text-state-error">*</span>
+            </label>
+            <div className="flex items-center gap-lg h-10">
+              {(["회원", "직원"] as const).map(type => (
+                <label key={type} className="flex items-center gap-xs cursor-pointer group">
+                  <input
+                    className="w-4 h-4 accent-primary"
+                    type="radio"
+                    name="userType"
+                    checked={userType === type}
+                    onChange={() => setUserType(type)}
+                  />
+                  <span className={cn("text-[13px] group-hover:text-primary transition-colors", userType === type ? "text-primary font-semibold" : "text-content")}>
+                    {type}
+                  </span>
+                </label>
+              ))}
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-[12px] font-semibold text-content-secondary mb-sm">
+              회원 선택 <span className="text-state-error">*</span>
+            </label>
+            <div className="relative">
+              <Search className="absolute left-md top-1/2 -translate-y-1/2 text-content-secondary" size={15} />
+              <input
+                className="w-full h-10 pl-[36px] pr-md rounded-lg bg-surface-secondary border border-line text-[13px] focus:border-primary outline-none transition-all"
+                placeholder={`${userType} 이름 또는 번호 검색`}
+                value={memberSearch}
+                onChange={e => { setMemberSearch(e.target.value); setSelectedMember(null); setIsDropdownOpen(true); }}
+                onBlur={() => setTimeout(() => setIsDropdownOpen(false), 150)}
+              />
+              {isDropdownOpen && filteredMembers.length > 0 && (
+                <div className="absolute top-full mt-xs left-0 right-0 bg-surface border border-line rounded-lg shadow-lg z-20 max-h-[180px] overflow-y-auto">
+                  {filteredMembers.map(m => (
+                    <button
+                      key={m.id}
+                      className="w-full flex items-center gap-md px-md py-sm hover:bg-surface-secondary transition-colors text-left border-b border-line last:border-b-0"
+                      onMouseDown={() => { setSelectedMember(m); setMemberSearch(m.name); setIsDropdownOpen(false); }}
+                    >
+                      <div className="w-7 h-7 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
+                        <UserCheck size={13} className="text-primary" />
+                      </div>
+                      <div>
+                        <p className="text-[13px] font-semibold text-content">{m.name}</p>
+                        <p className="text-[11px] text-content-secondary">{m.memberNo} · {m.contact}</p>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* 매핑 상태 표시 */}
+            {selectedMember && (
+              <div className="mt-sm p-sm bg-state-success/5 rounded-lg border border-state-success/20 flex items-center gap-sm">
+                <CheckCircle2 size={14} className="text-state-success" />
+                <div>
+                  <p className="text-[12px] font-bold text-state-success">{selectedMember.name} 매핑됨</p>
+                  {selectedMember.memberNo && (
+                    <p className="text-[11px] text-content-secondary">{selectedMember.memberNo}</p>
+                  )}
+                </div>
+                <button className="ml-auto text-content-tertiary hover:text-content-secondary" onClick={() => { setSelectedMember(null); setMemberSearch(""); }}>
+                  <X size={13} />
+                </button>
+              </div>
+            )}
+          </div>
+
+          <div>
+            <label className="block text-[12px] font-semibold text-content-secondary mb-sm">연결 사물함 번호</label>
+            <input
+              className="w-full h-10 rounded-lg bg-surface-secondary border border-line px-md text-[13px] focus:border-primary outline-none transition-all"
+              placeholder="사물함 번호 입력 (선택)"
+              value={lockerNo}
+              onChange={e => setLockerNo(e.target.value)}
+            />
+          </div>
+        </div>
+
+        <div className="px-xl py-lg border-t border-line flex justify-end gap-sm">
+          <button
+            className="px-lg py-sm rounded-lg border border-line text-content-secondary text-[13px] font-semibold hover:bg-surface-secondary transition-colors"
+            onClick={onClose}
+          >
+            취소
+          </button>
+          <button
+            className={cn(
+              "px-xl py-sm rounded-lg text-[13px] font-bold shadow-sm transition-all",
+              isValid ? "bg-primary text-white hover:opacity-90" : "bg-surface-tertiary text-content-tertiary cursor-not-allowed"
+            )}
+            disabled={!isValid}
+            onClick={() => {
+              if (!isValid || !selectedMember) return;
+              onSave({ cardNo, memberName: selectedMember.name, userType, lockerNo });
+              onClose();
+            }}
+          >
+            {card?.cardNo ? "수정 완료" : "등록 완료"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
 
 export default function RfidManagement() {
-  // --- States ---
-  const [data, setData] = useState<RfidItem[]>([
-    {
-      no: 1,
-      rfidId: "RF-10293847",
-      status: "사용",
-      registeredAt: "2026-01-10",
-      issuedAt: "2026-02-01",
-      currentUser: "홍길동",
-      userType: "회원",
-      memberNo: 10234,
-      lockerNo: "A-102",
-    },
-    {
-      no: 2,
-      rfidId: "RF-55667788",
-      status: "사용",
-      registeredAt: "2026-01-12",
-      issuedAt: "2026-02-05",
-      currentUser: "김민수",
-      userType: "직원",
-      memberNo: null,
-      lockerNo: null,
-    },
-    {
-      no: 3,
-      rfidId: "RF-99881122",
-      status: "미사용",
-      registeredAt: "2026-01-15",
-      issuedAt: null,
-      currentUser: null,
-      userType: null,
-      memberNo: null,
-      lockerNo: null,
-    },
-    {
-      no: 4,
-      rfidId: "RF-33445566",
-      status: "사용",
-      registeredAt: "2026-01-20",
-      issuedAt: "2026-02-10",
-      currentUser: "이영희",
-      userType: "회원",
-      memberNo: 10567,
-      lockerNo: "B-205",
-    },
-    {
-      no: 5,
-      rfidId: "RF-77112233",
-      status: "미사용",
-      registeredAt: "2026-01-25",
-      issuedAt: null,
-      currentUser: null,
-      userType: null,
-      memberNo: null,
-      lockerNo: null,
-    },
-  ]);
+  const [cards, setCards]         = useState<RfidCard[]>(MOCK_CARDS);
+  const [searchValue, setSearch]  = useState("");
+  const [filterStatus, setFilter] = useState("");
+  const [isAddModalOpen, setAddModal]   = useState(false);
+  const [isHistoryOpen, setHistoryOpen] = useState(false);
+  const [isDeleteOpen,  setDeleteOpen]  = useState(false);
+  const [selectedCard,  setSelectedCard] = useState<RfidCard | null>(null);
 
-  const [loading, setLoading] = useState(false);
-  const [filterValues, setFilterValues] = useState({
-    status: "",
-    search: "",
+  const filteredCards = cards.filter(c => {
+    const matchStatus = !filterStatus || c.status === filterStatus;
+    const matchSearch = !searchValue ||
+      c.cardNo.toLowerCase().includes(searchValue.toLowerCase()) ||
+      (c.memberName && c.memberName.includes(searchValue));
+    return matchStatus && matchSearch;
   });
 
-  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
-  const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false);
-  const [isConfirmDialogOpen, setIsConfirmDialogOpen] = useState(false);
-  const [selectedItem, setSelectedItem] = useState<RfidItem | null>(null);
-  const [rfidReady, setRfidReady] = useState(false);
-
-  // 폼 상태
-  const [formData, setFormData] = useState({
-    rfidId: "",
-    userType: "회원",
-    userSearch: "",
-    lockerNo: "",
-  });
-
-  // --- Handlers ---
-  const handleFilterChange = (key: string, value: any) => {
-    setFilterValues(prev => ({ ...prev, [key]: value }));
-  };
-
-  const handleSearch = (value: string) => {
-    setFilterValues(prev => ({ ...prev, search: value }));
-  };
-
-  const handleReset = () => {
-    setFilterValues({ status: "", search: "" });
-  };
-
-  const openAddModal = (item?: RfidItem) => {
-    if (item) {
-      setSelectedItem(item);
-      setFormData({
-        rfidId: item.rfidId,
-        userType: item.userType || "회원",
-        userSearch: item.currentUser || "",
-        lockerNo: item.lockerNo || "",
-      });
-    } else {
-      setSelectedItem(null);
-      setFormData({
-        rfidId: "",
-        userType: "회원",
-        userSearch: "",
-        lockerNo: "",
-      });
-    }
-    setIsAddModalOpen(true);
-    setRfidReady(true); // 리더기 대기 상태 시뮬레이션
-  };
-
-  const closeAddModal = () => {
-    setIsAddModalOpen(false);
-    setRfidReady(false);
-  };
-
-  const handleSave = () => {
-    if (!formData.rfidId) {
-      alert("밴드/카드 ID를 입력하거나 태그해주세요.");
-      return;
-    }
-
-    if (selectedItem) {
-      // 수정
-      setData(prev => prev.map(item =>
-        item.no === selectedItem.no
-          ? {
-              ...item,
-              rfidId: formData.rfidId,
-              userType: formData.userType as any,
-              currentUser: formData.userSearch,
-              lockerNo: formData.lockerNo,
-              status: "사용" as const,
-              issuedAt: item.issuedAt || new Date().toISOString().split("T")[0]
-            }
-          : item
+  const handleSave = (data: { cardNo: string; memberName: string; userType: "회원" | "직원"; lockerNo: string }) => {
+    if (selectedCard) {
+      setCards(prev => prev.map(c =>
+        c.no === selectedCard.no
+          ? { ...c, cardNo: data.cardNo, memberName: data.memberName, userType: data.userType, lockerNo: data.lockerNo || null, status: "활성" }
+          : c
       ));
     } else {
-      // 신규 등록
-      const newNo = Math.max(...data.map(d => d.no), 0) + 1;
-      const newItem: RfidItem = {
+      const newNo = Math.max(...cards.map(c => c.no), 0) + 1;
+      setCards(prev => [{
         no: newNo,
-        rfidId: formData.rfidId,
-        status: "사용",
+        cardNo: data.cardNo,
+        memberName: data.memberName,
+        memberId: newNo * 100,
+        status: "활성",
         registeredAt: new Date().toISOString().split("T")[0],
         issuedAt: new Date().toISOString().split("T")[0],
-        currentUser: formData.userSearch,
-        userType: formData.userType as any,
-        memberNo: formData.userType === "회원" ? 10000 + newNo : null,
-        lockerNo: formData.lockerNo || null,
-      };
-      setData([newItem, ...data]);
+        lockerNo: data.lockerNo || null,
+        userType: data.userType,
+      }, ...prev]);
     }
-    closeAddModal();
   };
 
-  const handleDeleteClick = (item: RfidItem) => {
-    setSelectedItem(item);
-    setIsConfirmDialogOpen(true);
+  const handleMarkLost = (card: RfidCard) => {
+    setCards(prev => prev.map(c => c.no === card.no ? { ...c, status: "분실" } : c));
   };
 
-  const handleConfirmDelete = () => {
-    if (selectedItem) {
-      setData(prev => prev.filter(item => item.no !== selectedItem.no));
-    }
-    setIsConfirmDialogOpen(false);
-    setSelectedItem(null);
-  };
-
-  const openHistoryModal = (item: RfidItem) => {
-    setSelectedItem(item);
-    setIsHistoryModalOpen(true);
-  };
-
-  // RFID 태그 시뮬레이션
-  const simulateRfidTag = () => {
-    const randomId = "RF-" + Math.floor(Math.random() * 100000000).toString().padStart(8, "0");
-    setFormData(prev => ({ ...prev, rfidId: randomId }));
-    setRfidReady(false);
-    setTimeout(() => setRfidReady(true), 1500);
-  };
-
-  // --- Filtered Data ---
-  const filteredData = data.filter(item => {
-    const matchesStatus = !filterValues.status || item.status === filterValues.status;
-    const matchesSearch = !filterValues.search ||
-      item.rfidId.toLowerCase().includes(filterValues.search.toLowerCase()) ||
-      (item.currentUser && item.currentUser.toLowerCase().includes(filterValues.search.toLowerCase()));
-    return matchesStatus && matchesSearch;
-  });
-
-  // --- Table Columns ---
+  // UI-110 카드 이력 테이블 컬럼 (등록일/카드번호/회원명/상태)
   const columns = [
-    { key: "no", header: "No", width: 60, align: "center" as const },
-    { key: "rfidId", header: "밴드/카드 ID", sortable: true },
+    { key: "no",       header: "No", width: 55, align: "center" as const },
     {
-      key: "status",
-      header: "사용 여부",
-      align: "center" as const,
-      render: (val: string) => (
-        <StatusBadge variant={val === "사용" ? "success" : "default"} dot={true}>
-          {val}
-        </StatusBadge>
-      )
+      key: "registeredAt",
+      header: "등록일", width: 110, align: "center" as const,
+      render: (val: string) => <span className="text-[12px] font-mono text-content">{val}</span>
     },
-    { key: "registeredAt", header: "등록일", align: "center" as const },
-    { key: "issuedAt", header: "발급일", align: "center" as const, render: (val: string | null) => val || "-" },
     {
-      key: "currentUser",
-      header: "현재 사용자",
-      render: (val: string | null, row: RfidItem) => val ? (
-        <button
-          className="text-primary hover:underline font-medium" onClick={() => row.memberNo && moveToPage(985)}>
+      key: "cardNo",
+      header: "카드번호", sortable: true,
+      render: (val: string) => <span className="text-[12px] font-mono font-semibold text-content">{val}</span>
+    },
+    {
+      key: "memberName",
+      header: "회원명",
+      render: (val: string | null, row: RfidCard) => val ? (
+        <button className="text-[13px] font-semibold text-primary hover:underline" onClick={() => row.memberId && moveToPage(985)}>
           {val}
         </button>
-      ) : "-"
+      ) : <span className="text-content-tertiary text-[12px]">-</span>
     },
     {
       key: "userType",
-      header: "회원/직원",
-      align: "center" as const,
-      render: (val: string | null) => val ? (
-        <StatusBadge variant={val === "회원" ? "info" : "warning"}>{val}</StatusBadge>
-      ) : "-"
+      header: "유형", width: 80, align: "center" as const,
+      render: (val: string | null) => val
+        ? <StatusBadge variant={val === "회원" ? "info" : "warning"} label={val} />
+        : <span className="text-[12px] text-content-tertiary">-</span>
     },
-    { key: "memberNo", header: "회원번호", align: "center" as const, render: (val: number | null) => val || "-" },
-    { key: "lockerNo", header: "사물함", align: "center" as const, render: (val: string | null) => val || "-" },
+    {
+      key: "status",
+      header: "상태", width: 90, align: "center" as const,
+      render: (val: CardStatus) => (
+        <StatusBadge variant={CARD_STATUS_VARIANT[val]} label={val} dot />
+      )
+    },
+    {
+      key: "issuedAt",
+      header: "발급일", width: 100, align: "center" as const,
+      render: (val: string | null) => <span className="text-[12px] font-mono text-content">{val || "-"}</span>
+    },
+    {
+      key: "lockerNo",
+      header: "사물함", width: 80, align: "center" as const,
+      render: (val: string | null) => val || "-"
+    },
     {
       key: "actions",
-      header: "메뉴",
-      width: 120,
-      align: "center" as const,
-      render: (_: any, row: RfidItem) => (
-        <div className="flex items-center justify-center gap-xs" >
+      header: "메뉴", width: 110, align: "center" as const,
+      render: (_: any, row: RfidCard) => (
+        <div className="flex items-center justify-center gap-xs">
           <button
-            className="p-xs text-content-secondary hover:text-primary transition-colors" title="이력 보기" onClick={() => openHistoryModal(row)}>
-            <History size={16}/>
+            className="p-xs text-content-secondary hover:text-primary transition-colors"
+            title="이력 보기"
+            onClick={() => { setSelectedCard(row); setHistoryOpen(true); }}
+          >
+            <History size={15} />
           </button>
           <button
-            className="p-xs text-content-secondary hover:text-accent transition-colors" title="수정" onClick={() => openAddModal(row)}>
-            <Edit2 size={16}/>
+            className="p-xs text-content-secondary hover:text-state-error transition-colors"
+            title="분실 처리"
+            onClick={() => handleMarkLost(row)}
+            disabled={row.status === "분실"}
+          >
+            <AlertCircle size={15} className={row.status === "분실" ? "opacity-30" : ""} />
           </button>
           <button
-            className="p-xs text-content-secondary hover:text-error transition-colors" title="삭제" onClick={() => handleDeleteClick(row)}>
-            <Trash2 size={16}/>
+            className="p-xs text-content-secondary hover:text-primary transition-colors"
+            title="수정"
+            onClick={() => { setSelectedCard(row); setAddModal(true); }}
+          >
+            <Edit2 size={15} />
+          </button>
+          <button
+            className="p-xs text-content-secondary hover:text-state-error transition-colors"
+            title="삭제"
+            onClick={() => { setSelectedCard(row); setDeleteOpen(true); }}
+          >
+            <Trash2 size={15} />
           </button>
         </div>
       )
-    }
+    },
   ];
 
   return (
-    <AppLayout >
-      <div className="space-y-lg" >
-        {/* Page Header */}
-        <PageHeader title="밴드/카드 관리" description="RFID 밴드 및 카드를 등록하고 회원/직원과 연결하여 출입 및 시설 이용을 관리합니다." actions={
+    <AppLayout>
+      <div className="space-y-lg">
+        <PageHeader
+          title="밴드/카드 관리"
+          description="RFID 밴드 및 카드를 등록하고 회원/직원과 연결하여 출입 및 시설 이용을 관리합니다."
+          actions={
             <button
-              className="flex items-center gap-sm bg-primary text-white px-lg py-md rounded-button text-Body 1 font-bold shadow-card hover:scale-[1.02] active:scale-[0.98] transition-all"
-              onClick={() => openAddModal()}
+              className="flex items-center gap-sm bg-primary text-white px-lg py-sm rounded-lg text-[13px] font-bold shadow-sm hover:opacity-90 transition-all"
+              onClick={() => { setSelectedCard(null); setAddModal(true); }}
             >
-              <Plus size={20} />
-              신규 등록
+              <Plus size={16} /> 신규 등록
             </button>
-          }/>
+          }
+        />
 
-        {/* Stats Section */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-md" >
-          <StatCard label="전체 밴드/카드" value={data.length} icon={<CreditCard />} variant="default"/>
-          <StatCard label="사용 중" value={data.filter(d => d.status === "사용").length} icon={<UserCheck />} variant="mint"/>
-          <StatCard label="미사용 (여분)" value={data.filter(d => d.status === "미사용").length} icon={<ShieldCheck />} variant="peach"/>
+        {/* 통계 카드 */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-md">
+          <StatCard label="전체 카드"        value={cards.length}                                   icon={<CreditCard />} />
+          <StatCard label="활성 (사용 중)"   value={cards.filter(c => c.status === "활성").length}  icon={<UserCheck />}  variant="mint" />
+          <StatCard label="미사용/해제/분실" value={cards.filter(c => c.status !== "활성").length}  icon={<ShieldCheck />} variant="peach" />
         </div>
 
-        {/* Filter Section */}
-        <SearchFilter searchPlaceholder="ID 또는 사용자명 검색" searchValue={filterValues.search} onSearchChange={(val) => handleFilterChange("search", val)} onSearch={handleSearch} filters={[
+        {/* 검색/필터 */}
+        <SearchFilter
+          searchPlaceholder="카드번호 또는 회원명 검색"
+          searchValue={searchValue}
+          onSearchChange={setSearch}
+          filters={[
             {
-              key: "status",
-              label: "사용 여부",
-              type: "select",
+              key: "status", label: "상태", type: "select",
               options: [
-                { value: "사용", label: "사용" },
-                { value: "미사용", label: "미사용" },
+                { value: "활성", label: "활성" },
+                { value: "분실", label: "분실" },
+                { value: "해제", label: "해제" },
               ]
             }
-          ]} filterValues={filterValues} onFilterChange={handleFilterChange} onReset={handleReset}/>
+          ]}
+          onFilterChange={(key, val) => key === "status" && setFilter(val)}
+          onReset={() => { setSearch(""); setFilter(""); }}
+        />
 
-        {/* Data Table */}
-        <DataTable columns={columns} data={filteredData} loading={loading} pagination={{
-            page: 1,
-            pageSize: 20,
-            total: filteredData.length,
-          }} title="밴드/카드 목록" onDownloadExcel={() => alert("Excel 다운로드를 시작합니다.")}/>
+        {/* UI-110 카드 이력 테이블 */}
+        <DataTable
+          columns={columns}
+          data={filteredCards}
+          title="카드 이력 목록"
+          pagination={{ page: 1, pageSize: 20, total: filteredCards.length }}
+          onDownloadExcel={() => alert("Excel 다운로드를 시작합니다.")}
+        />
       </div>
 
-      {/* --- Modals --- */}
-
-      {/* 밴드/카드 등록 & 수정 모달 */}
+      {/* UI-108, UI-109 등록/수정 모달 */}
       {isAddModalOpen && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 backdrop-blur-sm p-md" >
-          <div className="w-full max-w-2xl rounded-modal bg-surface shadow-card overflow-hidden flex flex-col max-h-[90vh] animate-in fade-in zoom-in duration-200" >
-            <div className="flex items-center justify-between p-xl border-b border-line bg-primary-light/30" >
-              <div >
-                <h2 className="text-Heading 2 text-content" >
-                  {selectedItem ? "밴드/카드 정보 수정" : "신규 밴드/카드 등록"}
-                </h2>
-                <p className="text-Body 2 text-content-secondary mt-xs" >
-                  RFID 리더기를 통해 ID를 자동 입력하거나 수동으로 입력할 수 있습니다.
-                </p>
-              </div>
-              <button className="p-sm hover:bg-surface rounded-full transition-colors" onClick={closeAddModal}>
-                <X className="text-content-secondary" size={24}/>
-              </button>
-            </div>
-
-            <div className="flex-1 overflow-y-auto p-xl space-y-xl" >
-              {/* RFID Reader Status UI */}
-              <div className={cn(
-                "p-xl rounded-xl border-2 border-dashed flex flex-col items-center justify-center gap-md transition-all",
-                rfidReady ? "border-primary bg-primary-light/50" : "border-line bg-surface-secondary"
-              )} >
-                <div className={cn(
-                  "w-xxl h-xxl rounded-full flex items-center justify-center transition-all",
-                  rfidReady ? "bg-primary text-white animate-pulse" : "bg-content-secondary/20 text-content-secondary"
-                )} >
-                  <CardIcon size={32}/>
-                </div>
-                <div className="text-center" >
-                  <p className={cn(
-                    "text-Body 1 font-bold",
-                    rfidReady ? "text-primary" : "text-content-secondary"
-                  )} >
-                    {rfidReady ? "등록할 밴드/카드를 리더기에 대주세요" : "리더기 연결 대기 중..."}
-                  </p>
-                  <p className="text-Body 2 text-content-secondary mt-xs" >
-                    태그 시 ID가 자동으로 아래 입력창에 입력됩니다.
-                  </p>
-                </div>
-                {!formData.rfidId && (
-                  <button
-                    className="mt-md text-Label text-primary hover:underline" onClick={simulateRfidTag}>
-                    [시뮬레이션: 태그하기]
-                  </button>
-                )}
-              </div>
-
-              <FormSection title="기본 정보" columns={2}>
-                <div className="space-y-xs" >
-                  <label className="text-Label text-content font-semibold" >밴드/카드 ID <span className="text-state-error" >*</span></label>
-                  <input
-                    className="w-full rounded-input border border-line bg-surface-secondary px-md py-sm text-Body 2 focus:border-primary focus:outline-none transition-all" placeholder="리더기 태그 또는 직접 입력" value={formData.rfidId} onChange={(e) => setFormData(prev => ({ ...prev, rfidId: e.target.value }))}/>
-                </div>
-                <div className="space-y-xs" >
-                  <label className="text-Label text-content font-semibold" >사용자 유형 <span className="text-state-error" >*</span></label>
-                  <div className="flex items-center gap-md h-[42px]" >
-                    {["회원", "직원"].map((type) => (
-                      <label className="flex items-center gap-xs cursor-pointer group" key={type}>
-                        <input
-                          className="w-4 h-4 accent-primary" type="radio" name="userType" checked={formData.userType === type} onChange={() => setFormData(prev => ({ ...prev, userType: type }))}/>
-                        <span className="text-Body 2 text-content group-hover:text-primary transition-colors" >{type}</span>
-                      </label>
-                    ))}
-                  </div>
-                </div>
-                <div className="space-y-xs" >
-                  <label className="text-Label text-content font-semibold" >사용자 선택 <span className="text-state-error" >*</span></label>
-                  <div className="relative" >
-                    <input
-                      className="w-full rounded-input border border-line bg-surface-secondary pl-10 pr-md py-sm text-Body 2 focus:border-primary focus:outline-none transition-all" placeholder={`${formData.userType} 검색 (이름 또는 번호)`} value={formData.userSearch} onChange={(e) => setFormData(prev => ({ ...prev, userSearch: e.target.value }))}/>
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-content-secondary" size={18}/>
-                  </div>
-                </div>
-                <div className="space-y-xs" >
-                  <label className="text-Label text-content font-semibold" >연결 사물함 번호</label>
-                  <input
-                    className="w-full rounded-input border border-line bg-surface-secondary px-md py-sm text-Body 2 focus:border-primary focus:outline-none transition-all" placeholder="사물함 번호 입력 (선택)" value={formData.lockerNo} onChange={(e) => setFormData(prev => ({ ...prev, lockerNo: e.target.value }))}/>
-                </div>
-              </FormSection>
-            </div>
-
-            <div className="p-xl border-t border-line flex justify-end gap-sm" >
-              <button
-                className="px-lg py-md rounded-button border border-line text-content-secondary font-semibold hover:bg-surface-secondary transition-colors" onClick={closeAddModal}>
-                취소
-              </button>
-              <button
-                className="px-xl py-md rounded-button bg-primary text-white font-bold shadow-card hover:scale-[1.02] active:scale-[0.98] transition-all" onClick={handleSave}>
-                {selectedItem ? "수정 완료" : "등록 완료"}
-              </button>
-            </div>
-          </div>
-        </div>
+        <CardModal
+          card={selectedCard}
+          onClose={() => { setAddModal(false); setSelectedCard(null); }}
+          onSave={handleSave}
+        />
       )}
 
-      {/* 사용 이력 모달 */}
-      {isHistoryModalOpen && selectedItem && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 backdrop-blur-sm p-md" >
-          <div className="w-full max-w-3xl rounded-modal bg-surface shadow-card overflow-hidden flex flex-col max-h-[85vh] animate-in fade-in zoom-in duration-200" >
-            <div className="flex items-center justify-between p-xl border-b border-line" >
-              <div >
-                <h2 className="text-Heading 2 text-content flex items-center gap-sm" >
-                  <History className="text-primary" size={24}/>
-                  사용 이력 조회
-                </h2>
-                <p className="text-Body 2 text-content-secondary mt-xs" >
-                  밴드 ID: <span className="font-bold text-content" >{selectedItem.rfidId}</span> 의 발급 및 사용 기록입니다.
-                </p>
-              </div>
-              <button className="p-sm hover:bg-surface-secondary rounded-full transition-colors" onClick={() => setIsHistoryModalOpen(false)}>
-                <X className="text-content-secondary" size={24}/>
-              </button>
-            </div>
-
-            <div className="flex-1 overflow-y-auto p-xl" >
-              <div className="mb-lg flex items-center justify-between" >
-                <div className="flex gap-sm" >
-                  <input className="rounded-input border border-line px-md py-xs text-Body 2" type="date" defaultValue="2026-02-01"/>
-                  <span className="flex items-center" >~</span>
-                  <input className="rounded-input border border-line px-md py-xs text-Body 2" type="date" defaultValue="2026-02-19"/>
-                </div>
-                <button className="flex items-center gap-xs px-md py-xs bg-surface-secondary text-content rounded-button text-Label font-semibold" >
-                  <RefreshCcw size={14}/>
-                  조회 기간 갱신
-                </button>
-              </div>
-
-              <div className="rounded-xl border border-line overflow-hidden" >
-                <table className="w-full border-collapse" >
-                  <thead className="bg-surface-secondary/50" >
-                    <tr >
-                      <th className="px-md py-sm text-left text-Label text-content-secondary" >날짜</th>
-                      <th className="px-md py-sm text-left text-Label text-content-secondary" >사용자</th>
-                      <th className="px-md py-sm text-left text-Label text-content-secondary" >회원번호</th>
-                      <th className="px-md py-sm text-center text-Label text-content-secondary" >상태</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-line" >
-                    {[
-                      { date: "2026-02-01 10:20", user: "홍길동", memberNo: 10234, status: "발급" },
-                      { date: "2026-01-20 15:45", user: "이수진", memberNo: 10055, status: "반납" },
-                      { date: "2026-01-05 09:10", user: "박철수", memberNo: 10012, status: "발급" },
-                      { date: "2025-12-28 18:30", user: "정미영", memberNo: 10008, status: "반납" },
-                    ].map((item, idx) => (
-                      <tr className="hover:bg-surface-secondary/20 transition-colors" key={idx}>
-                        <td className="px-md py-md text-Body 2 text-content" >{item.date}</td>
-                        <td className="px-md py-md text-Body 2 font-medium" >
-                          <button
-                            className="text-primary hover:underline" onClick={() => moveToPage(985)}>
-                            {item.user}
-                          </button>
-                        </td>
-                        <td className="px-md py-md text-Body 2 text-content-secondary" >{item.memberNo}</td>
-                        <td className="px-md py-md text-center" >
-                          <StatusBadge variant={item.status === "발급" ? "success" : "default"}>
-                            {item.status}
-                          </StatusBadge>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-
-            <div className="p-xl border-t border-line flex justify-end" >
-              <button
-                className="px-xl py-md rounded-button bg-accent-light text-accent font-bold hover:bg-accent hover:text-white transition-all" onClick={() => setIsHistoryModalOpen(false)}>
-                닫기
-              </button>
-            </div>
-          </div>
-        </div>
+      {/* 이력 모달 */}
+      {isHistoryOpen && selectedCard && (
+        <HistoryModal card={selectedCard} onClose={() => { setHistoryOpen(false); setSelectedCard(null); }} />
       )}
 
-      {/* 삭제 확인 다이얼로그 */}
-      <ConfirmDialog open={isConfirmDialogOpen} title="밴드/카드 삭제" description={`선택한 밴드/카드 ID: ${selectedItem?.rfidId} 를 삭제하시겠습니까?\n삭제된 정보는 복구할 수 없으며, 연결된 회원과의 관계가 끊어집니다.`} confirmLabel="삭제하기" variant="danger" confirmationText="삭제" onConfirm={handleConfirmDelete} onCancel={() => setIsConfirmDialogOpen(false)}/>
+      {/* 삭제 확인 */}
+      <ConfirmDialog
+        open={isDeleteOpen}
+        title="카드 삭제"
+        description={`카드 ID: ${selectedCard?.cardNo} 를 삭제하시겠습니까?\n삭제된 정보는 복구할 수 없으며, 연결된 회원과의 관계가 끊어집니다.`}
+        confirmLabel="삭제하기"
+        variant="danger"
+        confirmationText="삭제"
+        onConfirm={() => {
+          if (selectedCard) setCards(prev => prev.filter(c => c.no !== selectedCard.no));
+          setDeleteOpen(false);
+          setSelectedCard(null);
+        }}
+        onCancel={() => { setDeleteOpen(false); setSelectedCard(null); }}
+      />
     </AppLayout>
   );
 }

@@ -337,13 +337,13 @@ export default function BranchManagement() {
               <button className="px-md py-xs text-content-secondary hover:text-content rounded-button text-Label" >주간</button>
               <button className="px-md py-xs text-content-secondary hover:text-content rounded-button text-Label" >연간</button>
             </div>
-            <p className="text-Body 2 text-content-secondary" >기준: 2026.02.01 ~ 2026.02.19</p>
+            <p className="text-sm text-content-secondary" >기준: 2026.02.01 ~ 2026.02.19</p>
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-md" >
             <div className="lg:col-span-2 p-lg bg-surface rounded-xl border border-line shadow-card" >
               <div className="flex items-center justify-between mb-lg" >
-                <h3 className="text-Heading 2 text-content flex items-center gap-xs" >
+                <h3 className="text-xl font-bold text-content flex items-center gap-xs" >
                   <BarChart3 className="text-primary" size={20}/>
                   지점별 매출 비교
                 </h3>
@@ -351,7 +351,7 @@ export default function BranchManagement() {
               <div className="space-y-lg" >
                 {integratedStats.map((item, idx) => (
                   <div className="space-y-xs" key={idx}>
-                    <div className="flex justify-between text-Body 2" >
+                    <div className="flex justify-between text-sm" >
                       <span className="font-medium text-content" >{item.branch}</span>
                       <span className="text-content-secondary" >{item.sales}원</span>
                     </div>
@@ -365,7 +365,7 @@ export default function BranchManagement() {
             </div>
 
             <div className="p-lg bg-surface rounded-xl border border-line shadow-card" >
-              <h3 className="text-Heading 2 text-content flex items-center gap-xs mb-lg" >
+              <h3 className="text-xl font-bold text-content flex items-center gap-xs mb-lg" >
                 <PieChart className="text-accent" size={20}/>
                 지점별 회원 현황
               </h3>
@@ -375,7 +375,7 @@ export default function BranchManagement() {
                   <div className="absolute inset-[-12px] rounded-full border-[12px] border-accent border-t-transparent border-b-transparent border-l-transparent rotate-[-30deg]" />
                   <div className="text-center" >
                     <p className="text-Label text-content-secondary" >전체 회원</p>
-                    <p className="text-Heading 2 font-bold text-content" >4,010</p>
+                    <p className="text-xl font-bold font-bold text-content" >4,010</p>
                   </div>
                 </div>
                 <div className="mt-lg grid grid-cols-2 gap-sm w-full" >
@@ -432,7 +432,7 @@ export default function BranchManagement() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-md" >
           <div className="w-full max-w-2xl bg-surface rounded-modal shadow-card max-h-[90vh] overflow-y-auto" >
             <div className="p-xl border-b border-line flex justify-between items-center sticky top-0 bg-surface z-10" >
-              <h2 className="text-Heading 2 text-content" >신규 지점 등록</h2>
+              <h2 className="text-xl font-bold text-content" >신규 지점 등록</h2>
               <button className="text-content-secondary hover:text-content" onClick={handleCloseAddBranch}>
                 <X size={24}/>
               </button>
@@ -594,7 +594,7 @@ export default function BranchManagement() {
                   <label className="text-Label text-content-secondary" >지점 로고</label>
                   <div className="border-2 border-dashed border-line rounded-xl p-xl flex flex-col items-center justify-center text-content-secondary hover:border-accent transition-colors cursor-pointer" >
                     <Plus size={32}/>
-                    <span className="mt-sm text-Body 2" >이미지 업로드 (PNG, JPG)</span>
+                    <span className="mt-sm text-sm" >이미지 업로드 (PNG, JPG)</span>
                   </div>
                 </div>
                 <div className="space-y-xs mt-md" >
@@ -627,7 +627,7 @@ export default function BranchManagement() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-md" >
           <div className="w-full max-w-lg bg-surface rounded-modal shadow-card" >
             <div className="p-xl border-b border-line flex justify-between items-center" >
-              <h2 className="text-Heading 2 text-content" >회원 지점 이동 신청</h2>
+              <h2 className="text-xl font-bold text-content" >회원 지점 이동 신청</h2>
               <button className="text-content-secondary hover:text-content" onClick={() => setIsMoveMemberOpen(false)}>
                 <X size={24}/>
               </button>
@@ -667,11 +667,11 @@ export default function BranchManagement() {
                 <div className="flex gap-md mt-xs" >
                   <label className="flex items-center gap-xs cursor-pointer" >
                     <input className="accent-primary" type="radio" name="pass-action" defaultChecked={true}/>
-                    <span className="text-Body 2" >기존 이용권 유지</span>
+                    <span className="text-sm" >기존 이용권 유지</span>
                   </label>
                   <label className="flex items-center gap-xs cursor-pointer" >
                     <input className="accent-primary" type="radio" name="pass-action"/>
-                    <span className="text-Body 2" >신규 이용권 등록</span>
+                    <span className="text-sm" >신규 이용권 등록</span>
                   </label>
                 </div>
               </div>
@@ -695,7 +695,7 @@ export default function BranchManagement() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-md">
           <div className="w-full max-w-md bg-surface rounded-modal shadow-card">
             <div className="p-xl border-b border-line flex justify-between items-center">
-              <h2 className="text-Heading 2 text-content flex items-center gap-sm">
+              <h2 className="text-xl font-bold text-content flex items-center gap-sm">
                 <AlertTriangle className="text-state-error" size={20}/>
                 지점 비활성화
               </h2>
@@ -709,7 +709,7 @@ export default function BranchManagement() {
                 <>
                   {/* 1단계: 영향 범위 표시 */}
                   <div className="rounded-xl bg-state-error/5 border border-state-error/20 p-lg space-y-md">
-                    <p className="text-Body 1 font-semibold text-content">
+                    <p className="text-base font-semibold text-content">
                       "{deactivateTarget.name}" 비활성화 시 영향 범위
                     </p>
                     <div className="grid grid-cols-2 gap-md">
@@ -727,16 +727,16 @@ export default function BranchManagement() {
                       </div>
                     </div>
                     <div className="space-y-xs">
-                      <p className="text-Body 2 text-content-secondary flex items-start gap-xs">
+                      <p className="text-sm text-content-secondary flex items-start gap-xs">
                         <AlertCircle size={14} className="flex-shrink-0 mt-xs text-amber-600"/>
                         비활성화 시 해당 지점의 키오스크 및 앱 접근이 즉시 제한됩니다.
                       </p>
-                      <p className="text-Body 2 text-content-secondary flex items-start gap-xs">
+                      <p className="text-sm text-content-secondary flex items-start gap-xs">
                         <AlertCircle size={14} className="flex-shrink-0 mt-xs text-amber-600"/>
                         소속 회원 {deactivateTarget.members.toLocaleString()}명의 이용 내역이 일시 동결됩니다.
                       </p>
                       {deactivateTarget.activeContracts > 0 && (
-                        <p className="text-Body 2 text-state-error flex items-start gap-xs">
+                        <p className="text-sm text-state-error flex items-start gap-xs">
                           <AlertTriangle size={14} className="flex-shrink-0 mt-xs"/>
                           진행중인 계약 {deactivateTarget.activeContracts}건을 먼저 처리하는 것을 권장합니다.
                         </p>
@@ -765,10 +765,10 @@ export default function BranchManagement() {
                     <div className="w-[64px] h-[64px] bg-state-error/10 rounded-full flex items-center justify-center mx-auto">
                       <AlertTriangle className="text-state-error" size={32}/>
                     </div>
-                    <p className="text-Body 1 font-semibold text-content">
+                    <p className="text-base font-semibold text-content">
                       정말로 비활성화하시겠습니까?
                     </p>
-                    <p className="text-Body 2 text-content-secondary">
+                    <p className="text-sm text-content-secondary">
                       <span className="font-semibold text-content">"{deactivateTarget.name}"</span>을(를) 비활성화합니다.
                       <br/>이 작업은 즉시 적용되며, 재활성화 전까지 해당 지점 서비스가 중단됩니다.
                     </p>
