@@ -1,0 +1,8 @@
+node_modules/
+dist/
+.env
+.env.local
+
+# fry cache
+.fry/parse-cache.json
+.fry/parse-cache/
