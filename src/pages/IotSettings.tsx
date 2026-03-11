@@ -9,11 +9,14 @@ import {
   RefreshCw,
   Trash2,
   Edit2,
-  Play,
   Search,
   CheckCircle2,
   XCircle,
-  AlertCircle
+  AlertCircle,
+  Wifi,
+  WifiOff,
+  Loader2,
+  X
 } from "lucide-react";
 import AppLayout from "@/components/AppLayout";
 import PageHeader from "@/components/PageHeader";
@@ -23,39 +26,64 @@ import StatusBadge from "@/components/StatusBadge";
 import SearchFilter from "@/components/SearchFilter";
 import FormSection from "@/components/FormSection";
 import ConfirmDialog from "@/components/ConfirmDialog";
-import { moveToPage, stackPage } from "@/internal";
+import { moveToPage } from "@/internal";
 import { cn } from "@/lib/utils";
 
-/**
- * SCR-028: 출입문/IoT 설정
- */
-export default function IotSettings() {
-  const [activeTab, setActiveTab] = useState("gate");
+type DeviceType = "출입문" | "체성분" | "키오스크" | "RFID" | "카메라";
+type DeviceStatus = "온라인" | "오프라인" | "오류";
 
-  // 상태 관리: 확인 다이얼로그
+interface IotDevice {
+  id: number;
+  name: string;
+  type: DeviceType;
+  ip: string;
+  port: number;
+  serial: string;
+  firmware: string;
+  status: DeviceStatus;
+  lastComm: string;
+}
+
+interface TestResult {
+  deviceId: number;
+  status: "loading" | "success" | "fail";
+}
+
+const MOCK_DEVICES: IotDevice[] = [
+  { id: 1, name: "메인 출입구 RFID", type: "출입문", ip: "192.168.0.101", port: 8080, serial: "SN-99201-01", firmware: "v2.1.0", status: "온라인", lastComm: "2026-03-11 14:20" },
+  { id: 2, name: "InBody 체성분 분석기", type: "체성분", ip: "192.168.0.110", port: 9090, serial: "SN-IB-045", firmware: "v3.2.1", status: "온라인", lastComm: "2026-03-11 13:55" },
+  { id: 3, name: "로비 키오스크", type: "키오스크", ip: "192.168.0.120", port: 8443, serial: "SN-KS-012", firmware: "v1.8.3", status: "오프라인", lastComm: "2026-03-10 22:10" },
+  { id: 4, name: "탈의실 출입 RFID", type: "출입문", ip: "192.168.0.102", port: 8080, serial: "SN-99201-05", firmware: "v2.1.0", status: "오류", lastComm: "2026-03-11 12:05" },
+];
+
+const DEVICE_TYPE_COLORS: Record<DeviceType, string> = {
+  "출입문": "text-primary bg-primary-light",
+  "체성분": "text-accent bg-accent-light",
+  "키오스크": "text-information bg-information/10",
+  "RFID": "text-primary bg-primary-light",
+  "카메라": "text-content-secondary bg-surface-secondary",
+};
+
+const tabs = [
+  { key: "gate", label: "게이트 관리", icon: DoorOpen },
+  { key: "iot", label: "IoT 기기", icon: Cpu },
+  { key: "log", label: "출입 로그", icon: ClipboardList },
+  { key: "rule", label: "출입 규칙", icon: Settings2 },
+];
+
+export default function IotSettings() {
+  const [activeTab, setActiveTab] = useState("iot");
+  const [devices, setDevices] = useState<IotDevice[]>(MOCK_DEVICES);
+  const [testResults, setTestResults] = useState<Record<number, TestResult>>({});
+  const [isAddDeviceOpen, setIsAddDeviceOpen] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [confirmConfig, setConfirmConfig] = useState<{
-    title: string;
-    description: string;
-    variant?: "default" | "danger";
-    onConfirm: () => void;
-  }>({
-    title: "",
-    description: "",
-    onConfirm: () => {},
+    title: string; description: string; variant?: "default" | "danger"; onConfirm: () => void;
+  }>({ title: "", description: "", onConfirm: () => {} });
+
+  const [newDevice, setNewDevice] = useState({
+    name: "", type: "출입문" as DeviceType, ip: "", port: 8080,
   });
-
-  const tabs = [
-    { key: "gate", label: "게이트 관리", icon: DoorOpen },
-    { key: "iot", label: "IoT 기기", icon: Cpu },
-    { key: "log", label: "출입 로그", icon: ClipboardList },
-    { key: "rule", label: "출입 규칙", icon: Settings2 },
-  ];
-
-  // 알림/토스트 대용 (간단 구현)
-  const showAlert = (message: string) => {
-    alert(message);
-  };
 
   const handleRemoteOpen = (gateName: string) => {
     setConfirmConfig({
@@ -63,51 +91,218 @@ export default function IotSettings() {
       description: `"${gateName}" 게이트를 원격으로 개방하시겠습니까?`,
       onConfirm: () => {
         setConfirmOpen(false);
-        setTimeout(() => showAlert(`${gateName} 게이트가 개방되었습니다.`), 500);
+        setTimeout(() => alert(`${gateName} 게이트가 개방되었습니다.`), 400);
       },
     });
     setConfirmOpen(true);
   };
 
-  // --- 탭별 렌더링 함수들 ---
+  const handleConnectionTest = (deviceId: number) => {
+    setTestResults(prev => ({ ...prev, [deviceId]: { deviceId, status: "loading" } }));
+    setTimeout(() => {
+      const device = devices.find(d => d.id === deviceId);
+      const result = device?.status === "오프라인" ? "fail" : "success";
+      setTestResults(prev => ({ ...prev, [deviceId]: { deviceId, status: result } }));
+      // 3초 후 결과 초기화
+      setTimeout(() => setTestResults(prev => {
+        const next = { ...prev };
+        delete next[deviceId];
+        return next;
+      }), 3000);
+    }, 1800);
+  };
 
+  const handleDeleteDevice = (device: IotDevice) => {
+    setConfirmConfig({
+      title: "기기 삭제",
+      description: `"${device.name}" 기기를 삭제하시겠습니까?\n이 작업은 되돌릴 수 없습니다.`,
+      variant: "danger",
+      onConfirm: () => {
+        setDevices(prev => prev.filter(d => d.id !== device.id));
+        setConfirmOpen(false);
+      },
+    });
+    setConfirmOpen(true);
+  };
+
+  const handleAddDevice = () => {
+    if (!newDevice.name || !newDevice.ip) return;
+    const d: IotDevice = {
+      id: Date.now(),
+      name: newDevice.name,
+      type: newDevice.type,
+      ip: newDevice.ip,
+      port: newDevice.port,
+      serial: `SN-${Math.random().toString(36).slice(2, 8).toUpperCase()}`,
+      firmware: "v1.0.0",
+      status: "오프라인",
+      lastComm: "-",
+    };
+    setDevices(prev => [...prev, d]);
+    setIsAddDeviceOpen(false);
+    setNewDevice({ name: "", type: "출입문", ip: "", port: 8080 });
+  };
+
+  // ── IoT 기기 탭 (카드 뷰) ──
+  const renderIotDevices = () => (
+    <div className="space-y-lg">
+      <div className="flex justify-between items-center">
+        <div>
+          <h3 className="text-Heading-2 text-content">IoT 기기 목록</h3>
+          <p className="text-Body-2 text-content-secondary mt-xs">센터 내 연동된 모든 IoT 기기 상태를 확인하고 관리합니다.</p>
+        </div>
+        <button
+          onClick={() => setIsAddDeviceOpen(true)}
+          className="flex items-center gap-xs px-md py-sm bg-primary text-white rounded-button text-Label font-semibold hover:opacity-90 transition-opacity"
+        >
+          <Plus size={16} /> 기기 추가
+        </button>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-md">
+        {devices.map(device => {
+          const testResult = testResults[device.id];
+          const isOnline = device.status === "온라인";
+          const isError = device.status === "오류";
+
+          return (
+            <div
+              key={device.id}
+              className={cn(
+                "bg-surface rounded-xl border shadow-card p-lg transition-all",
+                isOnline ? "border-line" : isError ? "border-state-error/30 bg-state-error/5" : "border-line opacity-75"
+              )}
+            >
+              {/* 헤더 */}
+              <div className="flex items-start justify-between mb-md">
+                <div className="flex items-center gap-sm">
+                  <div className={cn("p-sm rounded-lg", DEVICE_TYPE_COLORS[device.type])}>
+                    <Cpu size={18} />
+                  </div>
+                  <div>
+                    <p className="text-Body-1 font-bold text-content">{device.name}</p>
+                    <span className={cn(
+                      "text-[11px] font-semibold px-xs py-[1px] rounded",
+                      DEVICE_TYPE_COLORS[device.type]
+                    )}>
+                      {device.type}
+                    </span>
+                  </div>
+                </div>
+                {/* 연결 상태 */}
+                <div className={cn(
+                  "flex items-center gap-xs px-sm py-xs rounded-full text-[11px] font-bold",
+                  isOnline ? "bg-accent-light text-accent" : isError ? "bg-state-error/10 text-state-error" : "bg-line text-content-secondary"
+                )}>
+                  {isOnline ? <Wifi size={12} /> : <WifiOff size={12} />}
+                  {device.status}
+                </div>
+              </div>
+
+              {/* 상세 정보 */}
+              <div className="space-y-xs text-Body-2 mb-lg">
+                <div className="flex justify-between">
+                  <span className="text-content-secondary">IP 주소</span>
+                  <span className="font-mono text-content">{device.ip}:{device.port}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-content-secondary">시리얼</span>
+                  <span className="font-mono text-content text-[11px]">{device.serial}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-content-secondary">펌웨어</span>
+                  <span className="text-content">{device.firmware}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-content-secondary">마지막 통신</span>
+                  <span className="text-content">{device.lastComm}</span>
+                </div>
+              </div>
+
+              {/* 연결 테스트 결과 */}
+              {testResult && (
+                <div className={cn(
+                  "flex items-center gap-xs px-md py-sm rounded-lg mb-md text-Body-2 font-semibold",
+                  testResult.status === "loading" ? "bg-surface-secondary text-content-secondary" :
+                  testResult.status === "success" ? "bg-accent-light text-accent" :
+                  "bg-state-error/10 text-state-error"
+                )}>
+                  {testResult.status === "loading" && <Loader2 size={14} className="animate-spin" />}
+                  {testResult.status === "success" && <CheckCircle2 size={14} />}
+                  {testResult.status === "fail" && <XCircle size={14} />}
+                  {testResult.status === "loading" ? "연결 테스트 중..." :
+                   testResult.status === "success" ? "연결 성공" : "연결 실패"}
+                </div>
+              )}
+
+              {/* 액션 버튼 */}
+              <div className="flex items-center gap-sm">
+                <button
+                  onClick={() => handleConnectionTest(device.id)}
+                  disabled={!!testResult && testResult.status === "loading"}
+                  className="flex-1 flex items-center justify-center gap-xs py-sm bg-primary-light text-primary rounded-button text-Label font-semibold hover:bg-primary hover:text-white transition-all disabled:opacity-50"
+                >
+                  {testResult?.status === "loading"
+                    ? <><Loader2 size={14} className="animate-spin" /> 테스트 중</>
+                    : <><RefreshCw size={14} /> 연결 테스트</>
+                  }
+                </button>
+                <button
+                  className="p-sm text-content-secondary hover:text-primary transition-colors"
+                  title="수정"
+                >
+                  <Edit2 size={16} />
+                </button>
+                <button
+                  onClick={() => handleDeleteDevice(device)}
+                  className="p-sm text-content-secondary hover:text-state-error transition-colors"
+                  title="삭제"
+                >
+                  <Trash2 size={16} />
+                </button>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+
+  // ── 게이트 관리 탭 ──
   const renderGateManagement = () => {
     const columns = [
       { key: "id", header: "No", width: 60, align: "center" as const },
       { key: "name", header: "게이트명", sortable: true },
-      {
-        key: "type",
-        header: "게이트 유형",
-        render: (val: string) => (
-          <StatusBadge variant="default" label={val}/>
-        )
-      },
+      { key: "type", header: "유형", render: (val: string) => <StatusBadge variant="default" label={val} /> },
       { key: "device", header: "연동 기기" },
       { key: "room", header: "연동 운동룸" },
       {
-        key: "status",
-        header: "상태",
-        render: (val: string) => {
-          const variant = val === "정상" ? "success" : val === "오류" ? "error" : "default";
-          return <StatusBadge variant={variant} label={val} dot={true}/>;
-        }
+        key: "status", header: "상태",
+        render: (val: string) => (
+          <StatusBadge
+            variant={val === "정상" ? "success" : val === "오류" ? "error" : "default"}
+            label={val}
+            dot
+          />
+        )
       },
       { key: "lastComm", header: "마지막 통신" },
       {
-        key: "menu",
-        header: "메뉴",
-        align: "right" as const,
+        key: "menu", header: "관리", align: "right" as const,
         render: (_: any, row: any) => (
-          <div className="flex items-center justify-end gap-sm" >
+          <div className="flex items-center justify-end gap-sm">
             <button className="p-xs text-content-secondary hover:text-primary transition-colors" title="수정">
-              <Edit2 size={16}/>
+              <Edit2 size={16} />
             </button>
             <button
-              className="p-xs text-content-secondary hover:text-accent transition-colors" title="원격 개방" onClick={() => handleRemoteOpen(row.name)}>
-              <DoorOpen size={16}/>
+              className="p-xs text-content-secondary hover:text-accent transition-colors"
+              title="원격 개방"
+              onClick={() => handleRemoteOpen(row.name)}
+            >
+              <DoorOpen size={16} />
             </button>
             <button className="p-xs text-content-secondary hover:text-state-error transition-colors" title="삭제">
-              <Trash2 size={16}/>
+              <Trash2 size={16} />
             </button>
           </div>
         )
@@ -115,85 +310,27 @@ export default function IotSettings() {
     ];
 
     const data = [
-      { id: 1, name: "메인 출입구", type: "입출구", device: "RFID-Main-01", room: "-", status: "정상", lastComm: "2026-02-19 14:20:05" },
-      { id: 2, name: "운동룸 A", type: "입구", device: "QR-RoomA-01", room: "필라테스 1번룸", status: "정상", lastComm: "2026-02-19 14:18:22" },
-      { id: 3, name: "탈의실 입구", type: "입구", device: "RFID-Locker-01", room: "-", status: "오류", lastComm: "2026-02-19 12:05:11" },
-      { id: 4, name: "후문", type: "출구", device: "Button-Back-01", room: "-", status: "오프라인", lastComm: "2026-02-18 22:10:45" },
+      { id: 1, name: "메인 출입구", type: "입출구", device: "RFID-Main-01", room: "-", status: "정상", lastComm: "2026-03-11 14:20" },
+      { id: 2, name: "운동룸 A", type: "입구", device: "QR-RoomA-01", room: "필라테스 1번룸", status: "정상", lastComm: "2026-03-11 14:18" },
+      { id: 3, name: "탈의실 입구", type: "입구", device: "RFID-Locker-01", room: "-", status: "오류", lastComm: "2026-03-11 12:05" },
+      { id: 4, name: "후문", type: "출구", device: "Button-Back-01", room: "-", status: "오프라인", lastComm: "2026-03-10 22:10" },
     ];
 
     return (
-      <div className="space-y-lg" >
-        <DataTable title="게이트 목록" columns={columns} data={data} onDownloadExcel={() => {}}/>
+      <div className="space-y-lg">
+        <DataTable title="게이트 목록" columns={columns} data={data} onDownloadExcel={() => {}} />
       </div>
     );
   };
 
-  const renderIotDevice = () => {
-    const columns = [
-      { key: "id", header: "No", width: 60, align: "center" as const },
-      { key: "name", header: "기기명" },
-      {
-        key: "type",
-        header: "기기 유형",
-        render: (val: string) => <StatusBadge variant="default" label={val}/>
-      },
-      { key: "serial", header: "시리얼 번호" },
-      { key: "ip", header: "IP 주소" },
-      { key: "firmware", header: "펌웨어" },
-      {
-        key: "status",
-        header: "상태",
-        render: (val: string) => {
-          const variant = val === "온라인" ? "success" : val === "오류" ? "error" : "default";
-          return <StatusBadge variant={variant} label={val} dot={true}/>;
-        }
-      },
-      {
-        key: "menu",
-        header: "메뉴",
-        align: "right" as const,
-        render: (_: any, row: any) => (
-          <div className="flex items-center justify-end gap-sm" >
-            <button className="p-xs text-content-secondary hover:text-primary transition-colors" title="수정">
-              <Edit2 size={16}/>
-            </button>
-            <button className="p-xs text-content-secondary hover:text-accent transition-colors" title="재시작">
-              <RotateCw size={16}/>
-            </button>
-            <button className="p-xs text-content-secondary hover:text-information transition-colors" title="펌웨어 업데이트">
-              <RefreshCw size={16}/>
-            </button>
-            <button className="p-xs text-content-secondary hover:text-state-error transition-colors" title="삭제">
-              <Trash2 size={16}/>
-            </button>
-          </div>
-        )
-      },
-    ];
-
-    const data = [
-      { id: 1, name: "RFID-Main-01", type: "RFID 리더기", serial: "SN-99201-01", ip: "192.168.0.101", firmware: "v2.1.0", status: "온라인" },
-      { id: 2, name: "QR-RoomA-01", type: "QR 스캐너", serial: "SN-QR-045", ip: "192.168.0.105", firmware: "v1.4.2", status: "온라인" },
-      { id: 3, name: "CAM-Entrance-01", type: "카메라", serial: "SN-CAM-112", ip: "192.168.0.110", firmware: "v3.0.1", status: "오류" },
-      { id: 4, name: "RFID-Locker-01", type: "RFID 리더기", serial: "SN-99201-05", ip: "192.168.0.102", firmware: "v2.1.0", status: "오프라인" },
-    ];
-
-    return (
-      <div className="space-y-lg" >
-        <DataTable title="IoT 기기 목록" columns={columns} data={data} onDownloadExcel={() => {}}/>
-      </div>
-    );
-  };
-
+  // ── 출입 로그 탭 ──
   const renderAccessLog = () => {
     const filters = [
-      { key: "gate", label: "게이트 선택", type: "select" as const, options: [
-        { value: "main", label: "메인 출입구" },
-        { value: "rooma", label: "운동룸 A" },
+      { key: "gate", label: "게이트", type: "select" as const, options: [
+        { value: "main", label: "메인 출입구" }, { value: "rooma", label: "운동룸 A" },
       ]},
       { key: "result", label: "출입 결과", type: "select" as const, options: [
-        { value: "allow", label: "허용" },
-        { value: "deny", label: "거부" },
+        { value: "allow", label: "허용" }, { value: "deny", label: "거부" },
       ]},
       { key: "date", label: "로그 기간", type: "dateRange" as const },
     ];
@@ -202,166 +339,209 @@ export default function IotSettings() {
       { key: "id", header: "No", width: 60, align: "center" as const },
       { key: "time", header: "출입 시각", width: 180 },
       {
-        key: "memberName",
-        header: "회원명",
+        key: "memberName", header: "회원명",
         render: (val: string) => (
-          <button
-            className="text-accent hover:underline font-medium" onClick={() => moveToPage(985)}>
-            {val}
-          </button>
+          <button className="text-accent hover:underline font-medium" onClick={() => moveToPage(985)}>{val}</button>
         )
       },
       { key: "memberNo", header: "회원번호" },
       { key: "gateName", header: "게이트명" },
       {
-        key: "direction",
-        header: "방향",
+        key: "direction", header: "방향",
         render: (val: string) => (
           <span className={cn(
             "px-sm py-[2px] rounded-full text-[10px] font-bold",
             val === "입" ? "bg-accent-light text-accent" : "bg-primary-light text-primary"
-          )} >
+          )}>
             {val}
           </span>
         )
       },
       { key: "authMethod", header: "인증 방식" },
       {
-        key: "result",
-        header: "결과",
-        render: (val: string) => (
-          <StatusBadge variant={val === "허용" ? "success" : "error"} label={val}/>
-        )
+        key: "result", header: "결과",
+        render: (val: string) => <StatusBadge variant={val === "허용" ? "success" : "error"} label={val} />
       },
       { key: "reason", header: "거부 사유" },
     ];
 
     const data = [
-      { id: 1, time: "2026-02-19 14:25:01", memberName: "김철수", memberNo: "2024-0012", gateName: "메인 출입구", direction: "입", authMethod: "RFID", result: "허용", reason: "-" },
-      { id: 2, time: "2026-02-19 14:22:15", memberName: "이영희", memberNo: "2025-0045", gateName: "운동룸 A", direction: "입", authMethod: "앱(QR)", result: "허용", reason: "-" },
-      { id: 3, time: "2026-02-19 14:15:33", memberName: "박지성", memberNo: "2023-0158", gateName: "메인 출입구", direction: "출", authMethod: "RFID", result: "허용", reason: "-" },
-      { id: 4, time: "2026-02-19 14:10:12", memberName: "정명훈", memberNo: "2026-0005", gateName: "메인 출입구", direction: "입", authMethod: "RFID", result: "거부", reason: "이용권 만료" },
-      { id: 5, time: "2026-02-19 13:55:40", memberName: "강호동", memberNo: "2024-0088", gateName: "운동룸 A", direction: "입", authMethod: "RFID", result: "거부", reason: "수업 시간 아님" },
+      { id: 1, time: "2026-03-11 14:25", memberName: "김철수", memberNo: "2024-0012", gateName: "메인 출입구", direction: "입", authMethod: "RFID", result: "허용", reason: "-" },
+      { id: 2, time: "2026-03-11 14:22", memberName: "이영희", memberNo: "2025-0045", gateName: "운동룸 A", direction: "입", authMethod: "QR", result: "허용", reason: "-" },
+      { id: 3, time: "2026-03-11 14:10", memberName: "정명훈", memberNo: "2026-0005", gateName: "메인 출입구", direction: "입", authMethod: "RFID", result: "거부", reason: "이용권 만료" },
     ];
 
     return (
-      <div className="space-y-lg" >
-        <SearchFilter filters={filters} searchPlaceholder="회원명 / 회원번호 검색" onSearch={() => {}}/>
-        <DataTable title="출입 로그 이력" columns={columns} data={data} onDownloadExcel={() => {}} pagination={{ page: 1, pageSize: 10, total: 45 }}/>
+      <div className="space-y-lg">
+        <SearchFilter filters={filters} searchPlaceholder="회원명 / 회원번호 검색" onSearch={() => {}} />
+        <DataTable title="출입 로그 이력" columns={columns} data={data} onDownloadExcel={() => {}} pagination={{ page: 1, pageSize: 10, total: 45 }} />
       </div>
     );
   };
 
-  const renderAccessRules = () => {
-    return (
-      <div className="space-y-lg" >
-        <FormSection title="게이트별 출입 규칙 설정" description="특정 게이트에 대한 출입 허용 요일, 시간대 및 대상 회원을 설정합니다.">
-          <div className="space-y-md" >
-            <label className="block text-Body 2 text-content font-medium" >대상 게이트 선택</label>
-            <select className="w-full bg-surface-secondary border-0 rounded-input px-md py-sm focus:ring-2 focus:ring-accent transition-all" >
-              <option >메인 출입구</option>
-              <option >운동룸 A</option>
-              <option >탈의실 입구</option>
-            </select>
-          </div>
-
-          <div className="space-y-md" >
-            <label className="block text-Body 2 text-content font-medium" >출입 가능 요일</label>
-            <div className="flex flex-wrap gap-sm" >
-              {["월", "화", "수", "목", "금", "토", "일"].map(day => (
-                <label className="flex items-center gap-xs p-sm border border-line rounded-button cursor-pointer hover:bg-accent-light transition-colors" key={day}>
-                  <input className="w-4 h-4 rounded text-accent focus:ring-accent accent-accent" type="checkbox" defaultChecked={true}/>
-                  <span className="text-Body 2" >{day}</span>
-                </label>
-              ))}
-            </div>
-          </div>
-
-          <div className="space-y-md" >
-            <label className="block text-Body 2 text-content font-medium" >출입 가능 시간대</label>
-            <div className="flex items-center gap-sm" >
-              <input className="bg-surface-secondary border-0 rounded-input px-md py-sm focus:ring-2 focus:ring-accent transition-all" type="time" defaultValue="06:00"/>
-              <span className="text-content-secondary" >~</span>
-              <input className="bg-surface-secondary border-0 rounded-input px-md py-sm focus:ring-2 focus:ring-accent transition-all" type="time" defaultValue="23:00"/>
-              <button className="flex items-center gap-xs px-md py-sm bg-primary-light text-primary rounded-button text-Label font-semibold hover:opacity-90 transition-opacity" >
-                <Plus size={14}/>
-                시간 추가
-              </button>
-            </div>
-          </div>
-
-          <div className="space-y-md" >
-            <label className="block text-Body 2 text-content font-medium" >대상 회원 유형</label>
-            <div className="grid grid-cols-2 gap-sm" >
-              {["전체 회원", "퍼스널 트레이닝(PT)", "필라테스", "골프", "일반 헬스"].map(type => (
-                <label className="flex items-center gap-xs" key={type}>
-                  <input className="w-4 h-4 rounded text-accent focus:ring-accent accent-accent" type="checkbox" defaultChecked={type === "전체 회원"}/>
-                  <span className="text-Body 2" >{type}</span>
-                </label>
-              ))}
-            </div>
-          </div>
-
-          <div className="space-y-md" >
-            <div className="flex items-center justify-between p-md bg-accent-light rounded-xl border border-accent/20" >
-              <div >
-                <h4 className="text-Body 1 font-bold text-content" >비등록 방문자 출입 허용</h4>
-                <p className="text-Body 2 text-content-secondary" >회원권이 없는 방문자의 입장을 허용합니다. (벨 호출 또는 원격 개방 전용)</p>
-              </div>
-              <label className="relative inline-flex items-center cursor-pointer" >
-                <input className="sr-only peer" type="checkbox"/>
-                <div className="w-11 h-6 bg-surface-tertiary peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-line after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-accent" ></div>
-              </label>
-            </div>
-          </div>
-        </FormSection>
-
-        <div className="flex justify-end gap-sm" >
-          <button className="px-xl py-md bg-surface border border-line text-content rounded-button text-Body 1 font-semibold hover:bg-surface-secondary transition-colors" >
-            초기화
-          </button>
-          <button className="px-xl py-md bg-accent text-white rounded-button text-Body 1 font-semibold hover:opacity-90 shadow-lg shadow-accent/20 transition-all" >
-            규칙 저장하기
-          </button>
+  // ── 출입 규칙 탭 ──
+  const renderAccessRules = () => (
+    <div className="space-y-lg">
+      <FormSection title="게이트별 출입 규칙" description="특정 게이트에 대한 허용 요일, 시간대, 대상 회원을 설정합니다.">
+        <div className="space-y-md">
+          <label className="block text-Body-2 text-content font-medium">대상 게이트 선택</label>
+          <select className="w-full bg-surface-secondary border-0 rounded-input px-md py-sm focus:ring-2 focus:ring-accent transition-all">
+            <option>메인 출입구</option>
+            <option>운동룸 A</option>
+            <option>탈의실 입구</option>
+          </select>
         </div>
+
+        <div className="space-y-md">
+          <label className="block text-Body-2 text-content font-medium">출입 가능 요일</label>
+          <div className="flex flex-wrap gap-sm">
+            {["월", "화", "수", "목", "금", "토", "일"].map(day => (
+              <label key={day} className="flex items-center gap-xs p-sm border border-line rounded-button cursor-pointer hover:bg-accent-light transition-colors">
+                <input className="w-4 h-4 accent-accent" type="checkbox" defaultChecked />
+                <span className="text-Body-2">{day}</span>
+              </label>
+            ))}
+          </div>
+        </div>
+
+        <div className="space-y-md">
+          <label className="block text-Body-2 text-content font-medium">출입 가능 시간대</label>
+          <div className="flex items-center gap-sm">
+            <input className="bg-surface-secondary border-0 rounded-input px-md py-sm focus:ring-2 focus:ring-accent transition-all" type="time" defaultValue="06:00" />
+            <span className="text-content-secondary">~</span>
+            <input className="bg-surface-secondary border-0 rounded-input px-md py-sm focus:ring-2 focus:ring-accent transition-all" type="time" defaultValue="23:00" />
+            <button className="flex items-center gap-xs px-md py-sm bg-primary-light text-primary rounded-button text-Label font-semibold hover:opacity-90">
+              <Plus size={14} /> 시간 추가
+            </button>
+          </div>
+        </div>
+      </FormSection>
+
+      <div className="flex justify-end gap-sm">
+        <button className="px-xl py-md bg-surface border border-line text-content rounded-button text-Body-2 font-semibold hover:bg-surface-secondary transition-colors">
+          초기화
+        </button>
+        <button className="px-xl py-md bg-accent text-white rounded-button text-Body-2 font-semibold hover:opacity-90 transition-opacity shadow-lg shadow-accent/20">
+          규칙 저장하기
+        </button>
       </div>
-    );
-  };
+    </div>
+  );
 
   return (
-    <AppLayout >
-      <PageHeader title="출입문/IoT 설정" description="센터 내 출입 게이트와 IoT 기기 연동을 관리하고 출입 보안 로그를 확인합니다." actions={
+    <AppLayout>
+      <PageHeader
+        title="출입문/IoT 설정"
+        description="센터 내 출입 게이트와 IoT 기기 연동을 관리하고 출입 보안 로그를 확인합니다."
+        actions={
           <div className="flex items-center gap-sm">
             <button
               onClick={() => moveToPage(994)}
               className="flex items-center gap-xs px-md py-sm bg-surface border border-line text-content-secondary rounded-button text-Label font-semibold hover:bg-surface-secondary transition-all"
             >
-              <Settings2 size={18} />
-              키오스크 설정
+              <Settings2 size={16} /> 키오스크 설정
             </button>
-            <button className="flex items-center gap-xs px-md py-sm bg-primary-light text-primary rounded-button text-Label font-semibold hover:bg-primary hover:text-white transition-all">
-              <Plus size={18} />
-              새 게이트 등록
-            </button>
-            <button className="flex items-center gap-xs px-md py-sm bg-accent-light text-accent rounded-button text-Label font-semibold hover:bg-accent hover:text-white transition-all">
-              <Cpu size={18} />
-              IoT 기기 추가
+            <button
+              onClick={() => setIsAddDeviceOpen(true)}
+              className="flex items-center gap-xs px-md py-sm bg-accent-light text-accent rounded-button text-Label font-semibold hover:bg-accent hover:text-white transition-all"
+            >
+              <Cpu size={16} /> IoT 기기 추가
             </button>
           </div>
-        }>
-        <TabNav
-          className="bg-surface px-lg rounded-t-xl border-x border-t border-line" tabs={tabs} activeTab={activeTab} onTabChange={setActiveTab}/>
-      </PageHeader>
+        }
+      />
 
-      <div className="animate-in fade-in slide-in-from-bottom-2 duration-500" >
+      <TabNav tabs={tabs} activeTab={activeTab} onTabChange={setActiveTab} className="mb-lg" />
+
+      <div className="animate-in fade-in slide-in-from-bottom-2 duration-300">
         {activeTab === "gate" && renderGateManagement()}
-        {activeTab === "iot" && renderIotDevice()}
+        {activeTab === "iot" && renderIotDevices()}
         {activeTab === "log" && renderAccessLog()}
         {activeTab === "rule" && renderAccessRules()}
       </div>
 
-      {/* 확인 다이얼로그 */}
-      <ConfirmDialog open={confirmOpen} title={confirmConfig.title} description={confirmConfig.description} variant={confirmConfig.variant} onConfirm={confirmConfig.onConfirm} onCancel={() => setConfirmOpen(false)}/>
+      {/* 기기 추가 모달 */}
+      {isAddDeviceOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-md">
+          <div className="w-full max-w-md bg-surface rounded-modal shadow-card overflow-hidden">
+            <div className="px-xl py-lg border-b border-line flex justify-between items-center">
+              <h2 className="text-Heading-2 font-bold text-content">IoT 기기 추가</h2>
+              <button className="text-content-secondary hover:text-content" onClick={() => setIsAddDeviceOpen(false)}>
+                <X size={20} />
+              </button>
+            </div>
+            <div className="p-xl space-y-md">
+              <div className="space-y-xs">
+                <label className="text-Label text-content-secondary">기기명 <span className="text-state-error">*</span></label>
+                <input
+                  className="w-full bg-surface-secondary rounded-input px-md py-sm border-0 focus:ring-2 focus:ring-accent outline-none"
+                  placeholder="예: 운동룸 B 출입 RFID"
+                  value={newDevice.name}
+                  onChange={e => setNewDevice({ ...newDevice, name: e.target.value })}
+                />
+              </div>
+              <div className="space-y-xs">
+                <label className="text-Label text-content-secondary">기기 유형 <span className="text-state-error">*</span></label>
+                <select
+                  className="w-full bg-surface-secondary rounded-input px-md py-sm border-0 focus:ring-2 focus:ring-accent outline-none"
+                  value={newDevice.type}
+                  onChange={e => setNewDevice({ ...newDevice, type: e.target.value as DeviceType })}
+                >
+                  <option value="출입문">출입문</option>
+                  <option value="체성분">체성분</option>
+                  <option value="키오스크">키오스크</option>
+                  <option value="RFID">RFID</option>
+                  <option value="카메라">카메라</option>
+                </select>
+              </div>
+              <div className="grid grid-cols-2 gap-md">
+                <div className="space-y-xs">
+                  <label className="text-Label text-content-secondary">IP 주소 <span className="text-state-error">*</span></label>
+                  <input
+                    className="w-full bg-surface-secondary rounded-input px-md py-sm border-0 focus:ring-2 focus:ring-accent outline-none font-mono"
+                    placeholder="192.168.0.xxx"
+                    value={newDevice.ip}
+                    onChange={e => setNewDevice({ ...newDevice, ip: e.target.value })}
+                  />
+                </div>
+                <div className="space-y-xs">
+                  <label className="text-Label text-content-secondary">포트</label>
+                  <input
+                    className="w-full bg-surface-secondary rounded-input px-md py-sm border-0 focus:ring-2 focus:ring-accent outline-none font-mono"
+                    type="number"
+                    value={newDevice.port}
+                    onChange={e => setNewDevice({ ...newDevice, port: Number(e.target.value) })}
+                  />
+                </div>
+              </div>
+            </div>
+            <div className="px-xl py-lg border-t border-line flex justify-end gap-md bg-surface-secondary/5">
+              <button
+                className="px-xl py-md rounded-button border border-line text-content-secondary hover:bg-surface transition-colors"
+                onClick={() => setIsAddDeviceOpen(false)}
+              >
+                취소
+              </button>
+              <button
+                className="px-xl py-md rounded-button bg-primary text-white font-semibold hover:opacity-90 transition-opacity disabled:opacity-50"
+                disabled={!newDevice.name || !newDevice.ip}
+                onClick={handleAddDevice}
+              >
+                기기 등록
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <ConfirmDialog
+        open={confirmOpen}
+        title={confirmConfig.title}
+        description={confirmConfig.description}
+        variant={confirmConfig.variant}
+        onConfirm={confirmConfig.onConfirm}
+        onCancel={() => setConfirmOpen(false)}
+      />
     </AppLayout>
   );
 }
