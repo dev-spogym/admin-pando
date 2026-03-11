@@ -1,370 +1,490 @@
 import React, { useState, useMemo } from "react";
-import { 
-  FileText, 
-  Download, 
-  ChevronRight, 
-  Search,
-  Users,
-  CheckCircle2,
-  Clock,
+import {
+  FileText,
+  Download,
   Printer,
   Mail,
-  X,
   Plus,
   Minus,
-  ArrowRight
+  ArrowRight,
+  X,
+  CheckCircle2,
+  Clock
 } from "lucide-react";
 import AppLayout from "@/components/AppLayout";
 import PageHeader from "@/components/PageHeader";
 import StatCard from "@/components/StatCard";
-import SearchFilter from "@/components/SearchFilter";
-import TabNav from "@/components/TabNav";
 import DataTable from "@/components/DataTable";
 import StatusBadge from "@/components/StatusBadge";
-import ConfirmDialog from "@/components/ConfirmDialog";
-import { FormSection } from "@/components/FormSection";
 import { cn } from "@/lib/utils";
 
-// Mock Data
-const MOCK_PAYROLL_DATA = [
-  {
-    id: 1,
-    employeeName: "김민수",
-    position: "시니어 트레이너",
-    paymentDate: "2024-05-25",
-    baseSalary: 3500000,
-    allowance: 450000,
-    deduction: 380000,
-    netPay: 3570000,
-    status: "지급완료",
-    earnings: [
-      { name: "기본급", amount: 3500000 },
-      { name: "직책수당", amount: 200000 },
-      { name: "식대", amount: 150000 },
-      { name: "성과급", amount: 100000 },
-    ],
-    deductions: [
-      { name: "국민연금", amount: 157500 },
-      { name: "건강보험", amount: 124000 },
-      { name: "고용보험", amount: 31500 },
-      { name: "소득세", amount: 67000 },
-    ]
-  },
-  {
-    id: 2,
-    employeeName: "이지아",
-    position: "필라테스 강사",
-    paymentDate: "2024-05-25",
-    baseSalary: 2800000,
-    allowance: 1200000,
-    deduction: 420000,
-    netPay: 3580000,
-    status: "지급완료",
-    earnings: [
-      { name: "기본급", amount: 2800000 },
-      { name: "수업수당", amount: 1100000 },
-      { name: "식대", amount: 100000 },
-    ],
-    deductions: [
-      { name: "국민연금", amount: 160000 },
-      { name: "건강보험", amount: 130000 },
-      { name: "장기요양", amount: 15000 },
-      { name: "고용보험", amount: 32000 },
-      { name: "소득세", amount: 83000 },
-    ]
-  },
-  {
-    id: 3,
-    employeeName: "박철진",
-    position: "운영팀장",
-    paymentDate: "2024-05-25",
-    baseSalary: 4200000,
-    allowance: 300000,
-    deduction: 520000,
-    netPay: 3980000,
-    status: "대기",
-    earnings: [
-      { name: "기본급", amount: 4200000 },
-      { name: "차량유지비", amount: 200000 },
-      { name: "식대", amount: 100000 },
-    ],
-    deductions: [
-      { name: "국민연금", amount: 189000 },
-      { name: "건강보험", amount: 148000 },
-      { name: "고용보험", amount: 37800 },
-      { name: "소득세", amount: 145200 },
-    ]
-  },
-  {
-    id: 4,
-    employeeName: "최유리",
-    position: "주니어 트레이너",
-    paymentDate: "2024-05-25",
-    baseSalary: 2500000,
-    allowance: 150000,
-    deduction: 280000,
-    netPay: 2370000,
-    status: "대기",
-    earnings: [
-      { name: "기본급", amount: 2500000 },
-      { name: "식대", amount: 150000 },
-    ],
-    deductions: [
-      { name: "국민연금", amount: 112500 },
-      { name: "건강보험", amount: 88000 },
-      { name: "고용보험", amount: 22500 },
-      { name: "소득세", amount: 57000 },
-    ]
-  },
-  {
-    id: 5,
-    employeeName: "정해인",
-    position: "CS 매니저",
-    paymentDate: "2024-05-25",
-    baseSalary: 3000000,
-    allowance: 200000,
-    deduction: 340000,
-    netPay: 2860000,
-    status: "지급완료",
-    earnings: [
-      { name: "기본급", amount: 3000000 },
-      { name: "식대", amount: 100000 },
-      { name: "통신비", amount: 100000 },
-    ],
-    deductions: [
-      { name: "국민연금", amount: 135000 },
-      { name: "건강보험", amount: 106000 },
-      { name: "고용보험", amount: 27000 },
-      { name: "소득세", amount: 72000 },
-    ]
-  }
+/**
+ * SCR-063: 급여 명세서 (UI-127 ~ UI-129)
+ */
+
+const STAFF_LIST = [
+  { id: 1, name: "김철수",  position: "시니어 트레이너" },
+  { id: 2, name: "이영희",  position: "FC 매니저" },
+  { id: 3, name: "박지민",  position: "센터장" },
+  { id: 4, name: "최성호",  position: "GX 강사" },
+  { id: 5, name: "정수진",  position: "주니어 트레이너" },
+  { id: 6, name: "한미래",  position: "운영 매니저" },
 ];
 
+const MOCK_STATEMENTS: Record<string, Record<string, {
+  baseSalary: number;
+  earnings: { name: string; amount: number }[];
+  deductions: { name: string; amount: number }[];
+  status: "paid" | "pending";
+  paymentDate: string;
+}>> = {
+  "1": {
+    "2026-01": {
+      baseSalary: 3500000,
+      earnings: [
+        { name: "기본급",   amount: 3500000 },
+        { name: "식대",     amount: 150000 },
+        { name: "교통비",   amount: 100000 },
+        { name: "성과급",   amount: 200000 },
+      ],
+      deductions: [
+        { name: "소득세",   amount: 120000 },
+        { name: "국민연금", amount: 157500 },
+        { name: "건강보험", amount: 124000 },
+        { name: "고용보험", amount: 31500 },
+      ],
+      status: "paid",
+      paymentDate: "2026-01-25",
+    },
+    "2025-12": {
+      baseSalary: 3500000,
+      earnings: [
+        { name: "기본급",   amount: 3500000 },
+        { name: "식대",     amount: 150000 },
+        { name: "교통비",   amount: 100000 },
+      ],
+      deductions: [
+        { name: "소득세",   amount: 95000 },
+        { name: "국민연금", amount: 157500 },
+        { name: "건강보험", amount: 124000 },
+        { name: "고용보험", amount: 31500 },
+      ],
+      status: "paid",
+      paymentDate: "2025-12-25",
+    }
+  },
+  "2": {
+    "2026-01": {
+      baseSalary: 2800000,
+      earnings: [
+        { name: "기본급",   amount: 2800000 },
+        { name: "식대",     amount: 100000 },
+        { name: "수업수당", amount: 320000 },
+      ],
+      deductions: [
+        { name: "소득세",   amount: 83000 },
+        { name: "국민연금", amount: 126000 },
+        { name: "건강보험", amount: 99000 },
+        { name: "고용보험", amount: 25200 },
+        { name: "장기요양", amount: 12000 },
+      ],
+      status: "pending",
+      paymentDate: "2026-01-25",
+    }
+  },
+};
+
+// 최근 12개월
+function getRecentMonths() {
+  const months: { value: string; label: string }[] = [];
+  const now = new Date();
+  for (let i = 0; i < 12; i++) {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    const value = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+    months.push({ value, label: `${d.getFullYear()}년 ${d.getMonth() + 1}월` });
+  }
+  return months;
+}
+
 export default function PayrollStatement() {
-  const [activeTab, setActiveTab] = useState("all");
-  const [searchValue, setSearchValue] = useState("");
-  const [filterValues, setFilterValues] = useState({
-    year: "2024",
-    month: "05"
-  });
-  const [selectedStatement, setSelectedStatement] = useState<typeof MOCK_PAYROLL_DATA[0] | null>(null);
+  const MONTHS = useMemo(() => getRecentMonths(), []);
+  const [selectedStaffId, setSelectedStaffId] = useState("1");
+  const [selectedMonth, setSelectedMonth] = useState(MONTHS[0].value);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [modalStatement, setModalStatement] = useState<typeof MOCK_STATEMENTS["1"]["2026-01"] | null>(null);
+  const [modalStaffName, setModalStaffName] = useState("");
 
-  // 통계 데이터 계산
-  const stats = useMemo(() => {
-    const totalPay = MOCK_PAYROLL_DATA.reduce((acc, curr) => acc + curr.netPay, 0);
-    const completedCount = MOCK_PAYROLL_DATA.filter(d => d.status === "지급완료").length;
-    const pendingCount = MOCK_PAYROLL_DATA.filter(d => d.status === "대기").length;
-    
-    return [
-      { label: "총 지급액", value: `₩${totalPay.toLocaleString()}`, icon: <FileText />, variant: "default" as const },
-      { label: "지급 완료", value: `${completedCount}건`, icon: <CheckCircle2 />, variant: "mint" as const },
-      { label: "대기/미지급", value: `${pendingCount}건`, icon: <Clock />, variant: "peach" as const },
-    ];
-  }, []);
+  // UI-128 명세서 상세 (선택된 직원 + 월)
+  const statement = useMemo(() => {
+    const staffData = MOCK_STATEMENTS[selectedStaffId];
+    if (!staffData) return null;
+    return staffData[selectedMonth] ?? null;
+  }, [selectedStaffId, selectedMonth]);
 
-  // 필터링된 데이터
-  const filteredData = useMemo(() => {
-    return MOCK_PAYROLL_DATA.filter(item => {
-      const matchesSearch = item.employeeName.toLowerCase().includes(searchValue.toLowerCase());
-      const matchesTab = activeTab === "all" || (activeTab === "completed" ? item.status === "지급완료" : item.status === "대기");
-      return matchesSearch && matchesTab;
-    });
-  }, [searchValue, activeTab]);
+  const selectedStaff = STAFF_LIST.find(s => s.id === Number(selectedStaffId));
+
+  const totalEarnings  = statement ? statement.earnings.reduce((s, e) => s + e.amount, 0) : 0;
+  const totalDeductions = statement ? statement.deductions.reduce((s, e) => s + e.amount, 0) : 0;
+  const netPay = totalEarnings - totalDeductions;
+
+  // 테이블용 요약 데이터 (전체 직원 × 선택 월)
+  const tableData = useMemo(() =>
+    STAFF_LIST.map(staff => {
+      const d = MOCK_STATEMENTS[String(staff.id)]?.[selectedMonth];
+      if (!d) return {
+        id: staff.id, name: staff.name, position: staff.position,
+        baseSalary: 0, totalEarnings: 0, totalDeductions: 0, netPay: 0,
+        status: "pending" as const, paymentDate: "-",
+      };
+      const earn = d.earnings.reduce((s, e) => s + e.amount, 0);
+      const ded  = d.deductions.reduce((s, e) => s + e.amount, 0);
+      return {
+        id: staff.id,
+        name: staff.name,
+        position: staff.position,
+        baseSalary: d.baseSalary,
+        totalEarnings: earn,
+        totalDeductions: ded,
+        netPay: earn - ded,
+        status: d.status,
+        paymentDate: d.paymentDate,
+      };
+    }),
+    [selectedMonth]
+  );
+
+  const paidCount   = tableData.filter(r => r.status === "paid").length;
+  const pendingCount = tableData.filter(r => r.status === "pending").length;
+  const totalNet    = tableData.reduce((s, r) => s + r.netPay, 0);
 
   const columns = [
-    { key: "employeeName", header: "직원명", sortable: true, render: (val: string, row: any) => (
-      <div className="flex flex-col" >
-        <span className="font-bold text-text-dark-grey" >{val}</span>
-        <span className="text-[12px] text-text-grey-blue" >{row.position}</span>
-      </div>
-    )},
-    { key: "paymentDate", header: "지급일", align: "center" as const },
-    { key: "baseSalary", header: "기본급", align: "right" as const, render: (val: number) => `₩${val.toLocaleString()}` },
-    { key: "allowance", header: "수당", align: "right" as const, render: (val: number) => `+ ₩${val.toLocaleString()}` },
-    { key: "deduction", header: "공제", align: "right" as const, render: (val: number) => `- ₩${val.toLocaleString()}` },
-    { key: "netPay", header: "실수령액", align: "right" as const, render: (val: number) => (
-      <span className="font-bold text-primary-coral" >₩${val.toLocaleString()}</span>
-    )},
-    { key: "status", header: "상태", align: "center" as const, render: (val: string) => (
-      <StatusBadge variant={val === "지급완료" ? "success" : "warning"} dot={true} label={val}/>
-    )},
-    { key: "actions", header: "액션", align: "center" as const, render: (_: any, row: any) => (
-      <button 
-        className="text-primary-coral hover:underline font-semibold text-Label" onClick={(e) => {
-          e.stopPropagation();
-          setSelectedStatement(row);
-          setIsModalOpen(true);
-        }}>
-        상세보기
-      </button>
-    )}
+    {
+      key: "name",
+      header: "직원명",
+      render: (val: string, row: typeof tableData[0]) => (
+        <div className="flex flex-col">
+          <span className="font-bold text-content">{val}</span>
+          <span className="text-[12px] text-content-secondary">{row.position}</span>
+        </div>
+      )
+    },
+    { key: "paymentDate", header: "지급일", align: "center" as const, width: 120 },
+    {
+      key: "baseSalary",
+      header: "기본급",
+      align: "right" as const,
+      render: (val: number) => val ? `${val.toLocaleString()}원` : "-"
+    },
+    {
+      key: "totalEarnings",
+      header: "지급총액",
+      align: "right" as const,
+      render: (val: number) => val ? `${val.toLocaleString()}원` : "-"
+    },
+    {
+      key: "totalDeductions",
+      header: "공제총액",
+      align: "right" as const,
+      render: (val: number) => val ? <span className="text-error">-{val.toLocaleString()}원</span> : "-"
+    },
+    {
+      key: "netPay",
+      header: "실지급액",
+      align: "right" as const,
+      render: (val: number) => val ? <span className="font-bold text-primary">{val.toLocaleString()}원</span> : "-"
+    },
+    {
+      key: "status",
+      header: "상태",
+      align: "center" as const,
+      width: 110,
+      render: (val: string) => (
+        <StatusBadge variant={val === "paid" ? "success" : "warning"} dot={true}>
+          {val === "paid" ? "지급완료" : "미지급"}
+        </StatusBadge>
+      )
+    },
+    {
+      key: "id",
+      header: "명세서",
+      align: "center" as const,
+      width: 90,
+      render: (_: number, row: typeof tableData[0]) => (
+        <button
+          className="text-primary text-Label font-semibold hover:underline"
+          onClick={() => {
+            const d = MOCK_STATEMENTS[String(row.id)]?.[selectedMonth];
+            if (d) {
+              setModalStatement(d);
+              setModalStaffName(row.name);
+              setIsModalOpen(true);
+            } else {
+              alert("해당 월의 명세서가 없습니다.");
+            }
+          }}
+        >
+          상세보기
+        </button>
+      )
+    }
   ];
 
   return (
-    <AppLayout >
-      <PageHeader title="급여 명세서" description="직원별 월간 급여 내역을 조회하고 명세서를 발급합니다." actions={
-          <button className="flex items-center gap-xs px-md py-sm bg-primary-coral text-white rounded-button text-Label font-bold hover:scale-[1.02] transition-all">
-            <Printer size={16} />
-            일괄 인쇄
-          </button>
-        }/>
+    <AppLayout>
+      <div className="space-y-xl">
+        <PageHeader
+          title="급여 명세서"
+          description="직원별 월간 급여 명세서를 조회하고 발급합니다."
+          actions={
+            <button
+              className="flex items-center gap-xs px-md py-sm bg-primary text-white rounded-button text-Label font-bold hover:opacity-90 transition-all"
+              onClick={() => alert("일괄 인쇄 준비 중입니다.")}
+            >
+              <Printer size={16} />
+              일괄 인쇄
+            </button>
+          }
+        />
 
-      {/* 요약 카드 */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-md mb-xl" >
-        {stats.map((stat, i) => (
-          <StatCard key={i} {...stat}/>
-        ))}
-      </div>
-
-      {/* 필터 및 목록 영역 */}
-      <div className="space-y-md" >
-        <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-md" >
-          <TabNav tabs={[
-              { key: "all", label: "전체", count: MOCK_PAYROLL_DATA.length },
-              { key: "completed", label: "지급완료", count: MOCK_PAYROLL_DATA.filter(d => d.status === "지급완료").length },
-              { key: "pending", label: "대기", count: MOCK_PAYROLL_DATA.filter(d => d.status === "대기").length },
-            ]} activeTab={activeTab} onTabChange={setActiveTab}/>
-          
-          <SearchFilter searchPlaceholder="직원명 검색..." searchValue={searchValue} onSearchChange={setSearchValue} filters={[
-              {
-                key: "year",
-                label: "년도",
-                type: "select",
-                options: [
-                  { value: "2024", label: "2024년" },
-                  { value: "2023", label: "2023년" },
-                ]
-              },
-              {
-                key: "month",
-                label: "월",
-                type: "select",
-                options: Array.from({ length: 12 }, (_, i) => ({
-                  value: String(i + 1).padStart(2, "0"),
-                  label: `${i + 1}월`
-                }))
-              }
-            ]} filterValues={filterValues} onFilterChange={(key, val) => setFilterValues(prev => ({ ...prev, [key]: val }))}/>
+        {/* 요약 카드 */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-lg">
+          <StatCard label="총 실지급액"  value={`${totalNet.toLocaleString()}원`} icon={<FileText />}     variant="default" />
+          <StatCard label="지급완료"     value={`${paidCount}건`}                 icon={<CheckCircle2 />} variant="mint" />
+          <StatCard label="미지급"       value={`${pendingCount}건`}              icon={<Clock />}        variant="peach" />
         </div>
 
-        <DataTable columns={columns} data={filteredData} pagination={{
-            page: 1,
-            pageSize: 10,
-            total: filteredData.length
-          }} title={`${filterValues.year}년 ${filterValues.month}월 급여 지급 현황`} onDownloadExcel={() => alert("Excel 다운로드 준비 중")}/>
-      </div>
+        {/* UI-127 직원 / 월 선택 + 명세서 상세 */}
+        <div className="grid grid-cols-1 xl:grid-cols-2 gap-xl">
+          {/* 선택 패널 */}
+          <div className="bg-surface border border-line rounded-xl p-xl space-y-lg shadow-card">
+            <h3 className="text-Body-1 font-bold text-content">명세서 조회</h3>
 
-      {/* 명세서 상세 모달 */}
-      {isModalOpen && selectedStatement && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-md" >
-          <div className="w-full max-w-2xl bg-3 rounded-modal shadow-xl overflow-hidden animate-in zoom-in duration-200" >
-            {/* 모달 헤더 */}
-            <div className="p-xl border-b border-border-light flex justify-between items-center bg-bg-main-light-blue/20" >
-              <div className="flex items-center gap-md" >
-                <div className="w-xl h-xl bg-primary-coral rounded-full flex items-center justify-center text-white" >
-                  <FileText size={24}/>
+            <div className="grid grid-cols-2 gap-md">
+              {/* 직원 선택 */}
+              <div className="space-y-xs">
+                <label className="text-Label font-semibold text-content-secondary">직원 선택</label>
+                <select
+                  value={selectedStaffId}
+                  onChange={e => setSelectedStaffId(e.target.value)}
+                  className="w-full px-md py-sm bg-surface-secondary border border-line rounded-button text-Body-2 outline-none focus:border-primary cursor-pointer"
+                >
+                  {STAFF_LIST.map(s => (
+                    <option key={s.id} value={String(s.id)}>{s.name}</option>
+                  ))}
+                </select>
+              </div>
+              {/* 월 선택 */}
+              <div className="space-y-xs">
+                <label className="text-Label font-semibold text-content-secondary">지급 월</label>
+                <select
+                  value={selectedMonth}
+                  onChange={e => setSelectedMonth(e.target.value)}
+                  className="w-full px-md py-sm bg-surface-secondary border border-line rounded-button text-Body-2 outline-none focus:border-primary cursor-pointer"
+                >
+                  {MONTHS.map(m => (
+                    <option key={m.value} value={m.value}>{m.label}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            {/* UI-128 명세서 상세 */}
+            {statement && selectedStaff ? (
+              <div className="space-y-lg">
+                {/* 직원 정보 헤더 */}
+                <div className="flex items-center justify-between p-lg bg-primary-light rounded-xl border border-primary/10">
+                  <div>
+                    <p className="text-Heading-2 font-bold text-content">{selectedStaff.name}</p>
+                    <p className="text-Body-2 text-primary font-medium">{selectedStaff.position}</p>
+                  </div>
+                  <div className="text-right">
+                    <StatusBadge variant={statement.status === "paid" ? "success" : "warning"} dot={true}>
+                      {statement.status === "paid" ? "지급완료" : "미지급"}
+                    </StatusBadge>
+                    <p className="mt-xs text-Label text-content-secondary">지급일: {statement.paymentDate}</p>
+                  </div>
                 </div>
-                <div >
-                  <h2 className="text-Heading 2 text-text-dark-grey" >급여 명세서 상세</h2>
-                  <p className="text-Body 2 text-text-grey-blue" >{selectedStatement.paymentDate} 지급분</p>
+
+                {/* 지급 / 공제 내역 */}
+                <div className="grid grid-cols-2 gap-lg">
+                  {/* 지급 내역 */}
+                  <div className="space-y-sm">
+                    <div className="flex items-center gap-xs text-state-success mb-sm">
+                      <Plus size={16} />
+                      <h4 className="text-Body-2 font-bold">지급 항목</h4>
+                    </div>
+                    {statement.earnings.map((item, i) => (
+                      <div key={i} className="flex justify-between items-center py-xs border-b border-dashed border-line">
+                        <span className="text-Body-2 text-content">{item.name}</span>
+                        <span className="text-Body-2 font-medium">{item.amount.toLocaleString()}원</span>
+                      </div>
+                    ))}
+                    <div className="flex justify-between items-center pt-sm">
+                      <span className="text-Body-2 font-bold text-content">지급 총액</span>
+                      <span className="text-Body-2 font-bold text-state-success">{totalEarnings.toLocaleString()}원</span>
+                    </div>
+                  </div>
+
+                  {/* 공제 내역 */}
+                  <div className="space-y-sm">
+                    <div className="flex items-center gap-xs text-error mb-sm">
+                      <Minus size={16} />
+                      <h4 className="text-Body-2 font-bold">공제 항목</h4>
+                    </div>
+                    {statement.deductions.map((item, i) => (
+                      <div key={i} className="flex justify-between items-center py-xs border-b border-dashed border-line">
+                        <span className="text-Body-2 text-content">{item.name}</span>
+                        <span className="text-Body-2 font-medium text-error">-{item.amount.toLocaleString()}원</span>
+                      </div>
+                    ))}
+                    <div className="flex justify-between items-center pt-sm">
+                      <span className="text-Body-2 font-bold text-content">공제 총액</span>
+                      <span className="text-Body-2 font-bold text-error">{totalDeductions.toLocaleString()}원</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* 실지급액 강조 */}
+                <div className="flex items-center justify-between p-lg bg-accent-light border border-accent/20 rounded-xl">
+                  <div className="flex items-center gap-sm">
+                    <div className="w-9 h-9 bg-accent rounded-full flex items-center justify-center text-white">
+                      <ArrowRight size={18} />
+                    </div>
+                    <span className="text-Body-1 font-bold text-content">실지급액</span>
+                  </div>
+                  <p className="text-[28px] font-bold text-accent">{netPay.toLocaleString()}원</p>
+                </div>
+
+                {/* UI-129 PDF 다운로드 버튼 */}
+                <div className="flex gap-sm pt-sm">
+                  <button
+                    className="flex-1 flex items-center justify-center gap-xs px-md py-sm border border-line rounded-button text-Label text-content-secondary hover:bg-primary-light hover:text-primary hover:border-primary transition-all"
+                    onClick={() => alert("이메일 발송 준비 중입니다.")}
+                  >
+                    <Mail size={16} />이메일 발송
+                  </button>
+                  <button
+                    className="flex-1 flex items-center justify-center gap-xs px-md py-sm border border-line rounded-button text-Label text-content-secondary hover:bg-accent-light hover:text-accent hover:border-accent transition-all"
+                    onClick={() => alert("PDF 다운로드")}
+                  >
+                    <Download size={16} />PDF 다운로드
+                  </button>
                 </div>
               </div>
-              <button
-                className="p-sm text-text-grey-blue hover:text-text-dark-grey transition-colors" onClick={() => setIsModalOpen(false)}>
-                <X size={24}/>
+            ) : (
+              <div className="flex flex-col items-center justify-center py-xl text-center">
+                <div className="w-14 h-14 bg-surface-secondary rounded-full flex items-center justify-center mb-md">
+                  <FileText size={28} className="text-content-secondary" />
+                </div>
+                <p className="text-Body-1 font-semibold text-content mb-xs">명세서 없음</p>
+                <p className="text-Body-2 text-content-secondary">선택한 직원 및 월의 급여 데이터가 없습니다.</p>
+              </div>
+            )}
+          </div>
+
+          {/* 전체 직원 목록 요약 (선택 월 기준) */}
+          <div className="space-y-md">
+            <h3 className="text-Body-1 font-bold text-content">
+              {MONTHS.find(m => m.value === selectedMonth)?.label ?? selectedMonth} 전체 지급 현황
+            </h3>
+            <DataTable
+              columns={columns}
+              data={tableData}
+              pagination={{ page: 1, pageSize: 10, total: tableData.length }}
+              onDownloadExcel={() => alert("엑셀 다운로드")}
+              emptyMessage="급여 데이터가 없습니다."
+            />
+          </div>
+        </div>
+      </div>
+
+      {/* 명세서 모달 */}
+      {isModalOpen && modalStatement && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-md">
+          <div className="w-full max-w-xl bg-surface rounded-modal shadow-xl overflow-hidden animate-in zoom-in duration-200">
+            {/* 모달 헤더 */}
+            <div className="p-xl border-b border-line flex justify-between items-center bg-surface-secondary/20">
+              <div className="flex items-center gap-md">
+                <div className="w-10 h-10 bg-primary rounded-full flex items-center justify-center text-white">
+                  <FileText size={20} />
+                </div>
+                <div>
+                  <h2 className="text-Heading-2 text-content font-bold">급여 명세서</h2>
+                  <p className="text-Body-2 text-content-secondary">{modalStaffName} · {modalStatement.paymentDate} 지급분</p>
+                </div>
+              </div>
+              <button className="p-sm text-content-secondary hover:text-content transition-colors" onClick={() => setIsModalOpen(false)}>
+                <X size={22} />
               </button>
             </div>
 
             {/* 모달 본문 */}
-            <div className="p-xl space-y-lg max-h-[70vh] overflow-y-auto" >
-              {/* 기본 정보 */}
-              <div className="grid grid-cols-2 gap-lg p-lg bg-bg-soft-peach rounded-card-normal border border-primary-coral/10" >
-                <div >
-                  <label className="text-Label text-text-grey-blue" >직원명</label>
-                  <p className="text-Heading 2 text-text-dark-grey font-bold" >{selectedStatement.employeeName}</p>
-                  <p className="text-Body 2 text-primary-coral font-medium" >{selectedStatement.position}</p>
-                </div>
-                <div className="text-right" >
-                  <label className="text-Label text-text-grey-blue" >지급상태</label>
-                  <div className="mt-xs" >
-                    <StatusBadge variant={selectedStatement.status === "지급완료" ? "success" : "warning"} label={selectedStatement.status}/>
+            <div className="p-xl space-y-lg max-h-[65vh] overflow-y-auto">
+              <div className="grid grid-cols-2 gap-lg">
+                <div className="space-y-sm">
+                  <div className="flex items-center gap-xs text-state-success">
+                    <Plus size={16} /><h4 className="text-Body-2 font-bold">지급 항목</h4>
                   </div>
-                  <p className="mt-sm text-Body 2 text-text-grey-blue" >지급일: {selectedStatement.paymentDate}</p>
-                </div>
-              </div>
-
-              {/* 지급/공제 상세 내역 */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-xl" >
-                {/* 지급 내역 */}
-                <div className="space-y-md" >
-                  <div className="flex items-center gap-xs text-secondary-mint" >
-                    <Plus size={18}/>
-                    <h4 className="text-Body 1 font-bold" >지급 내역</h4>
-                  </div>
-                  <div className="space-y-sm" >
-                    {selectedStatement.earnings.map((item, idx) => (
-                      <div className="flex justify-between items-center py-xs border-b border-border-light border-dashed" key={idx}>
-                        <span className="text-Body 2 text-text-dark-grey" >{item.name}</span>
-                        <span className="text-Body 2 font-medium" >₩{item.amount.toLocaleString()}</span>
-                      </div>
-                    ))}
-                    <div className="flex justify-between items-center pt-md" >
-                      <span className="text-Body 1 font-bold text-text-dark-grey" >지급 총액</span>
-                      <span className="text-Body 1 font-bold text-secondary-mint" >₩{(selectedStatement.baseSalary + selectedStatement.allowance).toLocaleString()}</span>
+                  {modalStatement.earnings.map((item, i) => (
+                    <div key={i} className="flex justify-between py-xs border-b border-dashed border-line">
+                      <span className="text-Body-2 text-content">{item.name}</span>
+                      <span className="text-Body-2 font-medium">{item.amount.toLocaleString()}원</span>
                     </div>
+                  ))}
+                  <div className="flex justify-between pt-sm">
+                    <span className="text-Body-2 font-bold">지급 총액</span>
+                    <span className="text-Body-2 font-bold text-state-success">
+                      {modalStatement.earnings.reduce((s, e) => s + e.amount, 0).toLocaleString()}원
+                    </span>
                   </div>
                 </div>
-
-                {/* 공제 내역 */}
-                <div className="space-y-md" >
-                  <div className="flex items-center gap-xs text-error" >
-                    <Minus size={18}/>
-                    <h4 className="text-Body 1 font-bold" >공제 내역</h4>
+                <div className="space-y-sm">
+                  <div className="flex items-center gap-xs text-error">
+                    <Minus size={16} /><h4 className="text-Body-2 font-bold">공제 항목</h4>
                   </div>
-                  <div className="space-y-sm" >
-                    {selectedStatement.deductions.map((item, idx) => (
-                      <div className="flex justify-between items-center py-xs border-b border-border-light border-dashed" key={idx}>
-                        <span className="text-Body 2 text-text-dark-grey" >{item.name}</span>
-                        <span className="text-Body 2 font-medium text-error" >- ₩{item.amount.toLocaleString()}</span>
-                      </div>
-                    ))}
-                    <div className="flex justify-between items-center pt-md" >
-                      <span className="text-Body 1 font-bold text-text-dark-grey" >공제 총액</span>
-                      <span className="text-Body 1 font-bold text-error" >₩{selectedStatement.deduction.toLocaleString()}</span>
+                  {modalStatement.deductions.map((item, i) => (
+                    <div key={i} className="flex justify-between py-xs border-b border-dashed border-line">
+                      <span className="text-Body-2 text-content">{item.name}</span>
+                      <span className="text-Body-2 font-medium text-error">-{item.amount.toLocaleString()}원</span>
                     </div>
+                  ))}
+                  <div className="flex justify-between pt-sm">
+                    <span className="text-Body-2 font-bold">공제 총액</span>
+                    <span className="text-Body-2 font-bold text-error">
+                      {modalStatement.deductions.reduce((s, e) => s + e.amount, 0).toLocaleString()}원
+                    </span>
                   </div>
                 </div>
               </div>
 
-              {/* 최종 실지급액 */}
-              <div className="p-lg bg-bg-soft-mint rounded-card-normal border border-secondary-mint/10 flex justify-between items-center" >
-                <div className="flex items-center gap-md" >
-                  <div className="w-lg h-lg bg-secondary-mint rounded-full flex items-center justify-center text-white" >
-                    <ArrowRight size={20}/>
-                  </div>
-                  <span className="text-Heading 2 text-text-dark-grey font-bold" >실지급액</span>
-                </div>
-                <div className="text-right" >
-                  <p className="text-[28px] font-bold text-secondary-mint" >₩{selectedStatement.netPay.toLocaleString()}</p>
-                </div>
+              <div className="flex justify-between items-center p-lg bg-accent-light border border-accent/20 rounded-xl">
+                <span className="text-Body-1 font-bold text-content">실지급액</span>
+                <p className="text-[26px] font-bold text-accent">
+                  {(modalStatement.earnings.reduce((s, e) => s + e.amount, 0) - modalStatement.deductions.reduce((s, e) => s + e.amount, 0)).toLocaleString()}원
+                </p>
               </div>
             </div>
 
             {/* 모달 푸터 */}
-            <div className="p-xl bg-bg-main-light-blue/10 border-t border-border-light flex justify-between items-center" >
-              <div className="flex items-center gap-md" >
-                <button className="flex items-center gap-xs px-md py-sm border border-border-light bg-3 rounded-button text-Label text-text-grey-blue hover:bg-bg-soft-peach hover:text-primary-coral transition-all" >
-                  <Mail size={16}/>
-                  이메일 발송
+            <div className="p-xl border-t border-line bg-surface-secondary/10 flex justify-between items-center">
+              <div className="flex gap-sm">
+                <button
+                  className="flex items-center gap-xs px-md py-sm border border-line rounded-button text-Label text-content-secondary hover:bg-primary-light hover:text-primary transition-all"
+                  onClick={() => alert("이메일 발송")}
+                >
+                  <Mail size={14} />이메일
                 </button>
-                <button className="flex items-center gap-xs px-md py-sm border border-border-light bg-3 rounded-button text-Label text-text-grey-blue hover:bg-bg-soft-mint hover:text-secondary-mint transition-all" >
-                  <Printer size={16}/>
-                  명세서 출력
+                <button
+                  className="flex items-center gap-xs px-md py-sm border border-line rounded-button text-Label text-content-secondary hover:bg-accent-light hover:text-accent transition-all"
+                  onClick={() => alert("PDF 다운로드")}
+                >
+                  <Download size={14} />PDF 다운로드
                 </button>
               </div>
               <button
-                className="px-xl py-sm bg-4 text-white rounded-button text-Label font-bold hover:bg-black transition-all" onClick={() => setIsModalOpen(false)}>
+                className="px-xl py-sm bg-content text-white rounded-button text-Label font-bold hover:bg-black transition-all"
+                onClick={() => setIsModalOpen(false)}
+              >
                 닫기
               </button>
             </div>

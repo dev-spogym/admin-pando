@@ -1,6 +1,5 @@
 import React from "react";
 import { cn } from "@/lib/utils";
-
 import { TrendingUp, TrendingDown } from "lucide-react";
 
 interface StatCardProps {
@@ -14,10 +13,6 @@ interface StatCardProps {
   variant?: "default" | "peach" | "mint";
 }
 
-/**
- * StatCard - 통계 요약 카드 컴포넌트
- * 2026 Light Admin Dashboard 스타일 적용
- */
 export default function StatCard({
   label,
   value,
@@ -30,47 +25,37 @@ export default function StatCard({
 }: StatCardProps) {
   const isPositive = change && change.value >= 0;
 
-  const variantStyles = {
-    default: "bg-3 border-7 shadow-1",
-    peach: "bg-6 border-0/10",
-    mint: "bg-bg-soft-mint border-secondary-mint/10",
-  };
-
   return (
     <div
       className={cn(
-        "rounded-3 border-[1px] p-lg transition-all duration-220 ease-spring",
-        variantStyles[variant],
-        onClick ? "cursor-pointer hover:shadow-2 hover:translate-y-[-2px] active:scale-[0.98]" : "",
+        "rounded-xl border border-line bg-surface p-lg transition-all",
+        onClick && "cursor-pointer hover:shadow-md hover:-translate-y-px",
         className
-      )} onClick={onClick}>
-      <div className="flex items-start justify-between" >
-        <div className="flex-1" >
-          <p className="text-[12px] font-medium text-5 mb-1 uppercase tracking-wider" >{label}</p>
-          <div className="flex items-baseline gap-xs" >
-            <h3 className="text-KPI-Large text-4 font-bold tabular-nums" >{value}</h3>
-          </div>
+      )}
+      onClick={onClick}
+    >
+      <div className="flex items-start justify-between">
+        <div className="flex-1">
+          <p className="text-[12px] font-medium text-content-secondary mb-[6px]">{label}</p>
+          <h3 className="text-KPI-Large text-content tabular-nums">{value}</h3>
 
           {(description || change) && (
-            <div className="mt-2 flex flex-col gap-[2px]" >
+            <div className="mt-[6px]">
               {change && (
                 <div
                   className={cn(
-                    "text-[11px] font-bold flex items-center gap-[2px] uppercase tracking-wide",
-                    isPositive ? "text-success" : "text-error"
-                  )} >
-                  {isPositive ? <TrendingUp size={12}/> : <TrendingDown size={12}/>}
-                  <span >{Math.abs(change.value)}%</span>
+                    "text-[11px] font-semibold flex items-center gap-[3px]",
+                    isPositive ? "text-state-success" : "text-state-error"
+                  )}
+                >
+                  {isPositive ? <TrendingUp size={12} /> : <TrendingDown size={12} />}
+                  <span>{Math.abs(change.value)}%</span>
                   {change.label && (
-                    <span className="text-5 ml-xs font-normal normal-case tracking-normal" >
-                      {change.label}
-                    </span>
+                    <span className="text-content-tertiary ml-xs font-normal">{change.label}</span>
                   )}
                 </div>
               )}
-              {description && (
-                <p className="text-[13px] text-5" >{description}</p>
-              )}
+              {description && <p className="text-[12px] text-content-secondary mt-1">{description}</p>}
             </div>
           )}
         </div>
@@ -78,15 +63,16 @@ export default function StatCard({
         {icon && (
           <div
             className={cn(
-              "w-10 h-10 rounded-2 flex items-center justify-center transition-colors",
+              "w-9 h-9 rounded-lg flex items-center justify-center shrink-0",
               variant === "peach"
-                ? "bg-0 text-white"
+                ? "bg-primary-light text-primary"
                 : variant === "mint"
-                ? "bg-secondary-mint text-white"
-                : "bg-2 text-5"
-            )} >
+                ? "bg-accent-light text-accent"
+                : "bg-surface-tertiary text-content-secondary"
+            )}
+          >
             {React.isValidElement(icon)
-              ? React.cloneElement(icon as React.ReactElement, { size: 20, strokeWidth: 2 })
+              ? React.cloneElement(icon as React.ReactElement, { size: 18, strokeWidth: 1.5 })
               : icon}
           </div>
         )}

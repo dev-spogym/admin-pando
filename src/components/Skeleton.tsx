@@ -16,7 +16,7 @@ const roundedMap: Record<NonNullable<SkeletonProps['rounded']>, string> = {
   none: 'rounded-none',
   sm: 'rounded-0',
   md: 'rounded-1',
-  lg: 'rounded-2',
+  lg: 'rounded-lg',
   full: 'rounded-full',
 };
 
@@ -24,7 +24,7 @@ export function Skeleton({ width, height, rounded = 'md', className }: SkeletonP
   return (
     <div
       className={cn(
-        'animate-pulse bg-8',
+        'animate-pulse bg-surface-tertiary',
         roundedMap[rounded],
         className,
       )}
@@ -44,7 +44,7 @@ interface SkeletonCardProps {
 
 export function SkeletonCard({ className }: SkeletonCardProps) {
   return (
-    <div className={cn('bg-3 rounded-card-normal shadow-0 p-lg space-y-sm', className)}>
+    <div className={cn('bg-surface rounded-xl shadow-0 p-lg space-y-sm', className)}>
       {/* 상단 헤더 영역 */}
       <div className="flex items-center gap-sm">
         <Skeleton width="40px" height="40px" rounded="full" />
@@ -76,9 +76,9 @@ interface SkeletonTableProps {
 
 export function SkeletonTable({ rows = 5, className }: SkeletonTableProps) {
   return (
-    <div className={cn('bg-3 rounded-card-normal shadow-0 overflow-hidden', className)}>
+    <div className={cn('bg-surface rounded-xl shadow-0 overflow-hidden', className)}>
       {/* 테이블 헤더 */}
-      <div className="bg-2 px-lg py-sm flex gap-md border-b border-7">
+      <div className="bg-surface-secondary px-lg py-sm flex gap-md border-b border-line">
         {[30, 20, 20, 15, 15].map((w, i) => (
           <Skeleton key={i} width={`${w}%`} height="12px" />
         ))}
@@ -87,7 +87,7 @@ export function SkeletonTable({ rows = 5, className }: SkeletonTableProps) {
       {Array.from({ length: rows }).map((_, rowIdx) => (
         <div
           key={rowIdx}
-          className="px-lg py-md flex gap-md border-b border-7 last:border-0"
+          className="px-lg py-md flex gap-md border-b border-line last:border-0"
         >
           {[30, 20, 20, 15, 15].map((w, colIdx) => (
             <Skeleton key={colIdx} width={`${w}%`} height="14px" />

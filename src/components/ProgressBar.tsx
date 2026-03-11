@@ -21,7 +21,7 @@ export interface ProgressBarProps {
 
 // 색상별 바 클래스
 const COLOR_STYLES: Record<ProgressColor, string> = {
-  primary: "bg-0",
+  primary: "bg-primary",
   success: "bg-success",
   warning: "bg-warning",
   error: "bg-error",
@@ -53,20 +53,20 @@ export default function ProgressBar({
       {/* 레이블 + 퍼센트 */}
       {(label !== undefined) && (
         <div className="mb-xs flex items-center justify-between">
-          <span className="text-Label text-5">{label}</span>
-          <span className="text-Label font-semibold text-4">{clamped}%</span>
+          <span className="text-Label text-content-secondary">{label}</span>
+          <span className="text-Label font-semibold text-content">{clamped}%</span>
         </div>
       )}
 
       {/* 레이블 없이 퍼센트만 표시하는 경우 */}
       {label === undefined && (
         <div className="mb-xs flex justify-end">
-          <span className="text-Label font-semibold text-4">{clamped}%</span>
+          <span className="text-Label font-semibold text-content">{clamped}%</span>
         </div>
       )}
 
       {/* 트랙 */}
-      <div className={cn("w-full overflow-hidden rounded-full bg-2", SIZE_STYLES[size])}>
+      <div className={cn("w-full overflow-hidden rounded-full bg-surface-secondary", SIZE_STYLES[size])}>
         {/* 채워진 바 */}
         <div
           className={cn(

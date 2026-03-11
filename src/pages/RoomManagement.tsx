@@ -1,11 +1,11 @@
 import React, { useState } from 'react';
-import { 
-  Plus, 
-  Settings, 
-  Trash2, 
-  Layout, 
-  Grid, 
-  CheckCircle2, 
+import {
+  Plus,
+  Settings,
+  Trash2,
+  Layout,
+  Grid,
+  CheckCircle2,
   XCircle,
   Edit2
 } from 'lucide-react';
@@ -60,7 +60,7 @@ export default function RoomManagement() {
 
   // --- Handlers ---
   const handleToggleRoomStatus = (id: number) => {
-    setRooms(rooms.map(room => 
+    setRooms(rooms.map(room =>
       room.id === id ? { ...room, isActive: !room.isActive } : room
     ));
   };
@@ -80,20 +80,20 @@ export default function RoomManagement() {
 
   // --- Table Columns ---
   const roomColumns = [
-    { 
-      key: 'name', 
+    {
+      key: 'name',
       header: '운동룸명',
-      render: (val: string) => <span className="font-semibold text-text-dark-grey" >{val}</span>
+      render: (val: string) => <span className="font-semibold text-content" >{val}</span>
     },
-    { 
-      key: 'isActive', 
+    {
+      key: 'isActive',
       header: '사용 여부',
       render: (val: boolean, row: Room) => (
         <div className="flex items-center gap-2" >
           <StatusBadge variant={val ? 'mint' : 'default'} dot={true} label={val ? '사용 중' : '미사용'}/>
           <button
-            className="p-1 hover:bg-bg-soft-peach rounded-full transition-colors" onClick={() => handleToggleRoomStatus(row.id)}>
-            <Settings className="text-text-grey-blue" size={16}/>
+            className="p-1 hover:bg-primary-light rounded-full transition-colors" onClick={() => handleToggleRoomStatus(row.id)}>
+            <Settings className="text-content-secondary" size={16}/>
           </button>
         </div>
       )
@@ -101,17 +101,17 @@ export default function RoomManagement() {
     { key: 'gate', header: '연동 게이트' },
     { key: 'createdAt', header: '등록일' },
     { key: 'processedBy', header: '처리자' },
-    { 
-      key: 'actions', 
+    {
+      key: 'actions',
       header: '메뉴',
       render: (_: any, row: Room) => (
         <div className="flex items-center gap-2" >
-          <button 
-            className="p-2 hover:bg-bg-soft-mint rounded-lg text-secondary-mint transition-colors" title="수정">
+          <button
+            className="p-2 hover:bg-accent-light rounded-lg text-accent transition-colors" title="수정">
             <Edit2 size={16}/>
           </button>
           <button
-            className="p-2 hover:bg-bg-soft-peach rounded-lg text-error transition-colors" onClick={() => openDeleteConfirm(row.id)} title="삭제">
+            className="p-2 hover:bg-primary-light rounded-lg text-error transition-colors" onClick={() => openDeleteConfirm(row.id)} title="삭제">
             <Trash2 size={16}/>
           </button>
         </div>
@@ -120,37 +120,37 @@ export default function RoomManagement() {
   ];
 
   const layoutColumns = [
-    { 
-      key: 'name', 
+    {
+      key: 'name',
       header: '배치 이름',
-      render: (val: string) => <span className="font-semibold text-text-dark-grey" >{val}</span>
+      render: (val: string) => <span className="font-semibold text-content" >{val}</span>
     },
-    { 
-      key: 'capacity', 
+    {
+      key: 'capacity',
       header: '정원수',
       render: (val: number) => <span >{val}명</span>
     },
-    { 
-      key: 'preview', 
+    {
+      key: 'preview',
       header: '미리보기',
       render: () => (
-        <div className="w-[80px] h-[40px] bg-bg-main-light-blue rounded border border-border-light flex items-center justify-center" >
-          <Grid className="text-text-grey-blue opacity-50" size={16}/>
+        <div className="w-[80px] h-[40px] bg-surface-secondary rounded border border-line flex items-center justify-center" >
+          <Grid className="text-content-secondary opacity-50" size={16}/>
         </div>
       )
     },
     { key: 'createdAt', header: '등록일' },
-    { 
-      key: 'actions', 
+    {
+      key: 'actions',
       header: '메뉴',
       render: (_: any, row: LayoutInfo) => (
         <div className="flex items-center gap-2" >
-          <button 
-            className="p-2 hover:bg-bg-soft-mint rounded-lg text-secondary-mint transition-colors" title="배치도 수정">
+          <button
+            className="p-2 hover:bg-accent-light rounded-lg text-accent transition-colors" title="배치도 수정">
             <Layout size={16}/>
           </button>
-          <button 
-            className="p-2 hover:bg-bg-soft-peach rounded-lg text-error transition-colors" title="삭제">
+          <button
+            className="p-2 hover:bg-primary-light rounded-lg text-error transition-colors" title="삭제">
             <Trash2 size={16}/>
           </button>
         </div>
@@ -168,9 +168,9 @@ export default function RoomManagement() {
       <div className="flex flex-col gap-lg p-lg" >
         {/* 헤더 섹션 */}
         <PageHeader title="운동룸 관리" description="센터 내 운동룸 및 좌석 배치도를 관리합니다." actions={
-            <button 
+            <button
               onClick={() => activeTab === 'rooms' ? setIsRoomModalOpen(true) : setIsLayoutModalOpen(true)}
-              className="flex items-center gap-2 bg-primary-coral text-white px-md py-sm rounded-button font-semibold hover:opacity-90 transition-opacity shadow-card-soft"
+              className="flex items-center gap-2 bg-primary text-white px-md py-sm rounded-button font-semibold hover:opacity-90 transition-opacity shadow-card"
             >
               <Plus size={18} />
               {activeTab === 'rooms' ? '새 운동룸 추가' : '새 배치도 등록'}
@@ -179,17 +179,17 @@ export default function RoomManagement() {
 
         {/* 요약 통계 */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-md" >
-          <StatCard label="전체 운동룸" value={rooms.length} icon={<Grid className="text-primary-coral" />}/>
-          <StatCard label="운영 중" value={rooms.filter(r => r.isActive).length} icon={<CheckCircle2 className="text-success" />} variant="mint"/>
+          <StatCard label="전체 운동룸" value={rooms.length} icon={<Grid className="text-primary" />}/>
+          <StatCard label="운영 중" value={rooms.filter(r => r.isActive).length} icon={<CheckCircle2 className="text-state-success" />} variant="mint"/>
           <StatCard label="점검/미사용" value={rooms.filter(r => !r.isActive).length} icon={<XCircle className="text-error" />} variant="peach"/>
-          <StatCard label="등록된 배치도" value={layouts.length} icon={<Layout className="text-secondary-mint" />}/>
+          <StatCard label="등록된 배치도" value={layouts.length} icon={<Layout className="text-accent" />}/>
         </div>
 
         {/* 메인 콘텐츠 카드 */}
-        <div className="bg-3 rounded-card-strong shadow-card-soft border border-border-light overflow-hidden" >
-          <TabNav 
-            className="px-md pt-sm border-b border-border-light" tabs={tabs} activeTab={activeTab} onTabChange={setActiveTab}/>
-          
+        <div className="bg-surface rounded-xl shadow-card border border-line overflow-hidden" >
+          <TabNav
+            className="px-md pt-sm border-b border-line" tabs={tabs} activeTab={activeTab} onTabChange={setActiveTab}/>
+
           <div className="p-md" >
             {activeTab === 'rooms' ? (
               <DataTable columns={roomColumns} data={rooms} title="운동룸 목록" onDownloadExcel={() => alert('Excel 다운로드')}/>
@@ -201,43 +201,43 @@ export default function RoomManagement() {
       </div>
 
       {/* --- Modals --- */}
-      
+
       {/* 운동룸 등록 모달 (Simple Mock) */}
       {isRoomModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm" >
-          <div className="bg-3 rounded-modal w-full max-w-[500px] overflow-hidden shadow-card-soft animate-in fade-in zoom-in duration-200" >
-            <div className="p-lg border-b border-border-light flex justify-between items-center" >
-              <h3 className="text-Heading 2 text-text-dark-grey" >새 운동룸 등록</h3>
-              <button className="text-text-grey-blue hover:text-text-dark-grey" onClick={() => setIsRoomModalOpen(false)}>
+          <div className="bg-surface rounded-modal w-full max-w-[500px] overflow-hidden shadow-card animate-in fade-in zoom-in duration-200" >
+            <div className="p-lg border-b border-line flex justify-between items-center" >
+              <h3 className="text-Heading 2 text-content" >새 운동룸 등록</h3>
+              <button className="text-content-secondary hover:text-content" onClick={() => setIsRoomModalOpen(false)}>
                 <XCircle size={24}/>
               </button>
             </div>
             <div className="p-lg space-y-md" >
               <div className="space-y-sm" >
-                <label className="text-Body 2 font-semibold text-text-grey-blue" >운동룸명 <span className="text-error" >*</span></label>
-                <input 
-                  className="w-full h-[48px] px-md rounded-input bg-input-bg-light border-none focus:ring-2 focus:ring-secondary-mint outline-none" type="text" placeholder="예: GX룸, 스피닝룸"/>
+                <label className="text-Body 2 font-semibold text-content-secondary" >운동룸명 <span className="text-error" >*</span></label>
+                <input
+                  className="w-full h-[48px] px-md rounded-input bg-surface-secondary border-none focus:ring-2 focus:ring-accent outline-none" type="text" placeholder="예: GX룸, 스피닝룸"/>
               </div>
               <div className="space-y-sm" >
-                <label className="text-Body 2 font-semibold text-text-grey-blue" >연동 게이트</label>
-                <select className="w-full h-[48px] px-md rounded-input bg-input-bg-light border-none focus:ring-2 focus:ring-secondary-mint outline-none appearance-none" >
+                <label className="text-Body 2 font-semibold text-content-secondary" >연동 게이트</label>
+                <select className="w-full h-[48px] px-md rounded-input bg-surface-secondary border-none focus:ring-2 focus:ring-accent outline-none appearance-none" >
                   <option value="">연동 없음</option>
                   <option value="A-1">A-1 게이트</option>
                   <option value="B-1">B-1 게이트</option>
                 </select>
               </div>
-              <div className="flex items-center justify-between p-md bg-bg-soft-mint rounded-card-normal" >
-                <span className="text-Body 1 font-medium text-text-dark-grey" >운동룸 즉시 사용</span>
-                <input className="w-5 h-5 accent-secondary-mint cursor-pointer" type="checkbox" defaultChecked={true}/>
+              <div className="flex items-center justify-between p-md bg-accent-light rounded-xl" >
+                <span className="text-Body 1 font-medium text-content" >운동룸 즉시 사용</span>
+                <input className="w-5 h-5 accent-accent cursor-pointer" type="checkbox" defaultChecked={true}/>
               </div>
             </div>
-            <div className="p-lg bg-bg-main-light-blue flex gap-md" >
+            <div className="p-lg bg-surface-secondary flex gap-md" >
               <button
-                className="flex-1 h-[48px] rounded-button bg-3 border border-border-light text-text-grey-blue font-semibold" onClick={() => setIsRoomModalOpen(false)}>
+                className="flex-1 h-[48px] rounded-button bg-surface border border-line text-content-secondary font-semibold" onClick={() => setIsRoomModalOpen(false)}>
                 취소
               </button>
               <button
-                className="flex-1 h-[48px] rounded-button bg-primary-coral text-white font-semibold shadow-card-soft" onClick={() => {
+                className="flex-1 h-[48px] rounded-button bg-primary text-white font-semibold shadow-card" onClick={() => {
                   alert('운동룸이 등록되었습니다.');
                   setIsRoomModalOpen(false);
                 }}>

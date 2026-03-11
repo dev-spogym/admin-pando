@@ -1,14 +1,14 @@
 import React, { useState } from "react";
-import { 
-  DoorOpen, 
-  Cpu, 
-  ClipboardList, 
-  Settings2, 
-  Plus, 
-  RotateCw, 
-  RefreshCw, 
-  Trash2, 
-  Edit2, 
+import {
+  DoorOpen,
+  Cpu,
+  ClipboardList,
+  Settings2,
+  Plus,
+  RotateCw,
+  RefreshCw,
+  Trash2,
+  Edit2,
   Play,
   Search,
   CheckCircle2,
@@ -31,7 +31,7 @@ import { cn } from "@/lib/utils";
  */
 export default function IotSettings() {
   const [activeTab, setActiveTab] = useState("gate");
-  
+
   // 상태 관리: 확인 다이얼로그
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [confirmConfig, setConfirmConfig] = useState<{
@@ -75,38 +75,38 @@ export default function IotSettings() {
     const columns = [
       { key: "id", header: "No", width: 60, align: "center" as const },
       { key: "name", header: "게이트명", sortable: true },
-      { 
-        key: "type", 
-        header: "게이트 유형", 
+      {
+        key: "type",
+        header: "게이트 유형",
         render: (val: string) => (
           <StatusBadge variant="default" label={val}/>
-        ) 
+        )
       },
       { key: "device", header: "연동 기기" },
       { key: "room", header: "연동 운동룸" },
-      { 
-        key: "status", 
-        header: "상태", 
+      {
+        key: "status",
+        header: "상태",
         render: (val: string) => {
           const variant = val === "정상" ? "success" : val === "오류" ? "error" : "default";
           return <StatusBadge variant={variant} label={val} dot={true}/>;
         }
       },
       { key: "lastComm", header: "마지막 통신" },
-      { 
-        key: "menu", 
-        header: "메뉴", 
+      {
+        key: "menu",
+        header: "메뉴",
         align: "right" as const,
         render: (_: any, row: any) => (
           <div className="flex items-center justify-end gap-sm" >
-            <button className="p-xs text-text-grey-blue hover:text-primary-coral transition-colors" title="수정">
+            <button className="p-xs text-content-secondary hover:text-primary transition-colors" title="수정">
               <Edit2 size={16}/>
             </button>
-            <button 
-              className="p-xs text-text-grey-blue hover:text-secondary-mint transition-colors" title="원격 개방" onClick={() => handleRemoteOpen(row.name)}>
+            <button
+              className="p-xs text-content-secondary hover:text-accent transition-colors" title="원격 개방" onClick={() => handleRemoteOpen(row.name)}>
               <DoorOpen size={16}/>
             </button>
-            <button className="p-xs text-text-grey-blue hover:text-error transition-colors" title="삭제">
+            <button className="p-xs text-content-secondary hover:text-state-error transition-colors" title="삭제">
               <Trash2 size={16}/>
             </button>
           </div>
@@ -132,17 +132,17 @@ export default function IotSettings() {
     const columns = [
       { key: "id", header: "No", width: 60, align: "center" as const },
       { key: "name", header: "기기명" },
-      { 
-        key: "type", 
+      {
+        key: "type",
         header: "기기 유형",
         render: (val: string) => <StatusBadge variant="default" label={val}/>
       },
       { key: "serial", header: "시리얼 번호" },
       { key: "ip", header: "IP 주소" },
       { key: "firmware", header: "펌웨어" },
-      { 
-        key: "status", 
-        header: "상태", 
+      {
+        key: "status",
+        header: "상태",
         render: (val: string) => {
           const variant = val === "온라인" ? "success" : val === "오류" ? "error" : "default";
           return <StatusBadge variant={variant} label={val} dot={true}/>;
@@ -150,20 +150,20 @@ export default function IotSettings() {
       },
       {
         key: "menu",
-        header: "메뉴", 
+        header: "메뉴",
         align: "right" as const,
         render: (_: any, row: any) => (
           <div className="flex items-center justify-end gap-sm" >
-            <button className="p-xs text-text-grey-blue hover:text-primary-coral transition-colors" title="수정">
+            <button className="p-xs text-content-secondary hover:text-primary transition-colors" title="수정">
               <Edit2 size={16}/>
             </button>
-            <button className="p-xs text-text-grey-blue hover:text-secondary-mint transition-colors" title="재시작">
+            <button className="p-xs text-content-secondary hover:text-accent transition-colors" title="재시작">
               <RotateCw size={16}/>
             </button>
-            <button className="p-xs text-text-grey-blue hover:text-information transition-colors" title="펌웨어 업데이트">
+            <button className="p-xs text-content-secondary hover:text-information transition-colors" title="펌웨어 업데이트">
               <RefreshCw size={16}/>
             </button>
-            <button className="p-xs text-text-grey-blue hover:text-error transition-colors" title="삭제">
+            <button className="p-xs text-content-secondary hover:text-state-error transition-colors" title="삭제">
               <Trash2 size={16}/>
             </button>
           </div>
@@ -201,33 +201,33 @@ export default function IotSettings() {
     const columns = [
       { key: "id", header: "No", width: 60, align: "center" as const },
       { key: "time", header: "출입 시각", width: 180 },
-      { 
-        key: "memberName", 
+      {
+        key: "memberName",
         header: "회원명",
         render: (val: string) => (
-          <button 
-            className="text-secondary-mint hover:underline font-medium" onClick={() => moveToPage(985)}>
+          <button
+            className="text-accent hover:underline font-medium" onClick={() => moveToPage(985)}>
             {val}
           </button>
         )
       },
       { key: "memberNo", header: "회원번호" },
       { key: "gateName", header: "게이트명" },
-      { 
-        key: "direction", 
+      {
+        key: "direction",
         header: "방향",
         render: (val: string) => (
           <span className={cn(
             "px-sm py-[2px] rounded-full text-[10px] font-bold",
-            val === "입" ? "bg-bg-soft-mint text-secondary-mint" : "bg-bg-soft-peach text-primary-coral"
+            val === "입" ? "bg-accent-light text-accent" : "bg-primary-light text-primary"
           )} >
             {val}
           </span>
         )
       },
       { key: "authMethod", header: "인증 방식" },
-      { 
-        key: "result", 
+      {
+        key: "result",
         header: "결과",
         render: (val: string) => (
           <StatusBadge variant={val === "허용" ? "success" : "error"} label={val}/>
@@ -257,8 +257,8 @@ export default function IotSettings() {
       <div className="space-y-lg" >
         <FormSection title="게이트별 출입 규칙 설정" description="특정 게이트에 대한 출입 허용 요일, 시간대 및 대상 회원을 설정합니다.">
           <div className="space-y-md" >
-            <label className="block text-Body 2 text-text-dark-grey font-medium" >대상 게이트 선택</label>
-            <select className="w-full bg-input-bg-light border-0 rounded-input px-md py-sm focus:ring-2 focus:ring-secondary-mint transition-all" >
+            <label className="block text-Body 2 text-content font-medium" >대상 게이트 선택</label>
+            <select className="w-full bg-surface-secondary border-0 rounded-input px-md py-sm focus:ring-2 focus:ring-accent transition-all" >
               <option >메인 출입구</option>
               <option >운동룸 A</option>
               <option >탈의실 입구</option>
@@ -266,11 +266,11 @@ export default function IotSettings() {
           </div>
 
           <div className="space-y-md" >
-            <label className="block text-Body 2 text-text-dark-grey font-medium" >출입 가능 요일</label>
+            <label className="block text-Body 2 text-content font-medium" >출입 가능 요일</label>
             <div className="flex flex-wrap gap-sm" >
               {["월", "화", "수", "목", "금", "토", "일"].map(day => (
-                <label className="flex items-center gap-xs p-sm border border-border-light rounded-button cursor-pointer hover:bg-bg-soft-mint transition-colors" key={day}>
-                  <input className="w-4 h-4 rounded text-secondary-mint focus:ring-secondary-mint accent-secondary-mint" type="checkbox" defaultChecked={true}/>
+                <label className="flex items-center gap-xs p-sm border border-line rounded-button cursor-pointer hover:bg-accent-light transition-colors" key={day}>
+                  <input className="w-4 h-4 rounded text-accent focus:ring-accent accent-accent" type="checkbox" defaultChecked={true}/>
                   <span className="text-Body 2" >{day}</span>
                 </label>
               ))}
@@ -278,12 +278,12 @@ export default function IotSettings() {
           </div>
 
           <div className="space-y-md" >
-            <label className="block text-Body 2 text-text-dark-grey font-medium" >출입 가능 시간대</label>
+            <label className="block text-Body 2 text-content font-medium" >출입 가능 시간대</label>
             <div className="flex items-center gap-sm" >
-              <input className="bg-input-bg-light border-0 rounded-input px-md py-sm focus:ring-2 focus:ring-secondary-mint transition-all" type="time" defaultValue="06:00"/>
-              <span className="text-text-grey-blue" >~</span>
-              <input className="bg-input-bg-light border-0 rounded-input px-md py-sm focus:ring-2 focus:ring-secondary-mint transition-all" type="time" defaultValue="23:00"/>
-              <button className="flex items-center gap-xs px-md py-sm bg-bg-soft-peach text-primary-coral rounded-button text-Label font-semibold hover:opacity-90 transition-opacity" >
+              <input className="bg-surface-secondary border-0 rounded-input px-md py-sm focus:ring-2 focus:ring-accent transition-all" type="time" defaultValue="06:00"/>
+              <span className="text-content-secondary" >~</span>
+              <input className="bg-surface-secondary border-0 rounded-input px-md py-sm focus:ring-2 focus:ring-accent transition-all" type="time" defaultValue="23:00"/>
+              <button className="flex items-center gap-xs px-md py-sm bg-primary-light text-primary rounded-button text-Label font-semibold hover:opacity-90 transition-opacity" >
                 <Plus size={14}/>
                 시간 추가
               </button>
@@ -291,11 +291,11 @@ export default function IotSettings() {
           </div>
 
           <div className="space-y-md" >
-            <label className="block text-Body 2 text-text-dark-grey font-medium" >대상 회원 유형</label>
+            <label className="block text-Body 2 text-content font-medium" >대상 회원 유형</label>
             <div className="grid grid-cols-2 gap-sm" >
               {["전체 회원", "퍼스널 트레이닝(PT)", "필라테스", "골프", "일반 헬스"].map(type => (
                 <label className="flex items-center gap-xs" key={type}>
-                  <input className="w-4 h-4 rounded text-secondary-mint focus:ring-secondary-mint accent-secondary-mint" type="checkbox" defaultChecked={type === "전체 회원"}/>
+                  <input className="w-4 h-4 rounded text-accent focus:ring-accent accent-accent" type="checkbox" defaultChecked={type === "전체 회원"}/>
                   <span className="text-Body 2" >{type}</span>
                 </label>
               ))}
@@ -303,24 +303,24 @@ export default function IotSettings() {
           </div>
 
           <div className="space-y-md" >
-            <div className="flex items-center justify-between p-md bg-bg-soft-mint rounded-card-normal border border-secondary-mint/20" >
+            <div className="flex items-center justify-between p-md bg-accent-light rounded-xl border border-accent/20" >
               <div >
-                <h4 className="text-Body 1 font-bold text-text-dark-grey" >비등록 방문자 출입 허용</h4>
-                <p className="text-Body 2 text-text-grey-blue" >회원권이 없는 방문자의 입장을 허용합니다. (벨 호출 또는 원격 개방 전용)</p>
+                <h4 className="text-Body 1 font-bold text-content" >비등록 방문자 출입 허용</h4>
+                <p className="text-Body 2 text-content-secondary" >회원권이 없는 방문자의 입장을 허용합니다. (벨 호출 또는 원격 개방 전용)</p>
               </div>
               <label className="relative inline-flex items-center cursor-pointer" >
                 <input className="sr-only peer" type="checkbox"/>
-                <div className="w-11 h-6 bg-7 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-8 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-secondary-mint" ></div>
+                <div className="w-11 h-6 bg-surface-tertiary peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-line after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-accent" ></div>
               </label>
             </div>
           </div>
         </FormSection>
 
         <div className="flex justify-end gap-sm" >
-          <button className="px-xl py-md bg-3 border border-border-light text-text-dark-grey rounded-button text-Body 1 font-semibold hover:bg-input-bg-light transition-colors" >
+          <button className="px-xl py-md bg-surface border border-line text-content rounded-button text-Body 1 font-semibold hover:bg-surface-secondary transition-colors" >
             초기화
           </button>
-          <button className="px-xl py-md bg-secondary-mint text-white rounded-button text-Body 1 font-semibold hover:opacity-90 shadow-lg shadow-secondary-mint/20 transition-all" >
+          <button className="px-xl py-md bg-accent text-white rounded-button text-Body 1 font-semibold hover:opacity-90 shadow-lg shadow-accent/20 transition-all" >
             규칙 저장하기
           </button>
         </div>
@@ -332,25 +332,25 @@ export default function IotSettings() {
     <AppLayout >
       <PageHeader title="출입문/IoT 설정" description="센터 내 출입 게이트와 IoT 기기 연동을 관리하고 출입 보안 로그를 확인합니다." actions={
           <div className="flex items-center gap-sm">
-            <button 
+            <button
               onClick={() => moveToPage(994)}
-              className="flex items-center gap-xs px-md py-sm bg-3 border border-border-light text-text-grey-blue rounded-button text-Label font-semibold hover:bg-input-bg-light transition-all"
+              className="flex items-center gap-xs px-md py-sm bg-surface border border-line text-content-secondary rounded-button text-Label font-semibold hover:bg-surface-secondary transition-all"
             >
               <Settings2 size={18} />
               키오스크 설정
             </button>
-            <button className="flex items-center gap-xs px-md py-sm bg-bg-soft-peach text-primary-coral rounded-button text-Label font-semibold hover:bg-primary-coral hover:text-white transition-all">
+            <button className="flex items-center gap-xs px-md py-sm bg-primary-light text-primary rounded-button text-Label font-semibold hover:bg-primary hover:text-white transition-all">
               <Plus size={18} />
               새 게이트 등록
             </button>
-            <button className="flex items-center gap-xs px-md py-sm bg-bg-soft-mint text-secondary-mint rounded-button text-Label font-semibold hover:bg-secondary-mint hover:text-white transition-all">
+            <button className="flex items-center gap-xs px-md py-sm bg-accent-light text-accent rounded-button text-Label font-semibold hover:bg-accent hover:text-white transition-all">
               <Cpu size={18} />
               IoT 기기 추가
             </button>
           </div>
         }>
-        <TabNav 
-          className="bg-3 px-lg rounded-t-card-normal border-x border-t border-border-light" tabs={tabs} activeTab={activeTab} onTabChange={setActiveTab}/>
+        <TabNav
+          className="bg-surface px-lg rounded-t-xl border-x border-t border-line" tabs={tabs} activeTab={activeTab} onTabChange={setActiveTab}/>
       </PageHeader>
 
       <div className="animate-in fade-in slide-in-from-bottom-2 duration-500" >

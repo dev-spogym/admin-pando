@@ -1,121 +1,145 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   Save,
   Info,
-  DoorOpen,
-  Monitor,
-  Smartphone,
   Bell,
-  ShieldCheck,
-  CreditCard,
-  Plus,
-  Trash2,
-  Settings as SettingsIcon,
-  CheckCircle2,
+  Palette,
   Clock,
-  MapPin,
   Phone,
   Building2,
   Image as ImageIcon,
-  ChevronRight,
-  ExternalLink,
-  Lock,
-  AlertTriangle
+  Plus,
+  CheckCircle2,
+  AlertTriangle,
+  Moon,
+  Sun,
+  Monitor
 } from 'lucide-react';
 import AppLayout from '@/components/AppLayout';
 import PageHeader from '@/components/PageHeader';
 import TabNav from '@/components/TabNav';
 import FormSection from '@/components/FormSection';
-import DataTable from '@/components/DataTable';
-import StatusBadge from '@/components/StatusBadge';
 import { cn } from '@/lib/utils';
 import { moveToPage } from '@/internal';
 
-// 탭별 초기 상태를 저장하는 타입
-type TabDirtyMap = Record<string, boolean>;
+type TabKey = 'basic' | 'notification' | 'theme';
+
+interface CenterInfo {
+  name: string;
+  description: string;
+  address: string;
+  businessNumber: string;
+  phone: string;
+  openTime: string;
+  closeTime: string;
+  weekendOpenTime: string;
+  weekendCloseTime: string;
+  sectors: string[];
+}
+
+interface NotificationSettings {
+  pushEntrance: boolean;
+  pushExpiry: boolean;
+  pushPayment: boolean;
+  pushReservation: boolean;
+  emailWeeklyReport: boolean;
+  emailExpiry: boolean;
+  smsPayment: boolean;
+  smsExpiry: boolean;
+}
+
+interface ThemeSettings {
+  mode: 'light' | 'dark' | 'system';
+  primaryColor: string;
+  accentColor: string;
+  fontSize: 'sm' | 'md' | 'lg';
+}
+
+const INITIAL_CENTER: CenterInfo = {
+  name: '발란스 웰니스 센터',
+  description: '프리미엄 피트니스 및 필라테스 전문 센터입니다.',
+  address: '서울특별시 강남구 테헤란로 123, 4층',
+  businessNumber: '123-45-67890',
+  phone: '02-1234-5678',
+  openTime: '06:00',
+  closeTime: '23:00',
+  weekendOpenTime: '09:00',
+  weekendCloseTime: '20:00',
+  sectors: ['헬스', '필라테스', 'PT샵'],
+};
+
+const INITIAL_NOTIFICATIONS: NotificationSettings = {
+  pushEntrance: true,
+  pushExpiry: true,
+  pushPayment: false,
+  pushReservation: true,
+  emailWeeklyReport: true,
+  emailExpiry: false,
+  smsPayment: true,
+  smsExpiry: true,
+};
+
+const INITIAL_THEME: ThemeSettings = {
+  mode: 'light',
+  primaryColor: '#3B82F6',
+  accentColor: '#10B981',
+  fontSize: 'md',
+};
+
+const TABS = [
+  { key: 'basic', label: '기본정보', icon: Info },
+  { key: 'notification', label: '알림설정', icon: Bell },
+  { key: 'theme', label: '테마설정', icon: Palette },
+];
+
+function ToggleSwitch({ checked, onChange }: { checked: boolean; onChange: () => void }) {
+  return (
+    <button
+      onClick={onChange}
+      className={cn(
+        "relative w-12 h-6 rounded-full transition-colors duration-200 outline-none focus:ring-2 focus:ring-accent/30",
+        checked ? "bg-accent" : "bg-line"
+      )}
+    >
+      <div className={cn(
+        "absolute top-[2px] left-[2px] w-5 h-5 bg-white rounded-full shadow-sm transition-transform duration-200",
+        checked ? "translate-x-6" : "translate-x-0"
+      )} />
+    </button>
+  );
+}
 
 export default function Settings() {
-  const [activeTab, setActiveTab] = useState('basic');
+  const [activeTab, setActiveTab] = useState<TabKey>('basic');
   const [isSaving, setIsSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
 
-  // 탭별 변경사항 추적
-  const [tabDirty, setTabDirty] = useState<TabDirtyMap>({});
+  const [tabDirty, setTabDirty] = useState<Record<string, boolean>>({});
   const isDirty = tabDirty[activeTab] ?? false;
 
-  // 탭 전환 시 경고 모달
   const [pendingTab, setPendingTab] = useState<string | null>(null);
   const [showUnsavedWarning, setShowUnsavedWarning] = useState(false);
 
-  // Mock Center Info
-  const [centerInfo, setCenterInfo] = useState({
-    name: '발란스 웰니스 센터',
-    description: '프리미엄 피트니스 및 필라테스 전문 센터입니다.',
-    address: '서울특별시 강남구 테헤란로 123, 4층',
-    businessNumber: '123-45-67890',
-    phone: '02-1234-5678',
-    operatingHours: {
-      weekday: '06:00 - 23:00',
-      weekend: '09:00 - 20:00',
-    },
-    sectors: ['헬스', '필라테스', 'PT샵'],
-  });
+  const [centerInfo, setCenterInfo] = useState<CenterInfo>(INITIAL_CENTER);
+  const [notifications, setNotifications] = useState<NotificationSettings>(INITIAL_NOTIFICATIONS);
+  const [theme, setTheme] = useState<ThemeSettings>(INITIAL_THEME);
 
-  // Mock Door Data
-  const [doors, setDoors] = useState([
-    { id: 1, type: '메인', name: '메인 출입구', ip: '192.168.0.10', access: '전체 이용권', memo: '전면 유리 자동문' },
-    { id: 2, type: '서브', name: '필라테스 룸 A', ip: '192.168.0.11', access: '필라테스 이용권 전용', memo: '지문 인식기 설치' },
-  ]);
-
-  const tabs = [
-    { key: 'basic', label: '센터 기본정보', icon: Info },
-    { key: 'door', label: '출입문 설정', icon: DoorOpen },
-    { key: 'kiosk', label: '키오스크 설정', icon: Monitor },
-    { key: 'mobile', label: '모바일앱 설정', icon: Smartphone },
-    { key: 'notification', label: '알림 설정', icon: Bell },
-    { key: 'permission', label: '권한 설정', icon: ShieldCheck },
-    { key: 'others', label: '기타 설정', icon: SettingsIcon },
-  ];
-
-  // 페이지 이탈 시 경고 (beforeunload)
   useEffect(() => {
     const hasAnyDirty = Object.values(tabDirty).some(Boolean);
     const handleBeforeUnload = (e: BeforeUnloadEvent) => {
-      if (hasAnyDirty) {
-        e.preventDefault();
-        e.returnValue = '';
-      }
+      if (hasAnyDirty) { e.preventDefault(); e.returnValue = ''; }
     };
     window.addEventListener('beforeunload', handleBeforeUnload);
     return () => window.removeEventListener('beforeunload', handleBeforeUnload);
   }, [tabDirty]);
 
-  // 필드 변경 시 현재 탭을 dirty로 표시
   const markDirty = useCallback(() => {
     setTabDirty(prev => ({ ...prev, [activeTab]: true }));
   }, [activeTab]);
 
   const handleTabChange = (tab: string) => {
-    if (isDirty) {
-      setPendingTab(tab);
-      setShowUnsavedWarning(true);
-    } else {
-      setActiveTab(tab);
-    }
-  };
-
-  const handleDiscardAndSwitch = () => {
-    if (pendingTab) {
-      setTabDirty(prev => ({ ...prev, [activeTab]: false }));
-      setActiveTab(pendingTab);
-      setPendingTab(null);
-    }
-    setShowUnsavedWarning(false);
-  };
-
-  const handleCancelSwitch = () => {
-    setPendingTab(null);
-    setShowUnsavedWarning(false);
+    if (isDirty) { setPendingTab(tab); setShowUnsavedWarning(true); }
+    else setActiveTab(tab as TabKey);
   };
 
   const handleSave = () => {
@@ -123,454 +147,383 @@ export default function Settings() {
     setTimeout(() => {
       setIsSaving(false);
       setSaveSuccess(true);
-      // 현재 탭의 dirty 상태 초기화
       setTabDirty(prev => ({ ...prev, [activeTab]: false }));
       setTimeout(() => setSaveSuccess(false), 3000);
-    }, 1500);
+    }, 1200);
   };
 
-  const doorColumns = [
-    { key: 'id', header: 'No', width: 60, align: 'center' as const },
-    { key: 'type', header: '출입문 타입', width: 120 },
-    { key: 'name', header: '출입문명', width: 180 },
-    { key: 'ip', header: 'IP주소/번호', width: 150 },
-    { key: 'access', header: '이용권별 출입 설정', width: 200 },
-    { key: 'memo', header: '메모', width: 200 },
-    {
-      key: 'actions',
-      header: '관리',
-      width: 100,
-      align: 'center' as const,
-      render: (_: unknown, row: any) => (
-        <button className="text-text-grey-blue hover:text-error transition-colors" >
-          <Trash2 size={18}/>
-        </button>
-      )
-    },
-  ];
+  const handleDiscardAndSwitch = () => {
+    if (pendingTab) {
+      setTabDirty(prev => ({ ...prev, [activeTab]: false }));
+      setActiveTab(pendingTab as TabKey);
+      setPendingTab(null);
+    }
+    setShowUnsavedWarning(false);
+  };
 
-  const renderTabContent = () => {
-    switch (activeTab) {
-      case 'basic':
-        return (
-          <div className="space-y-lg" >
-            <FormSection title="센터 기본정보" description="센터의 대표 정보를 설정합니다." columns={2}>
-              <div className="col-span-2 flex items-start gap-lg mb-md" >
-                <div className="relative group" >
-                  <div className="w-[132px] h-[170px] bg-bg-main-light-blue rounded-card-normal border-[1px] border-border-light flex flex-col items-center justify-center gap-sm overflow-hidden border-dashed" >
-                    <ImageIcon className="text-text-grey-blue" size={32}/>
-                    <span className="text-Label text-text-grey-blue" >대표 이미지</span>
-                  </div>
-                  <button className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center text-white transition-opacity rounded-card-normal" >
-                    <Plus size={24}/>
-                  </button>
-                </div>
-                <div className="flex-1 space-y-md" >
-                  <div className="grid grid-cols-2 gap-md" >
-                    <div className="space-y-xs" >
-                      <label className="text-Label text-text-dark-grey" >센터명 <span className="text-error" >*</span></label>
-                      <input
-                        className="w-full bg-input-bg-light p-md rounded-input focus:ring-1 focus:ring-secondary-mint outline-none border-[1px] border-transparent transition-all" type="text" value={centerInfo.name} onChange={(e) => { setCenterInfo({...centerInfo, name: e.target.value}); markDirty(); }}/>
-                    </div>
-                    <div className="space-y-xs" >
-                      <label className="text-Label text-text-dark-grey" >사업자등록번호</label>
-                      <input
-                        className="w-full bg-input-bg-light p-md rounded-input outline-none border-[1px] border-transparent" type="text" value={centerInfo.businessNumber} onChange={() => markDirty()}/>
-                    </div>
-                  </div>
-                  <div className="space-y-xs" >
-                    <label className="text-Label text-text-dark-grey" >센터 설명</label>
-                    <textarea
-                      className="w-full bg-input-bg-light p-md rounded-input focus:ring-1 focus:ring-secondary-mint outline-none border-[1px] border-transparent resize-none" rows={3} value={centerInfo.description} onChange={(e) => { setCenterInfo({...centerInfo, description: e.target.value}); markDirty(); }}/>
-                  </div>
-                </div>
-              </div>
-
-              <div className="space-y-xs" >
-                <label className="text-Label text-text-dark-grey flex items-center gap-xs" >
-                  <MapPin size={14}/> 주소
-                </label>
-                <div className="flex gap-sm" >
-                  <input
-                    className="flex-1 bg-input-bg-light p-md rounded-input outline-none border-[1px] border-transparent" type="text" readOnly={true} value={centerInfo.address}/>
-                  <button className="bg-bg-soft-mint text-secondary-mint px-lg rounded-button text-Body 2 font-semibold" >
-                    주소검색
-                  </button>
-                </div>
-              </div>
-
-              <div className="space-y-xs" >
-                <label className="text-Label text-text-dark-grey flex items-center gap-xs" >
-                  <Phone size={14}/> 대표 연락처
-                </label>
-                <input
-                  className="w-full bg-input-bg-light p-md rounded-input focus:ring-1 focus:ring-secondary-mint outline-none border-[1px] border-transparent" type="text" value={centerInfo.phone} onChange={(e) => { setCenterInfo({...centerInfo, phone: e.target.value}); markDirty(); }}/>
-              </div>
-
-              <div className="col-span-2 space-y-xs pt-md" >
-                <label className="text-Label text-text-dark-grey flex items-center gap-xs" >
-                  <Building2 size={14}/> 업종 (중복 선택 가능)
-                </label>
-                <div className="flex flex-wrap gap-sm" >
-                  {['헬스', '필라테스', 'PT샵', '골프', '요가', '태권도', '크로스핏', '복싱', '테니스', '수영', '사우나', '태닝', '기타'].map((sector) => (
-                    <label className="flex items-center gap-xs bg-bg-main-light-blue px-md py-sm rounded-full cursor-pointer hover:bg-bg-soft-peach transition-colors" key={sector}>
-                      <input
-                        className="accent-primary-coral" type="checkbox" checked={centerInfo.sectors.includes(sector)} onChange={(e) => {
-                          const next = e.target.checked
-                            ? [...centerInfo.sectors, sector]
-                            : centerInfo.sectors.filter(s => s !== sector);
-                          setCenterInfo({...centerInfo, sectors: next});
-                          markDirty();
-                        }}/>
-                      <span className="text-Body 2" >{sector}</span>
-                    </label>
-                  ))}
-                </div>
-              </div>
-            </FormSection>
-
-            <FormSection title="운영 시간 설정" description="평일 및 주말 운영 시간을 설정합니다." columns={2}>
-              <div className="space-y-xs" >
-                <label className="text-Label text-text-dark-grey flex items-center gap-xs" >
-                  <Clock size={14}/> 평일 운영시간
-                </label>
-                <div className="flex items-center gap-sm" >
-                  <input className="flex-1 bg-input-bg-light p-md rounded-input outline-none" type="time" defaultValue="06:00" onChange={markDirty}/>
-                  <span >-</span>
-                  <input className="flex-1 bg-input-bg-light p-md rounded-input outline-none" type="time" defaultValue="23:00" onChange={markDirty}/>
-                </div>
-              </div>
-              <div className="space-y-xs" >
-                <label className="text-Label text-text-dark-grey flex items-center gap-xs" >
-                  <Clock size={14}/> 주말/공휴일 운영시간
-                </label>
-                <div className="flex items-center gap-sm" >
-                  <input className="flex-1 bg-input-bg-light p-md rounded-input outline-none" type="time" defaultValue="09:00" onChange={markDirty}/>
-                  <span >-</span>
-                  <input className="flex-1 bg-input-bg-light p-md rounded-input outline-none" type="time" defaultValue="20:00" onChange={markDirty}/>
-                </div>
-              </div>
-            </FormSection>
-          </div>
-        );
-
-      case 'door':
-        return (
-          <div className="space-y-lg" >
-            <div className="flex justify-between items-end mb-md" >
-              <div >
-                <h3 className="text-Heading 2 text-text-dark-grey mb-xs" >출입문 관리</h3>
-                <p className="text-Body 2 text-text-grey-blue" >센터의 모든 IoT 출입문 정보를 관리하고 제어합니다.</p>
-              </div>
-              <button className="bg-secondary-mint text-white px-lg py-md rounded-button flex items-center gap-xs shadow-card-soft hover:opacity-90 transition-opacity" onClick={markDirty}>
-                <Plus size={18}/> 출입문 추가
-              </button>
+  // ── 기본정보 탭 ──
+  const renderBasic = () => (
+    <div className="space-y-lg">
+      <FormSection title="센터 기본정보" description="센터의 대표 정보를 설정합니다." columns={2}>
+        <div className="col-span-2 flex items-start gap-lg mb-md">
+          <div className="relative group">
+            <div className="w-[120px] h-[120px] bg-surface-secondary rounded-xl border border-dashed border-line flex flex-col items-center justify-center gap-xs overflow-hidden">
+              <ImageIcon className="text-content-secondary" size={28} />
+              <span className="text-Label text-content-secondary">센터 로고</span>
             </div>
-
-            <DataTable columns={doorColumns} data={doors} pagination={{ page: 1, pageSize: 10, total: doors.length }}/>
-
-            <FormSection title="RFID 및 연동 설정" columns={2} collapsible={true}>
-              <div className="space-y-xs" >
-                <label className="text-Label text-text-dark-grey" >체크인 대기시간 (분)</label>
-                <input className="w-full bg-input-bg-light p-md rounded-input outline-none" type="number" defaultValue={5} onChange={markDirty}/>
-                <p className="text-Label text-text-grey-blue mt-xs" >연속 체크인 방지를 위한 대기 시간입니다.</p>
-              </div>
-              <div className="space-y-xs" >
-                <label className="text-Label text-text-dark-grey" >IoT 도어락 서버 IP</label>
-                <input className="w-full bg-input-bg-light p-md rounded-input outline-none" type="text" placeholder="127.0.0.1" onChange={markDirty}/>
-              </div>
-            </FormSection>
+            <button className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center text-white transition-opacity rounded-xl">
+              <Plus size={22} />
+            </button>
           </div>
-        );
+          <div className="flex-1 grid grid-cols-2 gap-md">
+            <div className="space-y-xs">
+              <label className="text-Label text-content">센터명 <span className="text-state-error">*</span></label>
+              <input
+                className="w-full bg-surface-secondary p-md rounded-input focus:ring-1 focus:ring-accent outline-none border border-transparent transition-all"
+                type="text"
+                value={centerInfo.name}
+                onChange={e => { setCenterInfo({ ...centerInfo, name: e.target.value }); markDirty(); }}
+              />
+            </div>
+            <div className="space-y-xs">
+              <label className="text-Label text-content">사업자등록번호</label>
+              <input
+                className="w-full bg-surface-secondary p-md rounded-input outline-none border border-transparent"
+                type="text"
+                value={centerInfo.businessNumber}
+                onChange={() => markDirty()}
+              />
+            </div>
+            <div className="col-span-2 space-y-xs">
+              <label className="text-Label text-content">센터 소개</label>
+              <textarea
+                className="w-full bg-surface-secondary p-md rounded-input focus:ring-1 focus:ring-accent outline-none border border-transparent resize-none"
+                rows={2}
+                value={centerInfo.description}
+                onChange={e => { setCenterInfo({ ...centerInfo, description: e.target.value }); markDirty(); }}
+              />
+            </div>
+          </div>
+        </div>
 
-      case 'kiosk':
-        return (
-          <div className="space-y-lg" >
-            <FormSection title="키오스크 공지사항" description="키오스크 메인 화면에 표시될 공지사항을 관리합니다.">
-              <div className="col-span-2 space-y-md" >
-                <div className="flex gap-md overflow-x-auto pb-sm" >
-                  {[1, 2].map((i) => (
-                    <div className="min-w-[200px] h-[120px] bg-bg-main-light-blue rounded-card-normal border-[1px] border-border-light flex items-center justify-center relative group" key={i}>
-                      <span className="text-text-grey-blue text-Body 2" >이미지 {i}</span>
-                      <button className="absolute top-2 right-2 p-xs bg-error text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity" onClick={markDirty}>
-                        <Trash2 size={14}/>
-                      </button>
-                    </div>
-                  ))}
-                  <button className="min-w-[200px] h-[120px] border-[1px] border-dashed border-border-light rounded-card-normal flex flex-col items-center justify-center gap-xs text-text-grey-blue hover:bg-bg-main-light-blue transition-colors" onClick={markDirty}>
-                    <Plus size={24}/>
-                    <span className="text-Label" >이미지 추가</span>
-                  </button>
-                </div>
-              </div>
-            </FormSection>
+        <div className="space-y-xs">
+          <label className="text-Label text-content flex items-center gap-xs"><Phone size={13} /> 대표 연락처</label>
+          <input
+            className="w-full bg-surface-secondary p-md rounded-input focus:ring-1 focus:ring-accent outline-none border border-transparent"
+            type="text"
+            value={centerInfo.phone}
+            onChange={e => { setCenterInfo({ ...centerInfo, phone: e.target.value }); markDirty(); }}
+          />
+        </div>
 
-            <FormSection title="출석 관리 및 편의 기능" columns={2}>
-              <div className="space-y-xs" >
-                <label className="text-Label text-text-dark-grey" >출석 번호 사용 유형</label>
-                <select className="w-full bg-input-bg-light p-md rounded-input outline-none border-[1px] border-transparent" onChange={markDirty}>
-                  <option >휴대폰 뒷번호 (4자리)</option>
-                  <option >통합 회원번호</option>
-                  <option >카드번호 (RFID)</option>
-                </select>
-              </div>
-              <div className="space-y-xs" >
-                <label className="text-Label text-text-dark-grey" >재입장 가능 시간 (분)</label>
-                <input className="w-full bg-input-bg-light p-md rounded-input outline-none" type="number" defaultValue={180} onChange={markDirty}/>
-              </div>
-              <div className="space-y-xs" >
-                <label className="text-Label text-text-dark-grey" >출석당 마일리지 적립</label>
-                <div className="flex items-center gap-sm" >
-                  <input className="flex-1 bg-input-bg-light p-md rounded-input outline-none" type="number" defaultValue={100} onChange={markDirty}/>
-                  <span className="text-Body 2" >P</span>
-                </div>
-              </div>
-              <div className="space-y-xs" >
-                <label className="text-Label text-text-dark-grey" >이용권 만료 임박 표시</label>
-                <div className="flex items-center gap-sm" >
-                  <input className="flex-1 bg-input-bg-light p-md rounded-input outline-none" type="number" defaultValue={7} onChange={markDirty}/>
-                  <span className="text-Body 2" >일 전</span>
-                </div>
-              </div>
-              <div className="col-span-2 space-y-md pt-md border-t border-border-light" >
-                <div className="flex items-center justify-between" >
-                  <div className="space-y-xs" >
-                    <p className="text-Body 1 font-semibold text-text-dark-grey" >AI 음성 안내 (TTS)</p>
-                    <p className="text-Label text-text-grey-blue" >상황별 AI 음성 안내 멘트를 커스터마이징합니다.</p>
+        <div className="space-y-xs">
+          <label className="text-Label text-content flex items-center gap-xs"><Building2 size={13} /> 주소</label>
+          <div className="flex gap-sm">
+            <input
+              className="flex-1 bg-surface-secondary p-md rounded-input outline-none border border-transparent"
+              type="text"
+              readOnly
+              value={centerInfo.address}
+            />
+            <button className="bg-accent-light text-accent px-lg rounded-button text-Body-2 font-semibold whitespace-nowrap">
+              주소검색
+            </button>
+          </div>
+        </div>
+
+        <div className="col-span-2 space-y-xs pt-sm">
+          <label className="text-Label text-content flex items-center gap-xs"><Building2 size={13} /> 업종 선택</label>
+          <div className="flex flex-wrap gap-sm">
+            {['헬스', '필라테스', 'PT샵', '골프', '요가', '태권도', '크로스핏', '복싱', '수영', '사우나', '기타'].map(sector => (
+              <label key={sector} className="flex items-center gap-xs bg-surface-secondary px-md py-sm rounded-full cursor-pointer hover:bg-primary-light transition-colors">
+                <input
+                  className="accent-primary"
+                  type="checkbox"
+                  checked={centerInfo.sectors.includes(sector)}
+                  onChange={e => {
+                    const next = e.target.checked
+                      ? [...centerInfo.sectors, sector]
+                      : centerInfo.sectors.filter(s => s !== sector);
+                    setCenterInfo({ ...centerInfo, sectors: next });
+                    markDirty();
+                  }}
+                />
+                <span className="text-Body-2">{sector}</span>
+              </label>
+            ))}
+          </div>
+        </div>
+      </FormSection>
+
+      <FormSection title="영업시간 설정" description="평일 및 주말 영업시간을 설정합니다." columns={2}>
+        <div className="space-y-xs">
+          <label className="text-Label text-content flex items-center gap-xs"><Clock size={13} /> 평일 오픈~마감</label>
+          <div className="flex items-center gap-sm">
+            <input
+              className="flex-1 bg-surface-secondary p-md rounded-input outline-none border border-transparent focus:ring-1 focus:ring-accent"
+              type="time"
+              value={centerInfo.openTime}
+              onChange={e => { setCenterInfo({ ...centerInfo, openTime: e.target.value }); markDirty(); }}
+            />
+            <span className="text-content-secondary">~</span>
+            <input
+              className="flex-1 bg-surface-secondary p-md rounded-input outline-none border border-transparent focus:ring-1 focus:ring-accent"
+              type="time"
+              value={centerInfo.closeTime}
+              onChange={e => { setCenterInfo({ ...centerInfo, closeTime: e.target.value }); markDirty(); }}
+            />
+          </div>
+        </div>
+        <div className="space-y-xs">
+          <label className="text-Label text-content flex items-center gap-xs"><Clock size={13} /> 주말/공휴일 오픈~마감</label>
+          <div className="flex items-center gap-sm">
+            <input
+              className="flex-1 bg-surface-secondary p-md rounded-input outline-none border border-transparent focus:ring-1 focus:ring-accent"
+              type="time"
+              value={centerInfo.weekendOpenTime}
+              onChange={e => { setCenterInfo({ ...centerInfo, weekendOpenTime: e.target.value }); markDirty(); }}
+            />
+            <span className="text-content-secondary">~</span>
+            <input
+              className="flex-1 bg-surface-secondary p-md rounded-input outline-none border border-transparent focus:ring-1 focus:ring-accent"
+              type="time"
+              value={centerInfo.weekendCloseTime}
+              onChange={e => { setCenterInfo({ ...centerInfo, weekendCloseTime: e.target.value }); markDirty(); }}
+            />
+          </div>
+        </div>
+      </FormSection>
+    </div>
+  );
+
+  // ── 알림설정 탭 ──
+  const renderNotification = () => {
+    const sections = [
+      {
+        title: '푸시 알림',
+        description: '모바일 앱 및 웹 푸시 알림을 설정합니다.',
+        items: [
+          { key: 'pushEntrance' as keyof NotificationSettings, label: '실시간 입장 알림', desc: '회원이 센터 입장 시 관리자 앱으로 푸시 알림' },
+          { key: 'pushExpiry' as keyof NotificationSettings, label: '회원 만료 임박 알림', desc: '이용권 만료 D-7 이내 발생 시 알림' },
+          { key: 'pushPayment' as keyof NotificationSettings, label: '결제 완료 알림', desc: '새로운 결제 발생 시 알림' },
+          { key: 'pushReservation' as keyof NotificationSettings, label: '수업 예약/취소 알림', desc: '수업 예약 또는 취소 발생 시 강사에게 알림' },
+        ]
+      },
+      {
+        title: '이메일 알림',
+        description: '이메일로 전송되는 리포트 및 알림을 설정합니다.',
+        items: [
+          { key: 'emailWeeklyReport' as keyof NotificationSettings, label: '주간 리포트', desc: '매주 월요일 오전 지난 주 운영 통계 메일 발송' },
+          { key: 'emailExpiry' as keyof NotificationSettings, label: '만료 예정 안내 메일', desc: '이용권 만료 D-30 회원 목록 메일 발송' },
+        ]
+      },
+      {
+        title: 'SMS 알림',
+        description: '회원에게 발송되는 SMS 알림을 설정합니다.',
+        items: [
+          { key: 'smsPayment' as keyof NotificationSettings, label: '결제 완료 SMS', desc: '결제 완료 시 회원에게 SMS 발송' },
+          { key: 'smsExpiry' as keyof NotificationSettings, label: '만료 임박 SMS', desc: '이용권 만료 D-7 회원에게 SMS 자동 발송' },
+        ]
+      }
+    ];
+
+    return (
+      <div className="space-y-xl">
+        {sections.map(section => (
+          <FormSection key={section.title} title={section.title} description={section.description} columns={1}>
+            <div className="col-span-full space-y-sm">
+              {section.items.map(item => (
+                <div
+                  key={item.key}
+                  className="flex items-center justify-between p-lg bg-surface-secondary/50 rounded-xl border border-line hover:border-accent/30 transition-colors"
+                >
+                  <div className="space-y-xs">
+                    <p className="text-Body-1 font-semibold text-content">{item.label}</p>
+                    <p className="text-Body-2 text-content-secondary">{item.desc}</p>
                   </div>
-                  <button className="text-secondary-mint text-Body 2 font-semibold flex items-center gap-xs" >
-                    설정하기 <ChevronRight size={16}/>
-                  </button>
-                </div>
-              </div>
-            </FormSection>
-          </div>
-        );
-
-      case 'mobile':
-        return (
-          <div className="space-y-lg" >
-            <FormSection title="브랜드 및 스타일" description="모바일 앱의 시각적 요소를 설정합니다." columns={2}>
-              <div className="space-y-xs" >
-                <label className="text-Label text-text-dark-grey" >앱 헤더 색상</label>
-                <div className="flex gap-sm" >
-                  <div className="w-[48px] h-[48px] rounded-button border-[1px] border-border-light shadow-sm" style={{ backgroundColor: '#47b2ff' }}/>
-                  <input className="flex-1 bg-input-bg-light p-md rounded-input outline-none uppercase font-mono" type="text" defaultValue="#47B2FF" onChange={markDirty}/>
-                </div>
-              </div>
-              <div className="space-y-xs" >
-                <label className="text-Label text-text-dark-grey" >다크모드 지원 여부</label>
-                <div className="flex items-center gap-md h-[48px]" >
-                  <label className="flex items-center gap-xs cursor-pointer" >
-                    <input className="accent-secondary-mint" type="radio" name="darkmode" defaultChecked={true} onChange={markDirty}/>
-                    <span className="text-Body 2" >지원</span>
-                  </label>
-                  <label className="flex items-center gap-xs cursor-pointer" >
-                    <input className="accent-secondary-mint" type="radio" name="darkmode" onChange={markDirty}/>
-                    <span className="text-Body 2" >미지원</span>
-                  </label>
-                </div>
-              </div>
-            </FormSection>
-
-            <FormSection title="콘텐츠 관리" columns={2}>
-              {['센터 소식 관리', '앱 공지사항', '시설 안내 정보', 'STAFF 소개'].map((item) => (
-                <div className="flex items-center justify-between p-lg bg-bg-main-light-blue rounded-card-normal border-[1px] border-border-light hover:border-secondary-mint transition-colors cursor-pointer group" key={item}>
-                  <span className="text-Body 1 text-text-dark-grey font-medium" >{item}</span>
-                  <ExternalLink className="text-text-grey-blue group-hover:text-secondary-mint transition-colors" size={18}/>
+                  <ToggleSwitch
+                    checked={notifications[item.key] as boolean}
+                    onChange={() => {
+                      setNotifications(prev => ({ ...prev, [item.key]: !prev[item.key] }));
+                      markDirty();
+                    }}
+                  />
                 </div>
               ))}
-            </FormSection>
-
-            <FormSection title="SNS 및 외부 링크">
-              <div className="grid grid-cols-2 gap-md" >
-                <div className="space-y-xs" >
-                  <label className="text-Label text-text-dark-grey" >인스타그램 URL</label>
-                  <input className="w-full bg-input-bg-light p-md rounded-input outline-none" type="text" placeholder="https://instagram.com/..." onChange={markDirty}/>
-                </div>
-                <div className="space-y-xs" >
-                  <label className="text-Label text-text-dark-grey" >홈페이지/블로그 URL</label>
-                  <input className="w-full bg-input-bg-light p-md rounded-input outline-none" type="text" placeholder="https://..." onChange={markDirty}/>
-                </div>
-              </div>
-            </FormSection>
-          </div>
-        );
-
-      case 'notification':
-        return (
-          <div className="space-y-lg" >
-            <FormSection title="실시간 알림 설정" description="주요 이벤트 발생 시 실시간 알림을 구성합니다.">
-              <div className="col-span-2 space-y-md" >
-                {[
-                  { title: '실시간 입장 알림', desc: '회원이 센터 입장 시 관리자 앱으로 푸시 알림을 보냅니다.', checked: true },
-                  { title: '회원 만료 알림', desc: '이용권 만료 임박 회원 발생 시 알림을 보냅니다.', checked: true },
-                  { title: '결제 완료 알림', desc: '새로운 결제가 발생할 때마다 알림을 보냅니다.', checked: false },
-                  { title: '수업 예약/취소 알림', desc: '회원이 수업을 예약하거나 취소할 때 강사에게 알림을 보냅니다.', checked: true },
-                ].map((item, idx) => (
-                  <div className="flex items-center justify-between p-lg bg-bg-soft-mint/50 rounded-card-normal border-[1px] border-border-light" key={idx}>
-                    <div className="space-y-xs" >
-                      <p className="text-Body 1 font-semibold text-text-dark-grey" >{item.title}</p>
-                      <p className="text-Body 2 text-text-grey-blue" >{item.desc}</p>
-                    </div>
-                    <div className="relative inline-flex h-6 w-11 items-center rounded-full bg-border-light cursor-pointer" onClick={markDirty}>
-                      <div className={cn(
-                        "h-5 w-5 rounded-full bg-white transition-transform shadow-sm transform translate-x-1",
-                        item.checked && "translate-x-5 bg-secondary-mint"
-                      )} />
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </FormSection>
-          </div>
-        );
-
-      case 'permission':
-        return (
-          <div className="flex flex-col items-center justify-center py-[80px] px-lg text-center bg-bg-main-light-blue rounded-card-strong border-[1px] border-border-light" >
-            <div className="w-[80px] h-[80px] bg-bg-soft-peach rounded-full flex items-center justify-center mb-lg" >
-              <ShieldCheck className="text-primary-coral" size={40}/>
             </div>
-            <h3 className="text-Heading 2 text-text-dark-grey mb-md" >역할 및 권한 관리</h3>
-            <p className="text-Body 1 text-text-grey-blue mb-xl max-w-[480px]" >
-              직원 및 역할별로 시스템 접근 권한을 세부적으로 제어할 수 있습니다. <br />
-              보안을 위해 권한 설정 페이지로 이동하여 관리해주세요.
-            </p>
-            <button
-              className="bg-primary-coral text-white px-xxl py-lg rounded-button text-Body 1 font-bold flex items-center gap-sm shadow-card-soft hover:opacity-90 transition-opacity" onClick={() => moveToPage(996)}>
-              권한 설정 페이지로 이동 <ChevronRight size={20}/>
-            </button>
-            <div className="mt-xxl flex items-center gap-xs text-Label text-text-grey-blue" >
-              <Lock size={14}/>
-              <span >현재 접속 계정의 권한에 따라 일부 항목이 제한될 수 있습니다.</span>
-            </div>
-          </div>
-        );
-
-      case 'others':
-        return (
-          <div className="space-y-lg" >
-            <FormSection title="카드 단말기 테스트" description="연동된 카드 단말기의 통신 상태를 테스트합니다.">
-              <div className="col-span-2 grid grid-cols-3 gap-md" >
-                {['KSNET', 'KICC', 'KIS', 'DAOU', 'KPN', '임시 테스트'].map((vendor) => (
-                  <div className="p-lg bg-bg-main-light-blue rounded-card-normal border-[1px] border-border-light flex flex-col items-center gap-md" key={vendor}>
-                    <div className="w-[48px] h-[48px] bg-white rounded-full flex items-center justify-center shadow-sm" >
-                      <CreditCard className="text-text-grey-blue" size={24}/>
-                    </div>
-                    <span className="text-Body 1 font-semibold" >{vendor}</span>
-                    <button className="w-full py-sm bg-3 text-text-dark-grey border-[1px] border-border-light rounded-button text-Label font-bold hover:bg-bg-soft-mint hover:border-secondary-mint transition-colors" >
-                      연결 테스트
-                    </button>
-                  </div>
-                ))}
-              </div>
-            </FormSection>
-
-            <FormSection title="기타 운영 설정" columns={1}>
-              <div className="flex items-center justify-between py-md border-b border-border-light last:border-0" >
-                <div className="space-y-xs" >
-                  <p className="text-Body 1 font-medium text-text-dark-grey" >자동 락커 해지 설정</p>
-                  <p className="text-Label text-text-grey-blue" >이용권 만료 후 N일 경과 시 락커를 자동으로 해지 처리합니다.</p>
-                </div>
-                <div className="flex items-center gap-sm" >
-                  <input className="w-[80px] bg-input-bg-light p-sm rounded-input text-center outline-none" type="number" defaultValue={7} onChange={markDirty}/>
-                  <span className="text-Body 2" >일 후</span>
-                </div>
-              </div>
-              <div className="flex items-center justify-between py-md border-b border-border-light last:border-0" >
-                <div className="space-y-xs" >
-                  <p className="text-Body 1 font-medium text-text-dark-grey" >미납자 출석 차단</p>
-                  <p className="text-Label text-text-grey-blue" >미납금이 있는 회원의 출석 시 경고 메시지를 표시하거나 입장을 제한합니다.</p>
-                </div>
-                <select className="bg-input-bg-light p-sm rounded-input outline-none border-[1px] border-transparent text-Body 2" onChange={markDirty}>
-                  <option >사용 안함</option>
-                  <option >경고 메시지만 표시</option>
-                  <option >입장 완전 제한</option>
-                </select>
-              </div>
-            </FormSection>
-          </div>
-        );
-
-      default:
-        return null;
-    }
+          </FormSection>
+        ))}
+      </div>
+    );
   };
 
+  // ── 테마설정 탭 ──
+  const renderTheme = () => (
+    <div className="space-y-xl">
+      <FormSection title="다크모드 설정" description="화면 테마 모드를 선택합니다." columns={1}>
+        <div className="col-span-full grid grid-cols-3 gap-md">
+          {[
+            { value: 'light', label: '라이트 모드', icon: Sun, desc: '밝은 배경' },
+            { value: 'dark', label: '다크 모드', icon: Moon, desc: '어두운 배경' },
+            { value: 'system', label: '시스템 설정', icon: Monitor, desc: '기기 설정 따름' },
+          ].map(item => (
+            <button
+              key={item.value}
+              onClick={() => { setTheme(prev => ({ ...prev, mode: item.value as any })); markDirty(); }}
+              className={cn(
+                "flex flex-col items-center gap-md p-xl rounded-xl border-2 transition-all",
+                theme.mode === item.value
+                  ? "border-accent bg-accent-light"
+                  : "border-line bg-surface hover:border-accent/40"
+              )}
+            >
+              <item.icon className={theme.mode === item.value ? "text-accent" : "text-content-secondary"} size={28} />
+              <div className="text-center">
+                <p className={cn("text-Body-1 font-bold", theme.mode === item.value ? "text-accent" : "text-content")}>{item.label}</p>
+                <p className="text-Label text-content-secondary">{item.desc}</p>
+              </div>
+              {theme.mode === item.value && (
+                <CheckCircle2 className="text-accent" size={18} />
+              )}
+            </button>
+          ))}
+        </div>
+      </FormSection>
+
+      <FormSection title="색상 설정" description="브랜드 색상을 커스터마이징합니다." columns={2}>
+        <div className="space-y-xs">
+          <label className="text-Label text-content">메인 컬러 (Primary)</label>
+          <div className="flex items-center gap-md bg-surface-secondary p-md rounded-input">
+            <input
+              type="color"
+              className="w-10 h-10 rounded-full border-none cursor-pointer p-0 overflow-hidden"
+              value={theme.primaryColor}
+              onChange={e => { setTheme(prev => ({ ...prev, primaryColor: e.target.value })); markDirty(); }}
+            />
+            <span className="font-mono text-Body-1 text-content font-semibold">{theme.primaryColor.toUpperCase()}</span>
+          </div>
+        </div>
+        <div className="space-y-xs">
+          <label className="text-Label text-content">보조 컬러 (Accent)</label>
+          <div className="flex items-center gap-md bg-surface-secondary p-md rounded-input">
+            <input
+              type="color"
+              className="w-10 h-10 rounded-full border-none cursor-pointer p-0 overflow-hidden"
+              value={theme.accentColor}
+              onChange={e => { setTheme(prev => ({ ...prev, accentColor: e.target.value })); markDirty(); }}
+            />
+            <span className="font-mono text-Body-1 text-content font-semibold">{theme.accentColor.toUpperCase()}</span>
+          </div>
+        </div>
+      </FormSection>
+
+      <FormSection title="글자 크기" columns={1}>
+        <div className="col-span-full flex gap-md">
+          {[
+            { value: 'sm', label: '작게', sample: 'text-sm' },
+            { value: 'md', label: '기본', sample: 'text-base' },
+            { value: 'lg', label: '크게', sample: 'text-lg' },
+          ].map(item => (
+            <button
+              key={item.value}
+              onClick={() => { setTheme(prev => ({ ...prev, fontSize: item.value as any })); markDirty(); }}
+              className={cn(
+                "flex-1 flex flex-col items-center gap-sm p-lg rounded-xl border-2 transition-all",
+                theme.fontSize === item.value
+                  ? "border-accent bg-accent-light"
+                  : "border-line bg-surface hover:border-accent/40"
+              )}
+            >
+              <span className={cn(item.sample, "font-semibold", theme.fontSize === item.value ? "text-accent" : "text-content")}>가나다</span>
+              <span className="text-Label text-content-secondary">{item.label}</span>
+            </button>
+          ))}
+        </div>
+      </FormSection>
+    </div>
+  );
+
   return (
-    <AppLayout >
-      <div className="flex flex-col h-full bg-bg-main-light-blue" >
-        <PageHeader title="센터 설정" description="센터 운영 및 모바일 앱, 키오스크 등에 대한 상세 정책을 관리합니다." actions={
+    <AppLayout>
+      <div className="flex flex-col h-full bg-surface-secondary">
+        <PageHeader
+          title="센터 설정"
+          description="기본정보, 알림, 테마 설정을 관리합니다."
+          actions={
             <div className="flex items-center gap-md">
-              {/* 미저장 변경사항 배너 */}
               {isDirty && !saveSuccess && (
-                <div className="flex items-center gap-xs text-warning bg-warning/10 px-lg py-md rounded-button animate-in fade-in slide-in-from-right-2">
+                <div className="flex items-center gap-xs text-amber-600 bg-amber-600/10 px-lg py-md rounded-button animate-in fade-in">
                   <AlertTriangle size={16} />
-                  <span className="text-Body 2 font-medium">저장되지 않은 변경사항이 있습니다</span>
+                  <span className="text-Body-2 font-medium">저장되지 않은 변경사항이 있습니다</span>
                 </div>
               )}
               {saveSuccess && (
-                <div className="flex items-center gap-xs text-success bg-bg-soft-mint px-lg py-md rounded-button animate-in fade-in slide-in-from-right-2">
+                <div className="flex items-center gap-xs text-accent bg-accent-light px-lg py-md rounded-button animate-in fade-in">
                   <CheckCircle2 size={18} />
-                  <span className="text-Body 2 font-bold">변경사항이 저장되었습니다.</span>
+                  <span className="text-Body-2 font-bold">변경사항이 저장되었습니다.</span>
                 </div>
               )}
               <button
                 onClick={handleSave}
                 disabled={isSaving || !isDirty}
                 className={cn(
-                  "bg-secondary-mint text-white px-xl py-md rounded-button flex items-center gap-sm shadow-card-soft hover:opacity-90 transition-all disabled:opacity-50",
-                  isSaving && "animate-pulse"
+                  "flex items-center gap-sm bg-accent text-white px-xl py-md rounded-button shadow-card transition-all",
+                  isSaving ? "animate-pulse" : "hover:opacity-90",
+                  "disabled:opacity-50 disabled:cursor-not-allowed"
                 )}
               >
-                {isSaving ? <Clock size={18} className="animate-spin" /> : <Save size={18} />}
-                <span className="text-Body 1 font-bold">{isSaving ? '저장 중...' : '설정 저장'}</span>
+                <Save size={18} />
+                <span className="text-Body-1 font-bold">{isSaving ? '저장 중...' : '설정 저장'}</span>
               </button>
             </div>
-          }/>
+          }
+        />
 
-        <div className="flex-1 overflow-hidden flex flex-col px-xl pb-xl" >
-          <div className="bg-3 rounded-card-strong shadow-card-soft flex flex-col h-full overflow-hidden border-[1px] border-border-light" >
+        <div className="flex-1 overflow-hidden flex flex-col px-xl pb-xl">
+          <div className="bg-surface rounded-xl shadow-card flex flex-col h-full overflow-hidden border border-line">
             <TabNav
-              className="px-lg pt-lg border-b border-border-light" tabs={tabs} activeTab={activeTab} onTabChange={handleTabChange}/>
-            <div className="flex-1 overflow-y-auto p-xl scrollbar-hide" >
-              <div className="max-w-[1000px] mx-auto" >
-                {renderTabContent()}
+              className="px-lg pt-lg border-b border-line"
+              tabs={TABS}
+              activeTab={activeTab}
+              onTabChange={handleTabChange}
+            />
+            <div className="flex-1 overflow-y-auto p-xl scrollbar-hide">
+              <div className="max-w-[900px] mx-auto">
+                {activeTab === 'basic' && renderBasic()}
+                {activeTab === 'notification' && renderNotification()}
+                {activeTab === 'theme' && renderTheme()}
               </div>
             </div>
           </div>
         </div>
       </div>
 
-      {/* 미저장 변경사항 탭 전환 경고 모달 */}
+      {/* 미저장 경고 모달 */}
       {showUnsavedWarning && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-md">
-          <div className="w-full max-w-sm bg-3 rounded-modal shadow-card-strong p-xl">
+          <div className="w-full max-w-sm bg-surface rounded-modal shadow-card p-xl">
             <div className="flex items-center gap-md mb-lg">
-              <div className="w-[48px] h-[48px] bg-warning/10 rounded-full flex items-center justify-center flex-shrink-0">
-                <AlertTriangle className="text-warning" size={24}/>
+              <div className="w-[48px] h-[48px] bg-amber-600/10 rounded-full flex items-center justify-center flex-shrink-0">
+                <AlertTriangle className="text-amber-600" size={24} />
               </div>
               <div>
-                <h3 className="text-Heading 2 text-text-dark-grey">저장되지 않은 변경사항</h3>
-                <p className="text-Body 2 text-text-grey-blue mt-xs">
-                  현재 탭의 변경사항이 저장되지 않았습니다. 탭을 이동하면 변경사항이 사라집니다.
-                </p>
+                <h3 className="text-Heading-2 text-content">저장되지 않은 변경사항</h3>
+                <p className="text-Body-2 text-content-secondary mt-xs">탭을 이동하면 변경사항이 사라집니다.</p>
               </div>
             </div>
             <div className="flex justify-end gap-sm">
               <button
-                className="px-lg py-sm text-text-grey-blue hover:bg-input-bg-light rounded-button transition-colors text-Body 2"
-                onClick={handleCancelSwitch}
+                className="px-lg py-sm text-content-secondary hover:bg-surface-secondary rounded-button transition-colors text-Body-2"
+                onClick={() => setShowUnsavedWarning(false)}
               >
                 취소
               </button>
               <button
-                className="px-lg py-sm bg-secondary-mint text-white rounded-button text-Body 2 font-semibold hover:opacity-90 transition-opacity"
+                className="px-lg py-sm bg-accent text-white rounded-button text-Body-2 font-semibold hover:opacity-90"
                 onClick={() => {
                   if (pendingTab) {
                     handleSave();
-                    setActiveTab(pendingTab);
+                    setActiveTab(pendingTab as TabKey);
                     setPendingTab(null);
                   }
                   setShowUnsavedWarning(false);
@@ -579,7 +532,7 @@ export default function Settings() {
                 저장 후 이동
               </button>
               <button
-                className="px-lg py-sm bg-error text-white rounded-button text-Body 2 font-semibold hover:opacity-90 transition-opacity"
+                className="px-lg py-sm bg-state-error text-white rounded-button text-Body-2 font-semibold hover:opacity-90"
                 onClick={handleDiscardAndSwitch}
               >
                 저장 안 함

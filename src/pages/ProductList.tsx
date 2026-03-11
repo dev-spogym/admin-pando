@@ -1,7 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import {
   Plus,
-  Search,
   Edit2,
   Trash2,
   Package,
@@ -10,7 +9,7 @@ import {
   LayoutGrid,
   ArrowUp,
   ArrowDown,
-  ArrowUpDown
+  ArrowUpDown,
 } from 'lucide-react';
 import AppLayout from '@/components/AppLayout';
 import PageHeader from '@/components/PageHeader';
@@ -23,93 +22,77 @@ import ConfirmDialog from '@/components/ConfirmDialog';
 import { moveToPage } from '@/internal';
 import { cn } from '@/lib/utils';
 
-// --- Mock Data ---
-const CATEGORIES = [
+// --- Mock 데이터 (8건 이상) ---
+const CATEGORY_TABS = [
   { key: 'all', label: '전체' },
-  { key: 'facility', label: '시설이용' },
-  { key: 'pt', label: '1:1수업' },
-  { key: 'group', label: '그룹수업' },
-  { key: 'option', label: '옵션' },
+  { key: '이용권', label: '이용권' },
+  { key: 'PT', label: 'PT' },
+  { key: 'GX', label: 'GX' },
+  { key: '기타', label: '기타' },
 ];
 
-const INITIAL_PRODUCTS = [
+interface Product {
+  id: number;
+  category: string;
+  name: string;
+  cashPrice: number;
+  cardPrice: number;
+  period: string;
+  status: '사용' | '미사용';
+  kioskExposure: boolean;
+  createdAt: string;
+}
+
+const INITIAL_PRODUCTS: Product[] = [
   {
-    id: 1,
-    category: '시설이용',
-    categoryKey: 'facility',
-    subCategory: '헬스',
-    name: '헬스 12개월 (연간회원권)',
-    cashPrice: 600000,
-    cardPrice: 660000,
-    period: '12개월',
-    kioskExposure: true,
-    status: '사용',
-    createdAt: '2026-01-15',
+    id: 1, category: '이용권', name: '헬스 12개월 (연간 회원권)',
+    cashPrice: 660000, cardPrice: 726000, period: '12개월',
+    status: '사용', kioskExposure: true, createdAt: '2026-01-15',
   },
   {
-    id: 2,
-    category: '시설이용',
-    categoryKey: 'facility',
-    subCategory: '골프',
-    name: '골프 3개월 패키지',
-    cashPrice: 450000,
-    cardPrice: 495000,
-    period: '3개월',
-    kioskExposure: true,
-    status: '사용',
-    createdAt: '2026-02-01',
+    id: 2, category: '이용권', name: '헬스 3개월권',
+    cashPrice: 297000, cardPrice: 326700, period: '3개월',
+    status: '사용', kioskExposure: true, createdAt: '2026-01-20',
   },
   {
-    id: 3,
-    category: '1:1수업',
-    categoryKey: 'pt',
-    subCategory: 'PT',
-    name: 'PT 20회 (바디프로필반)',
-    cashPrice: 1200000,
-    cardPrice: 1320000,
-    period: '90일',
-    kioskExposure: false,
-    status: '사용',
-    createdAt: '2025-12-20',
+    id: 3, category: '이용권', name: '헬스 일일 입장권',
+    cashPrice: 10000, cardPrice: 11000, period: '1일',
+    status: '미사용', kioskExposure: false, createdAt: '2025-11-30',
   },
   {
-    id: 4,
-    category: '그룹수업',
-    categoryKey: 'group',
-    subCategory: '그룹필라테스',
-    name: '그룹필라테스 24회',
-    cashPrice: 480000,
-    cardPrice: 528000,
-    period: '6개월',
-    kioskExposure: true,
-    status: '사용',
-    createdAt: '2026-02-10',
+    id: 4, category: 'PT', name: '1:1 PT 20회 패키지',
+    cashPrice: 1200000, cardPrice: 1320000, period: '90일',
+    status: '사용', kioskExposure: false, createdAt: '2025-12-20',
   },
   {
-    id: 5,
-    category: '옵션',
-    categoryKey: 'option',
-    subCategory: '개인락카',
-    name: '개인락카 1개월',
-    cashPrice: 10000,
-    cardPrice: 11000,
-    period: '1개월',
-    kioskExposure: true,
-    status: '사용',
-    createdAt: '2026-01-05',
+    id: 5, category: 'PT', name: '1:1 PT 10회 패키지',
+    cashPrice: 700000, cardPrice: 770000, period: '60일',
+    status: '사용', kioskExposure: false, createdAt: '2026-02-01',
   },
   {
-    id: 6,
-    category: '시설이용',
-    categoryKey: 'facility',
-    subCategory: '헬스',
-    name: '헬스 일일입장권',
-    cashPrice: 20000,
-    cardPrice: 22000,
-    period: '1일',
-    kioskExposure: true,
-    status: '미사용',
-    createdAt: '2025-11-30',
+    id: 6, category: 'GX', name: '그룹 필라테스 20회',
+    cashPrice: 396000, cardPrice: 435600, period: '3개월',
+    status: '사용', kioskExposure: true, createdAt: '2026-02-10',
+  },
+  {
+    id: 7, category: 'GX', name: '요가 그룹수업 10회',
+    cashPrice: 180000, cardPrice: 198000, period: '2개월',
+    status: '사용', kioskExposure: true, createdAt: '2026-02-15',
+  },
+  {
+    id: 8, category: '기타', name: '개인 락커 1개월',
+    cashPrice: 10000, cardPrice: 11000, period: '1개월',
+    status: '사용', kioskExposure: true, createdAt: '2026-01-05',
+  },
+  {
+    id: 9, category: '기타', name: '운동복 대여 1개월',
+    cashPrice: 5000, cardPrice: 5500, period: '1개월',
+    status: '사용', kioskExposure: true, createdAt: '2026-01-10',
+  },
+  {
+    id: 10, category: '기타', name: '스포츠 타올',
+    cashPrice: 5000, cardPrice: 5500, period: '-',
+    status: '미사용', kioskExposure: false, createdAt: '2025-12-01',
   },
 ];
 
@@ -119,35 +102,57 @@ type SortDir = 'asc' | 'desc';
 export default function ProductList() {
   const [activeTab, setActiveTab] = useState('all');
   const [searchValue, setSearchValue] = useState('');
-  const [filterValues, setFilterValues] = useState({ status: '' });
-  const [products, setProducts] = useState(INITIAL_PRODUCTS);
+  const [filterValues, setFilterValues] = useState<{ status: string }>({ status: '' });
+  const [products, setProducts] = useState<Product[]>(INITIAL_PRODUCTS);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [productToDelete, setProductToDelete] = useState<number | null>(null);
   const [sortKey, setSortKey] = useState<SortKey>(null);
   const [sortDir, setSortDir] = useState<SortDir>('asc');
 
-  // --- 정렬 핸들러 ---
+  // 키오스크 노출 토글
+  const handleKioskToggle = (id: number) => {
+    setProducts(prev =>
+      prev.map(p => (p.id === id ? { ...p, kioskExposure: !p.kioskExposure } : p))
+    );
+  };
+
+  // 정렬
   const handleSort = (key: SortKey) => {
-    if (sortKey === key) {
-      setSortDir(prev => (prev === 'asc' ? 'desc' : 'asc'));
-    } else {
-      setSortKey(key);
-      setSortDir('asc');
-    }
+    if (sortKey === key) setSortDir(prev => (prev === 'asc' ? 'desc' : 'asc'));
+    else { setSortKey(key); setSortDir('asc'); }
   };
 
   const SortIcon = ({ col }: { col: SortKey }) => {
-    if (sortKey !== col) return <ArrowUpDown size={14} className="text-text-grey-blue/50 ml-xs inline" />;
+    if (sortKey !== col) return <ArrowUpDown size={13} className="text-content-tertiary ml-xs inline" />;
     return sortDir === 'asc'
-      ? <ArrowUp size={14} className="text-primary-coral ml-xs inline" />
-      : <ArrowDown size={14} className="text-primary-coral ml-xs inline" />;
+      ? <ArrowUp size={13} className="text-primary ml-xs inline" />
+      : <ArrowDown size={13} className="text-primary ml-xs inline" />;
   };
 
-  // --- Handlers ---
-  const handleSearch = (value: string) => setSearchValue(value);
-  const handleFilterChange = (key: string, value: any) => setFilterValues(prev => ({ ...prev, [key]: value }));
-  const handleReset = () => { setSearchValue(''); setFilterValues({ status: '' }); setActiveTab('all'); setSortKey(null); };
-  const handleDeleteClick = (id: number) => { setProductToDelete(id); setDeleteDialogOpen(true); };
+  // 필터 + 정렬
+  const filteredData = useMemo(() => {
+    let data = products.filter(item => {
+      const matchTab = activeTab === 'all' || item.category === activeTab;
+      const matchSearch = item.name.toLowerCase().includes(searchValue.toLowerCase());
+      const matchStatus = filterValues.status === '' || item.status === filterValues.status;
+      return matchTab && matchSearch && matchStatus;
+    });
+    if (sortKey) {
+      data = [...data].sort((a, b) => {
+        const aVal = a[sortKey as keyof Product];
+        const bVal = b[sortKey as keyof Product];
+        let cmp = 0;
+        if (typeof aVal === 'string' && typeof bVal === 'string') {
+          cmp = aVal.localeCompare(bVal, 'ko');
+        } else if (typeof aVal === 'number' && typeof bVal === 'number') {
+          cmp = aVal - bVal;
+        }
+        return sortDir === 'asc' ? cmp : -cmp;
+      });
+    }
+    return data;
+  }, [products, activeTab, searchValue, filterValues, sortKey, sortDir]);
+
   const confirmDelete = () => {
     if (productToDelete !== null) {
       setProducts(prev => prev.filter(p => p.id !== productToDelete));
@@ -156,32 +161,7 @@ export default function ProductList() {
     }
   };
 
-  // --- Filtered & Sorted Data ---
-  const filteredData = useMemo(() => {
-    let data = products.filter(item => {
-      const matchTab = activeTab === 'all' || item.categoryKey === activeTab;
-      const matchSearch = item.name.toLowerCase().includes(searchValue.toLowerCase());
-      const matchStatus = filterValues.status === '' || item.status === filterValues.status;
-      return matchTab && matchSearch && matchStatus;
-    });
-
-    if (sortKey) {
-      data = [...data].sort((a, b) => {
-        let aVal: any = a[sortKey as keyof typeof a];
-        let bVal: any = b[sortKey as keyof typeof b];
-        if (typeof aVal === 'string') aVal = aVal.localeCompare(bVal, 'ko');
-        else aVal = aVal - bVal;
-        if (typeof aVal === 'number') {
-          return sortDir === 'asc' ? aVal : -aVal;
-        }
-        return sortDir === 'asc' ? aVal : -aVal;
-      });
-    }
-
-    return data;
-  }, [products, activeTab, searchValue, filterValues, sortKey, sortDir]);
-
-  // --- Table Columns ---
+  // 테이블 컬럼
   const columns = [
     {
       key: 'category',
@@ -190,14 +170,8 @@ export default function ProductList() {
           카테고리<SortIcon col="category" />
         </button>
       ),
-      width: '120px',
-      render: (val: string) => <span className="text-Body-2 font-medium text-text-dark-grey" >{val}</span>,
-    },
-    {
-      key: 'subCategory',
-      header: '하위분류',
-      width: '120px',
-      render: (val: string) => <span className="text-Body-2 text-text-grey-blue" >{val}</span>,
+      width: '110px',
+      render: (val: string) => <StatusBadge variant="secondary">{val}</StatusBadge>,
     },
     {
       key: 'name',
@@ -208,7 +182,9 @@ export default function ProductList() {
       ),
       render: (val: string) => (
         <button
-          className="text-Body-1 font-semibold text-text-dark-grey hover:text-primary-coral transition-colors text-left" onClick={() => moveToPage(987)}>
+          className="text-[14px] font-semibold text-content hover:text-primary transition-colors text-left"
+          onClick={() => moveToPage(987)}
+        >
           {val}
         </button>
       ),
@@ -220,21 +196,25 @@ export default function ProductList() {
           현금가<SortIcon col="cashPrice" />
         </button>
       ),
-      width: '140px',
+      width: '130px',
       align: 'right' as const,
-      render: (val: number) => <span className="text-Body-2 font-medium" >₩{val.toLocaleString()}</span>,
+      render: (val: number) => (
+        <span className="text-[13px] font-medium tabular-nums">₩{val.toLocaleString()}</span>
+      ),
     },
     {
       key: 'cardPrice',
       header: '카드가',
-      width: '140px',
+      width: '130px',
       align: 'right' as const,
-      render: (val: number) => <span className="text-Body-2 font-medium" >₩{val.toLocaleString()}</span>,
+      render: (val: number) => (
+        <span className="text-[13px] font-medium tabular-nums">₩{val.toLocaleString()}</span>
+      ),
     },
     {
       key: 'period',
       header: '이용기간',
-      width: '100px',
+      width: '90px',
       align: 'center' as const,
     },
     {
@@ -242,8 +222,22 @@ export default function ProductList() {
       header: '키오스크',
       width: '100px',
       align: 'center' as const,
-      render: (val: boolean) => (
-        <StatusBadge variant={val ? 'mint' : 'default'} label={val ? '노출' : '미노출'} dot={val}/>
+      render: (val: boolean, row: Product) => (
+        <button
+          onClick={() => handleKioskToggle(row.id)}
+          className={cn(
+            'relative inline-flex h-5 w-9 items-center rounded-full transition-colors focus:outline-none',
+            val ? 'bg-accent' : 'bg-line'
+          )}
+          title={val ? '노출 중 (클릭하여 숨김)' : '숨김 (클릭하여 노출)'}
+        >
+          <span
+            className={cn(
+              'inline-block h-4 w-4 transform rounded-full bg-surface shadow transition-transform',
+              val ? 'translate-x-4' : 'translate-x-0.5'
+            )}
+          />
+        </button>
       ),
     },
     {
@@ -253,33 +247,41 @@ export default function ProductList() {
           상태<SortIcon col="status" />
         </button>
       ),
-      width: '100px',
+      width: '90px',
       align: 'center' as const,
       render: (val: string) => (
-        <StatusBadge variant={val === '사용' ? 'mint' : 'peach'} label={val}/>
+        <StatusBadge variant={val === '사용' ? 'mint' : 'default'} dot={val === '사용'}>
+          {val}
+        </StatusBadge>
       ),
     },
     {
       key: 'createdAt',
       header: '등록일',
-      width: '120px',
+      width: '110px',
       align: 'center' as const,
-      render: (val: string) => <span className="text-Label text-text-grey-blue" >{val}</span>,
+      render: (val: string) => <span className="text-[12px] text-content-tertiary">{val}</span>,
     },
     {
       key: 'actions',
       header: '',
       width: '80px',
       align: 'center' as const,
-      render: (_: any, row: any) => (
-        <div className="flex items-center justify-center gap-xs" >
+      render: (_: unknown, row: Product) => (
+        <div className="flex items-center justify-center gap-xs">
           <button
-            className="p-xs text-text-grey-blue hover:text-secondary-mint transition-colors" onClick={() => moveToPage(987)} title="수정">
-            <Edit2 size={16}/>
+            className="p-xs text-content-tertiary hover:text-accent transition-colors"
+            onClick={() => moveToPage(987)}
+            title="수정"
+          >
+            <Edit2 size={15} />
           </button>
           <button
-            className="p-xs text-text-grey-blue hover:text-error transition-colors" onClick={() => handleDeleteClick(row.id)} title="삭제">
-            <Trash2 size={16}/>
+            className="p-xs text-content-tertiary hover:text-state-error transition-colors"
+            onClick={() => { setProductToDelete(row.id); setDeleteDialogOpen(true); }}
+            title="삭제"
+          >
+            <Trash2 size={15} />
           </button>
         </div>
       ),
@@ -287,59 +289,110 @@ export default function ProductList() {
   ];
 
   const statItems = [
-    { label: '전체 상품', value: products.length, icon: <Package className="text-primary-coral" size={24}/>, variant: 'peach' as const },
-    { label: '판매 중', value: products.filter(p => p.status === '사용').length, icon: <CheckCircle className="text-secondary-mint" size={24}/>, variant: 'mint' as const },
-    { label: '미판매', value: products.filter(p => p.status === '미사용').length, icon: <XCircle className="text-text-grey-blue" size={24}/> },
-    { label: '키오스크 노출', value: products.filter(p => p.kioskExposure).length, icon: <LayoutGrid className="text-information" size={24}/>, variant: 'default' as const },
+    {
+      label: '전체 상품', value: products.length,
+      icon: <Package />, variant: 'peach' as const,
+    },
+    {
+      label: '판매 중', value: products.filter(p => p.status === '사용').length,
+      icon: <CheckCircle />, variant: 'mint' as const,
+    },
+    {
+      label: '미판매', value: products.filter(p => p.status === '미사용').length,
+      icon: <XCircle />,
+    },
+    {
+      label: '키오스크 노출', value: products.filter(p => p.kioskExposure).length,
+      icon: <LayoutGrid />,
+    },
   ];
 
+  const tabsWithCount = CATEGORY_TABS.map(tab => ({
+    ...tab,
+    count: tab.key === 'all'
+      ? products.length
+      : products.filter(p => p.category === tab.key).length,
+  }));
+
   return (
-    <AppLayout >
-      <PageHeader title="상품 관리" description="센터에서 판매하는 회원권, 수업권 및 옵션 상품을 구성하고 관리합니다." actions={
+    <AppLayout>
+      <PageHeader
+        title="상품 관리"
+        description="센터에서 판매하는 이용권, PT, GX 및 기타 상품을 관리합니다."
+        actions={
           <button
             onClick={() => moveToPage(987)}
-            className="flex items-center gap-xs rounded-button bg-primary-coral px-lg py-md text-Body-2 font-bold text-white shadow-sm hover:opacity-90 transition-all"
+            className="flex items-center gap-xs px-md py-sm bg-primary text-surface rounded-button text-[13px] font-bold shadow-sm hover:bg-primary-dark transition-colors"
           >
-            <Plus size={18} />
+            <Plus size={16} />
             상품 등록
           </button>
-        }/>
+        }
+      />
 
       {/* 통계 요약 */}
-      <div className="mb-xl grid grid-cols-1 gap-md sm:grid-cols-2 lg:grid-cols-4" >
+      <div className="mb-xl grid grid-cols-2 lg:grid-cols-4 gap-md">
         {statItems.map((stat, idx) => (
-          <StatCard key={idx} label={stat.label} value={stat.value} icon={stat.icon} variant={stat.variant}/>
+          <StatCard
+            key={idx}
+            label={stat.label}
+            value={stat.value}
+            icon={stat.icon}
+            variant={stat.variant}
+          />
         ))}
       </div>
 
-      {/* 필터 섹션 */}
-      <div className="mb-lg space-y-md" >
-        <TabNav tabs={CATEGORIES} activeTab={activeTab} onTabChange={setActiveTab}/>
-
-        <SearchFilter searchPlaceholder="상품명으로 검색하세요" searchValue={searchValue} onSearchChange={handleSearch} filters={[
+      {/* 필터 */}
+      <div className="mb-lg space-y-md">
+        <TabNav tabs={tabsWithCount} activeTab={activeTab} onTabChange={setActiveTab} />
+        <SearchFilter
+          searchPlaceholder="상품명으로 검색하세요"
+          searchValue={searchValue}
+          onSearchChange={val => setSearchValue(val)}
+          filters={[
             {
               key: 'status',
               label: '사용 상태',
               type: 'select',
               options: [
-                { value: '사용', label: '사용' },
-                { value: '미사용', label: '미사용' },
-              ]
-            }
-          ]} filterValues={filterValues} onFilterChange={handleFilterChange} onReset={handleReset}/>
+                { value: '사용', label: '판매 중' },
+                { value: '미사용', label: '미판매' },
+              ],
+            },
+          ]}
+          filterValues={filterValues}
+          onFilterChange={(key, val) => setFilterValues(prev => ({ ...prev, [key]: val }))}
+          onReset={() => {
+            setSearchValue('');
+            setFilterValues({ status: '' });
+            setActiveTab('all');
+            setSortKey(null);
+          }}
+        />
       </div>
 
       {/* 상품 목록 */}
-      <div className="rounded-card-normal bg-3 shadow-card-soft" >
-        <DataTable columns={columns} data={filteredData} title={`총 ${filteredData.length}개의 상품`} onDownloadExcel={() => alert('엑셀 다운로드를 시작합니다.')} pagination={{
-            page: 1,
-            pageSize: 10,
-            total: filteredData.length
-          }}/>
+      <div className="rounded-xl bg-surface border border-line shadow-card overflow-hidden">
+        <DataTable
+          columns={columns}
+          data={filteredData}
+          title={`총 ${filteredData.length}개의 상품`}
+          onDownloadExcel={() => alert('엑셀 다운로드를 시작합니다.')}
+          pagination={{ page: 1, pageSize: 10, total: filteredData.length }}
+        />
       </div>
 
-      {/* 삭제 확인 다이얼로그 */}
-      <ConfirmDialog open={deleteDialogOpen} title="상품 삭제" description="정말로 이 상품을 삭제하시겠습니까? 삭제된 상품은 복구할 수 없습니다." confirmLabel="삭제하기" cancelLabel="취소" variant="danger" onConfirm={confirmDelete} onCancel={() => setDeleteDialogOpen(false)}/>
+      <ConfirmDialog
+        open={deleteDialogOpen}
+        title="상품 삭제"
+        description="정말로 이 상품을 삭제하시겠습니까? 삭제된 상품은 복구할 수 없습니다."
+        confirmLabel="삭제하기"
+        cancelLabel="취소"
+        variant="danger"
+        onConfirm={confirmDelete}
+        onCancel={() => setDeleteDialogOpen(false)}
+      />
     </AppLayout>
   );
 }

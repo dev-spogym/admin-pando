@@ -6,7 +6,7 @@ import {
   ChevronLeft,
   ChevronRight,
   AlertCircle,
-  Search
+  Search,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -44,9 +44,6 @@ interface DataTableProps<T> {
   searchPlaceholder?: string;
 }
 
-/**
- * DataTable Component
- */
 export default function DataTable<T extends Record<string, any>>({
   columns = [],
   data = [],
@@ -66,11 +63,9 @@ export default function DataTable<T extends Record<string, any>>({
   searchValue = "",
   searchPlaceholder = "검색어를 입력하세요...",
 }: DataTableProps<T>) {
-
   const handleSelectAll = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.checked) {
-      const allIdx = new Set(data.map((_, idx) => idx));
-      onSelectRows?.(allIdx);
+      onSelectRows?.(new Set(data.map((_, idx) => idx)));
     } else {
       onSelectRows?.(new Set());
     }
@@ -91,29 +86,27 @@ export default function DataTable<T extends Record<string, any>>({
 
   if (loading) {
     return (
-      <div className="w-full bg-3 rounded-card-normal border border-7 overflow-hidden shadow-card-soft" >
-        <div className="px-6 py-4 border-b border-7 flex justify-between items-center" >
-          <div className="h-6 w-[150px] bg-2 animate-pulse rounded-2" />
-          <div className="h-9 w-[120px] bg-2 animate-pulse rounded-2" />
+      <div className="w-full bg-surface rounded-xl border border-line overflow-hidden">
+        <div className="px-lg py-md border-b border-line flex justify-between items-center">
+          <div className="h-5 w-[120px] bg-surface-tertiary animate-pulse rounded-md" />
+          <div className="h-8 w-[100px] bg-surface-tertiary animate-pulse rounded-md" />
         </div>
-        <div className="p-4" >
-          <table className="w-full" >
-            <thead className="bg-2" >
-              <tr >
-                {selectable && <th className="w-12 px-4 py-3" ><div className="h-4 w-4 bg-7 rounded mx-auto" /></th>}
-                {columns.map((_, i) => <th className="px-4 py-3" key={i}><div className="h-4 w-24 bg-7 rounded" /></th>)}
+        <table className="w-full">
+          <thead className="bg-surface-secondary">
+            <tr>
+              {selectable && <th className="w-10 px-3 py-2.5"><div className="h-4 w-4 bg-line rounded mx-auto" /></th>}
+              {columns.map((_, i) => <th className="px-3 py-2.5" key={i}><div className="h-3 w-20 bg-line rounded" /></th>)}
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-line-light">
+            {Array.from({ length: 5 }).map((_, i) => (
+              <tr key={i}>
+                {selectable && <td className="px-3 py-2.5"><div className="h-4 w-4 bg-surface-tertiary rounded mx-auto" /></td>}
+                {columns.map((_, j) => <td className="px-3 py-2.5" key={j}><div className="h-3 w-full bg-surface-tertiary rounded" /></td>)}
               </tr>
-            </thead>
-            <tbody className="divide-y divide-7" >
-              {Array.from({ length: 5 }).map((_, i) => (
-                <tr key={i}>
-                  {selectable && <td className="px-4 py-3" ><div className="h-4 w-4 bg-2 rounded mx-auto" /></td>}
-                  {columns.map((_, j) => <td className="px-4 py-3" key={j}><div className="h-4 w-full bg-2 rounded" /></td>)}
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+            ))}
+          </tbody>
+        </table>
       </div>
     );
   }
@@ -121,53 +114,68 @@ export default function DataTable<T extends Record<string, any>>({
   const isAllSelected = data.length > 0 && selectedRows.size === data.length;
 
   return (
-    <div className="w-full bg-3 border border-7 rounded-card-normal overflow-hidden shadow-card-soft" >
+    <div className="w-full bg-surface border border-line rounded-xl overflow-hidden">
       {(title || onDownloadExcel || onSearch) && (
-        <div className="px-6 py-4 border-b border-7 flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4" >
-          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 w-full lg:w-auto" >
-            {title && <h2 className="text-Section-Title text-4" >{title}</h2>}
+        <div className="px-lg py-md border-b border-line flex flex-col lg:flex-row justify-between items-start lg:items-center gap-md">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-md w-full lg:w-auto">
+            {title && <h2 className="text-Section-Title text-content">{title}</h2>}
             {onSearch && (
-              <div className="relative w-full sm:w-[300px]" >
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-5" size={16}/>
+              <div className="relative w-full sm:w-[280px]">
+                <Search className="absolute left-[10px] top-1/2 -translate-y-1/2 text-content-tertiary" size={15} />
                 <input
-                  className="w-full pl-10 pr-4 py-2 bg-2 border border-8 rounded-2 text-sm text-4 placeholder-5 focus:outline-none focus:ring-2 focus:ring-0/20 focus:border-0 transition-all" type="text" placeholder={searchPlaceholder} value={searchValue} onChange={(e) => onSearch(e.target.value)}/>
+                  className="w-full pl-8 pr-3 py-[6px] bg-surface-secondary border border-line rounded-lg text-[13px] text-content placeholder-content-tertiary focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary/20 transition-all"
+                  type="text"
+                  placeholder={searchPlaceholder}
+                  value={searchValue}
+                  onChange={(e) => onSearch(e.target.value)}
+                />
               </div>
             )}
           </div>
-          <div className="flex items-center gap-2 ml-auto" >
+          <div className="flex items-center gap-sm ml-auto">
             {onDownloadExcel && (
               <button
-                className="flex items-center gap-2 px-4 py-2 bg-3 text-4 border border-8 hover:bg-2 transition-all rounded-button text-sm font-medium shadow-card-soft" onClick={onDownloadExcel}>
-                <Download size={14}/> Excel 다운로드
+                className="flex items-center gap-[6px] px-3 py-[6px] bg-surface text-content-secondary border border-line hover:bg-surface-tertiary transition-colors rounded-lg text-[13px] font-medium"
+                onClick={onDownloadExcel}
+              >
+                <Download size={14} /> Excel
               </button>
             )}
           </div>
         </div>
       )}
 
-      <div className="overflow-x-auto" >
-        <table className="w-full border-collapse" >
-          <thead className="bg-2" >
-            <tr >
+      <div className="overflow-x-auto">
+        <table className="w-full border-collapse">
+          <thead className="bg-surface-secondary">
+            <tr>
               {selectable && (
-                <th className="w-12 px-4 py-3 text-center" >
+                <th className="w-10 px-3 py-2.5 text-center">
                   <input
-                    className="w-4 h-4 rounded-2 border-8 text-0 focus:ring-0 cursor-pointer" type="checkbox" checked={isAllSelected} onChange={handleSelectAll}/>
+                    className="w-3.5 h-3.5 rounded border-line text-primary focus:ring-0 cursor-pointer accent-primary"
+                    type="checkbox"
+                    checked={isAllSelected}
+                    onChange={handleSelectAll}
+                  />
                 </th>
               )}
               {columns.map((col) => (
                 <th
+                  key={col.key}
                   className={cn(
-                    "px-4 py-3 text-xs font-semibold text-5 uppercase tracking-wider whitespace-nowrap",
-                    col.sortable && "cursor-pointer hover:bg-2",
+                    "px-3 py-2.5 text-[11px] font-semibold text-content-secondary uppercase tracking-wider whitespace-nowrap",
+                    col.sortable && "cursor-pointer hover:text-content",
                     col.align === "center" ? "text-center" : col.align === "right" ? "text-right" : "text-left"
-                  )} key={col.key} style={col.width ? { width: col.width } : undefined} onClick={() => col.sortable && handleSort(col.key)}>
-                  <div className={cn("flex items-center gap-1", col.align === "center" ? "justify-center" : col.align === "right" ? "justify-end" : "justify-start")} >
+                  )}
+                  style={col.width ? { width: col.width } : undefined}
+                  onClick={() => col.sortable && handleSort(col.key)}
+                >
+                  <div className={cn("flex items-center gap-1", col.align === "center" ? "justify-center" : col.align === "right" ? "justify-end" : "justify-start")}>
                     {col.header}
                     {col.sortable && (
-                      <div className="flex flex-col" >
-                        <ChevronUp className={cn("-mb-1", sortConfig?.key === col.key && sortConfig.direction === "asc" ? "text-0" : "text-8")} size={12}/>
-                        <ChevronDown className={cn(sortConfig?.key === col.key && sortConfig.direction === "desc" ? "text-0" : "text-8")} size={12}/>
+                      <div className="flex flex-col -space-y-[3px]">
+                        <ChevronUp className={cn(sortConfig?.key === col.key && sortConfig.direction === "asc" ? "text-primary" : "text-line")} size={11} />
+                        <ChevronDown className={cn(sortConfig?.key === col.key && sortConfig.direction === "desc" ? "text-primary" : "text-line")} size={11} />
                       </div>
                     )}
                   </div>
@@ -175,38 +183,44 @@ export default function DataTable<T extends Record<string, any>>({
               ))}
             </tr>
           </thead>
-          <tbody className="divide-y divide-7" >
+          <tbody className="divide-y divide-line-light">
             {data.length === 0 ? (
-              <tr >
-                <td className="px-6 py-20 text-center" colSpan={columns.length + (selectable ? 1 : 0)}>
-                  <div className="flex flex-col items-center justify-center gap-3" >
-                    <AlertCircle className="text-8" size={48}/>
-                    <div >
-                      <p className="text-lg text-4 font-medium" >{emptyMessage}</p>
-                      <p className="text-sm text-5 mt-1" >조건을 변경하거나 필터를 초기화해보세요.</p>
-                    </div>
+              <tr>
+                <td className="px-lg py-xl text-center" colSpan={columns.length + (selectable ? 1 : 0)}>
+                  <div className="flex flex-col items-center justify-center gap-sm">
+                    <AlertCircle className="text-line" size={36} />
+                    <p className="text-[14px] text-content-secondary">{emptyMessage}</p>
+                    <p className="text-[12px] text-content-tertiary">조건을 변경하거나 필터를 초기화해보세요.</p>
                   </div>
                 </td>
               </tr>
             ) : (
               data.map((row, idx) => (
                 <tr
+                  key={idx}
                   className={cn(
                     "transition-colors",
-                    selectedRows.has(idx) ? "bg-6" : "hover:bg-2"
-                  )} key={idx}>
+                    selectedRows.has(idx) ? "bg-primary-light/40" : "hover:bg-surface-secondary"
+                  )}
+                >
                   {selectable && (
-                    <td className="px-4 py-3 text-center" >
+                    <td className="px-3 py-2.5 text-center">
                       <input
-                        className="w-4 h-4 rounded-2 border-8 text-0 focus:ring-0 cursor-pointer" type="checkbox" checked={selectedRows.has(idx)} onChange={() => toggleSelectRow(idx)}/>
+                        className="w-3.5 h-3.5 rounded border-line text-primary focus:ring-0 cursor-pointer accent-primary"
+                        type="checkbox"
+                        checked={selectedRows.has(idx)}
+                        onChange={() => toggleSelectRow(idx)}
+                      />
                     </td>
                   )}
                   {columns.map((col) => (
                     <td
+                      key={col.key}
                       className={cn(
-                        "px-4 py-3 text-sm text-Body-Primary-KR text-4 tabular-nums",
+                        "px-3 py-2.5 text-[13px] text-content tabular-nums",
                         col.align === "center" ? "text-center" : col.align === "right" ? "text-right" : "text-left"
-                      )} key={col.key}>
+                      )}
+                    >
                       {col.render ? col.render(row[col.key], row, idx) : row[col.key]}
                     </td>
                   ))}
@@ -218,49 +232,63 @@ export default function DataTable<T extends Record<string, any>>({
       </div>
 
       {pagination && (
-        <div className="px-6 py-4 border-t border-7 bg-3 flex flex-col md:flex-row justify-between items-center gap-4" >
-          <div className="flex items-center gap-6" >
-            <p className="text-sm text-5" >
-              총 <span className="text-4 font-semibold" >{pagination.total}</span>건 중 <span className="text-4 font-semibold" >{(pagination.page - 1) * pagination.pageSize + 1} - {Math.min(pagination.page * pagination.pageSize, pagination.total)}</span> 표시
+        <div className="px-lg py-md border-t border-line bg-surface flex flex-col md:flex-row justify-between items-center gap-md">
+          <div className="flex items-center gap-lg">
+            <p className="text-[12px] text-content-secondary">
+              총 <span className="text-content font-semibold">{pagination.total}</span>건 중{" "}
+              <span className="text-content font-semibold">
+                {(pagination.page - 1) * pagination.pageSize + 1}-{Math.min(pagination.page * pagination.pageSize, pagination.total)}
+              </span>
             </p>
             {onPageSizeChange && (
-              <div className="flex items-center gap-2" >
-                <span className="text-xs font-medium text-5" >표시</span>
-                <select
-                  className="bg-3 border border-8 rounded-2 px-2 py-1 text-sm text-4 outline-none cursor-pointer focus:ring-2 focus:ring-0/20 focus:border-0" value={pagination.pageSize} onChange={(e) => onPageSizeChange(Number(e.target.value))}>
-                  {(pagination.pageSizeOptions || [10, 20, 50, 100]).map(size => <option key={size} value={size}>{size}개</option>)}
-                </select>
-              </div>
+              <select
+                className="bg-surface border border-line rounded-md px-2 py-1 text-[12px] text-content outline-none cursor-pointer focus:border-primary"
+                value={pagination.pageSize}
+                onChange={(e) => onPageSizeChange(Number(e.target.value))}
+              >
+                {(pagination.pageSizeOptions || [10, 20, 50, 100]).map((size) => (
+                  <option key={size} value={size}>{size}개</option>
+                ))}
+              </select>
             )}
           </div>
-          <div className="flex items-center gap-2" >
+          <div className="flex items-center gap-[4px]">
             <button
-              className="p-2 rounded-2 border border-8 bg-3 text-5 hover:text-0 hover:bg-2 disabled:opacity-50 disabled:cursor-not-allowed transition-all" onClick={() => onPageChange?.(pagination.page - 1)} disabled={pagination.page === 1}>
-              <ChevronLeft size={20}/>
+              className="p-1.5 rounded-md border border-line text-content-secondary hover:text-content hover:bg-surface-tertiary disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+              onClick={() => onPageChange?.(pagination.page - 1)}
+              disabled={pagination.page === 1}
+            >
+              <ChevronLeft size={16} />
             </button>
-            <div className="flex items-center gap-1" >
-              {Array.from({ length: Math.min(5, Math.ceil(pagination.total / pagination.pageSize)) }).map((_, i) => {
-                const totalPages = Math.ceil(pagination.total / pagination.pageSize);
-                let pageNum = i + 1;
-                if (pagination.page > 3 && totalPages > 5) {
-                    pageNum = pagination.page - 2 + i;
-                    if (pageNum + (4-i) > totalPages) pageNum = totalPages - 4 + i;
-                }
-                if (pageNum > totalPages) return null;
-                return (
-                  <button
-                    className={cn(
-                      "min-w-[36px] h-[36px] flex items-center justify-center rounded-2 text-sm font-medium transition-all",
-                      pagination.page === pageNum ? "bg-0 text-white" : "bg-3 border border-8 text-4 hover:bg-2"
-                    )} key={pageNum} onClick={() => onPageChange?.(pageNum)}>
-                    {pageNum}
-                  </button>
-                );
-              })}
-            </div>
+            {Array.from({ length: Math.min(5, Math.ceil(pagination.total / pagination.pageSize)) }).map((_, i) => {
+              const totalPages = Math.ceil(pagination.total / pagination.pageSize);
+              let pageNum = i + 1;
+              if (pagination.page > 3 && totalPages > 5) {
+                pageNum = pagination.page - 2 + i;
+                if (pageNum + (4 - i) > totalPages) pageNum = totalPages - 4 + i;
+              }
+              if (pageNum > totalPages) return null;
+              return (
+                <button
+                  key={pageNum}
+                  className={cn(
+                    "min-w-[30px] h-[30px] flex items-center justify-center rounded-md text-[12px] font-medium transition-colors",
+                    pagination.page === pageNum
+                      ? "bg-primary text-white"
+                      : "text-content-secondary hover:bg-surface-tertiary"
+                  )}
+                  onClick={() => onPageChange?.(pageNum)}
+                >
+                  {pageNum}
+                </button>
+              );
+            })}
             <button
-              className="p-2 rounded-2 border border-8 bg-3 text-5 hover:text-0 hover:bg-2 disabled:opacity-50 disabled:cursor-not-allowed transition-all" onClick={() => onPageChange?.(pagination.page + 1)} disabled={pagination.page === Math.ceil(pagination.total / pagination.pageSize)}>
-              <ChevronRight size={20}/>
+              className="p-1.5 rounded-md border border-line text-content-secondary hover:text-content hover:bg-surface-tertiary disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+              onClick={() => onPageChange?.(pagination.page + 1)}
+              disabled={pagination.page === Math.ceil(pagination.total / pagination.pageSize)}
+            >
+              <ChevronRight size={16} />
             </button>
           </div>
         </div>

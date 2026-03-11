@@ -41,7 +41,7 @@ export default function DatePicker({
       {label && (
         <label
           htmlFor={id}
-          className="text-Label font-medium text-4"
+          className="text-Label font-medium text-content"
         >
           {label}
         </label>
@@ -58,21 +58,21 @@ export default function DatePicker({
         placeholder={placeholder}
         onChange={(e) => onChange(e.target.value)}
         className={cn(
-          "w-full rounded-input border bg-9 px-md py-sm",
-          "text-Body-Primary-KR text-4 transition-all",
+          "w-full rounded-input border bg-surface-secondary px-md py-sm",
+          "text-Body-Primary-KR text-content transition-all",
           "focus:outline-none focus:ring-2 focus:ring-0/20",
           "disabled:cursor-not-allowed disabled:opacity-50",
           // 빈 값일 때 placeholder 색상
-          !value && "text-5",
+          !value && "text-content-secondary",
           error
             ? "border-error focus:ring-error/20"
-            : "border-7 hover:border-5"
+            : "border-line hover:border-5"
         )}
       />
 
       {/* 에러 메시지 */}
       {error && (
-        <p className="text-[11px] font-medium text-error">{error}</p>
+        <p className="text-[11px] font-medium text-state-error">{error}</p>
       )}
     </div>
   );

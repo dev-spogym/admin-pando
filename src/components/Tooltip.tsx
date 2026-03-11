@@ -59,10 +59,10 @@ export default function Tooltip({
           className={cn(
             "absolute h-0 w-0 border-4 border-solid border-4",
             // 화살표 색상은 방향에 맞게 조정
-            position === "top" && "top-full left-1/2 -translate-x-1/2 border-x-transparent border-b-transparent border-t-4 border-t-[theme(colors.text.4)]",
-            position === "bottom" && "bottom-full left-1/2 -translate-x-1/2 border-x-transparent border-t-transparent border-b-4 border-b-[theme(colors.text.4)]",
-            position === "left" && "left-full top-1/2 -translate-y-1/2 border-y-transparent border-r-transparent border-l-4 border-l-[theme(colors.text.4)]",
-            position === "right" && "right-full top-1/2 -translate-y-1/2 border-y-transparent border-l-transparent border-r-4 border-r-[theme(colors.text.4)]"
+            position === "top" && "top-full left-1/2 -translate-x-1/2 border-x-transparent border-b-transparent border-t-4 border-t-content",
+            position === "bottom" && "bottom-full left-1/2 -translate-x-1/2 border-x-transparent border-t-transparent border-b-4 border-b-content",
+            position === "left" && "left-full top-1/2 -translate-y-1/2 border-y-transparent border-r-transparent border-l-4 border-l-content",
+            position === "right" && "right-full top-1/2 -translate-y-1/2 border-y-transparent border-l-transparent border-r-4 border-r-content"
           )}
         />
       </span>

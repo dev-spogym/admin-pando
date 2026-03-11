@@ -90,7 +90,7 @@ export default function NumberInput({
     <div className={cn("flex flex-col gap-xs", className)}>
       {/* 레이블 */}
       {label && (
-        <label htmlFor={id} className="text-Label font-medium text-4">
+        <label htmlFor={id} className="text-Label font-medium text-content">
           {label}
         </label>
       )}
@@ -98,9 +98,9 @@ export default function NumberInput({
       {/* 입력 영역 */}
       <div
         className={cn(
-          "flex items-center overflow-hidden rounded-input border bg-9 transition-all",
+          "flex items-center overflow-hidden rounded-input border bg-surface-secondary transition-all",
           "focus-within:ring-2 focus-within:ring-0/20",
-          error ? "border-error" : "border-7",
+          error ? "border-error" : "border-line",
           disabled && "opacity-50 cursor-not-allowed"
         )}
       >
@@ -110,8 +110,8 @@ export default function NumberInput({
           onClick={handleDecrease}
           disabled={isDecreaseDisabled}
           className={cn(
-            "flex h-full items-center justify-center border-r border-7 px-sm py-sm text-5 transition-colors",
-            "hover:bg-2 hover:text-4",
+            "flex h-full items-center justify-center border-r border-line px-sm py-sm text-content-secondary transition-colors",
+            "hover:bg-surface-secondary hover:text-content",
             isDecreaseDisabled && "cursor-not-allowed opacity-40"
           )}
           aria-label="감소"
@@ -121,7 +121,7 @@ export default function NumberInput({
 
         {/* prefix */}
         {prefix && (
-          <span className="pl-sm text-Body-Primary-KR text-5 flex-shrink-0 select-none">
+          <span className="pl-sm text-Body-Primary-KR text-content-secondary flex-shrink-0 select-none">
             {prefix}
           </span>
         )}
@@ -135,7 +135,7 @@ export default function NumberInput({
           onChange={handleInputChange}
           disabled={disabled}
           className={cn(
-            "min-w-0 flex-1 bg-transparent px-sm py-sm text-Body-Primary-KR text-4",
+            "min-w-0 flex-1 bg-transparent px-sm py-sm text-Body-Primary-KR text-content",
             "text-center focus:outline-none",
             disabled && "cursor-not-allowed"
           )}
@@ -146,7 +146,7 @@ export default function NumberInput({
 
         {/* suffix */}
         {suffix && (
-          <span className="pr-sm text-Body-Primary-KR text-5 flex-shrink-0 select-none">
+          <span className="pr-sm text-Body-Primary-KR text-content-secondary flex-shrink-0 select-none">
             {suffix}
           </span>
         )}
@@ -157,8 +157,8 @@ export default function NumberInput({
           onClick={handleIncrease}
           disabled={isIncreaseDisabled}
           className={cn(
-            "flex h-full items-center justify-center border-l border-7 px-sm py-sm text-5 transition-colors",
-            "hover:bg-2 hover:text-4",
+            "flex h-full items-center justify-center border-l border-line px-sm py-sm text-content-secondary transition-colors",
+            "hover:bg-surface-secondary hover:text-content",
             isIncreaseDisabled && "cursor-not-allowed opacity-40"
           )}
           aria-label="증가"
@@ -169,7 +169,7 @@ export default function NumberInput({
 
       {/* 에러 메시지 */}
       {error && (
-        <p className="text-[11px] font-medium text-error">{error}</p>
+        <p className="text-[11px] font-medium text-state-error">{error}</p>
       )}
     </div>
   );

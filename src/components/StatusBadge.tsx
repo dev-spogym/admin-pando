@@ -4,25 +4,25 @@ import { cn } from "@/lib/utils";
 export type BadgeVariant = "success" | "warning" | "error" | "info" | "default" | "peach" | "mint" | "secondary";
 
 const VARIANT_STYLES: Record<BadgeVariant, string> = {
-  success: "bg-bg-soft-mint text-success border border-secondary-mint/20",
-  warning: "bg-bg-soft-peach text-warning border border-primary-coral/20",
-  error: "bg-error text-white",
-  info: "bg-6 text-0 border border-0/20",
-  default: "bg-1 text-4 border border-7",
-  peach: "bg-bg-soft-peach text-warning border border-primary-coral/20",
-  mint: "bg-bg-soft-mint text-success border border-secondary-mint/20",
-  secondary: "bg-2 text-5 border border-7",
+  success: "bg-emerald-50 text-state-success border border-emerald-200",
+  warning: "bg-amber-50 text-amber-600 border border-amber-200",
+  error: "bg-red-50 text-state-error border border-red-200",
+  info: "bg-blue-50 text-state-info border border-blue-200",
+  default: "bg-surface-tertiary text-content-secondary border border-line",
+  peach: "bg-primary-light text-primary border border-primary/15",
+  mint: "bg-accent-light text-accent border border-accent/15",
+  secondary: "bg-surface-secondary text-content-secondary border border-line",
 };
 
 const DOT_STYLES: Record<BadgeVariant, string> = {
-  success: "bg-success",
-  warning: "bg-warning",
-  error: "bg-white",
-  info: "bg-0",
-  default: "bg-4",
-  peach: "bg-warning",
-  mint: "bg-success",
-  secondary: "bg-5",
+  success: "bg-state-success",
+  warning: "bg-amber-500",
+  error: "bg-state-error",
+  info: "bg-state-info",
+  default: "bg-content-secondary",
+  peach: "bg-primary",
+  mint: "bg-accent",
+  secondary: "bg-content-tertiary",
 };
 
 export interface StatusBadgeProps {
@@ -47,10 +47,11 @@ export function StatusBadge({
   return (
     <span
       className={cn(
-        "inline-flex items-center gap-1.5 px-3 py-1 text-[11px] font-bold rounded-md uppercase tracking-wider",
+        "inline-flex items-center gap-1.5 px-2 py-0.5 text-[11px] font-semibold rounded-md",
         VARIANT_STYLES[variant],
         className
-      )} >
+      )}
+    >
       {dot && <span className={cn("h-1.5 w-1.5 rounded-full", DOT_STYLES[variant])} />}
       {content}
     </span>
