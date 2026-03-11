@@ -22,12 +22,14 @@ interface FormSectionProps {
    * 외부 스타일 주입용
    */
   className?: string;
+  actions?: React.ReactNode;
 }
 
 /**
  * FormSection - 폼 입력 영역의 섹션 래퍼.
  * 디자인 시스템의 Card UI 가이드를 준수합니다.
  */
+export { FormSection };
 export default function FormSection({
   title,
   description,
@@ -36,6 +38,7 @@ export default function FormSection({
   collapsible = false,
   defaultOpen = true,
   className,
+  actions,
 }: FormSectionProps) {
   const [open, setOpen] = useState(defaultOpen);
 
@@ -54,6 +57,7 @@ export default function FormSection({
             </p>
           )}
         </div>
+        {actions && <div className="ml-auto mr-md">{actions}</div>}
         {collapsible && (
           <div className="text-5 transition-transform duration-200 ml-md" >
             {open ? <ChevronUp size={24}/> : <ChevronDown size={24}/>}

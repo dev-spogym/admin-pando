@@ -169,7 +169,7 @@ export default function AutoAlarm() {
         <div className="bg-bg-soft-mint p-lg rounded-card-normal border border-secondary-mint/20 flex flex-col justify-between" >
           <div className="flex items-center justify-between" >
             <span className="text-Label text-text-grey-blue" >현재 활성화된 트리거</span>
-            <StatusBadge label="정상 작동 중" variant="success" dot="true"/>
+            <StatusBadge label="정상 작동 중" variant="success" dot={true}/>
           </div>
           <div className="mt-sm" >
             <span className="text-Heading-1 text-secondary-mint font-bold" >

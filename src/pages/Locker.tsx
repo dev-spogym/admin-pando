@@ -52,7 +52,7 @@ interface LockerData {
 }
 
 // --- Mock Data ---
-const MOCK_LOCKERS: LockerData[] = [
+const MOCK_LOCKERS: LockerData[] = ([
   ...Array.from({ length: 40 }, (_, i) => ({
     id: `p-${i + 1}`,
     number: i + 1,
@@ -69,7 +69,7 @@ const MOCK_LOCKERS: LockerData[] = [
     area: i < 15 ? "남자" : "여자",
     status: (["available", "in_use"])[Math.floor(Math.random() * 2)] as LockerStatus,
     memberName: Math.random() > 0.7 ? "임시회원" : undefined,
-    gender: i < 15 ? "M" : "F",
+    gender: (i < 15 ? "M" : "F") as "M" | "F",
     lastUpdated: "10:30",
   })),
   ...Array.from({ length: 20 }, (_, i) => ({
@@ -81,7 +81,7 @@ const MOCK_LOCKERS: LockerData[] = [
     memberName: Math.random() > 0.5 ? "골프회원" : undefined,
     expiryDate: "2026-04-01",
   })),
-];
+] as LockerData[]);
 
 export default function Locker() {
   const [activeTab, setActiveTab] = useState("personal");
@@ -297,7 +297,7 @@ export default function Locker() {
                       </button>
                     )
                   }
-                ]} data={filteredLockers} selectable="true"/>
+                ]} data={filteredLockers} selectable={true}/>
             )}
           </div>
 
@@ -333,7 +333,7 @@ export default function Locker() {
                     <div className="flex items-center justify-between" >
                       <span className="text-Body 2 text-text-grey-blue" >이용 회원</span>
                       <button
-                        className="text-Body 1 font-bold text-text-dark-grey hover:text-primary-coral transition-colors flex items-center gap-xs" onClick={() => moveToPage(985, { memberId: selectedLocker.memberId })}>
+                        className="text-Body 1 font-bold text-text-dark-grey hover:text-primary-coral transition-colors flex items-center gap-xs" onClick={() => moveToPage(985)}>
                         {selectedLocker.memberName}
                         <ChevronRight size={14}/>
                       </button>

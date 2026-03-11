@@ -10,6 +10,7 @@ import type {
   Product,
   AttendanceRecord,
   Locker,
+  LockerStatus,
   BirthdayMember,
   UnpaidMember,
   HoldingMember,

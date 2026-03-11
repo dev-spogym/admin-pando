@@ -124,7 +124,33 @@ const MOCK_DISCOUNTS = [
 
 // --- Sub-components ---
 
-const ProductCard = ({ product, onAdd }) => {
+interface CartItem {
+  cartId: string;
+  id: number;
+  name: string;
+  category: string;
+  subCategory: string;
+  sport: string;
+  period: string;
+  count: string;
+  cashPrice: number;
+  cardPrice: number;
+  kiosk: boolean;
+  tags: string[];
+  priceType: string;
+  startDate: string;
+  discount: number;
+}
+
+interface MockMember {
+  id: number;
+  name: string;
+  phone: string;
+  attendanceNo: string;
+  mileage: number;
+}
+
+const ProductCard = ({ product, onAdd }: { product: typeof MOCK_PRODUCTS[number]; onAdd: (p: typeof MOCK_PRODUCTS[number]) => void }) => {
   return (
     <div 
       className="group relative flex flex-col rounded-card-normal border border-border-light bg-white p-md shadow-card-soft transition-all hover:border-primary-coral hover:shadow-md cursor-pointer" onClick={() => onAdd(product)}>
@@ -187,8 +213,8 @@ export default function SalesPos() {
   const [currentStep, setCurrentStep] = useState(1); // 1: 회원검색, 2: 상품선택, 3: 계약조건, 4: 결제, 5: 서명
   
   // State: Cart & Selection
-  const [selectedMember, setSelectedMember] = useState(null);
-  const [cart, setCart] = useState([]);
+  const [selectedMember, setSelectedMember] = useState<MockMember | null>(null);
+  const [cart, setCart] = useState<CartItem[]>([]);
   const [memberSearchValue, setMemberSearchValue] = useState('');
   
   // State: Modals
@@ -210,7 +236,7 @@ export default function SalesPos() {
   }, [cart]);
 
   // Handlers
-  const handleAddToCart = (product) => {
+  const handleAddToCart = (product: typeof MOCK_PRODUCTS[number]) => {
     if (!selectedMember) {
       alert('먼저 회원을 검색해주세요.');
       return;
@@ -226,11 +252,11 @@ export default function SalesPos() {
     if (currentStep < 3) setCurrentStep(3);
   };
 
-  const handleRemoveFromCart = (cartId) => {
+  const handleRemoveFromCart = (cartId: string) => {
     setCart(cart.filter(item => item.cartId !== cartId));
   };
 
-  const handleMemberSelect = (member) => {
+  const handleMemberSelect = (member: MockMember) => {
     setSelectedMember(member);
     setMemberSearchValue('');
     setCurrentStep(2);
@@ -629,7 +655,7 @@ export default function SalesPos() {
 
 // --- Helper Components ---
 
-const PaymentOption = ({ icon, label, sub, color, onClick }) => {
+const PaymentOption = ({ icon, label, sub, color, onClick }: { icon: React.ReactNode; label: string; sub: string; color: 'coral' | 'mint' | 'peach' | 'blue'; onClick: () => void }) => {
   const colors = {
     coral: "bg-bg-soft-peach border-primary-coral/20 text-primary-coral hover:bg-primary-coral hover:text-white",
     mint: "bg-bg-soft-mint border-secondary-mint/20 text-secondary-mint hover:bg-secondary-mint hover:text-white",

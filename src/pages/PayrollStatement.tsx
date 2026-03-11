@@ -187,7 +187,7 @@ export default function PayrollStatement() {
       <span className="font-bold text-primary-coral" >₩${val.toLocaleString()}</span>
     )},
     { key: "status", header: "상태", align: "center" as const, render: (val: string) => (
-      <StatusBadge variant={val === "지급완료" ? "success" : "warning"} dot="true" label={val}/>
+      <StatusBadge variant={val === "지급완료" ? "success" : "warning"} dot={true} label={val}/>
     )},
     { key: "actions", header: "액션", align: "center" as const, render: (_: any, row: any) => (
       <button 

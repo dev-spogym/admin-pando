@@ -89,7 +89,7 @@ export default function IotSettings() {
         header: "상태", 
         render: (val: string) => {
           const variant = val === "정상" ? "success" : val === "오류" ? "error" : "default";
-          return <StatusBadge variant={variant} label={val} dot="true"/>;
+          return <StatusBadge variant={variant} label={val} dot={true}/>;
         }
       },
       { key: "lastComm", header: "마지막 통신" },
@@ -145,11 +145,11 @@ export default function IotSettings() {
         header: "상태", 
         render: (val: string) => {
           const variant = val === "온라인" ? "success" : val === "오류" ? "error" : "default";
-          return <StatusBadge variant={variant} label={val} dot="true"/>;
+          return <StatusBadge variant={variant} label={val} dot={true}/>;
         }
       },
-      { 
-        key: "menu", 
+      {
+        key: "menu",
         header: "메뉴", 
         align: "right" as const,
         render: (_: any, row: any) => (
@@ -270,7 +270,7 @@ export default function IotSettings() {
             <div className="flex flex-wrap gap-sm" >
               {["월", "화", "수", "목", "금", "토", "일"].map(day => (
                 <label className="flex items-center gap-xs p-sm border border-border-light rounded-button cursor-pointer hover:bg-bg-soft-mint transition-colors" key={day}>
-                  <input className="w-4 h-4 rounded text-secondary-mint focus:ring-secondary-mint accent-secondary-mint" type="checkbox" defaultChecked="true"/>
+                  <input className="w-4 h-4 rounded text-secondary-mint focus:ring-secondary-mint accent-secondary-mint" type="checkbox" defaultChecked={true}/>
                   <span className="text-Body 2" >{day}</span>
                 </label>
               ))}

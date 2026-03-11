@@ -86,7 +86,7 @@ export default function Settings() {
       header: '관리', 
       width: 100, 
       align: 'center' as const,
-      render: (_, row: any) => (
+      render: (_: unknown, row: any) => (
         <button className="text-text-grey-blue hover:text-error transition-colors" >
           <Trash2 size={18}/>
         </button>
@@ -137,7 +137,7 @@ export default function Settings() {
                 </label>
                 <div className="flex gap-sm" >
                   <input
-                    className="flex-1 bg-input-bg-light p-md rounded-input outline-none border-[1px] border-transparent" type="text" readOnly="true" value={centerInfo.address}/>
+                    className="flex-1 bg-input-bg-light p-md rounded-input outline-none border-[1px] border-transparent" type="text" readOnly={true} value={centerInfo.address}/>
                   <button className="bg-bg-soft-mint text-secondary-mint px-lg rounded-button text-Body 2 font-semibold" >
                     주소검색
                   </button>
@@ -208,7 +208,7 @@ export default function Settings() {
             
             <DataTable columns={doorColumns} data={doors} pagination={{ page: 1, pageSize: 10, total: doors.length }}/>
 
-            <FormSection title="RFID 및 연동 설정" columns={2} collapsible="true">
+            <FormSection title="RFID 및 연동 설정" columns={2} collapsible={true}>
               <div className="space-y-xs" >
                 <label className="text-Label text-text-dark-grey" >체크인 대기시간 (분)</label>
                 <input className="w-full bg-input-bg-light p-md rounded-input outline-none" type="number" defaultValue={5}/>
@@ -301,7 +301,7 @@ export default function Settings() {
                 <label className="text-Label text-text-dark-grey" >다크모드 지원 여부</label>
                 <div className="flex items-center gap-md h-[48px]" >
                   <label className="flex items-center gap-xs cursor-pointer" >
-                    <input className="accent-secondary-mint" type="radio" name="darkmode" defaultChecked="true"/>
+                    <input className="accent-secondary-mint" type="radio" name="darkmode" defaultChecked={true}/>
                     <span className="text-Body 2" >지원</span>
                   </label>
                   <label className="flex items-center gap-xs cursor-pointer" >

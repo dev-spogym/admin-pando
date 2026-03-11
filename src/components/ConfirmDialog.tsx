@@ -1,16 +1,17 @@
 import React, { useState, useEffect } from "react";
 import { cn } from "@/lib/utils";
 
-interface ConfirmDialogProps {
+export interface ConfirmDialogProps {
   open: boolean;
   title: string;
   description?: string;
   confirmLabel?: string;
   cancelLabel?: string;
   variant?: "default" | "danger";
-  confirmationText?: string; // 사용자가 직접 입력해야 하는 확인 문구 (예: "삭제")
+  confirmationText?: string;
   onConfirm: () => void;
   onCancel: () => void;
+  children?: React.ReactNode;
 }
 
 export default function ConfirmDialog({
@@ -23,6 +24,7 @@ export default function ConfirmDialog({
   confirmationText,
   onConfirm,
   onCancel,
+  children,
 }: ConfirmDialogProps) {
   const [inputValue, setInputValue] = useState("");
 
@@ -52,6 +54,8 @@ export default function ConfirmDialog({
             {description}
           </p>
         )}
+
+        {children && <div className="mt-sm">{children}</div>}
 
         {confirmationText && (
           <div className="mt-md" >

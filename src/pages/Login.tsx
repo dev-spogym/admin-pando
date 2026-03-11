@@ -159,7 +159,7 @@ export default function Login() {
         © 2026 FitGenie CRM. All rights reserved.
       </div>
 
-      <style jsx="true">{`
+      <style>{`
         @keyframes shake {
           0%, 100% { transform: translateX(0); }
           25% { transform: translateX(-4px); }

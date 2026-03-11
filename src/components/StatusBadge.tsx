@@ -1,14 +1,17 @@
 import React from "react";
 import { cn } from "@/lib/utils";
 
-type BadgeVariant = "success" | "warning" | "error" | "info" | "default";
+export type BadgeVariant = "success" | "warning" | "error" | "info" | "default" | "peach" | "mint" | "secondary";
 
 const VARIANT_STYLES: Record<BadgeVariant, string> = {
   success: "bg-bg-soft-mint text-success border border-secondary-mint/20",
   warning: "bg-bg-soft-peach text-warning border border-primary-coral/20",
   error: "bg-error text-white",
-  info: "bg-6 text-0 border border-0/20", 
+  info: "bg-6 text-0 border border-0/20",
   default: "bg-1 text-4 border border-7",
+  peach: "bg-bg-soft-peach text-warning border border-primary-coral/20",
+  mint: "bg-bg-soft-mint text-success border border-secondary-mint/20",
+  secondary: "bg-2 text-5 border border-7",
 };
 
 const DOT_STYLES: Record<BadgeVariant, string> = {
@@ -17,12 +20,16 @@ const DOT_STYLES: Record<BadgeVariant, string> = {
   error: "bg-white",
   info: "bg-0",
   default: "bg-4",
+  peach: "bg-warning",
+  mint: "bg-success",
+  secondary: "bg-5",
 };
 
-interface StatusBadgeProps {
+export interface StatusBadgeProps {
   label?: string;
   children?: React.ReactNode;
   variant?: BadgeVariant;
+  status?: BadgeVariant;
   dot?: boolean;
   className?: string;
 }
@@ -30,10 +37,12 @@ interface StatusBadgeProps {
 export function StatusBadge({
   label,
   children,
-  variant = "default",
+  variant: variantProp = "default",
+  status,
   dot = false,
   className = "",
 }: StatusBadgeProps) {
+  const variant = status ?? variantProp;
   const content = label || children;
   return (
     <span

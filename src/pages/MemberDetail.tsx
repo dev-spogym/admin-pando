@@ -144,7 +144,7 @@ export default function MemberDetail() {
           warning: { label: "임박", variant: "warning" },
         };
         const s = variants[val] || { label: val, variant: "default" };
-        return <StatusBadge variant={s.variant} dot="true">{s.label}</StatusBadge>;
+        return <StatusBadge variant={s.variant} dot={true}>{s.label}</StatusBadge>;
       }
     },
     { key: "period", header: "이용 기간" },
@@ -187,7 +187,7 @@ export default function MemberDetail() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-lg" >
-        <FormSection title="기본 정보" collapsible="true">
+        <FormSection title="기본 정보" collapsible={true}>
           <div className="space-y-md" >
             <InfoItem label="휴대전화" value={member.phone} icon={<Phone size={16} />}/>
             <InfoItem label="최근 방문일" value={member.recentVisit.split(' ')[0]} icon={<History size={16} />} onClick={() => moveToPage(968)}/>
@@ -203,7 +203,7 @@ export default function MemberDetail() {
           </div>
         </FormSection>
 
-        <FormSection title="운영 정보" collapsible="true">
+        <FormSection title="운영 정보" collapsible={true}>
           <div className="space-y-md" >
             <InfoItem label="유입경로" value={member.source}/>
             <InfoItem label="운동목적" value={member.purpose}/>
@@ -262,7 +262,7 @@ export default function MemberDetail() {
               <div className="flex flex-wrap items-center justify-center lg:justify-start gap-sm mb-xs" >
                 <h1 className="text-Heading 1 text-text-dark-grey font-bold" >{member.name}</h1>
                 <span className="text-Body 1 text-text-grey-blue" >({member.attendanceNo})</span>
-                <StatusBadge variant="success" dot="true">정상 이용중</StatusBadge>
+                <StatusBadge variant="success" dot={true}>정상 이용중</StatusBadge>
                 <StatusBadge variant="warning">D-{member.dDay}</StatusBadge>
               </div>
               <p className="text-Body 1 text-text-grey-blue mb-md" >{member.gender} · {member.phone} · {member.email}</p>

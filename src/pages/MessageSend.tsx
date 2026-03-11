@@ -114,7 +114,7 @@ export default function MessageSend() {
               </div>
             </div>
             <div className="flex gap-xs" >
-              <StatusBadge label="알림톡 활성" variant="success" dot="true"/>
+              <StatusBadge label="알림톡 활성" variant="success" dot={true}/>
               <StatusBadge label="SMS/LMS 가능" variant="default"/>
             </div>
           </div>

@@ -152,7 +152,7 @@ export default function StaffList() {
       width: 100, 
       align: "center" as const,
       render: (val: string) => (
-        <StatusBadge variant={val === "active" ? "success" : "default"} dot="true">
+        <StatusBadge variant={val === "active" ? "success" : "default"} dot={true}>
           {val === "active" ? "재직" : "퇴사"}
         </StatusBadge>
       )
@@ -327,7 +327,7 @@ export default function StaffList() {
             </div>
 
             {/* Data Table */}
-            <DataTable columns={staffColumns} data={MOCK_STAFF} selectable="true" selectedRows={selectedStaffRows} onSelectRows={setSelectedStaffRows} pagination={{
+            <DataTable columns={staffColumns} data={MOCK_STAFF} selectable={true} selectedRows={selectedStaffRows} onSelectRows={setSelectedStaffRows} pagination={{
                 page: 1,
                 pageSize: 10,
                 total: MOCK_STAFF.length

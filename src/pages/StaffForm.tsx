@@ -21,6 +21,7 @@ import FormSection from '@/components/FormSection';
 import ConfirmDialog from '@/components/ConfirmDialog';
 import StatusBadge from '@/components/StatusBadge';
 import { cn } from '@/lib/utils';
+import { moveToPage } from '@/internal';
 
 export default function StaffForm() {
   // 폼 상태 관리
@@ -109,7 +110,7 @@ export default function StaffForm() {
               </div>
               <h3 className="text-Heading 2 text-text-dark-grey font-bold" >{formData.name || '이름 없음'}</h3>
               <p className="text-Body 2 text-text-grey-blue mb-md" >{formData.role === 'trainer' ? '트레이너' : '매니저'}</p>
-              <StatusBadge label="등록 대기" variant="default" dot="true"/>
+              <StatusBadge label="등록 대기" variant="default" dot={true}/>
             </div>
 
             <div className="rounded-card-normal border border-border-light bg-white p-md shadow-card-soft" >

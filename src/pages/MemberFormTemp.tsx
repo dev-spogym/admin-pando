@@ -221,7 +221,7 @@ export default function MemberForm({ memberId }: { memberId?: string }) {
                           </p>
                         </div>
                       </div>
-                      <StatusBadge variant={ticket.status === "active" ? "success" : "default"} label={ticket.status === "active" ? "이용중" : "만료"} dot="true"/>
+                      <StatusBadge variant={ticket.status === "active" ? "success" : "default"} label={ticket.status === "active" ? "이용중" : "만료"} dot={true}/>
                     </div>
                   ))
                 ) : (

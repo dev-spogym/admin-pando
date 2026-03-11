@@ -176,7 +176,7 @@ export default function MileageManagement() {
       header: '회원명', 
       render: (val: string, row: any) => (
         <div 
-          className="flex items-center gap-xs cursor-pointer group" onClick={() => moveToPage(985, { memberId: row.id })}>
+          className="flex items-center gap-xs cursor-pointer group" onClick={() => moveToPage(985)}>
           <div className="w-8 h-8 rounded-full bg-bg-soft-peach flex items-center justify-center text-primary-coral group-hover:bg-primary-coral group-hover:text-white transition-colors" >
             <User size={14}/>
           </div>
@@ -236,7 +236,7 @@ export default function MileageManagement() {
       header: '처리유형',
       align: 'center' as const,
       render: (val: string) => (
-        <StatusBadge variant={val === '적립' ? 'peach' : val === '사용' ? 'mint' : 'default'} dot="true" label={val}/>
+        <StatusBadge variant={val === '적립' ? 'peach' : val === '사용' ? 'mint' : 'default'} dot={true} label={val}/>
       )
     },
     { 

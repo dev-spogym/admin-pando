@@ -252,7 +252,7 @@ export default function RfidManagement() {
       header: "사용 여부", 
       align: "center" as const,
       render: (val: string) => (
-        <StatusBadge variant={val === "사용" ? "success" : "default"} dot="true">
+        <StatusBadge variant={val === "사용" ? "success" : "default"} dot={true}>
           {val}
         </StatusBadge>
       )
@@ -264,7 +264,7 @@ export default function RfidManagement() {
       header: "현재 사용자", 
       render: (val: string | null, row: RfidItem) => val ? (
         <button 
-          className="text-primary-coral hover:underline font-medium" onClick={() => row.memberNo && moveToPage(985, { memberId: row.memberNo })}>
+          className="text-primary-coral hover:underline font-medium" onClick={() => row.memberNo && moveToPage(985)}>
           {val}
         </button>
       ) : "-" 
@@ -497,7 +497,7 @@ export default function RfidManagement() {
                         <td className="px-md py-md text-Body 2 text-text-dark-grey" >{item.date}</td>
                         <td className="px-md py-md text-Body 2 font-medium" >
                           <button 
-                            className="text-primary-coral hover:underline" onClick={() => moveToPage(985, { memberId: item.memberNo })}>
+                            className="text-primary-coral hover:underline" onClick={() => moveToPage(985)}>
                             {item.user}
                           </button>
                         </td>

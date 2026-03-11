@@ -131,7 +131,7 @@ export default function Subscription() {
   };
 
   // --- Progress Bar Component ---
-  const UsageProgress = ({ label, current, limit, icon: Icon, unit = '' }) => {
+  const UsageProgress = ({ label, current, limit, icon: Icon, unit = '' }: { label: string; current: number; limit: number; icon: React.ElementType; unit?: string }) => {
     const percent = Math.min((current / limit) * 100, 100);
     const isWarning = percent >= 90;
     
@@ -188,7 +188,7 @@ export default function Subscription() {
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-lg" >
               <div className="lg:col-span-2 bg-white rounded-card-strong border border-border-light shadow-card-soft p-xxl relative overflow-hidden" >
                 <div className="absolute top-0 right-0 p-lg" >
-                  <StatusBadge variant={currentPlan.status === 'active' ? 'success' : 'error'} label={currentPlan.status === 'active' ? '구독 중' : '만료'} dot="true"/>
+                  <StatusBadge variant={currentPlan.status === 'active' ? 'success' : 'error'} label={currentPlan.status === 'active' ? '구독 중' : '만료'} dot={true}/>
                 </div>
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-xl" >
                   <div >

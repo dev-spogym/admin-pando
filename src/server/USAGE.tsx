@@ -208,14 +208,14 @@ function DashboardExample() {
   return (
     <div>
       <h2>회원 현황</h2>
-      <p>전체: {stats?.totalMembers}</p>
-      <p>활성: {stats?.activeMembers}</p>
+      <p>전체: {(stats as any)?.totalMembers}</p>
+      <p>활성: {(stats as any)?.activeMembers}</p>
 
       <h2>생일자</h2>
-      {birthdays?.map((b: any) => <p key={b.id}>{b.name} ({b.birth})</p>)}
+      {(birthdays as any)?.map((b: any) => <p key={b.id}>{b.name} ({b.birth})</p>)}
 
       <h2>미수금</h2>
-      {unpaid?.map((u: any) => <p key={u.id}>{u.name}: {u.amount}원</p>)}
+      {(unpaid as any)?.map((u: any) => <p key={u.id}>{u.name}: {u.amount}원</p>)}
     </div>
   );
 }

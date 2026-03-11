@@ -81,7 +81,7 @@ export default function BranchManagement() {
       width: 120, 
       align: 'center' as const,
       render: (v: string) => (
-        <StatusBadge variant={v === 'active' ? 'success' : v === 'inactive' ? 'warning' : 'default'} dot="true" label={v === 'active' ? '운영중' : v === 'inactive' ? '임시휴업' : '폐점'}/>
+        <StatusBadge variant={v === 'active' ? 'success' : v === 'inactive' ? 'warning' : 'default'} dot={true} label={v === 'active' ? '운영중' : v === 'inactive' ? '임시휴업' : '폐점'}/>
       )
     },
     { key: 'regDate', header: '등록일', width: 120 },
@@ -90,7 +90,7 @@ export default function BranchManagement() {
       header: '메뉴',
       width: 150,
       align: 'center' as const,
-      render: (_, row: any) => (
+      render: (_: any, row: any) => (
         <div className="flex items-center gap-xs" >
           <button 
             className="text-text-grey-blue hover:text-primary-coral p-xs" onClick={() => {
@@ -122,7 +122,7 @@ export default function BranchManagement() {
       sortable: true,
       render: (v: string, row: any) => (
         <button 
-          className="text-primary-coral hover:underline font-medium" onClick={() => moveToPage(985, { memberId: row.memberId || 1 })}>
+          className="text-primary-coral hover:underline font-medium" onClick={() => moveToPage(985)}>
           {v}
         </button>
       )
@@ -316,7 +316,7 @@ export default function BranchManagement() {
                 <div className="space-y-xs" >
                   <label className="text-Label text-text-grey-blue" >지점 코드 <span className="text-error" >*</span></label>
                   <div className="flex gap-xs" >
-                    <input className="flex-1 p-sm bg-input-bg-light rounded-input border border-transparent focus:border-secondary-mint focus:outline-none" placeholder="SG-005" disabled="true"/>
+                    <input className="flex-1 p-sm bg-input-bg-light rounded-input border border-transparent focus:border-secondary-mint focus:outline-none" placeholder="SG-005" disabled={true}/>
                     <button className="px-md py-sm bg-bg-soft-mint text-secondary-mint text-Label font-semibold rounded-button whitespace-nowrap" >자동생성</button>
                   </div>
                 </div>
@@ -338,7 +338,7 @@ export default function BranchManagement() {
                 <div className="space-y-xs" >
                   <label className="text-Label text-text-grey-blue" >주소 <span className="text-error" >*</span></label>
                   <div className="flex gap-xs" >
-                    <input className="flex-1 p-sm bg-input-bg-light rounded-input border border-transparent focus:border-secondary-mint focus:outline-none" placeholder="주소를 검색하세요" readOnly="true"/>
+                    <input className="flex-1 p-sm bg-input-bg-light rounded-input border border-transparent focus:border-secondary-mint focus:outline-none" placeholder="주소를 검색하세요" readOnly={true}/>
                     <button className="px-md py-sm bg-bg-main-light-blue text-text-dark-grey text-Label font-semibold rounded-button whitespace-nowrap" >주소검색</button>
                   </div>
                   <input className="w-full mt-sm p-sm bg-input-bg-light rounded-input border border-transparent focus:border-secondary-mint focus:outline-none" placeholder="상세 주소를 입력하세요"/>
@@ -399,7 +399,7 @@ export default function BranchManagement() {
               <div className="grid grid-cols-2 gap-md" >
                 <div className="space-y-xs" >
                   <label className="text-Label text-text-grey-blue" >현재 지점</label>
-                  <input className="w-full p-sm bg-bg-main-light-blue rounded-input border border-transparent text-text-grey-blue" value="스포짐 종각점" disabled="true"/>
+                  <input className="w-full p-sm bg-bg-main-light-blue rounded-input border border-transparent text-text-grey-blue" value="스포짐 종각점" disabled={true}/>
                 </div>
                 <div className="space-y-xs" >
                   <label className="text-Label text-text-grey-blue" >이동할 지점 <span className="text-error" >*</span></label>
@@ -420,7 +420,7 @@ export default function BranchManagement() {
                 <label className="text-Label text-text-grey-blue" >이용권 처리 <span className="text-error" >*</span></label>
                 <div className="flex gap-md mt-xs" >
                   <label className="flex items-center gap-xs cursor-pointer" >
-                    <input className="accent-primary-coral" type="radio" name="pass-action" defaultChecked="true"/>
+                    <input className="accent-primary-coral" type="radio" name="pass-action" defaultChecked={true}/>
                     <span className="text-Body 2" >기존 이용권 유지</span>
                   </label>
                   <label className="flex items-center gap-xs cursor-pointer" >

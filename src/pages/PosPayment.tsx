@@ -64,7 +64,7 @@ const ProductCard = ({ product, onAdd }: { product: any; onAdd: (p: any) => void
         <img className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" src={product.image} alt={product.name}/>
         {product.stock !== null && (
           <div className="absolute top-2 right-2" >
-            <StatusBadge variant={product.stock < 5 ? "error" : "success"} dot="true">
+            <StatusBadge variant={product.stock < 5 ? "error" : "success"} dot={true}>
               재고 {product.stock}
             </StatusBadge>
           </div>

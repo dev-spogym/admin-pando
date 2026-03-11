@@ -276,7 +276,7 @@ export default function Sales() {
       width: 100, 
       align: 'center' as const,
       render: (val: string) => (
-        <StatusBadge variant={val === '정상' ? 'success' : 'error'} dot="true">{val}</StatusBadge>
+        <StatusBadge variant={val === '정상' ? 'success' : 'error'} dot={true}>{val}</StatusBadge>
       )
     },
     { key: 'category', header: '구분', width: 100, align: 'center' as const },

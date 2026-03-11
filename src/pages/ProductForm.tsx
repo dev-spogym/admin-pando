@@ -18,7 +18,7 @@ import {
   CreditCard,
   Banknote,
   CalendarDays,
-  Infinite,
+  Infinity,
   Settings2
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -541,7 +541,7 @@ export default function ProductForm() {
       {/* 하단 플로팅 액션 바 (반응형) */}
       <div className="fixed bottom-0 left-0 right-0 md:left-[260px] bg-white/80 backdrop-blur-md border-t border-border-light p-md px-lg flex items-center justify-between z-10" >
         <div className="hidden md:flex items-center gap-md" >
-           <StatusBadge variant={formData.isUsed ? "success" : "default"} dot="true" label={formData.isUsed ? "판매중" : "판매중지"}/>
+           <StatusBadge variant={formData.isUsed ? "success" : "default"} dot={true} label={formData.isUsed ? "판매중" : "판매중지"}/>
            <span className="text-Body 2 text-text-grey-blue" >| {formData.itemType || "상품 유형 미지정"}</span>
         </div>
         <div className="flex items-center gap-sm w-full md:w-auto" >

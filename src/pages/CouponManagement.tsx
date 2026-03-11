@@ -327,7 +327,7 @@ export default function CouponManagement() {
           expired: "만료",
           inactive: "비활성",
         };
-        return <StatusBadge variant={variants[val]} label={labels[val]} dot="true"/>;
+        return <StatusBadge variant={variants[val]} label={labels[val]} dot={true}/>;
       }
     },
     {
@@ -443,7 +443,7 @@ export default function CouponManagement() {
 
       {/* Coupon Form Modal (Create/Edit) */}
       {isFormOpen && (
-        <CouponFormModal coupon={editingCoupon} onClose={() => setIsFormOpen(false)} onSave={(data) => {
+        <CouponFormModal coupon={editingCoupon} onClose={() => setIsFormOpen(false)} onSave={(data: any) => {
             if (editingCoupon) {
               setCoupons(prev => prev.map(c => c.id === editingCoupon.id ? { ...c, ...data } : c));
             } else {
@@ -455,7 +455,7 @@ export default function CouponManagement() {
 
       {/* Issue Coupon Modal */}
       {isIssueModalOpen && selectedCoupon && (
-        <IssueCouponModal coupon={selectedCoupon} onClose={() => setIsIssueModalOpen(false)} onIssue={(count) => {
+        <IssueCouponModal coupon={selectedCoupon} onClose={() => setIsIssueModalOpen(false)} onIssue={(count: any) => {
             setCoupons(prev => prev.map(c => c.id === selectedCoupon.id ? { ...c, issuedCount: c.issuedCount + count, remainingCount: c.remainingCount + count } : c));
             setIsIssueModalOpen(false);
             alert(`${selectedCoupon.name} 쿠폰이 발급되었습니다.`);

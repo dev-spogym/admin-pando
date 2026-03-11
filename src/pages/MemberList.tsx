@@ -27,10 +27,10 @@ import { moveToPage } from '@/internal';
 // --- Mock Data ---
 
 const MOCK_STATS = [
-  { label: '전체 회원', value: '1,284', icon: <Users size={20}/>, change: { value: 12, label: '지난달 대비' }, variant: 'default' },
-  { label: '활성 회원', value: '942', icon: <UserCheck size={20}/>, change: { value: 5, label: '지난달 대비' }, variant: 'mint' },
-  { label: '임박 회원', value: '48', icon: <Clock size={20}/>, change: { value: -2, label: '지난달 대비' }, variant: 'peach' },
-  { label: '미등록/만료', value: '294', icon: <AlertTriangle size={20}/>, change: { value: 8, label: '지난달 대비' }, variant: 'default' },
+  { label: '전체 회원', value: '1,284', icon: <Users size={20}/>, change: { value: 12, label: '지난달 대비' }, variant: 'default' as const },
+  { label: '활성 회원', value: '942', icon: <UserCheck size={20}/>, change: { value: 5, label: '지난달 대비' }, variant: 'mint' as const },
+  { label: '임박 회원', value: '48', icon: <Clock size={20}/>, change: { value: -2, label: '지난달 대비' }, variant: 'peach' as const },
+  { label: '미등록/만료', value: '294', icon: <AlertTriangle size={20}/>, change: { value: 8, label: '지난달 대비' }, variant: 'default' as const },
 ];
 
 const MAIN_TABS = [
@@ -169,7 +169,7 @@ const FILTER_CONFIG = [
   {
     key: 'memberType',
     label: '회원구분',
-    type: 'select',
+    type: 'select' as const,
     options: [
       { value: 'all', label: '전체' },
       { value: 'active', label: '유효회원' },
@@ -181,7 +181,7 @@ const FILTER_CONFIG = [
   {
     key: 'product',
     label: '계약상품',
-    type: 'select',
+    type: 'select' as const,
     options: [
       { value: 'all', label: '전체' },
       { value: 'pt', label: 'PT' },
@@ -190,12 +190,12 @@ const FILTER_CONFIG = [
       { value: 'pilates', label: '필라테스' },
     ],
   },
-  { key: 'expiryDate', label: '최종만료일', type: 'dateRange' },
-  { key: 'visitDate', label: '최근방문일', type: 'dateRange' },
+  { key: 'expiryDate', label: '최종만료일', type: 'dateRange' as const },
+  { key: 'visitDate', label: '최근방문일', type: 'dateRange' as const },
   {
     key: 'gender',
     label: '성별',
-    type: 'select',
+    type: 'select' as const,
     options: [
       { value: 'all', label: '전체' },
       { value: 'male', label: '남' },
@@ -210,8 +210,8 @@ export default function MemberList() {
   const [activeMainTab, setActiveMainTab] = useState('members');
   const [activeStatusTab, setActiveStatusTab] = useState('all');
   const [searchValue, setSearchValue] = useState('');
-  const [filterValues, setFilterValues] = useState({});
-  const [selectedRows, setSelectedRows] = useState(new Set());
+  const [filterValues, setFilterValues] = useState<Record<string, string>>({});
+  const [selectedRows, setSelectedRows] = useState(new Set<number>());
 
   // Columns definition
   const columns = useMemo(() => [
@@ -219,15 +219,15 @@ export default function MemberList() {
       key: 'status',
       header: '상태',
       width: 100,
-      align: 'center',
-      render: (value, row) => {
-        let variant = 'default';
+      align: 'center' as const,
+      render: (value: any, row: any) => {
+        let variant: import('@/components/StatusBadge').BadgeVariant = 'default';
         if (row.status === 'active') variant = 'success';
         if (row.status === 'expired') variant = 'error';
         if (row.status === 'imminent') variant = 'warning';
         if (row.status === 'pending') variant = 'info';
         if (row.status === 'holding') variant = 'default';
-        
+
         return <StatusBadge label={row.statusLabel} variant={variant} dot={true}/>;
       },
     },
@@ -235,35 +235,35 @@ export default function MemberList() {
       key: 'name',
       header: '회원명',
       width: 120,
-      render: (value, row) => (
+      render: (value: any, row: any) => (
         <button
-          className="text-0 font-semibold hover:underline transition-all" onClick={() => moveToPage(985, { memberId: row.id })}>
+          className="text-0 font-semibold hover:underline transition-all" onClick={() => moveToPage(985)}>
           {value}
         </button>
       ),
     },
-    { key: 'gender', header: '성별', width: 80, align: 'center' },
-    { 
-      key: 'age', 
-      header: '나이', 
-      width: 80, 
-      align: 'center', 
+    { key: 'gender', header: '성별', width: 80, align: 'center' as const },
+    {
+      key: 'age',
+      header: '나이',
+      width: 80,
+      align: 'center' as const,
       sortable: true,
-      render: (value) => <span className="text-Data-Monospace-Tabular" >{value}</span>
+      render: (value: any) => <span className="text-Data-Monospace-Tabular" >{value}</span>
     },
-    { 
-      key: 'phone', 
-      header: '연락처', 
+    {
+      key: 'phone',
+      header: '연락처',
       width: 140,
-      render: (value) => <span className="text-Data-Monospace-Tabular" >{value}</span>
+      render: (value: any) => <span className="text-Data-Monospace-Tabular" >{value}</span>
     },
     {
       key: 'tickets',
       header: '보유 이용권',
       width: 200,
-      render: (value) => (
+      render: (value: any) => (
         <div className="space-y-1" >
-          {value.map((t, idx) => (
+          {value.map((t: any, idx: any) => (
             <div className="text-[12px]" key={idx}>
               <span className="font-medium text-4" >{t.name}</span>
               <span className="text-5 ml-1" >({t.status})</span>
@@ -272,32 +272,32 @@ export default function MemberList() {
         </div>
       ),
     },
-    { key: 'lockerNo', header: '락커', width: 80, align: 'center', render: (v) => <span className="text-Data-Monospace-Tabular" >{v}</span> },
-    { 
-      key: 'finalExpiryDate', 
-      header: '최종만료일', 
-      width: 120, 
+    { key: 'lockerNo', header: '락커', width: 80, align: 'center' as const, render: (v: any) => <span className="text-Data-Monospace-Tabular" >{v}</span> },
+    {
+      key: 'finalExpiryDate',
+      header: '최종만료일',
+      width: 120,
       sortable: true,
-      render: (value) => <span className="text-Data-Monospace-Tabular" >{value}</span>
+      render: (value: any) => <span className="text-Data-Monospace-Tabular" >{value}</span>
     },
-    { 
-      key: 'remainingDays', 
-      header: '남은 일수', 
-      width: 100, 
-      align: 'right',
-      render: (value) => (
+    {
+      key: 'remainingDays',
+      header: '남은 일수',
+      width: 100,
+      align: 'right' as const,
+      render: (value: any) => (
         <span className={cn("text-Data-Monospace-Tabular font-bold", value < 10 ? 'text-error' : 'text-5')} >
           {value > 0 ? `D-${value}` : value === 0 ? 'D-Day' : `만료 ${Math.abs(value)}일`}
         </span>
       ),
-      sortable: true 
+      sortable: true
     },
-    { 
-      key: 'lastVisit', 
-      header: '최근방문일', 
-      width: 120, 
+    {
+      key: 'lastVisit',
+      header: '최근방문일',
+      width: 120,
       sortable: true,
-      render: (value) => <span className="text-Data-Monospace-Tabular" >{value}</span>
+      render: (value: any) => <span className="text-Data-Monospace-Tabular" >{value}</span>
     },
     { key: 'manager', header: '실적담당자', width: 100 },
     { key: 'company', header: '회사명', width: 150 },
@@ -352,7 +352,7 @@ export default function MemberList() {
 
       // 7. Gender Filter (UI-019)
       if (filterValues.gender && filterValues.gender !== 'all') {
-        const genderMap = { male: '남', female: '여' };
+        const genderMap: Record<string, string> = { male: '남', female: '여' };
         if (item.gender !== genderMap[filterValues.gender]) return false;
       }
 
@@ -360,11 +360,11 @@ export default function MemberList() {
     });
   }, [activeStatusTab, searchValue, filterValues]);
 
-  const handleSelectRows = (selected) => {
+  const handleSelectRows = (selected: Set<number>) => {
     setSelectedRows(selected);
   };
 
-  const handleAction = (type) => {
+  const handleAction = (type: string) => {
     const selectedCount = Array.from(selectedRows).length;
     
     if (type === '엑셀 다운로드') {

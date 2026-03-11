@@ -196,7 +196,7 @@ export default function Attendance() {
       header: "출석 여부",
       width: 100,
       render: (val: string) => (
-        <StatusBadge variant={val === "성공" ? "success" : "error"} label={val} dot="true"/>
+        <StatusBadge variant={val === "성공" ? "success" : "error"} label={val} dot={true}/>
       )
     },
     { key: "category", header: "출석 구분", width: 120 },
@@ -338,7 +338,7 @@ export default function Attendance() {
           ]}/>
 
         {/* 데이터 테이블 */}
-        <DataTable columns={columns} data={attendanceRecords} loading={loading} selectable="true" title="출석 이력 목록" pagination={{
+        <DataTable columns={columns} data={attendanceRecords} loading={loading} selectable={true} title="출석 이력 목록" pagination={{
             page: 1,
             pageSize: 10,
             total: 128
@@ -362,7 +362,7 @@ export default function Attendance() {
                     </button>
                   </div>
                   <div className="mt-xs" >
-                    <StatusBadge variant="success" label={popup.status} dot="true"/>
+                    <StatusBadge variant="success" label={popup.status} dot={true}/>
                   </div>
                   <div className="mt-sm space-y-xs" >
                     <p className="text-Body-Primary-KR text-6 flex items-center gap-xs" >

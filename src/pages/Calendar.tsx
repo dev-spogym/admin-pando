@@ -115,7 +115,7 @@ const MOCK_PENALTY = [
 
 // --- Sub-components ---
 
-const CalendarGrid = ({ viewType, events }) => {
+const CalendarGrid = ({ viewType, events }: { viewType: string; events: any[] }) => {
   // Simplified calendar grid for demonstration
   const hours = Array.from({ length: 14 }, (_, i) => i + 8); // 08:00 to 21:00
   const days = ["일", "월", "화", "수", "목", "금", "토"];
@@ -138,14 +138,14 @@ const CalendarGrid = ({ viewType, events }) => {
               {hour}:00
             </div>
             {days.map((_, dayIdx) => {
-              const currentHourEvents = events.filter(e => {
+              const currentHourEvents = events.filter((e: any) => {
                 const eventDate = new Date(e.start);
                 return eventDate.getHours() === hour && (eventDate.getDay() === dayIdx);
               });
 
               return (
                 <div className="p-xs border-r border-border-light last:border-r-0 min-h-[60px] relative hover:bg-bg-soft-peach/10 transition-colors cursor-pointer" key={dayIdx}>
-                  {currentHourEvents.map(event => (
+                  {currentHourEvents.map((event: any) => (
                     <div
                       className={cn(
                         "p-sm rounded-md text-[10px] mb-xs shadow-sm border-l-4",
@@ -194,7 +194,7 @@ export default function Calendar() {
     setIsModalOpen(true);
   };
 
-  const filters = [
+  const filters: import("@/components/SearchFilter").FilterOption[] = [
     {
       key: "instructor",
       label: "강사 선택",
@@ -301,9 +301,9 @@ export default function Calendar() {
                   { 
                     key: "status", 
                     header: "상태", 
-                    render: (val) => (
-                      <StatusBadge 
-                        status={val === "진행중" ? "active" : val === "마감" ? "expired" : "warning"}
+                    render: (val: string) => (
+                      <StatusBadge
+                        status={val === "진행중" ? "success" : val === "마감" ? "error" : "warning"}
                         label={val}
                       />
                     )
@@ -351,7 +351,7 @@ export default function Calendar() {
                   render: (val, row) => (
                     <button 
                       className="text-primary-coral font-bold hover:underline"
-                      onClick={() => moveToPage(985, { memberId: row.id })}
+                      onClick={() => moveToPage(985)}
                     >
                       {val}
                     </button>
@@ -399,7 +399,7 @@ export default function Calendar() {
                 header: "상태",
                 render: (val) => (
                   <StatusBadge 
-                    status={val === "예약" ? "active" : "success"}
+                    status={val === "예약" ? "info" : "success"}
                     label={val}
                   />
                 )

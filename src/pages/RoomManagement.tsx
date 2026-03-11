@@ -90,7 +90,7 @@ export default function RoomManagement() {
       header: '사용 여부',
       render: (val: boolean, row: Room) => (
         <div className="flex items-center gap-2" >
-          <StatusBadge variant={val ? 'mint' : 'default'} dot="true" label={val ? '사용 중' : '미사용'}/>
+          <StatusBadge variant={val ? 'mint' : 'default'} dot={true} label={val ? '사용 중' : '미사용'}/>
           <button
             className="p-1 hover:bg-bg-soft-peach rounded-full transition-colors" onClick={() => handleToggleRoomStatus(row.id)}>
             <Settings className="text-text-grey-blue" size={16}/>
@@ -228,7 +228,7 @@ export default function RoomManagement() {
               </div>
               <div className="flex items-center justify-between p-md bg-bg-soft-mint rounded-card-normal" >
                 <span className="text-Body 1 font-medium text-text-dark-grey" >운동룸 즉시 사용</span>
-                <input className="w-5 h-5 accent-secondary-mint cursor-pointer" type="checkbox" defaultChecked="true"/>
+                <input className="w-5 h-5 accent-secondary-mint cursor-pointer" type="checkbox" defaultChecked={true}/>
               </div>
             </div>
             <div className="p-lg bg-bg-main-light-blue flex gap-md" >

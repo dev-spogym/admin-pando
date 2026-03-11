@@ -271,12 +271,12 @@ export default function MemberForm() {
               </div>
 
               <FormSection title="기본 인적 사항" columns={2}>
-                <Field label="이름" name="name" required="true" error={errors.name}>
+                <Field label="이름" name="name" required={true} error={errors.name}>
                   <input
                     className="w-full rounded-input bg-input-bg-light border-0 px-md py-sm focus:ring-2 focus:ring-secondary-mint outline-none text-Body 1" type="text" name="name" value={formData.name} onChange={handleInputChange} placeholder="이름을 입력하세요"/>
                 </Field>
 
-                <Field label="성별" name="gender" required="true" error={errors.gender}>
+                <Field label="성별" name="gender" required={true} error={errors.gender}>
                   <div className="flex gap-sm" >
                     <button
                       className={cn(
@@ -299,7 +299,7 @@ export default function MemberForm() {
                   </div>
                 </Field>
 
-                <Field label="휴대전화" name="phone" required="true" error={errors.phone}>
+                <Field label="휴대전화" name="phone" required={true} error={errors.phone}>
                   <div className="flex gap-sm" >
                     <input
                       className="flex-1 rounded-input bg-input-bg-light border-0 px-md py-sm focus:ring-2 focus:ring-secondary-mint outline-none text-Body 1" type="tel" name="phone" value={formData.phone} onChange={handleInputChange} placeholder="01012345678"/>
@@ -315,7 +315,7 @@ export default function MemberForm() {
                   </div>
                 </Field>
 
-                <Field label="회원구분" name="memberType" required="true" error={errors.memberType}>
+                <Field label="회원구분" name="memberType" required={true} error={errors.memberType}>
                   <select
                     className="w-full rounded-input bg-input-bg-light border-0 px-md py-sm focus:ring-2 focus:ring-secondary-mint outline-none text-Body 1 appearance-none" name="memberType" value={formData.memberType} onChange={handleInputChange}>
                     <option value="일반">일반</option>
@@ -399,7 +399,7 @@ export default function MemberForm() {
                     <div className="flex flex-col gap-sm" >
                       <div className="flex gap-sm" >
                         <input
-                          className="flex-1 rounded-input bg-input-bg-light border-0 px-md py-sm outline-none text-Body 1" type="text" name="address" value={formData.address} readOnly="true" placeholder="우편번호 찾기를 클릭하세요"/>
+                          className="flex-1 rounded-input bg-input-bg-light border-0 px-md py-sm outline-none text-Body 1" type="text" name="address" value={formData.address} readOnly={true} placeholder="우편번호 찾기를 클릭하세요"/>
                         <button
                           className="px-md rounded-button bg-bg-soft-mint text-secondary-mint border border-secondary-mint text-Label hover:bg-secondary-mint hover:text-white transition-all" onClick={() => {
                             setFormData(prev => ({ ...prev, address: "서울시 중구 세종대로 110" }));
