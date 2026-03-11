@@ -394,13 +394,13 @@ export default function PermissionSettings() {
                                         "mx-auto flex h-8 w-8 items-center justify-center rounded-full transition-all",
                                         isOn 
                                           ? "bg-6 text-0 shadow-0" 
-                                          : "bg-9 text-11 hover:bg-8",
+                                          : "bg-9 text-8 hover:bg-8",
                                         isPrimary ? "cursor-default" : "cursor-pointer"
                                       )} disabled={isPrimary} onClick={() => handleToggle(menuId, pType)}>
                                       {isOn ? <Check size={16} strokeWidth={3}/> : <X size={16}/>}
                                     </button>
                                   ) : (
-                                    <span className="text-11" >-</span>
+                                    <span className="text-8" >-</span>
                                   )}
                                 </td>
                               );
