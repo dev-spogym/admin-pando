@@ -12,7 +12,7 @@ import { cn } from "@/lib/utils";
 
 interface Column<T> {
   key: string;
-  header: string;
+  header: React.ReactNode;
   width?: number | string;
   render?: (value: any, row: T, index: number) => React.ReactNode;
   sortable?: boolean;

@@ -1,21 +1,22 @@
 import React, { useState, useEffect } from "react";
-import { 
-  User, 
-  Phone, 
-  MapPin, 
-  Calendar, 
-  ArrowRight, 
-  ArrowLeft, 
-  Save, 
-  RotateCcw, 
-  X, 
-  CheckCircle2, 
+import {
+  User,
+  Phone,
+  MapPin,
+  Calendar,
+  ArrowRight,
+  ArrowLeft,
+  Save,
+  RotateCcw,
+  X,
+  CheckCircle2,
   Camera,
   Info,
   Mail,
   Building,
   Hash,
-  FileText
+  FileText,
+  Search
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { moveToPage } from "@/internal";
@@ -60,6 +61,11 @@ export default function MemberForm() {
   // 에러 상태
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [phoneChecked, setPhoneChecked] = useState(false);
+
+  // 주소 검색 모달 상태
+  const [isAddressModalOpen, setIsAddressModalOpen] = useState(false);
+  const [addressSearchQuery, setAddressSearchQuery] = useState('');
+  const [addressSearchResults, setAddressSearchResults] = useState<{ postcode: string; address: string }[]>([]);
 
   // --- 초기화 (수정 모드 시뮬레이션) ---
   useEffect(() => {
@@ -169,6 +175,32 @@ export default function MemberForm() {
       alert(isEditMode ? "회원 정보가 수정되었습니다." : "신규 회원이 등록되었습니다.");
       moveToPage(985); // 회원 상세로 이동
     }, 1500);
+  };
+
+  // 주소 검색 Mock 핸들러
+  const MOCK_ADDRESSES = [
+    { postcode: "04524", address: "서울시 중구 세종대로 110" },
+    { postcode: "06236", address: "서울시 강남구 테헤란로 123" },
+    { postcode: "03181", address: "서울시 종로구 종로 1" },
+    { postcode: "07328", address: "서울시 영등포구 여의대로 108" },
+    { postcode: "04539", address: "서울시 중구 남대문로 81" },
+  ];
+
+  const handleAddressSearch = () => {
+    if (!addressSearchQuery.trim()) return;
+    const query = addressSearchQuery.toLowerCase();
+    const results = MOCK_ADDRESSES.filter(a =>
+      a.address.toLowerCase().includes(query)
+    );
+    setAddressSearchResults(results.length > 0 ? results : [{ postcode: "00000", address: "검색 결과가 없습니다." }]);
+  };
+
+  const handleAddressSelect = (item: { postcode: string; address: string }) => {
+    if (item.postcode === "00000") return;
+    setFormData(prev => ({ ...prev, address: `[${item.postcode}] ${item.address}` }));
+    setIsAddressModalOpen(false);
+    setAddressSearchQuery('');
+    setAddressSearchResults([]);
   };
 
   const handleReset = () => {
@@ -399,12 +431,13 @@ export default function MemberForm() {
                     <div className="flex flex-col gap-sm" >
                       <div className="flex gap-sm" >
                         <input
-                          className="flex-1 rounded-input bg-input-bg-light border-0 px-md py-sm outline-none text-Body 1" type="text" name="address" value={formData.address} readOnly={true} placeholder="우편번호 찾기를 클릭하세요"/>
+                          className="flex-1 rounded-input bg-input-bg-light border-0 px-md py-sm outline-none text-Body 1" type="text" name="address" value={formData.address} readOnly={true} placeholder="주소 검색 버튼을 클릭하세요"/>
                         <button
-                          className="px-md rounded-button bg-bg-soft-mint text-secondary-mint border border-secondary-mint text-Label hover:bg-secondary-mint hover:text-white transition-all" onClick={() => {
-                            setFormData(prev => ({ ...prev, address: "서울시 중구 세종대로 110" }));
-                            alert("주소 검색 API 팝업 시뮬레이션");
-                          }}>
+                          className="px-md rounded-button bg-bg-soft-mint text-secondary-mint border border-secondary-mint text-Label hover:bg-secondary-mint hover:text-white transition-all flex items-center gap-xs"
+                          type="button"
+                          onClick={() => setIsAddressModalOpen(true)}
+                        >
+                          <MapPin size={14}/>
                           주소 검색
                         </button>
                       </div>
@@ -488,6 +521,86 @@ export default function MemberForm() {
 
       {/* 취소 확인 다이얼로그 */}
       <ConfirmDialog open={showCancelDialog} title="작성 취소" description="입력 중인 모든 내용이 사라집니다. 페이지를 나가시겠습니까?" confirmLabel="나가기" cancelLabel="계속 작성" variant="danger" onConfirm={() => moveToPage(967)} onCancel={() => setShowCancelDialog(false)}/>
+
+      {/* 주소 검색 모달 (Kakao 주소 API Mock) */}
+      {isAddressModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
+          <div className="bg-3 rounded-card-normal border border-border-light shadow-card-soft w-full max-w-[480px] mx-md overflow-hidden">
+            {/* 모달 헤더 */}
+            <div className="flex items-center justify-between px-lg py-md border-b border-border-light bg-bg-main-light-blue/30">
+              <div className="flex items-center gap-sm">
+                <MapPin className="text-secondary-mint" size={18}/>
+                <h2 className="text-Section-Title text-4 font-bold">주소 검색</h2>
+              </div>
+              <button
+                className="p-xs rounded-full hover:bg-border-light text-5 transition-colors"
+                onClick={() => { setIsAddressModalOpen(false); setAddressSearchQuery(''); setAddressSearchResults([]); }}
+              >
+                <X size={18}/>
+              </button>
+            </div>
+
+            {/* 검색창 */}
+            <div className="p-lg border-b border-border-light">
+              <div className="flex gap-sm">
+                <div className="relative flex-1">
+                  <Search className="absolute left-md top-1/2 -translate-y-1/2 text-5" size={16}/>
+                  <input
+                    className="w-full rounded-input bg-input-bg-light border border-border-light pl-[36px] pr-md py-sm focus:ring-2 focus:ring-secondary-mint outline-none text-sm"
+                    type="text"
+                    placeholder="도로명, 지번, 건물명으로 검색"
+                    value={addressSearchQuery}
+                    onChange={e => setAddressSearchQuery(e.target.value)}
+                    onKeyDown={e => { if (e.key === 'Enter') handleAddressSearch(); }}
+                    autoFocus
+                  />
+                </div>
+                <button
+                  className="px-md rounded-button bg-secondary-mint text-white text-Label hover:bg-[#3dbdb8] transition-all"
+                  onClick={handleAddressSearch}
+                >
+                  검색
+                </button>
+              </div>
+              <p className="text-[11px] text-5 mt-xs">
+                * 실제 서비스에서는 Kakao 주소 API가 연동됩니다.
+              </p>
+            </div>
+
+            {/* 검색 결과 */}
+            <div className="min-h-[200px] max-h-[320px] overflow-y-auto">
+              {addressSearchResults.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-xxl text-5">
+                  <MapPin size={36} className="mb-sm opacity-20"/>
+                  <p className="text-sm">주소를 검색해주세요</p>
+                  <p className="text-[11px] mt-xs">예: 세종대로, 강남구, 테헤란로</p>
+                </div>
+              ) : (
+                <ul className="divide-y divide-border-light">
+                  {addressSearchResults.map((item, idx) => (
+                    <li key={idx}>
+                      <button
+                        className="w-full text-left px-lg py-md hover:bg-bg-main-light-blue/40 transition-colors flex items-start gap-sm"
+                        onClick={() => handleAddressSelect(item)}
+                        disabled={item.postcode === "00000"}
+                      >
+                        {item.postcode !== "00000" && (
+                          <span className="text-[11px] bg-bg-soft-mint text-secondary-mint px-xs py-0.5 rounded font-mono shrink-0 mt-0.5">
+                            {item.postcode}
+                          </span>
+                        )}
+                        <span className={cn("text-sm", item.postcode === "00000" ? "text-5" : "text-4 font-medium")}>
+                          {item.address}
+                        </span>
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </AppLayout>
   );
 }

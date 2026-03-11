@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { 
   UserPlus, 
   Settings, 
@@ -210,8 +210,26 @@ export default function MemberList() {
   const [activeMainTab, setActiveMainTab] = useState('members');
   const [activeStatusTab, setActiveStatusTab] = useState('all');
   const [searchValue, setSearchValue] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
   const [filterValues, setFilterValues] = useState<Record<string, string>>({});
   const [selectedRows, setSelectedRows] = useState(new Set<number>());
+  const [sortKey, setSortKey] = useState<string>('');
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(20);
+
+  // 검색어 300ms debounce
+  const debounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => {
+    if (debounceTimer.current) clearTimeout(debounceTimer.current);
+    debounceTimer.current = setTimeout(() => {
+      setDebouncedSearch(searchValue);
+      setCurrentPage(1);
+    }, 300);
+    return () => {
+      if (debounceTimer.current) clearTimeout(debounceTimer.current);
+    };
+  }, [searchValue]);
 
   // Columns definition
   const columns = useMemo(() => [
@@ -303,20 +321,38 @@ export default function MemberList() {
     { key: 'company', header: '회사명', width: 150 },
   ], []);
 
+  // 정렬 핸들러
+  const handleSort = (key: string, direction: 'asc' | 'desc') => {
+    setSortKey(key);
+    setSortDirection(direction);
+    setCurrentPage(1);
+  };
+
+  // 엑셀 다운로드
+  const handleExcelDownload = () => {
+    // TODO: xlsx 라이브러리 설치 후 실제 다운로드 구현
+    // import * as XLSX from 'xlsx';
+    // const ws = XLSX.utils.json_to_sheet(filteredData);
+    // const wb = XLSX.utils.book_new();
+    // XLSX.utils.book_append_sheet(wb, ws, '회원목록');
+    // XLSX.writeFile(wb, '회원목록.xlsx');
+    alert(`현재 조회된 ${filteredData.length}건의 데이터를 엑셀로 다운로드합니다.`);
+  };
+
   // Filter and Search Logic
   const filteredData = useMemo(() => {
-    return MOCK_MEMBERS.filter(item => {
+    let result = MOCK_MEMBERS.filter(item => {
       // 1. Status Tab Filter (UI-010)
       if (activeStatusTab !== 'all' && item.status !== activeStatusTab) return false;
-      
-      // 2. Search Text Filter (UI-011) - 이름, 연락처
-      if (searchValue) {
-        const lowerSearch = searchValue.toLowerCase();
+
+      // 2. Search Text Filter (UI-011) - 이름, 연락처 (debounced)
+      if (debouncedSearch) {
+        const lowerSearch = debouncedSearch.toLowerCase();
         const matchesName = item.name.toLowerCase().includes(lowerSearch);
         const matchesPhone = item.phone.replace(/-/g, '').includes(lowerSearch.replace(/-/g, ''));
         if (!matchesName && !matchesPhone) return false;
       }
-      
+
       // 3. Member Type Filter (UI-012)
       if (filterValues.memberType && filterValues.memberType !== 'all') {
         if (item.status !== filterValues.memberType) return false;
@@ -324,7 +360,7 @@ export default function MemberList() {
 
       // 4. Product Filter (UI-013)
       if (filterValues.product && filterValues.product !== 'all') {
-        const hasProduct = item.tickets.some(t => 
+        const hasProduct = item.tickets.some(t =>
           t.name.toLowerCase().includes(filterValues.product.toLowerCase())
         );
         if (!hasProduct) return false;
@@ -358,7 +394,27 @@ export default function MemberList() {
 
       return true;
     });
-  }, [activeStatusTab, searchValue, filterValues]);
+
+    // 컬럼 정렬
+    if (sortKey) {
+      result = [...result].sort((a, b) => {
+        const aVal = a[sortKey as keyof typeof a];
+        const bVal = b[sortKey as keyof typeof b];
+        if (aVal === undefined || aVal === null) return 1;
+        if (bVal === undefined || bVal === null) return -1;
+        const cmp = aVal < bVal ? -1 : aVal > bVal ? 1 : 0;
+        return sortDirection === 'asc' ? cmp : -cmp;
+      });
+    }
+
+    return result;
+  }, [activeStatusTab, debouncedSearch, filterValues, sortKey, sortDirection]);
+
+  // 페이지네이션된 데이터
+  const pagedData = useMemo(() => {
+    const start = (currentPage - 1) * pageSize;
+    return filteredData.slice(start, start + pageSize);
+  }, [filteredData, currentPage, pageSize]);
 
   const handleSelectRows = (selected: Set<number>) => {
     setSelectedRows(selected);
@@ -366,11 +422,6 @@ export default function MemberList() {
 
   const handleAction = (type: string) => {
     const selectedCount = Array.from(selectedRows).length;
-    
-    if (type === '엑셀 다운로드') {
-      alert(`현재 조회된 ${filteredData.length}건의 데이터를 엑셀로 다운로드합니다.`);
-      return;
-    }
 
     if (selectedCount === 0) {
       alert('회원을 먼저 선택해주세요.');
@@ -403,9 +454,9 @@ export default function MemberList() {
         {/* Page Header */}
         <PageHeader title="회원 목록" description="센터의 전체 회원 정보를 조회하고 관리합니다." actions={
             <div className="flex gap-sm">
-              <button 
+              <button
                 className="bg-3 text-5 border border-border-light px-md py-sm rounded-2 flex items-center gap-xs text-[14px] font-medium hover:bg-bg-main-light-blue hover:text-4 transition-all duration-220 ease-spring shadow-0"
-                onClick={() => handleAction('엑셀 다운로드')}
+                onClick={handleExcelDownload}
               >
                 <Download size={16} strokeWidth={2} /> 엑셀 다운로드
               </button>
@@ -458,9 +509,11 @@ export default function MemberList() {
 
           {/* Search Filter Bar */}
           <div className="p-lg border-b border-border-light bg-3" >
-            <SearchFilter searchPlaceholder="회원명, 연락처 검색..." searchValue={searchValue} onSearchChange={setSearchValue} filters={FILTER_CONFIG} filterValues={filterValues} onFilterChange={(key, value) => setFilterValues(prev => ({ ...prev, [key]: value }))} onReset={() => {
+            <SearchFilter searchPlaceholder="회원명, 연락처 검색..." searchValue={searchValue} onSearchChange={(v) => { setSearchValue(v); }} filters={FILTER_CONFIG} filterValues={filterValues} onFilterChange={(key, value) => { setFilterValues(prev => ({ ...prev, [key]: value })); setCurrentPage(1); }} onReset={() => {
                 setSearchValue('');
+                setDebouncedSearch('');
                 setFilterValues({});
+                setCurrentPage(1);
               }}/>
           </div>
 
@@ -494,11 +547,24 @@ export default function MemberList() {
           )}
 
           {/* Data Table */}
-          <DataTable columns={columns} data={filteredData} selectable={true} selectedRows={selectedRows} onSelectRows={handleSelectRows} pagination={{
-              page: 1,
-              pageSize: 20,
+          <DataTable
+            columns={columns}
+            data={pagedData}
+            selectable={true}
+            selectedRows={selectedRows}
+            onSelectRows={handleSelectRows}
+            onSort={handleSort}
+            sortConfig={sortKey ? { key: sortKey, direction: sortDirection } : undefined}
+            pagination={{
+              page: currentPage,
+              pageSize: pageSize,
               total: filteredData.length,
-            }} emptyMessage={searchValue ? "검색 결과가 없습니다." : "등록된 회원이 없습니다."}/>
+              pageSizeOptions: [20, 50, 100],
+            }}
+            onPageChange={(page) => setCurrentPage(page)}
+            onPageSizeChange={(size) => { setPageSize(size); setCurrentPage(1); }}
+            emptyMessage={debouncedSearch ? "검색 결과가 없습니다." : "등록된 회원이 없습니다."}
+          />
         </div>
       </div>
     </AppLayout>

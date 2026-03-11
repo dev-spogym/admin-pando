@@ -1,19 +1,22 @@
-import React, { useState } from "react";
-import { 
-  Plus, 
-  MessageSquare, 
-  UserMinus, 
-  UserPlus, 
-  Settings2, 
-  Users, 
-  UserCheck, 
-  Clock, 
+import React, { useState, useMemo } from "react";
+import {
+  Plus,
+  MessageSquare,
+  UserMinus,
+  UserPlus,
+  Settings2,
+  Users,
+  UserCheck,
+  Clock,
   CreditCard,
   Search,
   MoreVertical,
   Calendar,
   FileText,
-  Download
+  Download,
+  ChevronUp,
+  ChevronDown,
+  ChevronsUpDown
 } from "lucide-react";
 import AppLayout from "@/components/AppLayout";
 import PageHeader from "@/components/PageHeader";
@@ -24,6 +27,19 @@ import StatusBadge from "@/components/StatusBadge";
 import SearchFilter from "@/components/SearchFilter";
 import ConfirmDialog from "@/components/ConfirmDialog";
 import { moveToPage } from "@/internal";
+import { cn } from "@/lib/utils";
+
+// --- 역할 권한 레벨 설정 ---
+type RoleKey = "primary" | "owner" | "manager" | "fc" | "trainer" | "staff";
+
+const ROLE_CONFIG: Record<RoleKey, { label: string; badgeClass: string }> = {
+  primary: { label: "최고관리자", badgeClass: "bg-[#FFEEEE] text-error border border-error/30" },
+  owner:   { label: "센터장",     badgeClass: "bg-[#FFF3E5] text-[#E07820] border border-[#E07820]/30" },
+  manager: { label: "매니저",     badgeClass: "bg-bg-soft-mint text-secondary-mint border border-secondary-mint/30" },
+  fc:      { label: "FC",         badgeClass: "bg-[#EEF4FF] text-[#3B7CF4] border border-[#3B7CF4]/30" },
+  trainer: { label: "트레이너",   badgeClass: "bg-[#F0FFF4] text-success border border-success/30" },
+  staff:   { label: "스태프",     badgeClass: "bg-input-bg-light text-text-grey-blue border border-border-light" },
+};
 
 // Mock Data: Staff
 const MOCK_STAFF = [
@@ -33,7 +49,7 @@ const MOCK_STAFF = [
     name: "김철수",
     gender: "남",
     contact: "010-1234-5678",
-    role: "trainer",
+    role: "trainer" as RoleKey,
     jobGroup: "PT강사",
     position: "팀장",
     team: "PT 1팀",
@@ -49,7 +65,7 @@ const MOCK_STAFF = [
     name: "이영희",
     gender: "여",
     contact: "010-2345-6789",
-    role: "fc",
+    role: "fc" as RoleKey,
     jobGroup: "FC",
     position: "사원",
     team: "운영팀",
@@ -65,7 +81,7 @@ const MOCK_STAFF = [
     name: "박지민",
     gender: "남",
     contact: "010-3456-7890",
-    role: "owner",
+    role: "owner" as RoleKey,
     jobGroup: "매니저",
     position: "센터장",
     team: "총괄",
@@ -81,7 +97,7 @@ const MOCK_STAFF = [
     name: "최성호",
     gender: "남",
     contact: "010-4567-8901",
-    role: "trainer",
+    role: "trainer" as RoleKey,
     jobGroup: "GX강사",
     position: "외부강사",
     team: "GX팀",
@@ -97,7 +113,7 @@ const MOCK_STAFF = [
     name: "정수진",
     gender: "여",
     contact: "010-5678-9012",
-    role: "trainer",
+    role: "trainer" as RoleKey,
     jobGroup: "PT강사",
     position: "사원",
     team: "PT 2팀",
@@ -117,6 +133,10 @@ const MOCK_ATTENDANCE = [
   { id: 4, name: "박지민", date: "2024-06-20", checkIn: "08:40", checkOut: "19:30", status: "연장", workTime: "10h 50m" },
 ];
 
+// 정렬 가능한 컬럼 키
+type SortKey = "name" | "role" | "joinDate" | "status";
+type SortDir = "asc" | "desc" | null;
+
 export default function StaffList() {
   const [activeTab, setActiveTab] = useState("list");
   const [selectedStaffRows, setSelectedStaffRows] = useState(new Set<number>());
@@ -128,6 +148,10 @@ export default function StaffList() {
     position: "",
     role: ""
   });
+
+  // 정렬 상태
+  const [sortKey, setSortKey] = useState<SortKey | null>(null);
+  const [sortDir, setSortDir] = useState<SortDir>(null);
 
   const tabs = [
     { key: "list", label: "직원 목록", icon: Users },
@@ -144,12 +168,72 @@ export default function StaffList() {
     setSearchQuery("");
   };
 
+  // 정렬 핸들러
+  const handleSort = (key: SortKey) => {
+    if (sortKey === key) {
+      if (sortDir === "asc") setSortDir("desc");
+      else if (sortDir === "desc") { setSortDir(null); setSortKey(null); }
+      else setSortDir("asc");
+    } else {
+      setSortKey(key);
+      setSortDir("asc");
+    }
+  };
+
+  // 정렬 아이콘
+  const SortIcon = ({ col }: { col: SortKey }) => {
+    if (sortKey !== col) return <ChevronsUpDown size={13} className="text-text-grey-blue opacity-50"/>;
+    if (sortDir === "asc") return <ChevronUp size={13} className="text-primary-coral"/>;
+    return <ChevronDown size={13} className="text-primary-coral"/>;
+  };
+
+  // 정렬 헤더 버튼
+  const SortHeader = ({ col, label }: { col: SortKey; label: string }) => (
+    <button
+      className="flex items-center gap-[3px] hover:text-primary-coral transition-colors group"
+      onClick={() => handleSort(col)}
+    >
+      {label}
+      <SortIcon col={col}/>
+    </button>
+  );
+
+  // 필터링 + 정렬된 데이터
+  const sortedFilteredStaff = useMemo(() => {
+    let data = MOCK_STAFF.filter(s => {
+      const matchSearch = searchQuery
+        ? s.name.includes(searchQuery) || s.contact.includes(searchQuery) || s.adminId.includes(searchQuery)
+        : true;
+      const matchStatus = !filterValues.status || s.status === filterValues.status;
+      const matchJobGroup = !filterValues.jobGroup || s.jobGroup.toLowerCase().includes(filterValues.jobGroup.toLowerCase());
+      const matchPosition = !filterValues.position || s.position === filterValues.position;
+      const matchRole = !filterValues.role || s.role === filterValues.role;
+      return matchSearch && matchStatus && matchJobGroup && matchPosition && matchRole;
+    });
+
+    if (sortKey && sortDir) {
+      data = [...data].sort((a, b) => {
+        let aVal: string = "";
+        let bVal: string = "";
+        if (sortKey === "name") { aVal = a.name; bVal = b.name; }
+        else if (sortKey === "role") { aVal = a.role; bVal = b.role; }
+        else if (sortKey === "joinDate") { aVal = a.joinDate; bVal = b.joinDate; }
+        else if (sortKey === "status") { aVal = a.status; bVal = b.status; }
+
+        const cmp = aVal.localeCompare(bVal, "ko");
+        return sortDir === "asc" ? cmp : -cmp;
+      });
+    }
+
+    return data;
+  }, [searchQuery, filterValues, sortKey, sortDir]);
+
   const staffColumns = [
     { key: "id", header: "No", width: 60, align: "center" as const },
-    { 
-      key: "status", 
-      header: "상태", 
-      width: 100, 
+    {
+      key: "status",
+      header: <SortHeader col="status" label="상태"/>,
+      width: 100,
       align: "center" as const,
       render: (val: string) => (
         <StatusBadge variant={val === "active" ? "success" : "default"} dot={true}>
@@ -157,11 +241,11 @@ export default function StaffList() {
         </StatusBadge>
       )
     },
-    { 
-      key: "name", 
-      header: "직원명", 
+    {
+      key: "name",
+      header: <SortHeader col="name" label="직원명"/>,
       render: (val: string, row: any) => (
-        <button 
+        <button
           className="text-primary-coral font-semibold hover:underline" onClick={() => moveToPage(988)}>
           {val}
         </button>
@@ -169,24 +253,33 @@ export default function StaffList() {
     },
     { key: "gender", header: "성별", width: 60, align: "center" as const },
     { key: "contact", header: "연락처", width: 140 },
-    { 
-      key: "role", 
-      header: "역할(권한)", 
-      width: 120,
-      render: (val: string) => (
-        <StatusBadge variant="info">{val.toUpperCase()}</StatusBadge>
-      )
+    {
+      key: "role",
+      header: <SortHeader col="role" label="역할(권한)"/>,
+      width: 140,
+      render: (val: RoleKey) => {
+        const cfg = ROLE_CONFIG[val] || ROLE_CONFIG.staff;
+        return (
+          <span className={cn("inline-flex items-center px-sm py-[2px] rounded-full text-[11px] font-semibold", cfg.badgeClass)}>
+            {cfg.label}
+          </span>
+        );
+      }
     },
     { key: "jobGroup", header: "직군", width: 100 },
     { key: "position", header: "직급", width: 100 },
     { key: "team", header: "팀", width: 100 },
-    { key: "joinDate", header: "입사일", width: 120 },
+    {
+      key: "joinDate",
+      header: <SortHeader col="joinDate" label="입사일"/>,
+      width: 120
+    },
     { key: "adminId", header: "ID", width: 120 },
     { key: "memo", header: "특이사항", width: 150 },
     { key: "workType", header: "근무 유형", width: 100 },
-    { 
-      key: "attendanceStatus", 
-      header: "출/퇴근", 
+    {
+      key: "attendanceStatus",
+      header: "출/퇴근",
       width: 100,
       align: "center" as const,
       render: (val: string) => {
@@ -224,9 +317,9 @@ export default function StaffList() {
     { key: "checkIn", header: "출근시간", align: "center" as const },
     { key: "checkOut", header: "퇴근시간", align: "center" as const },
     { key: "workTime", header: "근무시간", align: "center" as const },
-    { 
-      key: "status", 
-      header: "상태", 
+    {
+      key: "status",
+      header: "상태",
       align: "center" as const,
       render: (val: string) => (
         <StatusBadge variant={val === "정상" ? "success" : val === "연장" ? "info" : "warning"}>
@@ -260,51 +353,53 @@ export default function StaffList() {
             {/* Filters & Actions */}
             <div className="flex flex-col gap-md" >
               <SearchFilter searchPlaceholder="직원명, 연락처, ID 검색" searchValue={searchQuery} onSearchChange={setSearchQuery} filters={[
-                  { 
-                    key: "status", 
-                    label: "재직 여부", 
-                    type: "select", 
+                  {
+                    key: "status",
+                    label: "재직 여부",
+                    type: "select",
                     options: [
                       { value: "active", label: "재직" },
                       { value: "resigned", label: "퇴사" }
-                    ] 
+                    ]
                   },
-                  { 
-                    key: "jobGroup", 
-                    label: "직군", 
-                    type: "select", 
+                  {
+                    key: "jobGroup",
+                    label: "직군",
+                    type: "select",
                     options: [
                       { value: "pt", label: "PT강사" },
                       { value: "gx", label: "GX강사" },
                       { value: "fc", label: "FC" },
                       { value: "manager", label: "매니저" }
-                    ] 
+                    ]
                   },
-                  { 
-                    key: "position", 
-                    label: "직급", 
-                    type: "select", 
+                  {
+                    key: "position",
+                    label: "직급",
+                    type: "select",
                     options: [
                       { value: "head", label: "센터장" },
                       { value: "team", label: "팀장" },
                       { value: "staff", label: "사원" }
-                    ] 
+                    ]
                   },
-                  { 
-                    key: "role", 
-                    label: "역할", 
-                    type: "select", 
+                  {
+                    key: "role",
+                    label: "역할",
+                    type: "select",
                     options: [
-                      { value: "primary", label: "Primary" },
-                      { value: "owner", label: "Owner" },
+                      { value: "primary", label: "최고관리자" },
+                      { value: "owner", label: "센터장" },
+                      { value: "manager", label: "매니저" },
                       { value: "fc", label: "FC" },
-                      { value: "trainer", label: "Trainer" }
-                    ] 
+                      { value: "trainer", label: "트레이너" },
+                      { value: "staff", label: "스태프" },
+                    ]
                   },
                 ]} filterValues={filterValues} onFilterChange={handleFilterChange} onReset={handleResetFilters}/>
 
               <div className="flex flex-wrap items-center gap-sm" >
-                <button 
+                <button
                   className="flex items-center gap-xs px-md py-sm bg-primary-coral text-white rounded-button text-Label font-semibold hover:opacity-90 transition-all" onClick={() => moveToPage(988)}>
                   <Plus size={16}/> 직원 추가
                 </button>
@@ -327,10 +422,10 @@ export default function StaffList() {
             </div>
 
             {/* Data Table */}
-            <DataTable columns={staffColumns} data={MOCK_STAFF} selectable={true} selectedRows={selectedStaffRows} onSelectRows={setSelectedStaffRows} pagination={{
+            <DataTable columns={staffColumns} data={sortedFilteredStaff} selectable={true} selectedRows={selectedStaffRows} onSelectRows={setSelectedStaffRows} pagination={{
                 page: 1,
                 pageSize: 10,
-                total: MOCK_STAFF.length
+                total: sortedFilteredStaff.length
               }} onDownloadExcel={() => console.log("Excel Download")}/>
           </div>
         );
@@ -355,7 +450,7 @@ export default function StaffList() {
                 <Settings2 size={16}/> 근무패턴 관리
               </button>
             </div>
-            
+
             <DataTable title="근태 기록" columns={attendanceColumns} data={MOCK_ATTENDANCE} pagination={{
                 page: 1,
                 pageSize: 10,
@@ -371,7 +466,7 @@ export default function StaffList() {
               <StatCard label="정산 완료" value="15명" icon={<UserCheck />} variant="mint"/>
               <StatCard label="정산 대기" value="5명" icon={<Clock />} variant="peach"/>
             </div>
-            
+
             <div className="bg-white rounded-card-normal border border-border-light p-xl flex flex-col items-center justify-center min-h-[400px] text-center" >
               <div className="w-[80px] h-[80px] bg-bg-soft-peach rounded-full flex items-center justify-center text-primary-coral mb-lg" >
                 <FileText size={40}/>
@@ -380,7 +475,7 @@ export default function StaffList() {
               <p className="text-Body-1 text-text-grey-blue mb-xl max-w-[400px]" >
                 각 직원의 급여 내역 확인 및 명세서 발행은<br />급여 관리 시스템에서 더욱 자세하게 확인하실 수 있습니다.
               </p>
-              <button 
+              <button
                 className="px-xxl py-md bg-primary-coral text-white rounded-button text-Body-1 font-bold hover:scale-[1.02] transition-all active:scale-[0.98]" onClick={() => moveToPage(976)}>
                 급여 관리 바로가기
               </button>
@@ -403,7 +498,7 @@ export default function StaffList() {
             </div>
           }/>
 
-        <TabNav 
+        <TabNav
           className="mb-lg" tabs={tabs} activeTab={activeTab} onTabChange={setActiveTab}/>
 
         <div className="flex-1 overflow-auto pb-xxl" >

@@ -1,12 +1,12 @@
 import React, { useState, useEffect } from "react";
-import { 
-  ArrowLeft, 
-  Save, 
-  Plus, 
-  Trash2, 
-  Clock, 
-  Lock, 
-  CheckCircle2, 
+import {
+  ArrowLeft,
+  Save,
+  Plus,
+  Trash2,
+  Clock,
+  Lock,
+  CheckCircle2,
   AlertCircle,
   HelpCircle,
   Image as ImageIcon,
@@ -21,6 +21,15 @@ import {
   Infinity,
   Settings2
 } from "lucide-react";
+
+// 같은 카테고리 내 기존 상품명 Mock 데이터 (중복 체크용)
+const EXISTING_PRODUCTS: { name: string; category: string }[] = [
+  { name: '스포짐 종각점 프리미엄 12개월권', category: '시설이용' },
+  { name: '헬스 6개월권', category: '시설이용' },
+  { name: 'PT 20회 패키지', category: '1:1수업' },
+  { name: '그룹필라테스 3개월', category: '그룹수업' },
+  { name: '개인락카 1개월', category: '옵션' },
+];
 import { cn } from "@/lib/utils";
 import { moveToPage } from "@/internal";
 
@@ -149,12 +158,88 @@ export default function ProductForm() {
     setShowTypeSelection(false);
   };
 
+  // 가격 포맷 (천단위 콤마)
+  const formatPrice = (value: string) => {
+    const raw = value.replace(/[^0-9]/g, '');
+    const num = parseInt(raw) || 0;
+    return num > 0 ? num.toLocaleString() : '';
+  };
+
+  const handlePriceChange = (name: 'priceCash' | 'priceCard', value: string) => {
+    const raw = value.replace(/[^0-9]/g, '');
+    const num = parseInt(raw) || 0;
+    const MAX_PRICE = 99999999;
+
+    if (num < 0) return; // 음수 불가
+    const capped = Math.min(num, MAX_PRICE);
+    const formatted = capped > 0 ? capped.toLocaleString() : '';
+
+    setFormData(prev => ({ ...prev, [name]: formatted }));
+
+    // 에러 즉시 검증
+    const newErrors = { ...errors };
+    if (capped === 0) {
+      newErrors[name] = '가격은 0원 이상이어야 합니다.';
+    } else if (num > MAX_PRICE) {
+      newErrors[name] = `최대 ${MAX_PRICE.toLocaleString()}원까지 입력 가능합니다.`;
+    } else {
+      delete newErrors[name];
+    }
+    setErrors(newErrors);
+  };
+
+  // 상품명 중복 체크 (같은 카테고리 내)
+  const checkDuplicateName = (name: string, category: string): boolean => {
+    if (!name || !category) return false;
+    const editingOriginalName = isEditMode ? '스포짐 종각점 프리미엄 12개월권' : null; // Mock: 수정 모드 원본명
+    return EXISTING_PRODUCTS.some(
+      p =>
+        p.category === category &&
+        p.name === name &&
+        p.name !== editingOriginalName
+    );
+  };
+
+  const handleNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    setFormData(prev => ({ ...prev, name: value }));
+
+    const newErrors = { ...errors };
+    if (!value) {
+      newErrors.name = '상품명을 입력해주세요';
+    } else if (checkDuplicateName(value, formData.category)) {
+      newErrors.name = `동일 카테고리 내에 '${value}' 상품명이 이미 존재합니다.`;
+    } else {
+      delete newErrors.name;
+    }
+    setErrors(newErrors);
+  };
+
   const validate = () => {
     const newErrors: Record<string, string> = {};
     if (!formData.category) newErrors.category = "카테고리를 선택해주세요";
-    if (!formData.name) newErrors.name = "상품명을 입력해주세요";
-    if (!formData.priceCash) newErrors.priceCash = "현금가를 입력해주세요";
-    if (!formData.priceCard) newErrors.priceCard = "카드가를 입력해주세요";
+    if (!formData.name) {
+      newErrors.name = "상품명을 입력해주세요";
+    } else if (checkDuplicateName(formData.name, formData.category)) {
+      newErrors.name = `동일 카테고리 내에 '${formData.name}' 상품명이 이미 존재합니다.`;
+    }
+
+    const cashNum = parseInt(formData.priceCash.replace(/,/g, '')) || 0;
+    const cardNum = parseInt(formData.priceCard.replace(/,/g, '')) || 0;
+    const MAX_PRICE = 99999999;
+
+    if (!formData.priceCash || cashNum === 0) {
+      newErrors.priceCash = "현금가를 입력해주세요";
+    } else if (cashNum > MAX_PRICE) {
+      newErrors.priceCash = `최대 ${MAX_PRICE.toLocaleString()}원까지 입력 가능합니다.`;
+    }
+
+    if (!formData.priceCard || cardNum === 0) {
+      newErrors.priceCard = "카드가를 입력해주세요";
+    } else if (cardNum > MAX_PRICE) {
+      newErrors.priceCard = `최대 ${MAX_PRICE.toLocaleString()}원까지 입력 가능합니다.`;
+    }
+
     if (!formData.period) newErrors.period = "이용기간을 입력해주세요";
 
     setErrors(newErrors);
@@ -310,8 +395,12 @@ export default function ProductForm() {
               className={cn(
                 "w-full px-md py-sm rounded-input border border-border-light bg-input-bg-light text-Body 1 focus:ring-2 focus:ring-secondary-mint outline-none transition-all",
                 errors.name && "border-error ring-1 ring-error"
-              )} type="text" name="name" value={formData.name} onChange={handleInputChange} placeholder="예: 프리미엄 12개월권"/>
-            {errors.name && <p className="text-[12px] text-error" >{errors.name}</p>}
+              )} type="text" name="name" value={formData.name} onChange={handleNameChange} placeholder="예: 프리미엄 12개월권"/>
+            {errors.name && (
+              <p className="text-[12px] text-error flex items-center gap-xs" >
+                <AlertCircle size={12}/>{errors.name}
+              </p>
+            )}
           </div>
 
           {/* 상품가격 (현금) */}
@@ -323,11 +412,16 @@ export default function ProductForm() {
               <Banknote className="absolute left-md top-1/2 -translate-y-1/2 text-text-grey-blue" size={18}/>
               <input
                 className={cn(
-                  "w-full pl-[44px] pr-md py-sm rounded-input border border-border-light bg-input-bg-light text-Body 1 focus:ring-2 focus:ring-secondary-mint outline-none transition-all",
+                  "w-full pl-[44px] pr-[40px] py-sm rounded-input border border-border-light bg-input-bg-light text-Body 1 focus:ring-2 focus:ring-secondary-mint outline-none transition-all",
                   errors.priceCash && "border-error ring-1 ring-error"
-                )} type="number" name="priceCash" value={formData.priceCash} onChange={handleInputChange} placeholder="0"/>
+                )} type="text" inputMode="numeric" name="priceCash" value={formData.priceCash} onChange={(e) => handlePriceChange('priceCash', e.target.value)} placeholder="0"/>
               <span className="absolute right-md top-1/2 -translate-y-1/2 text-Body 2 text-text-grey-blue" >원</span>
             </div>
+            {errors.priceCash && (
+              <p className="text-[12px] text-error flex items-center gap-xs" >
+                <AlertCircle size={12}/>{errors.priceCash}
+              </p>
+            )}
           </div>
 
           {/* 상품가격 (카드) */}
@@ -339,11 +433,16 @@ export default function ProductForm() {
               <CreditCard className="absolute left-md top-1/2 -translate-y-1/2 text-text-grey-blue" size={18}/>
               <input
                 className={cn(
-                  "w-full pl-[44px] pr-md py-sm rounded-input border border-border-light bg-input-bg-light text-Body 1 focus:ring-2 focus:ring-secondary-mint outline-none transition-all",
+                  "w-full pl-[44px] pr-[40px] py-sm rounded-input border border-border-light bg-input-bg-light text-Body 1 focus:ring-2 focus:ring-secondary-mint outline-none transition-all",
                   errors.priceCard && "border-error ring-1 ring-error"
-                )} type="number" name="priceCard" value={formData.priceCard} onChange={handleInputChange} placeholder="0"/>
+                )} type="text" inputMode="numeric" name="priceCard" value={formData.priceCard} onChange={(e) => handlePriceChange('priceCard', e.target.value)} placeholder="0"/>
               <span className="absolute right-md top-1/2 -translate-y-1/2 text-Body 2 text-text-grey-blue" >원</span>
             </div>
+            {errors.priceCard && (
+              <p className="text-[12px] text-error flex items-center gap-xs" >
+                <AlertCircle size={12}/>{errors.priceCard}
+              </p>
+            )}
           </div>
 
           {/* 상품 설명 */}

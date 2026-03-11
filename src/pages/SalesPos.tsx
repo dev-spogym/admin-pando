@@ -29,7 +29,20 @@ import { moveToPage } from '@/internal';
 
 // --- Mock Data ---
 
-const MOCK_PRODUCTS = [
+const MOCK_PRODUCTS: {
+  id: number;
+  name: string;
+  category: string;
+  subCategory: string;
+  sport: string;
+  period: string;
+  count: string;
+  cashPrice: number;
+  cardPrice: number;
+  kiosk: boolean;
+  tags: string[];
+  stock: number | null;
+}[] = [
   {
     id: 1,
     name: '헬스 12개월 (연간 회원권)',
@@ -41,7 +54,8 @@ const MOCK_PRODUCTS = [
     cashPrice: 660000,
     cardPrice: 726000,
     kiosk: true,
-    tags: ['BRAND']
+    tags: ['BRAND'],
+    stock: null, // 이용권은 재고 없음
   },
   {
     id: 2,
@@ -54,7 +68,8 @@ const MOCK_PRODUCTS = [
     cashPrice: 1500000,
     cardPrice: 1650000,
     kiosk: false,
-    tags: []
+    tags: [],
+    stock: 3, // 재고 경고 (5 이하)
   },
   {
     id: 3,
@@ -67,7 +82,8 @@ const MOCK_PRODUCTS = [
     cashPrice: 10000,
     cardPrice: 11000,
     kiosk: true,
-    tags: []
+    tags: [],
+    stock: 0, // 재고 없음 (비활성화)
   },
   {
     id: 4,
@@ -80,7 +96,8 @@ const MOCK_PRODUCTS = [
     cashPrice: 5000,
     cardPrice: 5500,
     kiosk: true,
-    tags: []
+    tags: [],
+    stock: 12,
   },
   {
     id: 5,
@@ -93,7 +110,8 @@ const MOCK_PRODUCTS = [
     cashPrice: 30000,
     cardPrice: 33000,
     kiosk: false,
-    tags: []
+    tags: [],
+    stock: null,
   },
   {
     id: 6,
@@ -106,7 +124,8 @@ const MOCK_PRODUCTS = [
     cashPrice: 400000,
     cardPrice: 440000,
     kiosk: true,
-    tags: []
+    tags: [],
+    stock: 4, // 재고 경고 (5 이하)
   }
 ];
 
@@ -151,11 +170,21 @@ interface MockMember {
 }
 
 const ProductCard = ({ product, onAdd }: { product: typeof MOCK_PRODUCTS[number]; onAdd: (p: typeof MOCK_PRODUCTS[number]) => void }) => {
+  const isOutOfStock = product.stock === 0;
+  const isLowStock = product.stock !== null && product.stock > 0 && product.stock <= 5;
+
   return (
-    <div 
-      className="group relative flex flex-col rounded-card-normal border border-border-light bg-white p-md shadow-card-soft transition-all hover:border-primary-coral hover:shadow-md cursor-pointer" onClick={() => onAdd(product)}>
+    <div
+      className={cn(
+        "group relative flex flex-col rounded-card-normal border bg-white p-md shadow-card-soft transition-all",
+        isOutOfStock
+          ? "border-border-light opacity-50 cursor-not-allowed grayscale"
+          : "border-border-light hover:border-primary-coral hover:shadow-md cursor-pointer"
+      )}
+      onClick={() => { if (!isOutOfStock) onAdd(product); }}
+    >
       <div className="flex items-center justify-between mb-sm" >
-        <div className="flex gap-xs" >
+        <div className="flex gap-xs flex-wrap" >
           <StatusBadge className="bg-bg-main-light-blue text-text-grey-blue" variant="default">
             {product.sport}
           </StatusBadge>
@@ -171,8 +200,29 @@ const ProductCard = ({ product, onAdd }: { product: typeof MOCK_PRODUCTS[number]
         </button>
       </div>
 
+      {/* 재고 배지 */}
+      {product.stock !== null && (
+        <div className="mb-xs">
+          {isOutOfStock && (
+            <span className="inline-flex items-center gap-xs px-xs py-[2px] rounded-full bg-error/10 text-error text-[10px] font-bold">
+              품절
+            </span>
+          )}
+          {isLowStock && (
+            <span className="inline-flex items-center gap-xs px-xs py-[2px] rounded-full bg-warning/10 text-warning text-[10px] font-bold">
+              재고 부족 ({product.stock}개)
+            </span>
+          )}
+          {!isOutOfStock && !isLowStock && (
+            <span className="inline-flex items-center gap-xs px-xs py-[2px] rounded-full bg-success/10 text-success text-[10px] font-bold">
+              재고 {product.stock}개
+            </span>
+          )}
+        </div>
+      )}
+
       <h4 className="text-Body-1 font-bold text-text-dark-grey mb-xs line-clamp-1" >{product.name}</h4>
-      
+
       <div className="flex flex-col gap-1 mb-md" >
         <div className="flex items-center gap-xs text-Label text-text-grey-blue" >
           <Calendar size={14}/>
@@ -195,11 +245,19 @@ const ProductCard = ({ product, onAdd }: { product: typeof MOCK_PRODUCTS[number]
         </div>
       </div>
 
-      <div className="absolute inset-0 bg-primary-coral/5 opacity-0 group-hover:opacity-100 transition-opacity rounded-card-normal flex items-center justify-center pointer-events-none" >
-        <div className="bg-white rounded-full p-sm shadow-md text-primary-coral" >
-          <Plus size={24}/>
+      {!isOutOfStock && (
+        <div className="absolute inset-0 bg-primary-coral/5 opacity-0 group-hover:opacity-100 transition-opacity rounded-card-normal flex items-center justify-center pointer-events-none" >
+          <div className="bg-white rounded-full p-sm shadow-md text-primary-coral" >
+            <Plus size={24}/>
+          </div>
         </div>
-      </div>
+      )}
+
+      {isOutOfStock && (
+        <div className="absolute inset-0 bg-white/60 rounded-card-normal flex items-center justify-center pointer-events-none" >
+          <span className="px-md py-xs bg-error text-white text-Label font-bold rounded-full shadow">품절</span>
+        </div>
+      )}
     </div>
   );
 };

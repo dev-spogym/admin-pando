@@ -1,15 +1,15 @@
-import React, { useState } from 'react';
-import { 
-  Save, 
-  Info, 
-  DoorOpen, 
-  Monitor, 
-  Smartphone, 
-  Bell, 
-  ShieldCheck, 
-  CreditCard, 
-  Plus, 
-  Trash2, 
+import React, { useState, useEffect, useCallback, useRef } from 'react';
+import {
+  Save,
+  Info,
+  DoorOpen,
+  Monitor,
+  Smartphone,
+  Bell,
+  ShieldCheck,
+  CreditCard,
+  Plus,
+  Trash2,
   Settings as SettingsIcon,
   CheckCircle2,
   Clock,
@@ -19,7 +19,8 @@ import {
   Image as ImageIcon,
   ChevronRight,
   ExternalLink,
-  Lock
+  Lock,
+  AlertTriangle
 } from 'lucide-react';
 import AppLayout from '@/components/AppLayout';
 import PageHeader from '@/components/PageHeader';
@@ -30,10 +31,21 @@ import StatusBadge from '@/components/StatusBadge';
 import { cn } from '@/lib/utils';
 import { moveToPage } from '@/internal';
 
+// 탭별 초기 상태를 저장하는 타입
+type TabDirtyMap = Record<string, boolean>;
+
 export default function Settings() {
   const [activeTab, setActiveTab] = useState('basic');
   const [isSaving, setIsSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
+
+  // 탭별 변경사항 추적
+  const [tabDirty, setTabDirty] = useState<TabDirtyMap>({});
+  const isDirty = tabDirty[activeTab] ?? false;
+
+  // 탭 전환 시 경고 모달
+  const [pendingTab, setPendingTab] = useState<string | null>(null);
+  const [showUnsavedWarning, setShowUnsavedWarning] = useState(false);
 
   // Mock Center Info
   const [centerInfo, setCenterInfo] = useState({
@@ -65,11 +77,54 @@ export default function Settings() {
     { key: 'others', label: '기타 설정', icon: SettingsIcon },
   ];
 
+  // 페이지 이탈 시 경고 (beforeunload)
+  useEffect(() => {
+    const hasAnyDirty = Object.values(tabDirty).some(Boolean);
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (hasAnyDirty) {
+        e.preventDefault();
+        e.returnValue = '';
+      }
+    };
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [tabDirty]);
+
+  // 필드 변경 시 현재 탭을 dirty로 표시
+  const markDirty = useCallback(() => {
+    setTabDirty(prev => ({ ...prev, [activeTab]: true }));
+  }, [activeTab]);
+
+  const handleTabChange = (tab: string) => {
+    if (isDirty) {
+      setPendingTab(tab);
+      setShowUnsavedWarning(true);
+    } else {
+      setActiveTab(tab);
+    }
+  };
+
+  const handleDiscardAndSwitch = () => {
+    if (pendingTab) {
+      setTabDirty(prev => ({ ...prev, [activeTab]: false }));
+      setActiveTab(pendingTab);
+      setPendingTab(null);
+    }
+    setShowUnsavedWarning(false);
+  };
+
+  const handleCancelSwitch = () => {
+    setPendingTab(null);
+    setShowUnsavedWarning(false);
+  };
+
   const handleSave = () => {
     setIsSaving(true);
     setTimeout(() => {
       setIsSaving(false);
       setSaveSuccess(true);
+      // 현재 탭의 dirty 상태 초기화
+      setTabDirty(prev => ({ ...prev, [activeTab]: false }));
       setTimeout(() => setSaveSuccess(false), 3000);
     }, 1500);
   };
@@ -81,10 +136,10 @@ export default function Settings() {
     { key: 'ip', header: 'IP주소/번호', width: 150 },
     { key: 'access', header: '이용권별 출입 설정', width: 200 },
     { key: 'memo', header: '메모', width: 200 },
-    { 
-      key: 'actions', 
-      header: '관리', 
-      width: 100, 
+    {
+      key: 'actions',
+      header: '관리',
+      width: 100,
       align: 'center' as const,
       render: (_: unknown, row: any) => (
         <button className="text-text-grey-blue hover:text-error transition-colors" >
@@ -115,18 +170,18 @@ export default function Settings() {
                     <div className="space-y-xs" >
                       <label className="text-Label text-text-dark-grey" >센터명 <span className="text-error" >*</span></label>
                       <input
-                        className="w-full bg-input-bg-light p-md rounded-input focus:ring-1 focus:ring-secondary-mint outline-none border-[1px] border-transparent transition-all" type="text" value={centerInfo.name} onChange={(e) => setCenterInfo({...centerInfo, name: e.target.value})}/>
+                        className="w-full bg-input-bg-light p-md rounded-input focus:ring-1 focus:ring-secondary-mint outline-none border-[1px] border-transparent transition-all" type="text" value={centerInfo.name} onChange={(e) => { setCenterInfo({...centerInfo, name: e.target.value}); markDirty(); }}/>
                     </div>
                     <div className="space-y-xs" >
                       <label className="text-Label text-text-dark-grey" >사업자등록번호</label>
-                      <input 
-                        className="w-full bg-input-bg-light p-md rounded-input outline-none border-[1px] border-transparent" type="text" value={centerInfo.businessNumber}/>
+                      <input
+                        className="w-full bg-input-bg-light p-md rounded-input outline-none border-[1px] border-transparent" type="text" value={centerInfo.businessNumber} onChange={() => markDirty()}/>
                     </div>
                   </div>
                   <div className="space-y-xs" >
                     <label className="text-Label text-text-dark-grey" >센터 설명</label>
                     <textarea
-                      className="w-full bg-input-bg-light p-md rounded-input focus:ring-1 focus:ring-secondary-mint outline-none border-[1px] border-transparent resize-none" rows={3} value={centerInfo.description}/>
+                      className="w-full bg-input-bg-light p-md rounded-input focus:ring-1 focus:ring-secondary-mint outline-none border-[1px] border-transparent resize-none" rows={3} value={centerInfo.description} onChange={(e) => { setCenterInfo({...centerInfo, description: e.target.value}); markDirty(); }}/>
                   </div>
                 </div>
               </div>
@@ -149,7 +204,7 @@ export default function Settings() {
                   <Phone size={14}/> 대표 연락처
                 </label>
                 <input
-                  className="w-full bg-input-bg-light p-md rounded-input focus:ring-1 focus:ring-secondary-mint outline-none border-[1px] border-transparent" type="text" value={centerInfo.phone}/>
+                  className="w-full bg-input-bg-light p-md rounded-input focus:ring-1 focus:ring-secondary-mint outline-none border-[1px] border-transparent" type="text" value={centerInfo.phone} onChange={(e) => { setCenterInfo({...centerInfo, phone: e.target.value}); markDirty(); }}/>
               </div>
 
               <div className="col-span-2 space-y-xs pt-md" >
@@ -159,8 +214,14 @@ export default function Settings() {
                 <div className="flex flex-wrap gap-sm" >
                   {['헬스', '필라테스', 'PT샵', '골프', '요가', '태권도', '크로스핏', '복싱', '테니스', '수영', '사우나', '태닝', '기타'].map((sector) => (
                     <label className="flex items-center gap-xs bg-bg-main-light-blue px-md py-sm rounded-full cursor-pointer hover:bg-bg-soft-peach transition-colors" key={sector}>
-                      <input 
-                        className="accent-primary-coral" type="checkbox" checked={centerInfo.sectors.includes(sector)}/>
+                      <input
+                        className="accent-primary-coral" type="checkbox" checked={centerInfo.sectors.includes(sector)} onChange={(e) => {
+                          const next = e.target.checked
+                            ? [...centerInfo.sectors, sector]
+                            : centerInfo.sectors.filter(s => s !== sector);
+                          setCenterInfo({...centerInfo, sectors: next});
+                          markDirty();
+                        }}/>
                       <span className="text-Body 2" >{sector}</span>
                     </label>
                   ))}
@@ -174,9 +235,9 @@ export default function Settings() {
                   <Clock size={14}/> 평일 운영시간
                 </label>
                 <div className="flex items-center gap-sm" >
-                  <input className="flex-1 bg-input-bg-light p-md rounded-input outline-none" type="time" defaultValue="06:00"/>
+                  <input className="flex-1 bg-input-bg-light p-md rounded-input outline-none" type="time" defaultValue="06:00" onChange={markDirty}/>
                   <span >-</span>
-                  <input className="flex-1 bg-input-bg-light p-md rounded-input outline-none" type="time" defaultValue="23:00"/>
+                  <input className="flex-1 bg-input-bg-light p-md rounded-input outline-none" type="time" defaultValue="23:00" onChange={markDirty}/>
                 </div>
               </div>
               <div className="space-y-xs" >
@@ -184,9 +245,9 @@ export default function Settings() {
                   <Clock size={14}/> 주말/공휴일 운영시간
                 </label>
                 <div className="flex items-center gap-sm" >
-                  <input className="flex-1 bg-input-bg-light p-md rounded-input outline-none" type="time" defaultValue="09:00"/>
+                  <input className="flex-1 bg-input-bg-light p-md rounded-input outline-none" type="time" defaultValue="09:00" onChange={markDirty}/>
                   <span >-</span>
-                  <input className="flex-1 bg-input-bg-light p-md rounded-input outline-none" type="time" defaultValue="20:00"/>
+                  <input className="flex-1 bg-input-bg-light p-md rounded-input outline-none" type="time" defaultValue="20:00" onChange={markDirty}/>
                 </div>
               </div>
             </FormSection>
@@ -201,22 +262,22 @@ export default function Settings() {
                 <h3 className="text-Heading 2 text-text-dark-grey mb-xs" >출입문 관리</h3>
                 <p className="text-Body 2 text-text-grey-blue" >센터의 모든 IoT 출입문 정보를 관리하고 제어합니다.</p>
               </div>
-              <button className="bg-secondary-mint text-white px-lg py-md rounded-button flex items-center gap-xs shadow-card-soft hover:opacity-90 transition-opacity" >
+              <button className="bg-secondary-mint text-white px-lg py-md rounded-button flex items-center gap-xs shadow-card-soft hover:opacity-90 transition-opacity" onClick={markDirty}>
                 <Plus size={18}/> 출입문 추가
               </button>
             </div>
-            
+
             <DataTable columns={doorColumns} data={doors} pagination={{ page: 1, pageSize: 10, total: doors.length }}/>
 
             <FormSection title="RFID 및 연동 설정" columns={2} collapsible={true}>
               <div className="space-y-xs" >
                 <label className="text-Label text-text-dark-grey" >체크인 대기시간 (분)</label>
-                <input className="w-full bg-input-bg-light p-md rounded-input outline-none" type="number" defaultValue={5}/>
+                <input className="w-full bg-input-bg-light p-md rounded-input outline-none" type="number" defaultValue={5} onChange={markDirty}/>
                 <p className="text-Label text-text-grey-blue mt-xs" >연속 체크인 방지를 위한 대기 시간입니다.</p>
               </div>
               <div className="space-y-xs" >
                 <label className="text-Label text-text-dark-grey" >IoT 도어락 서버 IP</label>
-                <input className="w-full bg-input-bg-light p-md rounded-input outline-none" type="text" placeholder="127.0.0.1"/>
+                <input className="w-full bg-input-bg-light p-md rounded-input outline-none" type="text" placeholder="127.0.0.1" onChange={markDirty}/>
               </div>
             </FormSection>
           </div>
@@ -231,12 +292,12 @@ export default function Settings() {
                   {[1, 2].map((i) => (
                     <div className="min-w-[200px] h-[120px] bg-bg-main-light-blue rounded-card-normal border-[1px] border-border-light flex items-center justify-center relative group" key={i}>
                       <span className="text-text-grey-blue text-Body 2" >이미지 {i}</span>
-                      <button className="absolute top-2 right-2 p-xs bg-error text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity" >
+                      <button className="absolute top-2 right-2 p-xs bg-error text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity" onClick={markDirty}>
                         <Trash2 size={14}/>
                       </button>
                     </div>
                   ))}
-                  <button className="min-w-[200px] h-[120px] border-[1px] border-dashed border-border-light rounded-card-normal flex flex-col items-center justify-center gap-xs text-text-grey-blue hover:bg-bg-main-light-blue transition-colors" >
+                  <button className="min-w-[200px] h-[120px] border-[1px] border-dashed border-border-light rounded-card-normal flex flex-col items-center justify-center gap-xs text-text-grey-blue hover:bg-bg-main-light-blue transition-colors" onClick={markDirty}>
                     <Plus size={24}/>
                     <span className="text-Label" >이미지 추가</span>
                   </button>
@@ -247,7 +308,7 @@ export default function Settings() {
             <FormSection title="출석 관리 및 편의 기능" columns={2}>
               <div className="space-y-xs" >
                 <label className="text-Label text-text-dark-grey" >출석 번호 사용 유형</label>
-                <select className="w-full bg-input-bg-light p-md rounded-input outline-none border-[1px] border-transparent" >
+                <select className="w-full bg-input-bg-light p-md rounded-input outline-none border-[1px] border-transparent" onChange={markDirty}>
                   <option >휴대폰 뒷번호 (4자리)</option>
                   <option >통합 회원번호</option>
                   <option >카드번호 (RFID)</option>
@@ -255,19 +316,19 @@ export default function Settings() {
               </div>
               <div className="space-y-xs" >
                 <label className="text-Label text-text-dark-grey" >재입장 가능 시간 (분)</label>
-                <input className="w-full bg-input-bg-light p-md rounded-input outline-none" type="number" defaultValue={180}/>
+                <input className="w-full bg-input-bg-light p-md rounded-input outline-none" type="number" defaultValue={180} onChange={markDirty}/>
               </div>
               <div className="space-y-xs" >
                 <label className="text-Label text-text-dark-grey" >출석당 마일리지 적립</label>
                 <div className="flex items-center gap-sm" >
-                  <input className="flex-1 bg-input-bg-light p-md rounded-input outline-none" type="number" defaultValue={100}/>
+                  <input className="flex-1 bg-input-bg-light p-md rounded-input outline-none" type="number" defaultValue={100} onChange={markDirty}/>
                   <span className="text-Body 2" >P</span>
                 </div>
               </div>
               <div className="space-y-xs" >
                 <label className="text-Label text-text-dark-grey" >이용권 만료 임박 표시</label>
                 <div className="flex items-center gap-sm" >
-                  <input className="flex-1 bg-input-bg-light p-md rounded-input outline-none" type="number" defaultValue={7}/>
+                  <input className="flex-1 bg-input-bg-light p-md rounded-input outline-none" type="number" defaultValue={7} onChange={markDirty}/>
                   <span className="text-Body 2" >일 전</span>
                 </div>
               </div>
@@ -294,18 +355,18 @@ export default function Settings() {
                 <label className="text-Label text-text-dark-grey" >앱 헤더 색상</label>
                 <div className="flex gap-sm" >
                   <div className="w-[48px] h-[48px] rounded-button border-[1px] border-border-light shadow-sm" style={{ backgroundColor: '#47b2ff' }}/>
-                  <input className="flex-1 bg-input-bg-light p-md rounded-input outline-none uppercase font-mono" type="text" defaultValue="#47B2FF"/>
+                  <input className="flex-1 bg-input-bg-light p-md rounded-input outline-none uppercase font-mono" type="text" defaultValue="#47B2FF" onChange={markDirty}/>
                 </div>
               </div>
               <div className="space-y-xs" >
                 <label className="text-Label text-text-dark-grey" >다크모드 지원 여부</label>
                 <div className="flex items-center gap-md h-[48px]" >
                   <label className="flex items-center gap-xs cursor-pointer" >
-                    <input className="accent-secondary-mint" type="radio" name="darkmode" defaultChecked={true}/>
+                    <input className="accent-secondary-mint" type="radio" name="darkmode" defaultChecked={true} onChange={markDirty}/>
                     <span className="text-Body 2" >지원</span>
                   </label>
                   <label className="flex items-center gap-xs cursor-pointer" >
-                    <input className="accent-secondary-mint" type="radio" name="darkmode"/>
+                    <input className="accent-secondary-mint" type="radio" name="darkmode" onChange={markDirty}/>
                     <span className="text-Body 2" >미지원</span>
                   </label>
                 </div>
@@ -325,11 +386,11 @@ export default function Settings() {
               <div className="grid grid-cols-2 gap-md" >
                 <div className="space-y-xs" >
                   <label className="text-Label text-text-dark-grey" >인스타그램 URL</label>
-                  <input className="w-full bg-input-bg-light p-md rounded-input outline-none" type="text" placeholder="https://instagram.com/..."/>
+                  <input className="w-full bg-input-bg-light p-md rounded-input outline-none" type="text" placeholder="https://instagram.com/..." onChange={markDirty}/>
                 </div>
                 <div className="space-y-xs" >
                   <label className="text-Label text-text-dark-grey" >홈페이지/블로그 URL</label>
-                  <input className="w-full bg-input-bg-light p-md rounded-input outline-none" type="text" placeholder="https://..."/>
+                  <input className="w-full bg-input-bg-light p-md rounded-input outline-none" type="text" placeholder="https://..." onChange={markDirty}/>
                 </div>
               </div>
             </FormSection>
@@ -352,7 +413,7 @@ export default function Settings() {
                       <p className="text-Body 1 font-semibold text-text-dark-grey" >{item.title}</p>
                       <p className="text-Body 2 text-text-grey-blue" >{item.desc}</p>
                     </div>
-                    <div className="relative inline-flex h-6 w-11 items-center rounded-full bg-border-light cursor-pointer" >
+                    <div className="relative inline-flex h-6 w-11 items-center rounded-full bg-border-light cursor-pointer" onClick={markDirty}>
                       <div className={cn(
                         "h-5 w-5 rounded-full bg-white transition-transform shadow-sm transform translate-x-1",
                         item.checked && "translate-x-5 bg-secondary-mint"
@@ -413,7 +474,7 @@ export default function Settings() {
                   <p className="text-Label text-text-grey-blue" >이용권 만료 후 N일 경과 시 락커를 자동으로 해지 처리합니다.</p>
                 </div>
                 <div className="flex items-center gap-sm" >
-                  <input className="w-[80px] bg-input-bg-light p-sm rounded-input text-center outline-none" type="number" defaultValue={7}/>
+                  <input className="w-[80px] bg-input-bg-light p-sm rounded-input text-center outline-none" type="number" defaultValue={7} onChange={markDirty}/>
                   <span className="text-Body 2" >일 후</span>
                 </div>
               </div>
@@ -422,7 +483,7 @@ export default function Settings() {
                   <p className="text-Body 1 font-medium text-text-dark-grey" >미납자 출석 차단</p>
                   <p className="text-Label text-text-grey-blue" >미납금이 있는 회원의 출석 시 경고 메시지를 표시하거나 입장을 제한합니다.</p>
                 </div>
-                <select className="bg-input-bg-light p-sm rounded-input outline-none border-[1px] border-transparent text-Body 2" >
+                <select className="bg-input-bg-light p-sm rounded-input outline-none border-[1px] border-transparent text-Body 2" onChange={markDirty}>
                   <option >사용 안함</option>
                   <option >경고 메시지만 표시</option>
                   <option >입장 완전 제한</option>
@@ -442,15 +503,22 @@ export default function Settings() {
       <div className="flex flex-col h-full bg-bg-main-light-blue" >
         <PageHeader title="센터 설정" description="센터 운영 및 모바일 앱, 키오스크 등에 대한 상세 정책을 관리합니다." actions={
             <div className="flex items-center gap-md">
+              {/* 미저장 변경사항 배너 */}
+              {isDirty && !saveSuccess && (
+                <div className="flex items-center gap-xs text-warning bg-warning/10 px-lg py-md rounded-button animate-in fade-in slide-in-from-right-2">
+                  <AlertTriangle size={16} />
+                  <span className="text-Body 2 font-medium">저장되지 않은 변경사항이 있습니다</span>
+                </div>
+              )}
               {saveSuccess && (
                 <div className="flex items-center gap-xs text-success bg-bg-soft-mint px-lg py-md rounded-button animate-in fade-in slide-in-from-right-2">
                   <CheckCircle2 size={18} />
                   <span className="text-Body 2 font-bold">변경사항이 저장되었습니다.</span>
                 </div>
               )}
-              <button 
+              <button
                 onClick={handleSave}
-                disabled={isSaving}
+                disabled={isSaving || !isDirty}
                 className={cn(
                   "bg-secondary-mint text-white px-xl py-md rounded-button flex items-center gap-sm shadow-card-soft hover:opacity-90 transition-all disabled:opacity-50",
                   isSaving && "animate-pulse"
@@ -464,8 +532,8 @@ export default function Settings() {
 
         <div className="flex-1 overflow-hidden flex flex-col px-xl pb-xl" >
           <div className="bg-3 rounded-card-strong shadow-card-soft flex flex-col h-full overflow-hidden border-[1px] border-border-light" >
-            <TabNav 
-              className="px-lg pt-lg border-b border-border-light" tabs={tabs} activeTab={activeTab} onTabChange={setActiveTab}/>
+            <TabNav
+              className="px-lg pt-lg border-b border-border-light" tabs={tabs} activeTab={activeTab} onTabChange={handleTabChange}/>
             <div className="flex-1 overflow-y-auto p-xl scrollbar-hide" >
               <div className="max-w-[1000px] mx-auto" >
                 {renderTabContent()}
@@ -474,6 +542,52 @@ export default function Settings() {
           </div>
         </div>
       </div>
+
+      {/* 미저장 변경사항 탭 전환 경고 모달 */}
+      {showUnsavedWarning && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-md">
+          <div className="w-full max-w-sm bg-3 rounded-modal shadow-card-strong p-xl">
+            <div className="flex items-center gap-md mb-lg">
+              <div className="w-[48px] h-[48px] bg-warning/10 rounded-full flex items-center justify-center flex-shrink-0">
+                <AlertTriangle className="text-warning" size={24}/>
+              </div>
+              <div>
+                <h3 className="text-Heading 2 text-text-dark-grey">저장되지 않은 변경사항</h3>
+                <p className="text-Body 2 text-text-grey-blue mt-xs">
+                  현재 탭의 변경사항이 저장되지 않았습니다. 탭을 이동하면 변경사항이 사라집니다.
+                </p>
+              </div>
+            </div>
+            <div className="flex justify-end gap-sm">
+              <button
+                className="px-lg py-sm text-text-grey-blue hover:bg-input-bg-light rounded-button transition-colors text-Body 2"
+                onClick={handleCancelSwitch}
+              >
+                취소
+              </button>
+              <button
+                className="px-lg py-sm bg-secondary-mint text-white rounded-button text-Body 2 font-semibold hover:opacity-90 transition-opacity"
+                onClick={() => {
+                  if (pendingTab) {
+                    handleSave();
+                    setActiveTab(pendingTab);
+                    setPendingTab(null);
+                  }
+                  setShowUnsavedWarning(false);
+                }}
+              >
+                저장 후 이동
+              </button>
+              <button
+                className="px-lg py-sm bg-error text-white rounded-button text-Body 2 font-semibold hover:opacity-90 transition-opacity"
+                onClick={handleDiscardAndSwitch}
+              >
+                저장 안 함
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </AppLayout>
   );
 }
