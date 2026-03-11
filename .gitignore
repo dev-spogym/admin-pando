@@ -3,6 +3,9 @@ dist/
 .env
 .env.local
 
+# omc
+.omc/
+
 # fry cache
 .fry/parse-cache.json
 .fry/parse-cache/
