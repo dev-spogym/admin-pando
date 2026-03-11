@@ -152,7 +152,7 @@ export default function Locker() {
       case "expiring": return "bg-bg-soft-peach border-warning text-warning";
       case "expired": return "bg-[#FFEEEE] border-error text-error";
       case "unavailable": return "bg-input-bg-light border-border-light text-text-grey-blue opacity-60";
-      default: return "bg-white border-border-light text-text-dark-grey";
+      default: return "bg-3 border-border-light text-text-dark-grey";
     }
   };
 
@@ -196,7 +196,7 @@ export default function Locker() {
       {/* 3. Main Content Area */}
       <div className="flex flex-col gap-lg" >
         {/* Navigation & Filter Bar */}
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-md border-b border-border-light bg-white p-md rounded-t-card-normal" >
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-md border-b border-border-light bg-3 p-md rounded-t-card-normal" >
           <TabNav 
             className="border-none" tabs={tabs} activeTab={activeTab} onTabChange={setActiveTab}/>
           <div className="flex items-center gap-sm" >
@@ -204,14 +204,14 @@ export default function Locker() {
               <button
                 className={cn(
                   "p-xs rounded-button transition-all",
-                  viewMode === "grid" ? "bg-white shadow-sm text-primary-coral" : "text-text-grey-blue"
+                  viewMode === "grid" ? "bg-3 shadow-sm text-primary-coral" : "text-text-grey-blue"
                 )} onClick={() => setViewMode("grid")}>
                 <LayoutGrid size={20}/>
               </button>
               <button
                 className={cn(
                   "p-xs rounded-button transition-all",
-                  viewMode === "list" ? "bg-white shadow-sm text-primary-coral" : "text-text-grey-blue"
+                  viewMode === "list" ? "bg-3 shadow-sm text-primary-coral" : "text-text-grey-blue"
                 )} onClick={() => setViewMode("list")}>
                 <List size={20}/>
               </button>
@@ -220,7 +220,7 @@ export default function Locker() {
         </div>
 
         {/* Filters */}
-        <div className="bg-white px-md pb-md" >
+        <div className="bg-3 px-md pb-md" >
           <SearchFilter searchPlaceholder="락커 번호 또는 회원명 검색" searchValue={searchQuery} onSearchChange={setSearchQuery} filters={filterOptions} onFilterChange={(key, val) => key === "area" && setSelectedArea(val)} onReset={() => {
               setSearchQuery("");
               setSelectedArea("");
@@ -229,7 +229,7 @@ export default function Locker() {
 
         {/* Grid / List Content */}
         <div className="flex gap-lg items-start" >
-          <div className="flex-1 bg-white p-lg rounded-card-normal shadow-card-soft min-h-[600px]" >
+          <div className="flex-1 bg-3 p-lg rounded-card-normal shadow-card-soft min-h-[600px]" >
             {viewMode === "grid" ? (
               <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8 xl:grid-cols-10 gap-md" >
                 {filteredLockers.map((locker) => (
@@ -303,7 +303,7 @@ export default function Locker() {
 
           {/* Right Detail Panel */}
           {selectedLocker && (
-            <div className="w-[360px] flex-shrink-0 bg-white rounded-card-normal shadow-card-soft border border-border-light overflow-hidden sticky top-lg animate-in slide-in-from-right-4 duration-300" >
+            <div className="w-[360px] flex-shrink-0 bg-3 rounded-card-normal shadow-card-soft border border-border-light overflow-hidden sticky top-lg animate-in slide-in-from-right-4 duration-300" >
               <div className="p-lg border-b border-border-light bg-bg-soft-peach" >
                 <div className="flex items-center justify-between mb-md" >
                   <h3 className="text-Heading 2 text-text-dark-grey font-bold" >

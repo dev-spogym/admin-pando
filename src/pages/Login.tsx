@@ -123,7 +123,7 @@ export default function Login() {
 
           {/* 에러 메시지 */}
           {error && (
-            <div className="bg-6 border border-14/20 text-14 p-sm rounded-1 text-center text-Body-Primary-KR animate-shake" >
+            <div className="bg-6 border border-4/20 text-4 p-sm rounded-1 text-center text-Body-Primary-KR animate-shake" >
               {error}
             </div>
           )}

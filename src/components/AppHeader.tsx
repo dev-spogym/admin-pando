@@ -52,7 +52,7 @@ const AppHeader = ({
       )}
 
       {/* 2. 메인 헤더 영역 */}
-      <header className="flex h-[56px] items-center justify-between border-b border-7 bg-3 px-lg dark:bg-3 dark:border-7" >
+      <header className="flex h-[56px] items-center justify-between border-b border-7 bg-3 px-lg" >
         
         {/* Left: 메뉴, 로고, 지점 선택 */}
         <div className="flex items-center gap-lg" >
@@ -123,7 +123,7 @@ const AppHeader = ({
           <button className="relative flex h-9 w-9 items-center justify-center rounded-full bg-2 text-4 hover:bg-2 hover:text-4 transition-colors" >
             <Bell size={18}/>
             {notificationCount > 0 && (
-              <span className="absolute -right-1 -top-1 flex h-[18px] w-[18px] items-center justify-center rounded-full bg-14 text-[10px] font-bold text-3 ring-2 ring-3 font-['DM_Mono']" >
+              <span className="absolute -right-1 -top-1 flex h-[18px] w-[18px] items-center justify-center rounded-full bg-0 text-[10px] font-bold text-3 ring-2 ring-3 font-['DM_Mono']" >
                 {notificationCount}
               </span>
             )}

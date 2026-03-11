@@ -77,7 +77,7 @@ const ManualAdjustmentModal = ({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" >
-      <div className="w-full max-w-md rounded-modal bg-white p-lg shadow-card-soft" >
+      <div className="w-full max-w-md rounded-modal bg-3 p-lg shadow-card-soft" >
         <h2 className="text-Heading 2 mb-md" >마일리지 {type} 처리</h2>
         <p className="text-Body 2 text-text-grey-blue mb-lg" >
           회원: <span className="font-semibold text-text-dark-grey" >{member?.name} ({member?.contact})</span>
@@ -91,14 +91,14 @@ const ManualAdjustmentModal = ({
               <button
                 className={cn(
                   "flex-1 py-sm px-md rounded-button border-[1px] flex items-center justify-center gap-xs transition-colors",
-                  type === '적립' ? "bg-bg-soft-peach border-primary-coral text-primary-coral" : "bg-white border-border-light text-text-grey-blue"
+                  type === '적립' ? "bg-bg-soft-peach border-primary-coral text-primary-coral" : "bg-3 border-border-light text-text-grey-blue"
                 )} onClick={() => setType('적립')}>
                 <Plus size={16}/> 적립
               </button>
               <button
                 className={cn(
                   "flex-1 py-sm px-md rounded-button border-[1px] flex items-center justify-center gap-xs transition-colors",
-                  type === '차감' ? "bg-bg-soft-mint border-secondary-mint text-secondary-mint" : "bg-white border-border-light text-text-grey-blue"
+                  type === '차감' ? "bg-bg-soft-mint border-secondary-mint text-secondary-mint" : "bg-3 border-border-light text-text-grey-blue"
                 )} onClick={() => setType('차감')}>
                 <Minus size={16}/> 차감
               </button>
@@ -273,7 +273,7 @@ export default function MileageManagement() {
         <PageHeader title="마일리지 관리" description="회원의 마일리지 적립 및 사용 이력을 관리하고 정책을 설정합니다." actions={
             <div className="flex gap-sm">
               <button 
-                className="flex items-center gap-xs px-md py-sm bg-white border-[1px] border-border-light text-text-grey-blue rounded-button hover:bg-bg-main-light-blue transition-colors"
+                className="flex items-center gap-xs px-md py-sm bg-3 border-[1px] border-border-light text-text-grey-blue rounded-button hover:bg-bg-main-light-blue transition-colors"
                 onClick={() => alert('엑셀 다운로드가 시작됩니다.')}
               >
                 <Download size={18} />
@@ -291,7 +291,7 @@ export default function MileageManagement() {
         </div>
 
         {/* Tab Navigation */}
-        <div className="bg-white rounded-card-normal shadow-card-soft overflow-hidden" >
+        <div className="bg-3 rounded-card-normal shadow-card-soft overflow-hidden" >
           <TabNav 
             className="border-b-[1px] border-border-light px-md pt-sm" tabs={tabs} activeTab={activeTab} onTabChange={setActiveTab}/>
 
@@ -372,13 +372,13 @@ export default function MileageManagement() {
                 <FormSection title="대상 상품 설정" description="적립 및 사용 대상에서 제외하거나 포함할 상품 범위를 지정합니다." columns={1}>
                   <div className="space-y-sm" >
                     <label className="text-Label" >사용 가능 상품</label>
-                    <div className="p-md rounded-input bg-input-bg-light border-dashed border-2 border-border-light text-center text-text-grey-blue cursor-pointer hover:bg-white transition-all" >
+                    <div className="p-md rounded-input bg-input-bg-light border-dashed border-2 border-border-light text-center text-text-grey-blue cursor-pointer hover:bg-3 transition-all" >
                       + 상품 범위 추가 (수강권, PT, 락커 등)
                     </div>
                   </div>
                   <div className="space-y-sm" >
                     <label className="text-Label" >적립 제외 상품</label>
-                    <div className="p-md rounded-input bg-input-bg-light border-dashed border-2 border-border-light text-center text-text-grey-blue cursor-pointer hover:bg-white transition-all" >
+                    <div className="p-md rounded-input bg-input-bg-light border-dashed border-2 border-border-light text-center text-text-grey-blue cursor-pointer hover:bg-3 transition-all" >
                       + 제외 상품 추가 (일일권, 특가 상품 등)
                     </div>
                   </div>

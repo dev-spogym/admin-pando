@@ -135,7 +135,7 @@ export default function BodyComposition() {
         <PageHeader title={`${member.name} 회원의 체성분 정보`} description={`최근 측정일: ${latest.date} | 목표 체중: ${member.targetWeight}kg`} actions={
             <div className="flex gap-sm">
               <button 
-                className="flex items-center gap-xs px-md py-sm bg-white border border-border-light text-text-dark-grey rounded-button text-Label hover:bg-bg-main-light-blue transition-all"
+                className="flex items-center gap-xs px-md py-sm bg-3 border border-border-light text-text-dark-grey rounded-button text-Label hover:bg-bg-main-light-blue transition-all"
               >
                 <Download size={16} />
                 전체 기록 추출
@@ -166,7 +166,7 @@ export default function BodyComposition() {
         </div>
 
         {/* 탭 네비게이션 */}
-        <div className="bg-white rounded-card-normal shadow-card-soft overflow-hidden" >
+        <div className="bg-3 rounded-card-normal shadow-card-soft overflow-hidden" >
           <TabNav 
             className="px-lg pt-sm" tabs={tabs} activeTab={activeTab} onTabChange={setActiveTab}/>
 
@@ -179,7 +179,7 @@ export default function BodyComposition() {
                   {/* Grid Lines Placeholder */}
                   <div className="absolute inset-0 flex flex-col justify-between p-lg opacity-10" >
                     {[1, 2, 3, 4, 5].map(i => (
-                      <div className="w-full h-[1px] bg-text-dark-grey" key={i}/>
+                      <div className="w-full h-[1px] bg-4" key={i}/>
                     ))}
                   </div>
 
@@ -199,7 +199,7 @@ export default function BodyComposition() {
                   ))}
 
                   {/* Legend */}
-                  <div className="absolute top-lg right-lg flex gap-md bg-white/80 backdrop-blur-sm p-sm rounded-md border border-border-light shadow-sm" >
+                  <div className="absolute top-lg right-lg flex gap-md bg-3/80 backdrop-blur-sm p-sm rounded-md border border-border-light shadow-sm" >
                     <div className="flex items-center gap-xs" >
                       <div className="w-3 h-3 bg-secondary-mint rounded-full" />
                       <span className="text-Label text-text-dark-grey" >골격근량</span>
@@ -225,7 +225,7 @@ export default function BodyComposition() {
 
         {/* 체성분 상세 분석 정보 (InBody Style) */}
         <div className="mt-xl grid grid-cols-1 lg:grid-cols-2 gap-lg" >
-          <div className="bg-white p-xl rounded-card-normal border border-border-light shadow-card-soft" >
+          <div className="bg-3 p-xl rounded-card-normal border border-border-light shadow-card-soft" >
             <h3 className="text-Heading 2 text-text-dark-grey mb-lg flex items-center gap-sm" >
               <Activity className="text-secondary-mint" />
               비만 분석
@@ -236,7 +236,7 @@ export default function BodyComposition() {
             </div>
           </div>
 
-          <div className="bg-white p-xl rounded-card-normal border border-border-light shadow-card-soft" >
+          <div className="bg-3 p-xl rounded-card-normal border border-border-light shadow-card-soft" >
             <h3 className="text-Heading 2 text-text-dark-grey mb-lg flex items-center gap-sm" >
               <Zap className="text-primary-coral" />
               에너지/대사 분석

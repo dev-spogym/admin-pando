@@ -422,7 +422,7 @@ export default function CouponManagement() {
         </div>
 
         {/* Tabs & Search Filter */}
-        <div className="bg-white rounded-card-normal border border-border-light shadow-card-soft overflow-hidden mb-lg" >
+        <div className="bg-3 rounded-card-normal border border-border-light shadow-card-soft overflow-hidden mb-lg" >
           <TabNav tabs={[
               { key: "list", label: "쿠폰 목록", icon: Ticket },
               { key: "history", label: "발급 이력", icon: History },
@@ -486,8 +486,8 @@ function CouponFormModal({ coupon, onClose, onSave }: any) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-md" >
-      <div className="w-full max-w-2xl bg-white rounded-modal shadow-card-soft max-h-[90vh] overflow-y-auto" >
-        <div className="px-xl py-lg border-b border-border-light flex justify-between items-center bg-white sticky top-0 z-10" >
+      <div className="w-full max-w-2xl bg-3 rounded-modal shadow-card-soft max-h-[90vh] overflow-y-auto" >
+        <div className="px-xl py-lg border-b border-border-light flex justify-between items-center bg-3 sticky top-0 z-10" >
           <h2 className="text-Heading 2 text-text-dark-grey" >{coupon ? "쿠폰 수정" : "신규 쿠폰 생성"}</h2>
           <button className="text-text-grey-blue hover:text-text-dark-grey transition-colors" onClick={onClose}><Trash2 size={20}/></button>
         </div>
@@ -589,7 +589,7 @@ function CouponFormModal({ coupon, onClose, onSave }: any) {
         </div>
 
         <div className="px-xl py-lg border-t border-border-light bg-bg-main-light-blue/5 flex justify-end gap-md" >
-          <button className="px-xl py-md rounded-button border border-border-light text-text-grey-blue hover:bg-white transition-colors" onClick={onClose}>취소</button>
+          <button className="px-xl py-md rounded-button border border-border-light text-text-grey-blue hover:bg-3 transition-colors" onClick={onClose}>취소</button>
           <button className="px-xl py-md rounded-button bg-primary-coral text-white font-semibold hover:opacity-90 transition-opacity" onClick={() => onSave(formData)}>저장하기</button>
         </div>
       </div>
@@ -607,8 +607,8 @@ function IssueCouponModal({ coupon, onClose, onIssue }: any) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-md" >
-      <div className="w-full max-w-lg bg-white rounded-modal shadow-card-soft overflow-hidden" >
-        <div className="px-xl py-lg border-b border-border-light bg-white flex justify-between items-center" >
+      <div className="w-full max-w-lg bg-3 rounded-modal shadow-card-soft overflow-hidden" >
+        <div className="px-xl py-lg border-b border-border-light bg-3 flex justify-between items-center" >
           <div >
             <h2 className="text-Heading 2 text-text-dark-grey" >쿠폰 발급</h2>
             <p className="text-Body 2 text-text-grey-blue mt-xs" >{coupon.name}</p>
@@ -621,11 +621,11 @@ function IssueCouponModal({ coupon, onClose, onIssue }: any) {
             <label className="text-Label text-text-grey-blue font-semibold" >발급 방식 <span className="text-error" >*</span></label>
             <div className="flex gap-md p-sm bg-input-bg-light rounded-input" >
               <button 
-                className={cn("flex-1 py-sm rounded-button text-Body 2 transition-all", issueData.method === "individual" ? "bg-white text-primary-coral shadow-sm font-semibold" : "text-text-grey-blue")} onClick={() => setIssueData({ ...issueData, method: "individual" })}>
+                className={cn("flex-1 py-sm rounded-button text-Body 2 transition-all", issueData.method === "individual" ? "bg-3 text-primary-coral shadow-sm font-semibold" : "text-text-grey-blue")} onClick={() => setIssueData({ ...issueData, method: "individual" })}>
                 개인 발급
               </button>
               <button 
-                className={cn("flex-1 py-sm rounded-button text-Body 2 transition-all", issueData.method === "group" ? "bg-white text-primary-coral shadow-sm font-semibold" : "text-text-grey-blue")} onClick={() => setIssueData({ ...issueData, method: "group" })}>
+                className={cn("flex-1 py-sm rounded-button text-Body 2 transition-all", issueData.method === "group" ? "bg-3 text-primary-coral shadow-sm font-semibold" : "text-text-grey-blue")} onClick={() => setIssueData({ ...issueData, method: "group" })}>
                 그룹 발급
               </button>
             </div>
@@ -662,7 +662,7 @@ function IssueCouponModal({ coupon, onClose, onIssue }: any) {
         </div>
 
         <div className="px-xl py-lg border-t border-border-light bg-bg-main-light-blue/5 flex justify-end gap-md" >
-          <button className="px-xl py-md rounded-button border border-border-light text-text-grey-blue hover:bg-white transition-colors" onClick={onClose}>취소</button>
+          <button className="px-xl py-md rounded-button border border-border-light text-text-grey-blue hover:bg-3 transition-colors" onClick={onClose}>취소</button>
           <button className="px-xl py-md rounded-button bg-secondary-mint text-white font-semibold hover:opacity-90 transition-opacity" onClick={() => onIssue(issueData.count)}>발급 처리하기</button>
         </div>
       </div>

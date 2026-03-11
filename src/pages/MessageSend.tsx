@@ -100,7 +100,7 @@ export default function MessageSend() {
       {/* 발신 설정 및 포인트 현황 */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-md" >
         <StatCard label="보유 포인트" value="52,480 P" icon={<RefreshCw className="text-secondary-mint" />} description="약 SMS 2,624건 발송 가능" onClick={() => alert('포인트 충전 페이지로 이동')} variant="mint"/>
-        <div className="md:col-span-2 bg-white rounded-card-normal border border-border-light p-lg flex flex-col justify-between shadow-card-soft" >
+        <div className="md:col-span-2 bg-3 rounded-card-normal border border-border-light p-lg flex flex-col justify-between shadow-card-soft" >
           <div className="flex justify-between items-start" >
             <div >
               <p className="text-Label text-text-grey-blue mb-xs" >발신 설정</p>
@@ -156,7 +156,7 @@ export default function MessageSend() {
                     "flex-1 flex flex-col items-center justify-center p-md border rounded-card-normal cursor-pointer transition-all gap-xs",
                     sendForm.channel === item.id 
                       ? "border-primary-coral bg-bg-soft-peach text-primary-coral shadow-sm" 
-                      : "border-border-light bg-white text-text-grey-blue hover:border-text-grey-blue"
+                      : "border-border-light bg-3 text-text-grey-blue hover:border-text-grey-blue"
                   )} key={item.id}>
                     <input 
                       className="hidden" type="radio" name="channel" checked={sendForm.channel === item.id} onChange={() => setSendForm({...sendForm, channel: item.id})}/>
@@ -185,7 +185,7 @@ export default function MessageSend() {
               <div className="mt-sm flex flex-wrap gap-xs" >
                 {['{이름}', '{상품명}', '{만료일}', '{잔여횟수}', '{센터명}'].map(tag => (
                   <button 
-                    className="text-Label bg-white border border-border-light px-sm py-[2px] rounded-full text-text-grey-blue hover:border-primary-coral hover:text-primary-coral transition-colors" key={tag} onClick={() => setSendForm({ ...sendForm, content: sendForm.content + tag })}>
+                    className="text-Label bg-3 border border-border-light px-sm py-[2px] rounded-full text-text-grey-blue hover:border-primary-coral hover:text-primary-coral transition-colors" key={tag} onClick={() => setSendForm({ ...sendForm, content: sendForm.content + tag })}>
                     {tag}
                   </button>
                 ))}
@@ -240,7 +240,7 @@ export default function MessageSend() {
                   ].map(item => (
                     <div className="flex items-center justify-between p-md bg-bg-main-light-blue/30 rounded-card-normal border border-transparent hover:border-border-light transition-all" key={item.key}>
                       <div className="flex items-center gap-sm" >
-                        <div className="w-8 h-8 rounded-full bg-white flex items-center justify-center text-text-grey-blue shadow-sm" >
+                        <div className="w-8 h-8 rounded-full bg-3 flex items-center justify-center text-text-grey-blue shadow-sm" >
                           {item.icon}
                         </div>
                         <span className="text-Body-2 font-medium text-text-dark-grey" >{item.label}</span>
@@ -270,7 +270,7 @@ export default function MessageSend() {
                   ].map(item => (
                     <div className="flex items-center justify-between p-md bg-bg-main-light-blue/30 rounded-card-normal border border-transparent hover:border-border-light transition-all" key={item.key}>
                       <div className="flex items-center gap-sm" >
-                        <div className="w-8 h-8 rounded-full bg-white flex items-center justify-center text-text-grey-blue shadow-sm" >
+                        <div className="w-8 h-8 rounded-full bg-3 flex items-center justify-center text-text-grey-blue shadow-sm" >
                           {item.icon}
                         </div>
                         <span className="text-Body-2 font-medium text-text-dark-grey" >{item.label}</span>
@@ -357,7 +357,7 @@ export default function MessageSend() {
 
     return (
       <div className="space-y-md animate-in fade-in duration-500" >
-        <div className="flex flex-col md:flex-row gap-md items-end justify-between bg-white p-lg rounded-card-normal border border-border-light shadow-card-soft" >
+        <div className="flex flex-col md:flex-row gap-md items-end justify-between bg-3 p-lg rounded-card-normal border border-border-light shadow-card-soft" >
           <div className="flex-1 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-md w-full" >
             <div >
               <label className="block text-Label text-text-grey-blue mb-xs" >발송 기간</label>

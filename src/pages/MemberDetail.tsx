@@ -227,7 +227,7 @@ export default function MemberDetail() {
   const renderTicketsTab = () => (
     <div className="space-y-lg" >
       <DataTable title="보유 이용권 및 계약 내역" columns={ticketColumns} data={tickets} onDownloadExcel={() => {}}/>
-      <div className="flex justify-center p-xl bg-white rounded-card-normal border border-dashed border-border-light" >
+      <div className="flex justify-center p-xl bg-3 rounded-card-normal border border-dashed border-border-light" >
         <button
           className="flex items-center gap-sm px-xl py-md bg-bg-soft-peach text-primary-coral rounded-button font-bold hover:bg-primary-coral hover:text-white transition-all shadow-sm" onClick={() => moveToPage(971)}>
           <Plus size={20}/>
@@ -241,7 +241,7 @@ export default function MemberDetail() {
     <AppLayout >
       <div className="p-lg" >
         {/* 상단 회원 요약 헤더 */}
-        <div className="bg-white rounded-card-normal border border-border-light p-xl mb-lg shadow-card-soft" >
+        <div className="bg-3 rounded-card-normal border border-border-light p-xl mb-lg shadow-card-soft" >
           <div className="flex flex-col lg:flex-row items-center lg:items-start gap-xl" >
             {/* 프로필 이미지 */}
             <div className="relative" >
@@ -251,7 +251,7 @@ export default function MemberDetail() {
               <button
                 className={cn(
                   "absolute bottom-0 right-0 p-sm rounded-full shadow-md transition-all",
-                  isFavorite ? "bg-primary-coral text-white" : "bg-white text-text-grey-blue hover:text-primary-coral"
+                  isFavorite ? "bg-primary-coral text-white" : "bg-3 text-text-grey-blue hover:text-primary-coral"
                 )} onClick={() => setIsFavorite(!isFavorite)}>
                 <Star size={18} fill={isFavorite ? "currentColor" : "none"}/>
               </button>
@@ -310,7 +310,7 @@ export default function MemberDetail() {
         </div>
 
         {/* 탭 네비게이션 */}
-        <div className="bg-white rounded-card-normal border border-border-light shadow-card-soft overflow-hidden" >
+        <div className="bg-3 rounded-card-normal border border-border-light shadow-card-soft overflow-hidden" >
           <TabNav tabs={tabs} activeTab={activeTab} onTabChange={setActiveTab}/>
           
           <div className="p-xl bg-bg-main-light-blue/5 min-h-[500px]" >

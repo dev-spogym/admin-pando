@@ -198,7 +198,7 @@ export default function PosPayment() {
             <CheckCircle2 size={48} strokeWidth={1.5}/>
           </div>
           <h2 className="text-KPI-Large text-5 mb-4 font-bold" >결제가 완료되었습니다</h2>
-          <p className="text-Body-Primary-KR text-6 mb-10 text-center leading-1.7 break-keep" >
+          <p className="text-Body-Primary-KR text-5 mb-10 text-center leading-1.7 break-keep" >
             홍길동 회원님의 결제가 정상적으로 처리되었습니다.<br />
             영수증 및 계약서를 발송하시겠습니까?
           </p>
@@ -232,7 +232,7 @@ export default function PosPayment() {
 
   return (
     <AppLayout >
-      <div className="flex flex-col h-[calc(100vh-140px)] bg-1" >
+      <div className="flex flex-col h-[calc(100vh-140px)] bg-2" >
         <div className="px-6 py-4" >
           <PageHeader title="POS 결제 (현장판매)" description="현장에서 상품 및 이용권을 즉시 판매하고 결제합니다." actions={
               <button 
@@ -241,7 +241,7 @@ export default function PosPayment() {
                     resetPos();
                   }
                 }}
-                className="flex items-center gap-2 px-4 py-2 bg-2 border border-default rounded-2 text-12px font-500 text-6 hover:text-14 hover:border-14 transition-all shadow-sm"
+                className="flex items-center gap-2 px-4 py-2 bg-2 border border-default rounded-2 text-12px font-500 text-5 hover:text-4 hover:border-4 transition-all shadow-sm"
               >
                 <RotateCcw size={14} strokeWidth={1.5} />
                 전체 초기화
@@ -263,7 +263,7 @@ export default function PosPayment() {
                       if (selectedMember) setSelectedMember(null);
                     }}/>
                   {selectedMember && (
-                    <button className="text-7 hover:text-14" onClick={() => { setSelectedMember(null); setMemberSearch(""); }}>
+                    <button className="text-7 hover:text-4" onClick={() => { setSelectedMember(null); setMemberSearch(""); }}>
                       <X size={18} strokeWidth={1.5}/>
                     </button>
                   )}
@@ -289,7 +289,7 @@ export default function PosPayment() {
                         </div>
                         <div className="flex flex-col items-end" >
                           <span className="text-11px uppercase tracking-wider text-7" >보유 마일리지</span>
-                          <span className="text-Data-Monospace-Tabular font-bold text-12" >{m.mileage.toLocaleString()} P</span>
+                          <span className="text-Data-Monospace-Tabular font-bold text-4" >{m.mileage.toLocaleString()} P</span>
                         </div>
                       </button>
                     ))}
@@ -335,7 +335,7 @@ export default function PosPayment() {
                   <h3 className="text-Section-Title text-5" >장바구니</h3>
                   <div className="bg-0/10 text-0 text-11px font-bold px-2 py-0.5 rounded-full" >{cart.length}</div>
                 </div>
-                <button className="text-12px font-500 text-6 hover:text-14 flex items-center gap-1 transition-colors" onClick={clearCart}>
+                <button className="text-12px font-500 text-5 hover:text-4 flex items-center gap-1 transition-colors" onClick={clearCart}>
                   <Trash2 size={14} strokeWidth={1.5}/>
                   전체삭제
                 </button>
@@ -353,17 +353,17 @@ export default function PosPayment() {
                       <div className="p-4 bg-2 border border-default rounded-2 hover:shadow-sm transition-all flex flex-col gap-3" key={item.id}>
                         <div className="flex justify-between" >
                           <span className="text-Body-Primary-KR font-600 text-5" >{item.name}</span>
-                          <button className="text-7 hover:text-14 transition-colors" onClick={() => removeFromCart(item.id)}>
+                          <button className="text-7 hover:text-4 transition-colors" onClick={() => removeFromCart(item.id)}>
                             <X size={16} strokeWidth={1.5}/>
                           </button>
                         </div>
                         <div className="flex items-center justify-between" >
                           <div className="flex items-center gap-3 bg-3 rounded-full px-2 py-1 border border-default" >
-                            <button className="text-6 hover:text-0 transition-colors" onClick={() => updateQuantity(item.id, -1)}>
+                            <button className="text-5 hover:text-0 transition-colors" onClick={() => updateQuantity(item.id, -1)}>
                               <MinusCircle size={18} strokeWidth={1.5}/>
                             </button>
                             <span className="text-Data-Monospace-Tabular font-bold min-w-[20px] text-center text-5" >{item.quantity}</span>
-                            <button className="text-6 hover:text-0 transition-colors" onClick={() => updateQuantity(item.id, 1)}>
+                            <button className="text-5 hover:text-0 transition-colors" onClick={() => updateQuantity(item.id, 1)}>
                               <PlusCircle size={18} strokeWidth={1.5}/>
                             </button>
                           </div>
@@ -384,12 +384,12 @@ export default function PosPayment() {
                     </div>
                     <div className="flex flex-col" >
                       <span className="text-13px font-bold text-5" >{selectedMember.name}</span>
-                      <span className="text-11px text-6 font-monospace" >보유: {selectedMember.mileage.toLocaleString()} P</span>
+                      <span className="text-11px text-5 font-monospace" >보유: {selectedMember.mileage.toLocaleString()} P</span>
                     </div>
                   </div>
                   <div className="flex items-center gap-1.5 bg-12/10 px-2 py-1 rounded-full" >
                     <div className="w-1.5 h-1.5 rounded-full bg-12 animate-pulse" />
-                    <span className="text-11px font-bold text-12" >회원 적용됨</span>
+                    <span className="text-11px font-bold text-4" >회원 적용됨</span>
                   </div>
                 </div>
               )}
@@ -488,7 +488,7 @@ export default function PosPayment() {
                     <input
                       className="bg-transparent border-b border-2/40 text-right font-bold text-Data-Monospace-Tabular outline-none w-32 focus:border-12 transition-colors placeholder:text-2/20" type="number" value={cashReceived || ""} onChange={(e) => setCashReceived(Number(e.target.value))}/>
                   </div>
-                  <div className="flex justify-between items-center text-12" >
+                  <div className="flex justify-between items-center text-4" >
                     <span className="text-12px font-bold" >거스름돈</span>
                     <span className="text-18px font-black font-monospace" >₩{changeAmount.toLocaleString()}</span>
                   </div>
@@ -517,9 +517,9 @@ export default function PosPayment() {
             <div className="bg-3 p-8 border-b border-default flex justify-between items-center" >
               <div >
                 <h3 className="text-Page-Title text-5 font-bold" >혼합 결제 설정</h3>
-                <p className="text-13px text-6 mt-1" >결제 수단별 금액을 나누어 입력하세요.</p>
+                <p className="text-13px text-5 mt-1" >결제 수단별 금액을 나누어 입력하세요.</p>
               </div>
-              <button className="text-7 hover:text-14 transition-colors" onClick={() => setIsMixedPaymentModalOpen(false)}>
+              <button className="text-7 hover:text-4 transition-colors" onClick={() => setIsMixedPaymentModalOpen(false)}>
                 <X size={24} strokeWidth={1.5}/>
               </button>
             </div>
@@ -549,20 +549,20 @@ export default function PosPayment() {
                 </div>
 
                 <div className="flex items-center gap-4" >
-                  <div className="w-10 h-10 rounded-full bg-15/10 text-15 flex items-center justify-center flex-shrink-0" >
+                  <div className="w-10 h-10 rounded-full bg-5/10 text-5 flex items-center justify-center flex-shrink-0" >
                     <ArrowRightLeft size={20} strokeWidth={1.5}/>
                   </div>
                   <div className="flex-1" >
                     <label className="text-11px font-600 uppercase tracking-wider text-7 block mb-1.5" >계좌이체 금액</label>
                     <input
-                      className="w-full bg-3 border-none rounded-2 px-4 py-2.5 text-Data-Monospace-Tabular font-bold outline-none focus:ring-2 focus:ring-15/20 transition-all" type="number" value={mixedTransfer || ""} onChange={(e) => setMixedTransfer(Number(e.target.value))}/>
+                      className="w-full bg-3 border-none rounded-2 px-4 py-2.5 text-Data-Monospace-Tabular font-bold outline-none focus:ring-2 focus:ring-5/20 transition-all" type="number" value={mixedTransfer || ""} onChange={(e) => setMixedTransfer(Number(e.target.value))}/>
                   </div>
                 </div>
               </div>
 
               <div className={cn(
                 "p-6 rounded-3 border flex flex-col items-center gap-2 transition-all shadow-sm",
-                isMixedMatched ? "bg-12/5 border-12 text-12" : "bg-14/5 border-14 text-14"
+                isMixedMatched ? "bg-2/5 border-2 text-2" : "bg-4/5 border-4 text-4"
               )} >
                 <span className="text-10px uppercase font-800 tracking-widest opacity-60" >Total Matched Status</span>
                 <div className="flex items-center gap-2" >

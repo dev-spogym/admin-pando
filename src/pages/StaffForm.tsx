@@ -80,7 +80,7 @@ export default function StaffForm() {
           <div className="flex gap-sm">
             <button 
               onClick={handleCancel}
-              className="px-lg py-sm rounded-button border border-border-light bg-white text-text-grey-blue hover:bg-bg-main-light-blue transition-all font-medium"
+              className="px-lg py-sm rounded-button border border-border-light bg-3 text-text-grey-blue hover:bg-bg-main-light-blue transition-all font-medium"
             >
               취소
             </button>
@@ -99,7 +99,7 @@ export default function StaffForm() {
         {/* 프로필 요약 카드 (선택사항) */}
         <div className="flex flex-col md:flex-row gap-lg" >
           <div className="w-full md:w-[300px] flex flex-col gap-md" >
-            <div className="rounded-card-normal border border-border-light bg-white p-lg flex flex-col items-center shadow-card-soft" >
+            <div className="rounded-card-normal border border-border-light bg-3 p-lg flex flex-col items-center shadow-card-soft" >
               <div className="relative mb-md" >
                 <div className="w-[120px] h-[120px] rounded-full bg-bg-main-light-blue flex items-center justify-center overflow-hidden border-2 border-border-light" >
                   <User className="text-text-grey-blue" size={64}/>
@@ -113,7 +113,7 @@ export default function StaffForm() {
               <StatusBadge label="등록 대기" variant="default" dot={true}/>
             </div>
 
-            <div className="rounded-card-normal border border-border-light bg-white p-md shadow-card-soft" >
+            <div className="rounded-card-normal border border-border-light bg-3 p-md shadow-card-soft" >
               <h4 className="text-Label text-text-grey-blue mb-sm" >참고 사항</h4>
               <p className="text-Body 2 text-text-grey-blue leading-relaxed" >
                 직원 등록 시 입력한 아이디와 초기 비밀번호로 시스템 접속이 가능합니다. 
@@ -166,7 +166,7 @@ export default function StaffForm() {
                       "flex-1 py-md rounded-input border transition-all font-medium",
                       formData.gender === 'male' 
                         ? "bg-bg-soft-peach border-primary-coral text-primary-coral" 
-                        : "bg-white border-border-light text-text-grey-blue"
+                        : "bg-3 border-border-light text-text-grey-blue"
                     )} onClick={() => setFormData(prev => ({ ...prev, gender: 'male' }))}>
                     남성
                   </button>
@@ -175,7 +175,7 @@ export default function StaffForm() {
                       "flex-1 py-md rounded-input border transition-all font-medium",
                       formData.gender === 'female' 
                         ? "bg-bg-soft-peach border-primary-coral text-primary-coral" 
-                        : "bg-white border-border-light text-text-grey-blue"
+                        : "bg-3 border-border-light text-text-grey-blue"
                     )} onClick={() => setFormData(prev => ({ ...prev, gender: 'female' }))}>
                     여성
                   </button>
@@ -296,7 +296,7 @@ export default function StaffForm() {
                         "p-md rounded-input border cursor-pointer transition-all",
                         formData.permissionGroup === group.key 
                           ? "bg-bg-soft-mint border-secondary-mint ring-1 ring-secondary-mint" 
-                          : "bg-white border-border-light hover:border-secondary-mint/50"
+                          : "bg-3 border-border-light hover:border-secondary-mint/50"
                       )} key={group.key} onClick={() => setFormData(prev => ({ ...prev, permissionGroup: group.key }))}>
                       <div className="flex justify-between items-center mb-xs" >
                         <span className={cn(

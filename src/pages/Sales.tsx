@@ -364,7 +364,7 @@ export default function Sales() {
 
       {/* 차트 영역 (Mock) */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-md mb-xl" >
-        <div className="bg-white p-lg rounded-card-normal border border-border-light shadow-card-soft" >
+        <div className="bg-3 p-lg rounded-card-normal border border-border-light shadow-card-soft" >
           <div className="flex items-center justify-between mb-lg" >
             <h3 className="text-Heading 2 text-text-dark-grey font-bold" >일별 매출 현황</h3>
             <div className="flex items-center gap-sm text-Label text-text-grey-blue" >
@@ -385,7 +385,7 @@ export default function Sales() {
              ))}
           </div>
         </div>
-        <div className="bg-white p-lg rounded-card-normal border border-border-light shadow-card-soft" >
+        <div className="bg-3 p-lg rounded-card-normal border border-border-light shadow-card-soft" >
           <h3 className="text-Heading 2 text-text-dark-grey font-bold mb-lg" >상품별 매출 비중</h3>
           <div className="flex items-center justify-around h-[200px]" >
             <div className="relative w-[150px] h-[150px] rounded-full border-[15px] border-bg-main-light-blue flex items-center justify-center" >
@@ -420,7 +420,7 @@ export default function Sales() {
             setFilterValues({ dateRangeStart: '2026-02-01', dateRangeEnd: '2026-02-28' });
           }}/>
 
-        <div className="bg-white rounded-card-normal border border-border-light overflow-hidden shadow-card-soft" >
+        <div className="bg-3 rounded-card-normal border border-border-light overflow-hidden shadow-card-soft" >
           <TabNav tabs={tabs} activeTab={activeTab} onTabChange={setActiveTab}/>
           <DataTable columns={columns} data={filteredData} pagination={{
               page: 1,
@@ -431,7 +431,7 @@ export default function Sales() {
       </div>
 
       {/* 하단 요약 바 */}
-      <div className="mt-xl p-lg bg-white rounded-card-normal border border-border-light shadow-card-soft flex flex-wrap items-center justify-between gap-xl" >
+      <div className="mt-xl p-lg bg-3 rounded-card-normal border border-border-light shadow-card-soft flex flex-wrap items-center justify-between gap-xl" >
         <div className="flex gap-xxl" >
           <div >
             <p className="text-Label text-text-grey-blue mb-xs" >총 매출액</p>

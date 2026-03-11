@@ -111,12 +111,12 @@ const AppLayout = ({ children }: AppLayoutProps) => {
         {/* 3. 중앙 영역 (SubHeader + Main Content) */}
         <div className="flex flex-1 flex-col overflow-hidden" >
           {/* 상단 공지사항 바 (SubHeader) */}
-          <div className="flex h-[40px] items-center border-b border-10 bg-6 px-lg dark:bg-5 dark:border-strong/10" >
+          <div className="flex h-[40px] items-center border-b border-7 bg-6 px-lg" >
             <div className="flex items-center gap-sm overflow-hidden" >
               <span className="flex-shrink-0 rounded-xs bg-0 px-sm py-[2px] text-[10px] font-bold text-white uppercase tracking-wider" >
                 공지
               </span>
-              <p className="truncate text-Body-Primary-KR text-4 dark:text-1" >
+              <p className="truncate text-Body-Primary-KR text-4" >
                 FitGenie CRM 2.0 업데이트 안내: 회원 출석 알림 기능이 개선되었습니다.
               </p>
             </div>
@@ -135,7 +135,7 @@ const AppLayout = ({ children }: AppLayoutProps) => {
         </div>
 
         {/* 4. 우측 퀵 액세스 스티커 (Quick Access Bar) */}
-        <aside className="flex w-[72px] flex-col items-center border-l border-10 bg-2 py-lg gap-md dark:bg-5 dark:border-strong/10" >
+        <aside className="flex w-[72px] flex-col items-center border-l border-7 bg-2 py-lg gap-md" >
           <div className="flex flex-col items-center gap-sm" >
             <StickerButton icon={<Bell size={20} strokeWidth={1.5} />} label="알림센터" count={3} active={activePath === "/notifications"}/>
             <StickerButton icon={<Calendar size={20} strokeWidth={1.5} />} label="일정관리" active={activePath === "/calendar"}/>
@@ -146,13 +146,13 @@ const AppLayout = ({ children }: AppLayoutProps) => {
           <div className="mt-auto flex flex-col items-center gap-sm pb-md" >
             {/* 다크모드 토글 버튼 */}
             <button
-              className="flex h-[40px] w-[40px] items-center justify-center rounded-md bg-4 text-6 hover:bg-3 hover:text-0 transition-all dark:bg-3 dark:text-7 shadow-sm" onClick={toggleTheme} title={isDarkMode ? "라이트모드" : "다크모드"}>
+              className="flex h-[40px] w-[40px] items-center justify-center rounded-md bg-7 text-5 hover:bg-3 hover:text-0 transition-all shadow-sm" onClick={toggleTheme} title={isDarkMode ? "라이트모드" : "다크모드"}>
               {isDarkMode ? <Sun size={18} strokeWidth={1.5}/> : <Moon size={18} strokeWidth={1.5}/>}
             </button>
-            <button className="flex h-[40px] w-[40px] items-center justify-center rounded-md text-6 hover:bg-4 dark:text-7 dark:hover:bg-3" >
+            <button className="flex h-[40px] w-[40px] items-center justify-center rounded-md text-5 hover:bg-7 hover:text-0 transition-all" >
               <Settings size={18} strokeWidth={1.5}/>
             </button>
-            <button className="flex h-[40px] w-[40px] items-center justify-center rounded-md text-6 hover:bg-4 dark:text-7 dark:hover:bg-3" >
+            <button className="flex h-[40px] w-[40px] items-center justify-center rounded-md text-5 hover:bg-7 hover:text-0 transition-all" >
               <HelpCircle size={18} strokeWidth={1.5}/>
             </button>
           </div>
@@ -175,19 +175,19 @@ const StickerButton = ({ icon, label, count, active }: StickerButtonProps) => (
     className={cn(
       "group relative flex h-[60px] w-[60px] flex-col items-center justify-center rounded-lg transition-all duration-220 ease-spring",
       active 
-        ? "bg-4 text-0 shadow-sm" 
-        : "text-6 hover:bg-4 hover:text-0 dark:text-7 dark:hover:bg-3"
+        ? "bg-7 text-0 shadow-sm"
+        : "text-5 hover:bg-7 hover:text-0"
     )} >
     <div className={cn(
       "mb-[4px] transition-transform group-hover:scale-110",
-      active ? "text-0" : "text-6 dark:text-7"
+      active ? "text-0" : "text-5"
     )} >
       {icon}
     </div>
     <span className="text-[10px] font-bold leading-tight uppercase tracking-wider" >{label}</span>
     
     {count && (
-      <span className="absolute right-[6px] top-[6px] flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-14 px-[4px] text-[10px] font-bold text-white ring-2 ring-2 dark:ring-5" >
+      <span className="absolute right-[6px] top-[6px] flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-0 px-[4px] text-[10px] font-bold text-white ring-2 ring-3" >
         {count}
       </span>
     )}

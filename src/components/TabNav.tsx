@@ -22,7 +22,7 @@ interface TabNavProps {
  */
 export default function TabNav({ tabs = [], activeTab, onTabChange, className = "" }: TabNavProps) {
   return (
-    <div className={cn("inline-flex p-1 gap-1 bg-1 rounded-2 overflow-x-auto no-scrollbar border-0 outline-none", className)} >
+    <div className={cn("inline-flex p-1 gap-1 bg-7 rounded-2 overflow-x-auto no-scrollbar border-0 outline-none", className)} >
       {(tabs || []).map((tab) => {
         const isActive = activeTab === tab.key;
         const Icon = tab.icon;

@@ -226,7 +226,7 @@ export default function PermissionSettings() {
               )}
               <button
                 onClick={() => setIsResetConfirmOpen(true)}
-                className="flex items-center gap-xs rounded-button border border-border-light bg-white px-md py-sm text-Label text-text-grey-blue hover:bg-input-bg-light transition-colors" >
+                className="flex items-center gap-xs rounded-button border border-border-light bg-3 px-md py-sm text-Label text-text-grey-blue hover:bg-input-bg-light transition-colors" >
                 <RotateCcw size={16} />
                 초기화
               </button>
@@ -280,7 +280,7 @@ export default function PermissionSettings() {
                     {!role.isSystem && selectedRoleId === role.id && (
                       <div className="mt-sm flex justify-end gap-sm" >
                         <button
-                          className="text-Body-Primary-KR text-14 hover:underline" onClick={(e) => {
+                          className="text-Body-Primary-KR text-4 hover:underline" onClick={(e) => {
                             e.stopPropagation();
                             setRoleToDelete(role);
                             setIsDeleteConfirmOpen(true);
@@ -338,7 +338,7 @@ export default function PermissionSettings() {
                   전체 허용
                 </button>
                 <button
-                  className="rounded-2 border border-7 px-md py-sm text-Body-Primary-KR text-5 hover:bg-6 hover:text-14 transition-colors disabled:opacity-50" disabled={isPrimary} onClick={handleAllDeny}>
+                  className="rounded-2 border border-7 px-md py-sm text-Body-Primary-KR text-5 hover:bg-6 hover:text-0 transition-colors disabled:opacity-50" disabled={isPrimary} onClick={handleAllDeny}>
                   전체 차단
                 </button>
                 <button

@@ -242,14 +242,14 @@ export default function Attendance() {
     <AppLayout >
       <div className={cn(
         "flex flex-col gap-lg transition-colors duration-500 min-h-screen",
-        isNightMode ? "bg-slate-900 -m-lg p-lg text-slate-100" : "bg-1"
+        isNightMode ? "bg-slate-900 -m-lg p-lg text-slate-100" : "bg-2"
       )} >
         {/* 페이지 헤더 */}
         <PageHeader title="출석 관리" description="실시간 회원 입퇴장 현황과 출석 이력을 관리합니다." actions={
             <div className="flex items-center gap-md">
               <div className="flex items-center gap-sm bg-2 p-sm rounded-button shadow-sm">
                 <button 
-                  className="p-xs hover:bg-4 rounded-md transition-colors text-6"
+                  className="p-xs hover:bg-2 rounded-md transition-colors text-5"
                   onClick={() => {/* 날짜 -1 로직 */}}
                 >
                   <ChevronLeft size={20} />
@@ -259,7 +259,7 @@ export default function Attendance() {
                   <span className="text-Data-Monospace-Tabular">{selectedDate}</span>
                 </div>
                 <button 
-                  className="p-xs hover:bg-4 rounded-md transition-colors text-6"
+                  className="p-xs hover:bg-2 rounded-md transition-colors text-5"
                   onClick={() => {/* 날짜 +1 로직 */}}
                 >
                   <ChevronRight size={20} />
@@ -270,7 +270,7 @@ export default function Attendance() {
                 <button 
                   className={cn(
                     "flex items-center gap-xs px-md py-sm rounded-button text-Label transition-all",
-                    !isNightMode ? "bg-0 text-white shadow-md" : "text-6 hover:bg-4"
+                    !isNightMode ? "bg-0 text-white shadow-md" : "text-5 hover:bg-2"
                   )}
                   onClick={() => setIsNightMode(false)}
                 >
@@ -279,7 +279,7 @@ export default function Attendance() {
                 <button 
                   className={cn(
                     "flex items-center gap-xs px-md py-sm rounded-button text-Label transition-all",
-                    isNightMode ? "bg-indigo-600 text-white shadow-md" : "text-6 hover:bg-4"
+                    isNightMode ? "bg-indigo-600 text-white shadow-md" : "text-5 hover:bg-2"
                   )}
                   onClick={() => setIsNightMode(true)}
                 >
@@ -290,7 +290,7 @@ export default function Attendance() {
               <button 
                 className={cn(
                   "flex items-center gap-xs px-md py-md rounded-button text-Label font-bold transition-all border",
-                  isRealtimePopupEnabled ? "bg-bg-soft-mint border-secondary-mint text-secondary-mint" : "bg-2 border-10 text-6"
+                  isRealtimePopupEnabled ? "bg-bg-soft-mint border-secondary-mint text-secondary-mint" : "bg-2 border-7 text-5"
                 )}
                 onClick={() => setIsRealtimePopupEnabled(!isRealtimePopupEnabled)}
               >
@@ -299,7 +299,7 @@ export default function Attendance() {
               </button>
 
               <button 
-                className="p-md bg-2 border border-10 rounded-button text-6 hover:text-primary-coral transition-colors shadow-sm"
+                className="p-md bg-2 border border-7 rounded-button text-5 hover:text-primary-coral transition-colors shadow-sm"
                 onClick={addMockPopup} // 데모용
               >
                 <ArrowRight size={20} />
@@ -347,17 +347,17 @@ export default function Attendance() {
         {/* 실시간 입장 팝업 (Portal 형태가 아니므로 이 컴포넌트 내에서 우측 하단 고정) */}
         <div className="fixed bottom-lg right-lg flex flex-col gap-md z-50 pointer-events-none" >
           {popups.map(popup => (
-            <div 
-              className="pointer-events-auto w-[320px] bg-2 dark:bg-slate-800 rounded-card-strong shadow-5 border-2 border-secondary-mint animate-in slide-in-from-right duration-300 overflow-hidden" key={popup.id}>
+            <div
+              className="pointer-events-auto w-[320px] bg-2 rounded-card-strong shadow-5 border-2 border-secondary-mint animate-in slide-in-from-right duration-300 overflow-hidden" key={popup.id}>
               <div className="flex p-md gap-md" >
                 <div className="w-[80px] h-[80px] rounded-card-normal overflow-hidden flex-shrink-0 bg-bg-soft-mint" >
                   <img className="w-full h-full object-cover" src={popup.photo} alt={popup.name}/>
                 </div>
                 <div className="flex-1" >
                   <div className="flex justify-between items-start" >
-                    <h4 className="text-Page-Title text-5 dark:text-white font-bold" >{popup.name}</h4>
+                    <h4 className="text-Page-Title text-5 font-bold" >{popup.name}</h4>
                     <button
-                      className="text-7 hover:text-14" onClick={() => handleClosePopup(popup.id)}>
+                      className="text-7 hover:text-4" onClick={() => handleClosePopup(popup.id)}>
                       <XCircle size={18}/>
                     </button>
                   </div>
@@ -365,7 +365,7 @@ export default function Attendance() {
                     <StatusBadge variant="success" label={popup.status} dot={true}/>
                   </div>
                   <div className="mt-sm space-y-xs" >
-                    <p className="text-Body-Primary-KR text-6 flex items-center gap-xs" >
+                    <p className="text-Body-Primary-KR text-5 flex items-center gap-xs" >
                       <CreditCard size={14}/> {popup.pass}
                     </p>
                     <p className="text-Label text-secondary-mint font-bold" >
@@ -374,9 +374,9 @@ export default function Attendance() {
                   </div>
                 </div>
               </div>
-              <div className="bg-bg-soft-mint dark:bg-slate-700 px-md py-sm border-t border-secondary-mint/20 flex items-center gap-sm" >
+              <div className="bg-bg-soft-mint px-md py-sm border-t border-secondary-mint/20 flex items-center gap-sm" >
                 <Smartphone className="text-secondary-mint" size={14}/>
-                <span className="text-Data-Monospace-Tabular text-[11px] text-6 font-medium" >AI 음성 안내: "반갑습니다. 즐거운 운동 되세요!"</span>
+                <span className="text-Data-Monospace-Tabular text-[11px] text-5 font-medium" >AI 음성 안내: "반갑습니다. 즐거운 운동 되세요!"</span>
               </div>
             </div>
           ))}

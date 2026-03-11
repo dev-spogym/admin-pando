@@ -404,7 +404,7 @@ export default function MemberList() {
         <PageHeader title="회원 목록" description="센터의 전체 회원 정보를 조회하고 관리합니다." actions={
             <div className="flex gap-sm">
               <button 
-                className="bg-white text-5 border border-border-light px-md py-sm rounded-2 flex items-center gap-xs text-[14px] font-medium hover:bg-bg-main-light-blue hover:text-4 transition-all duration-220 ease-spring shadow-0"
+                className="bg-3 text-5 border border-border-light px-md py-sm rounded-2 flex items-center gap-xs text-[14px] font-medium hover:bg-bg-main-light-blue hover:text-4 transition-all duration-220 ease-spring shadow-0"
                 onClick={() => handleAction('엑셀 다운로드')}
               >
                 <Download size={16} strokeWidth={2} /> 엑셀 다운로드
@@ -426,12 +426,12 @@ export default function MemberList() {
         </div>
 
         {/* Main Tabs Area */}
-        <div className="bg-white rounded-3 shadow-sm p-1 border border-border-light inline-flex" >
+        <div className="bg-3 rounded-3 shadow-sm p-1 border border-border-light inline-flex" >
           <TabNav tabs={MAIN_TABS} activeTab={activeMainTab} onTabChange={setActiveMainTab}/>
         </div>
 
         {/* Search & Filter & Table Area */}
-        <div className="bg-white rounded-3 shadow-card-soft overflow-hidden border border-border-light" >
+        <div className="bg-3 rounded-3 shadow-card-soft overflow-hidden border border-border-light" >
           {/* Status Filter Tabs (UI-010) */}
           <div className="px-lg pt-lg border-b border-border-light bg-bg-main-light-blue/30" >
             <div className="flex gap-lg overflow-x-auto no-scrollbar" >
@@ -457,7 +457,7 @@ export default function MemberList() {
           </div>
 
           {/* Search Filter Bar */}
-          <div className="p-lg border-b border-border-light bg-white" >
+          <div className="p-lg border-b border-border-light bg-3" >
             <SearchFilter searchPlaceholder="회원명, 연락처 검색..." searchValue={searchValue} onSearchChange={setSearchValue} filters={FILTER_CONFIG} filterValues={filterValues} onFilterChange={(key, value) => setFilterValues(prev => ({ ...prev, [key]: value }))} onReset={() => {
                 setSearchValue('');
                 setFilterValues({});
@@ -471,18 +471,18 @@ export default function MemberList() {
                 <span className="font-bold text-[14px]" >
                   {selectedRows.size}명 선택됨
                 </span>
-                <div className="h-4 w-[1px] bg-white/20" />
+                <div className="h-4 w-[1px] bg-3/20" />
                 <div className="flex gap-sm" >
-                  <button className="text-white hover:bg-white/10 px-md py-1.5 rounded-md text-[13px] font-medium flex items-center gap-2 transition-colors" onClick={() => handleAction('상태 변경')}>
+                  <button className="text-white hover:bg-3/10 px-md py-1.5 rounded-md text-[13px] font-medium flex items-center gap-2 transition-colors" onClick={() => handleAction('상태 변경')}>
                     <Settings size={14} strokeWidth={2}/> 상태 변경
                   </button>
-                  <button className="text-white hover:bg-white/10 px-md py-1.5 rounded-md text-[13px] font-medium flex items-center gap-2 transition-colors" onClick={() => handleAction('전송하기')}>
+                  <button className="text-white hover:bg-3/10 px-md py-1.5 rounded-md text-[13px] font-medium flex items-center gap-2 transition-colors" onClick={() => handleAction('전송하기')}>
                     <Send size={14} strokeWidth={2}/> 전송하기
                   </button>
-                  <button className="text-white hover:bg-white/10 px-md py-1.5 rounded-md text-[13px] font-medium flex items-center gap-2 transition-colors" onClick={() => handleAction('출석 처리')}>
+                  <button className="text-white hover:bg-3/10 px-md py-1.5 rounded-md text-[13px] font-medium flex items-center gap-2 transition-colors" onClick={() => handleAction('출석 처리')}>
                     <CheckCircle size={14} strokeWidth={2}/> 출석 처리
                   </button>
-                  <button className="text-white hover:bg-white/10 px-md py-1.5 rounded-md text-[13px] font-medium flex items-center gap-2 transition-colors" onClick={() => handleAction('관심회원 변경')}>
+                  <button className="text-white hover:bg-3/10 px-md py-1.5 rounded-md text-[13px] font-medium flex items-center gap-2 transition-colors" onClick={() => handleAction('관심회원 변경')}>
                     <Star size={14} strokeWidth={2}/> 관심회원
                   </button>
                 </div>

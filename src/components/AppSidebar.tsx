@@ -222,7 +222,7 @@ const AppSidebar: React.FC<AppSidebarProps> = ({
               <Settings size={18} strokeWidth={1.5}/>
               <span className="text-[14px] font-medium" >설정</span>
             </button>
-            <button className="flex w-full items-center gap-[10px] h-[36px] px-[12px] rounded-2 text-14 hover:bg-14/10 transition-colors" >
+            <button className="flex w-full items-center gap-[10px] h-[36px] px-[12px] rounded-2 text-5 hover:bg-0/10 hover:text-0 transition-colors" >
               <LogOut size={18} strokeWidth={1.5}/>
               <span className="text-[14px] font-medium" >로그아웃</span>
             </button>

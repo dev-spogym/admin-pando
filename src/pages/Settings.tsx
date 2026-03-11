@@ -398,7 +398,7 @@ export default function Settings() {
                       <CreditCard className="text-text-grey-blue" size={24}/>
                     </div>
                     <span className="text-Body 1 font-semibold" >{vendor}</span>
-                    <button className="w-full py-sm bg-white text-text-dark-grey border-[1px] border-border-light rounded-button text-Label font-bold hover:bg-bg-soft-mint hover:border-secondary-mint transition-colors" >
+                    <button className="w-full py-sm bg-3 text-text-dark-grey border-[1px] border-border-light rounded-button text-Label font-bold hover:bg-bg-soft-mint hover:border-secondary-mint transition-colors" >
                       연결 테스트
                     </button>
                   </div>
@@ -463,7 +463,7 @@ export default function Settings() {
           }/>
 
         <div className="flex-1 overflow-hidden flex flex-col px-xl pb-xl" >
-          <div className="bg-white rounded-card-strong shadow-card-soft flex flex-col h-full overflow-hidden border-[1px] border-border-light" >
+          <div className="bg-3 rounded-card-strong shadow-card-soft flex flex-col h-full overflow-hidden border-[1px] border-border-light" >
             <TabNav 
               className="px-lg pt-lg border-b border-border-light" tabs={tabs} activeTab={activeTab} onTabChange={setActiveTab}/>
             <div className="flex-1 overflow-y-auto p-xl scrollbar-hide" >

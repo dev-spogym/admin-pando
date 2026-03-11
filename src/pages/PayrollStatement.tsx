@@ -258,7 +258,7 @@ export default function PayrollStatement() {
       {/* 명세서 상세 모달 */}
       {isModalOpen && selectedStatement && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-md" >
-          <div className="w-full max-w-2xl bg-white rounded-modal shadow-xl overflow-hidden animate-in zoom-in duration-200" >
+          <div className="w-full max-w-2xl bg-3 rounded-modal shadow-xl overflow-hidden animate-in zoom-in duration-200" >
             {/* 모달 헤더 */}
             <div className="p-xl border-b border-border-light flex justify-between items-center bg-bg-main-light-blue/20" >
               <div className="flex items-center gap-md" >
@@ -354,17 +354,17 @@ export default function PayrollStatement() {
             {/* 모달 푸터 */}
             <div className="p-xl bg-bg-main-light-blue/10 border-t border-border-light flex justify-between items-center" >
               <div className="flex items-center gap-md" >
-                <button className="flex items-center gap-xs px-md py-sm border border-border-light bg-white rounded-button text-Label text-text-grey-blue hover:bg-bg-soft-peach hover:text-primary-coral transition-all" >
+                <button className="flex items-center gap-xs px-md py-sm border border-border-light bg-3 rounded-button text-Label text-text-grey-blue hover:bg-bg-soft-peach hover:text-primary-coral transition-all" >
                   <Mail size={16}/>
                   이메일 발송
                 </button>
-                <button className="flex items-center gap-xs px-md py-sm border border-border-light bg-white rounded-button text-Label text-text-grey-blue hover:bg-bg-soft-mint hover:text-secondary-mint transition-all" >
+                <button className="flex items-center gap-xs px-md py-sm border border-border-light bg-3 rounded-button text-Label text-text-grey-blue hover:bg-bg-soft-mint hover:text-secondary-mint transition-all" >
                   <Printer size={16}/>
                   명세서 출력
                 </button>
               </div>
               <button
-                className="px-xl py-sm bg-text-dark-grey text-white rounded-button text-Label font-bold hover:bg-black transition-all" onClick={() => setIsModalOpen(false)}>
+                className="px-xl py-sm bg-4 text-white rounded-button text-Label font-bold hover:bg-black transition-all" onClick={() => setIsModalOpen(false)}>
                 닫기
               </button>
             </div>

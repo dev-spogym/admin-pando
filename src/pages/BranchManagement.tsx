@@ -199,7 +199,7 @@ export default function BranchManagement() {
       {activeTab === 'integrated' && (
         <div className="space-y-lg animate-in fade-in duration-300" >
           <div className="flex justify-between items-center" >
-            <div className="flex items-center gap-sm p-sm bg-white rounded-card-normal border border-border-light shadow-card-soft" >
+            <div className="flex items-center gap-sm p-sm bg-3 rounded-card-normal border border-border-light shadow-card-soft" >
               <button className="px-md py-xs bg-bg-soft-peach text-primary-coral rounded-button text-Label font-semibold" >월간</button>
               <button className="px-md py-xs text-text-grey-blue hover:text-text-dark-grey rounded-button text-Label" >주간</button>
               <button className="px-md py-xs text-text-grey-blue hover:text-text-dark-grey rounded-button text-Label" >연간</button>
@@ -209,7 +209,7 @@ export default function BranchManagement() {
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-md" >
             {/* 지점별 매출 비교 (Bar) */}
-            <div className="lg:col-span-2 p-lg bg-white rounded-card-normal border border-border-light shadow-card-soft" >
+            <div className="lg:col-span-2 p-lg bg-3 rounded-card-normal border border-border-light shadow-card-soft" >
               <div className="flex items-center justify-between mb-lg" >
                 <h3 className="text-Heading 2 text-text-dark-grey flex items-center gap-xs" >
                   <BarChart3 className="text-primary-coral" size={20}/>
@@ -233,7 +233,7 @@ export default function BranchManagement() {
             </div>
 
             {/* 지점별 회원 비율 (Pie/Donut Mock) */}
-            <div className="p-lg bg-white rounded-card-normal border border-border-light shadow-card-soft" >
+            <div className="p-lg bg-3 rounded-card-normal border border-border-light shadow-card-soft" >
               <h3 className="text-Heading 2 text-text-dark-grey flex items-center gap-xs mb-lg" >
                 <PieChart className="text-secondary-mint" size={20}/>
                 지점별 회원 현황
@@ -299,8 +299,8 @@ export default function BranchManagement() {
       {/* --- MODAL: 신규 지점 등록 --- */}
       {isAddBranchOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-md" >
-          <div className="w-full max-w-2xl bg-white rounded-modal shadow-card-strong max-h-[90vh] overflow-y-auto" >
-            <div className="p-xl border-b border-border-light flex justify-between items-center sticky top-0 bg-white z-10" >
+          <div className="w-full max-w-2xl bg-3 rounded-modal shadow-card-strong max-h-[90vh] overflow-y-auto" >
+            <div className="p-xl border-b border-border-light flex justify-between items-center sticky top-0 bg-3 z-10" >
               <h2 className="text-Heading 2 text-text-dark-grey" >신규 지점 등록</h2>
               <button className="text-text-grey-blue hover:text-text-dark-grey" onClick={() => setIsAddBranchOpen(false)}>
                 <X size={24}/>
@@ -368,7 +368,7 @@ export default function BranchManagement() {
               </FormSection>
             </div>
 
-            <div className="p-xl border-t border-border-light flex justify-end gap-sm sticky bottom-0 bg-white" >
+            <div className="p-xl border-t border-border-light flex justify-end gap-sm sticky bottom-0 bg-3" >
               <button className="px-lg py-sm text-text-grey-blue hover:bg-input-bg-light rounded-button transition-colors" onClick={() => setIsAddBranchOpen(false)}>취소</button>
               <button className="px-lg py-sm bg-primary-coral text-white font-semibold rounded-button shadow-md hover:scale-[1.02] active:scale-[0.98] transition-all" >등록 완료</button>
             </div>
@@ -379,7 +379,7 @@ export default function BranchManagement() {
       {/* --- MODAL: 지점 이동 신청 --- */}
       {isMoveMemberOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-md" >
-          <div className="w-full max-w-lg bg-white rounded-modal shadow-card-strong" >
+          <div className="w-full max-w-lg bg-3 rounded-modal shadow-card-strong" >
             <div className="p-xl border-b border-border-light flex justify-between items-center" >
               <h2 className="text-Heading 2 text-text-dark-grey" >회원 지점 이동 신청</h2>
               <button className="text-text-grey-blue hover:text-text-dark-grey" onClick={() => setIsMoveMemberOpen(false)}>

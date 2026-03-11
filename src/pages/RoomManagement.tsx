@@ -186,7 +186,7 @@ export default function RoomManagement() {
         </div>
 
         {/* 메인 콘텐츠 카드 */}
-        <div className="bg-white rounded-card-strong shadow-card-soft border border-border-light overflow-hidden" >
+        <div className="bg-3 rounded-card-strong shadow-card-soft border border-border-light overflow-hidden" >
           <TabNav 
             className="px-md pt-sm border-b border-border-light" tabs={tabs} activeTab={activeTab} onTabChange={setActiveTab}/>
           
@@ -205,7 +205,7 @@ export default function RoomManagement() {
       {/* 운동룸 등록 모달 (Simple Mock) */}
       {isRoomModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm" >
-          <div className="bg-white rounded-modal w-full max-w-[500px] overflow-hidden shadow-card-soft animate-in fade-in zoom-in duration-200" >
+          <div className="bg-3 rounded-modal w-full max-w-[500px] overflow-hidden shadow-card-soft animate-in fade-in zoom-in duration-200" >
             <div className="p-lg border-b border-border-light flex justify-between items-center" >
               <h3 className="text-Heading 2 text-text-dark-grey" >새 운동룸 등록</h3>
               <button className="text-text-grey-blue hover:text-text-dark-grey" onClick={() => setIsRoomModalOpen(false)}>
@@ -233,7 +233,7 @@ export default function RoomManagement() {
             </div>
             <div className="p-lg bg-bg-main-light-blue flex gap-md" >
               <button
-                className="flex-1 h-[48px] rounded-button bg-white border border-border-light text-text-grey-blue font-semibold" onClick={() => setIsRoomModalOpen(false)}>
+                className="flex-1 h-[48px] rounded-button bg-3 border border-border-light text-text-grey-blue font-semibold" onClick={() => setIsRoomModalOpen(false)}>
                 취소
               </button>
               <button

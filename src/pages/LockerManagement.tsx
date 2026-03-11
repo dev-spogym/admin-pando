@@ -162,7 +162,7 @@ export default function LockerManagement() {
           <div
             className={cn(
               "relative aspect-square rounded-card-normal border-[1px] p-sm flex flex-col items-center justify-center cursor-pointer transition-all hover:shadow-md active:scale-95 select-none",
-              locker.status === 'available' ? "bg-white border-border-light text-text-dark-grey" :
+              locker.status === 'available' ? "bg-3 border-border-light text-text-dark-grey" :
               locker.status === 'in_use' ? "bg-bg-soft-mint border-secondary-mint text-secondary-mint" :
               locker.status === 'overtime' ? "bg-bg-soft-peach border-primary-coral text-primary-coral" :
               locker.status === 'abnormal' ? "bg-error/5 border-error text-error" :
@@ -203,12 +203,12 @@ export default function LockerManagement() {
           <div className="flex gap-sm">
             <button 
               onClick={() => moveToPage(979)}
-              className="flex items-center gap-xs px-md py-sm rounded-button border border-border-light bg-white text-text-grey-blue hover:text-primary-coral transition-colors"
+              className="flex items-center gap-xs px-md py-sm rounded-button border border-border-light bg-3 text-text-grey-blue hover:text-primary-coral transition-colors"
             >
               <MoveRight size={16} />
               <span className="text-Label">밴드/카드 관리</span>
             </button>
-            <button className="flex items-center gap-xs px-md py-sm rounded-button border border-border-light bg-white text-text-grey-blue hover:text-primary-coral transition-colors">
+            <button className="flex items-center gap-xs px-md py-sm rounded-button border border-border-light bg-3 text-text-grey-blue hover:text-primary-coral transition-colors">
               <RefreshCw size={16} />
               <span className="text-Label">상태 동기화</span>
             </button>
@@ -253,7 +253,7 @@ export default function LockerManagement() {
           ]}/>
 
         {/* Locker Grid Area */}
-        <div className="bg-white rounded-card-normal border border-border-light p-xl shadow-card-soft min-h-[500px]" >
+        <div className="bg-3 rounded-card-normal border border-border-light p-xl shadow-card-soft min-h-[500px]" >
           {activeTab === 'daily' ? (
             <>
               {renderLockerGrid(filteredLockers.filter(l => l.gender === 'M'), "남자 구역 (88개)")}

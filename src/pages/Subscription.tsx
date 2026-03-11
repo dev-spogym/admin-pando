@@ -136,7 +136,7 @@ export default function Subscription() {
     const isWarning = percent >= 90;
     
     return (
-      <div className="bg-white p-lg rounded-card-normal border border-border-light shadow-card-soft" >
+      <div className="bg-3 p-lg rounded-card-normal border border-border-light shadow-card-soft" >
         <div className="flex justify-between items-center mb-sm" >
           <div className="flex items-center gap-sm" >
             <div className={cn("p-xs rounded-button", isWarning ? "bg-bg-soft-peach" : "bg-bg-soft-mint")} >
@@ -186,7 +186,7 @@ export default function Subscription() {
           <div className="space-y-lg" >
             {/* 현재 플랜 요약 */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-lg" >
-              <div className="lg:col-span-2 bg-white rounded-card-strong border border-border-light shadow-card-soft p-xxl relative overflow-hidden" >
+              <div className="lg:col-span-2 bg-3 rounded-card-strong border border-border-light shadow-card-soft p-xxl relative overflow-hidden" >
                 <div className="absolute top-0 right-0 p-lg" >
                   <StatusBadge variant={currentPlan.status === 'active' ? 'success' : 'error'} label={currentPlan.status === 'active' ? '구독 중' : '만료'} dot={true}/>
                 </div>
@@ -223,7 +223,7 @@ export default function Subscription() {
                 </div>
                 <div className="flex-1 flex flex-col justify-center" >
                   {paymentMethods.filter(m => m.isDefault).map(card => (
-                    <div className="bg-white/80 backdrop-blur-sm p-lg rounded-card-normal border border-white shadow-sm" key={card.id}>
+                    <div className="bg-3/80 backdrop-blur-sm p-lg rounded-card-normal border border-white shadow-sm" key={card.id}>
                       <div className="flex justify-between items-start mb-md" >
                         <span className="px-xs py-[2px] bg-primary-coral text-white text-[10px] rounded-sm font-bold uppercase" >{card.type}</span>
                         <span className="text-Label text-text-grey-blue" >기본 결제 수단</span>
@@ -236,7 +236,7 @@ export default function Subscription() {
                     </div>
                   ))}
                 </div>
-                <button className="mt-lg w-full py-sm border border-dashed border-primary-coral text-primary-coral rounded-button text-Label font-bold flex items-center justify-center gap-2 hover:bg-white/50 transition-colors" >
+                <button className="mt-lg w-full py-sm border border-dashed border-primary-coral text-primary-coral rounded-button text-Label font-bold flex items-center justify-center gap-2 hover:bg-3/50 transition-colors" >
                   <Plus size={16}/> 새 카드 추가
                 </button>
               </div>
@@ -276,7 +276,7 @@ export default function Subscription() {
               {plans.map((plan) => (
                 <div
                   className={cn(
-                    "flex flex-col bg-white rounded-card-strong border shadow-card-soft overflow-hidden transition-all duration-300 hover:shadow-xl",
+                    "flex flex-col bg-3 rounded-card-strong border shadow-card-soft overflow-hidden transition-all duration-300 hover:shadow-xl",
                     plan.isCurrent ? "border-primary-coral ring-4 ring-primary-coral/5 scale-[1.02]" : "border-border-light"
                   )} key={plan.id}>
                   {plan.isCurrent && (
@@ -355,7 +355,7 @@ export default function Subscription() {
 
         {/* --- 결제 이력 탭 --- */}
         {activeTab === 'history' && (
-          <div className="bg-white rounded-card-strong border border-border-light shadow-card-soft overflow-hidden" >
+          <div className="bg-3 rounded-card-strong border border-border-light shadow-card-soft overflow-hidden" >
             <DataTable title="최근 결제 내역" data={billingHistory} columns={[
                 { key: 'date', header: '결제일', width: 150 },
                 { key: 'plan', header: '플랜명', width: 200 },

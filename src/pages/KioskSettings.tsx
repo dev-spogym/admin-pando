@@ -153,11 +153,11 @@ export default function KioskSettings() {
     return (
       <AppLayout >
         <div className="flex flex-col gap-xl animate-pulse" >
-          <div className="h-20 bg-white rounded-card-normal border border-border-light" />
-          <div className="h-12 bg-white rounded-button border border-border-light" />
+          <div className="h-20 bg-3 rounded-card-normal border border-border-light" />
+          <div className="h-12 bg-3 rounded-button border border-border-light" />
           <div className="grid grid-cols-1 md:grid-cols-2 gap-lg" >
-            <div className="h-80 bg-white rounded-card-normal border border-border-light" />
-            <div className="h-80 bg-white rounded-card-normal border border-border-light" />
+            <div className="h-80 bg-3 rounded-card-normal border border-border-light" />
+            <div className="h-80 bg-3 rounded-card-normal border border-border-light" />
           </div>
         </div>
       </AppLayout>
@@ -309,8 +309,8 @@ export default function KioskSettings() {
               <div className="aspect-[3/1] rounded-card-normal border-2 border-dashed border-border-light bg-bg-main-light-blue flex flex-col items-center justify-center p-lg relative overflow-hidden group" >
                 <img className="max-h-12 object-contain" src={settings.logoImage} alt="logo"/>
                 <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-sm" >
-                  <button className="bg-white text-text-dark-grey p-sm rounded-full" ><Plus size={18}/></button>
-                  <button className="bg-white text-error p-sm rounded-full" ><Trash2 size={18}/></button>
+                  <button className="bg-3 text-text-dark-grey p-sm rounded-full" ><Plus size={18}/></button>
+                  <button className="bg-3 text-error p-sm rounded-full" ><Trash2 size={18}/></button>
                 </div>
               </div>
             </div>
@@ -320,8 +320,8 @@ export default function KioskSettings() {
               <div className="aspect-[3/1] rounded-card-normal border-2 border-dashed border-border-light bg-bg-main-light-blue flex flex-col items-center justify-center relative overflow-hidden group" >
                 <img className="w-full h-full object-cover" src={settings.bgImage} alt="bg"/>
                 <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-sm" >
-                  <button className="bg-white text-text-dark-grey p-sm rounded-full" ><Plus size={18}/></button>
-                  <button className="bg-white text-error p-sm rounded-full" ><Trash2 size={18}/></button>
+                  <button className="bg-3 text-text-dark-grey p-sm rounded-full" ><Plus size={18}/></button>
+                  <button className="bg-3 text-error p-sm rounded-full" ><Trash2 size={18}/></button>
                 </div>
               </div>
             </div>
@@ -393,7 +393,7 @@ export default function KioskSettings() {
                       <p className="text-[11px] text-white font-medium truncate" >{banner.name}</p>
                     </div>
                     <div className="absolute top-2 right-2 flex gap-xs opacity-0 group-hover:opacity-100 transition-opacity" >
-                      <button className="bg-white text-error p-xs rounded-full shadow-sm" ><Trash2 size={14}/></button>
+                      <button className="bg-3 text-error p-xs rounded-full shadow-sm" ><Trash2 size={14}/></button>
                     </div>
                     <div className="absolute top-2 left-2 bg-primary-coral text-white px-xs rounded text-[10px] font-bold" >
                       {idx + 1}
@@ -426,7 +426,7 @@ export default function KioskSettings() {
                     <th className="p-md text-Label text-text-grey-blue font-bold uppercase tracking-wider w-[120px]" >미리보기</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-border-light bg-white" >
+                <tbody className="divide-y divide-border-light bg-3" >
                   {settings.ttsMessages.map((item) => (
                     <tr className="hover:bg-bg-soft-peach/30 transition-colors group" key={item.id}>
                       <td className="p-md" >
@@ -437,7 +437,7 @@ export default function KioskSettings() {
                       </td>
                       <td className="p-md" >
                         <input
-                          className="w-full bg-input-bg-light p-sm rounded-input border border-transparent focus:border-primary-coral/30 focus:bg-white transition-all outline-none text-Body 2" type="text" value={item.message} onChange={(e) => {
+                          className="w-full bg-input-bg-light p-sm rounded-input border border-transparent focus:border-primary-coral/30 focus:bg-3 transition-all outline-none text-Body 2" type="text" value={item.message} onChange={(e) => {
                              const next = settings.ttsMessages.map(m => m.id === item.id ? { ...m, message: e.target.value } : m);
                              setSettings({ ...settings, ttsMessages: next });
                           }}/>
@@ -486,7 +486,7 @@ export default function KioskSettings() {
                   <button
                     className={cn(
                       "px-lg py-sm rounded-button text-Label font-bold transition-all",
-                      settings.allowExpired === val ? "bg-white text-primary-coral shadow-sm" : "text-text-grey-blue hover:text-text-dark-grey"
+                      settings.allowExpired === val ? "bg-3 text-primary-coral shadow-sm" : "text-text-grey-blue hover:text-text-dark-grey"
                     )} key={val} onClick={() => setSettings({ ...settings, allowExpired: val as any })}>
                     {val === "allow" ? "허용" : "거부"}
                   </button>
@@ -536,7 +536,7 @@ export default function KioskSettings() {
                   <button
                     className={cn(
                       "px-md py-sm rounded-button text-Label font-bold transition-all",
-                      settings.unpaidAccess === val ? "bg-white text-primary-coral shadow-sm" : "text-text-grey-blue hover:text-text-dark-grey"
+                      settings.unpaidAccess === val ? "bg-3 text-primary-coral shadow-sm" : "text-text-grey-blue hover:text-text-dark-grey"
                     )} key={val} onClick={() => setSettings({ ...settings, unpaidAccess: val as any })}>
                     {val === "allow" ? "허용" : val === "warn" ? "경고 후 허용" : "차단"}
                   </button>

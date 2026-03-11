@@ -147,7 +147,7 @@ export default function Dashboard() {
                 </div>
                 <div className="flex items-center justify-between" >
                   <div className="flex items-center gap-xs" >
-                    <div className="h-2 w-2 rounded-full bg-1" />
+                    <div className="h-2 w-2 rounded-full bg-secondary-mint" />
                     <span className="text-Body-2 text-5" >남성</span>
                   </div>
                   <span className="text-Body-2 font-bold text-4" >45%</span>
@@ -158,8 +158,8 @@ export default function Dashboard() {
             <div className="space-y-md" >
               {[
                 { label: "20대", value: 45, color: "bg-0" },
-                { label: "30대", value: 32, color: "bg-1" },
-                { label: "40대", value: 15, color: "bg-15" },
+                { label: "30대", value: 32, color: "bg-secondary-mint" },
+                { label: "40대", value: 15, color: "bg-5" },
                 { label: "기타", value: 8, color: "bg-5" },
               ].map((age) => (
                 <div className="space-y-xs" key={age.label}>
@@ -182,7 +182,7 @@ export default function Dashboard() {
             <h2 className="text-Heading-2 font-bold text-4" >주간 출석</h2>
             <div className="flex items-center gap-sm" >
               <div className="flex items-center gap-xs" >
-                <div className="h-1.5 w-3 bg-1 rounded-full" />
+                <div className="h-1.5 w-3 bg-secondary-mint rounded-full" />
                 <span className="text-[10px] text-5" >전체</span>
               </div>
               <div className="flex items-center gap-xs" >
@@ -211,7 +211,7 @@ export default function Dashboard() {
             </div>
             <div className="text-right" >
               <p className="text-[10px] text-5" >어제 대비</p>
-              <p className="text-Body-2 font-bold text-12" >+12% ↑</p>
+              <p className="text-Body-2 font-bold text-4" >+12% ↑</p>
             </div>
           </div>
         </div>
@@ -238,7 +238,7 @@ export default function Dashboard() {
                 <div 
                   className={cn(
                     "w-full rounded-t-sm transition-all duration-300 group-hover:bg-0/80",
-                    idx === 4 ? "bg-0" : "bg-1"
+                    idx === 4 ? "bg-0" : "bg-secondary-mint"
                   )} style={{ height: `${(d.value / 120) * 100}%` }}/>
                 <span className="text-[10px] font-bold text-5" >{d.month}</span>
                 {/* Tooltip on hover */}
@@ -328,7 +328,7 @@ export default function Dashboard() {
                     key: "amount", 
                     header: "미납 금액", 
                     align: "right",
-                    render: (val) => <span className="font-bold text-14">₩{val}</span>
+                    render: (val) => <span className="font-bold text-4">₩{val}</span>
                   },
                   {
                     key: "action",
@@ -354,7 +354,7 @@ export default function Dashboard() {
           <div className="rounded-card-normal border border-7 bg-3 overflow-hidden shadow-card-soft" >
             <div className="flex items-center justify-between border-b border-7 bg-2 px-lg py-md" >
               <div className="flex items-center gap-sm" >
-                <div className="rounded-full bg-3 p-sm text-15 shadow-sm" >
+                <div className="rounded-full bg-3 p-sm text-5 shadow-sm" >
                   <PauseCircle size={18}/>
                 </div>
                 <h3 className="text-Body-1 font-bold text-4" >연기(홀딩) 중인 회원</h3>
@@ -377,7 +377,7 @@ export default function Dashboard() {
                     align: "right",
                     render: () => (
                       <button 
-                        className="p-xs text-5 hover:text-15 transition-colors"
+                        className="p-xs text-5 hover:text-5 transition-colors"
                         onClick={() => moveToPage(985)}
                       >
                         <ChevronRight size={16} />
@@ -390,14 +390,14 @@ export default function Dashboard() {
 
           {/* 만료 임박 회원 (UI-033) */}
           <div className="rounded-card-normal border border-7 bg-3 overflow-hidden shadow-card-soft" >
-            <div className="flex items-center justify-between border-b border-7 bg-13/5 px-lg py-md" >
+            <div className="flex items-center justify-between border-b border-7 bg-3/5 px-lg py-md" >
               <div className="flex items-center gap-sm" >
-                <div className="rounded-full bg-3 p-sm text-13 shadow-sm" >
+                <div className="rounded-full bg-3 p-sm text-4 shadow-sm" >
                   <Hourglass size={18}/>
                 </div>
                 <h3 className="text-Body-1 font-bold text-4" >수강권 만료 임박</h3>
               </div>
-              <span className="text-Label font-bold text-13" >{expiringMembers.length}명</span>
+              <span className="text-Label font-bold text-4" >{expiringMembers.length}명</span>
             </div>
             <div className="p-sm" >
               <DataTable columns={[
