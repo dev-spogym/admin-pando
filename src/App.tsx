@@ -1,6 +1,7 @@
 import React, { useEffect } from 'react';
 import { Routes, Route, useNavigate } from 'react-router-dom';
 import { setNavigate } from '@/internal';
+import { ErrorBoundary } from '@/components/ErrorBoundary';
 
 // --- Pages ---
 import Dashboard from '@/pages/Dashboard';
@@ -46,6 +47,7 @@ export default function App() {
   }, [navigate]);
 
   return (
+    <ErrorBoundary>
     <Routes>
       <Route path="/" element={<Dashboard />} />
       <Route path="/login" element={<Login />} />
@@ -97,5 +99,6 @@ export default function App() {
       <Route path="/subscription" element={<Subscription />} />
       <Route path="/branches" element={<BranchManagement />} />
     </Routes>
+    </ErrorBoundary>
   );
 }
