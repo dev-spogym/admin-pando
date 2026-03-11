@@ -46,11 +46,11 @@ export default function ConfirmDialog({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-4/50 backdrop-blur-sm p-md" >
-      <div className="w-full max-w-sm rounded-modal bg-3 p-xl shadow-card-soft dark:bg-gray-800 animate-in fade-in zoom-in duration-200" >
-        <h3 className="text-Section-Title text-4 dark:text-white" >{title}</h3>
+      <div className="w-full max-w-sm rounded-modal bg-3 p-xl shadow-card-soft animate-in fade-in zoom-in duration-200" >
+        <h3 className="text-Section-Title text-4" >{title}</h3>
         
         {description && (
-          <p className="mt-sm text-Body-Primary-KR text-5 dark:text-gray-400 whitespace-pre-wrap" >
+          <p className="mt-sm text-Body-Primary-KR text-5 whitespace-pre-wrap" >
             {description}
           </p>
         )}
@@ -63,7 +63,7 @@ export default function ConfirmDialog({
               계속하려면 아래에 <span className="text-error font-bold italic" >"{confirmationText}"</span>를 입력해 주세요.
             </p>
             <input
-              className="w-full rounded-input border-0 bg-2 px-md py-sm text-Body-Primary-KR focus:ring-2 focus:ring-0/20 focus:outline-none transition-all dark:bg-gray-700 dark:text-white" type="text" value={inputValue} onChange={(e) => setInputValue(e.target.value)} placeholder={`"${confirmationText}" 입력`} onKeyDown={(e) => {
+              className="w-full rounded-input border-0 bg-2 px-md py-sm text-Body-Primary-KR focus:ring-2 focus:ring-0/20 focus:outline-none transition-all" type="text" value={inputValue} onChange={(e) => setInputValue(e.target.value)} placeholder={`"${confirmationText}" 입력`} onKeyDown={(e) => {
                 if (e.key === "Enter" && !isConfirmDisabled) {
                   handleConfirm();
                 }
@@ -73,14 +73,14 @@ export default function ConfirmDialog({
 
         <div className="mt-xl flex justify-end gap-sm" >
           <button 
-            className="rounded-button border border-7 px-md py-sm text-Label text-5 hover:bg-2 transition-colors dark:border-gray-600 dark:hover:bg-gray-700" onClick={onCancel}>
+            className="rounded-button border border-7 px-md py-sm text-Label text-5 hover:bg-2 transition-colors" onClick={onCancel}>
             {cancelLabel}
           </button>
           <button
             className={cn(
               "rounded-button px-md py-sm text-Label text-white transition-all",
-              isConfirmDisabled 
-                ? "bg-gray-300 cursor-not-allowed opacity-50" 
+              isConfirmDisabled
+                ? "bg-7 cursor-not-allowed opacity-50"
                 : variant === "danger" 
                   ? "bg-error hover:scale-[1.02] active:scale-[0.98]" 
                   : "bg-0 hover:scale-[1.02] active:scale-[0.98]"

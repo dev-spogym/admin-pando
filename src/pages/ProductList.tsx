@@ -301,7 +301,7 @@ export default function ProductList() {
       </div>
 
       {/* 상품 목록 */}
-      <div className="rounded-card-normal bg-white shadow-card-soft dark:bg-gray-800" >
+      <div className="rounded-card-normal bg-3 shadow-card-soft" >
         <DataTable columns={columns} data={filteredData} title={`총 ${filteredData.length}개의 상품`} onDownloadExcel={() => alert('엑셀 다운로드를 시작합니다.')} pagination={{
             page: 1,
             pageSize: 10,

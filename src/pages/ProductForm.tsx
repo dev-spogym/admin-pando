@@ -209,7 +209,7 @@ export default function ProductForm() {
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-lg w-full max-w-[900px]" >
             {PRODUCT_TYPES.map((type) => (
               <button
-                className="group flex flex-col items-start p-xl bg-white rounded-card-strong border border-border-light shadow-card-soft hover:border-primary-coral hover:shadow-lg transition-all text-left" key={type.id} onClick={() => handleTypeSelect(type.label)}>
+                className="group flex flex-col items-start p-xl bg-3 rounded-card-strong border border-border-light shadow-card-soft hover:border-primary-coral hover:shadow-lg transition-all text-left" key={type.id} onClick={() => handleTypeSelect(type.label)}>
                 <div className={cn("p-md rounded-card-normal mb-lg transition-colors group-hover:bg-bg-soft-peach", "bg-bg-main-light-blue")} >
                   <type.icon className={cn("w-xl h-xl", type.color)} />
                 </div>
@@ -238,7 +238,7 @@ export default function ProductForm() {
           <div className="flex items-center gap-sm" >
             <button
               onClick={handleCancel}
-              className="flex items-center gap-xs px-lg py-md rounded-button border border-border-light bg-white text-text-grey-blue hover:bg-bg-main-light-blue transition-all"
+              className="flex items-center gap-xs px-lg py-md rounded-button border border-border-light bg-3 text-text-grey-blue hover:bg-bg-main-light-blue transition-all"
             >
               취소
             </button>
@@ -395,7 +395,7 @@ export default function ProductForm() {
                   )} type="number" name="period" value={formData.period} onChange={handleInputChange} min="1"/>
               </div>
               <select
-                className="w-[100px] px-md py-sm rounded-input border border-border-light bg-white text-Body 1 focus:ring-2 focus:ring-secondary-mint outline-none transition-all" name="periodUnit" value={formData.periodUnit} onChange={handleInputChange}>
+                className="w-[100px] px-md py-sm rounded-input border border-border-light bg-3 text-Body 1 focus:ring-2 focus:ring-secondary-mint outline-none transition-all" name="periodUnit" value={formData.periodUnit} onChange={handleInputChange}>
                 <option value="month">개월</option>
                 <option value="day">일</option>
               </select>
@@ -492,7 +492,7 @@ export default function ProductForm() {
               
               <div className="space-y-sm" >
                 {formData.useTimeRanges.map((range, idx) => (
-                  <div className="flex items-center gap-sm bg-white p-sm rounded-button border border-border-light shadow-sm" key={idx}>
+                  <div className="flex items-center gap-sm bg-3 p-sm rounded-button border border-border-light shadow-sm" key={idx}>
                     <span className="text-Label bg-bg-main-light-blue px-sm py-[2px] rounded-full w-[50px] text-center" >{range.day}</span>
                     <div className="flex items-center gap-xs text-Body 2" >
                       <input className="border-none p-0 w-[65px] outline-none" type="time" defaultValue={range.startTime}/>
@@ -509,26 +509,26 @@ export default function ProductForm() {
 
             {/* 판매 노출 및 구매 권한 */}
             <div className="md:col-span-2 grid grid-cols-1 md:grid-cols-3 gap-md" >
-              <div className="p-md bg-white border border-border-light rounded-card-normal shadow-sm" >
+              <div className="p-md bg-3 border border-border-light rounded-card-normal shadow-sm" >
                 <div className="flex items-center justify-between" >
                   <span className="text-Body 2 font-medium text-text-dark-grey" >키오스크 판매 노출</span>
                   <input className="w-5 h-5 accent-primary-coral" type="checkbox" checked={formData.isKioskExposed} onChange={() => handleToggle("isKioskExposed")}/>
                 </div>
                 <p className="mt-xs text-[12px] text-text-grey-blue" >키오스크 상품 목록에 카드가로 노출됩니다.</p>
               </div>
-              <div className="p-md bg-white border border-border-light rounded-card-normal shadow-sm" >
+              <div className="p-md bg-3 border border-border-light rounded-card-normal shadow-sm" >
                 <div className="flex items-center justify-between" >
                   <span className="text-Body 2 font-medium text-text-dark-grey" >신규 고객 구매 가능</span>
                   <input className="w-5 h-5 accent-secondary-mint" type="checkbox" checked={formData.isNewCustomerBuyable} onChange={() => handleToggle("isNewCustomerBuyable")}/>
                 </div>
                 <p className="mt-xs text-[12px] text-text-grey-blue" >회원 가입과 동시에 구매가 가능합니다.</p>
               </div>
-              <div className="p-md bg-white border border-border-light rounded-card-normal shadow-sm" >
+              <div className="p-md bg-3 border border-border-light rounded-card-normal shadow-sm" >
                 <div className="flex items-center justify-between" >
                   <span className="text-Body 2 font-medium text-text-dark-grey" >사용 여부</span>
                   <div className="relative inline-flex items-center cursor-pointer" onClick={() => handleToggle("isUsed")}>
-                    <div className={cn("w-11 h-6 bg-gray-200 rounded-full transition-colors", formData.isUsed && "bg-secondary-mint")} />
-                    <div className={cn("absolute left-[2px] top-[2px] bg-white w-5 h-5 rounded-full transition-transform shadow-sm", formData.isUsed && "translate-x-full")} />
+                    <div className={cn("w-11 h-6 bg-7 rounded-full transition-colors", formData.isUsed && "bg-secondary-mint")} />
+                    <div className={cn("absolute left-[2px] top-[2px] bg-3 w-5 h-5 rounded-full transition-transform shadow-sm", formData.isUsed && "translate-x-full")} />
                   </div>
                 </div>
                 <p className="mt-xs text-[12px] text-text-grey-blue" >미사용 설정 시 상품 목록에서 숨겨집니다.</p>
@@ -539,7 +539,7 @@ export default function ProductForm() {
       </div>
 
       {/* 하단 플로팅 액션 바 (반응형) */}
-      <div className="fixed bottom-0 left-0 right-0 md:left-[260px] bg-white/80 backdrop-blur-md border-t border-border-light p-md px-lg flex items-center justify-between z-10" >
+      <div className="fixed bottom-0 left-0 right-0 md:left-[260px] bg-3/80 backdrop-blur-md border-t border-border-light p-md px-lg flex items-center justify-between z-10" >
         <div className="hidden md:flex items-center gap-md" >
            <StatusBadge variant={formData.isUsed ? "success" : "default"} dot={true} label={formData.isUsed ? "판매중" : "판매중지"}/>
            <span className="text-Body 2 text-text-grey-blue" >| {formData.itemType || "상품 유형 미지정"}</span>

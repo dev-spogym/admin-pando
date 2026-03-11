@@ -175,7 +175,7 @@ export default function ContractWizard() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-md" >
                 {(MOCK_PRODUCTS as any)[activeCategory].map((p: any) => (
                   <div
-                    className="p-lg border border-border-light rounded-card-normal hover:border-secondary-mint transition-all cursor-pointer group bg-white shadow-card-soft" key={p.id} onClick={() => {
+                    className="p-lg border border-border-light rounded-card-normal hover:border-secondary-mint transition-all cursor-pointer group bg-3 shadow-card-soft" key={p.id} onClick={() => {
                       if (!selectedProducts.find(item => item.id === p.id)) {
                         setSelectedProducts([...selectedProducts, p]);
                       }
@@ -202,7 +202,7 @@ export default function ContractWizard() {
                   <p className="text-Body 2 text-text-grey-blue py-xl text-center" >상품을 선택해주세요.</p>
                 ) : (
                   selectedProducts.map((p, idx) => (
-                    <div className="bg-white p-md rounded-card-normal flex justify-between items-center shadow-sm" key={idx}>
+                    <div className="bg-3 p-md rounded-card-normal flex justify-between items-center shadow-sm" key={idx}>
                       <div >
                         <p className="text-Body 2 font-semibold text-text-dark-grey" >{p.name}</p>
                         <p className="text-Label text-primary-coral" >{p.price.toLocaleString()}원</p>
@@ -289,7 +289,7 @@ export default function ContractWizard() {
                         "flex items-center gap-md p-lg rounded-card-normal border-2 transition-all text-left",
                         paymentMethod === method.id 
                           ? "border-secondary-mint bg-bg-soft-mint text-secondary-mint" 
-                          : "border-border-light bg-white text-text-grey-blue hover:border-secondary-mint/50"
+                          : "border-border-light bg-3 text-text-grey-blue hover:border-secondary-mint/50"
                       )} key={method.id} onClick={() => setPaymentMethod(method.id)}>
                       <method.icon size={24}/>
                       <span className="font-bold" >{method.label}</span>
@@ -316,7 +316,7 @@ export default function ContractWizard() {
               </FormSection>
             </div>
 
-            <div className="flex flex-col items-center justify-center p-xxl bg-white rounded-card-strong border-2 border-dashed border-border-light" >
+            <div className="flex flex-col items-center justify-center p-xxl bg-3 rounded-card-strong border-2 border-dashed border-border-light" >
               <div className="w-[80px] h-[80px] bg-bg-soft-mint rounded-full flex items-center justify-center text-secondary-mint mb-lg" >
                 <CreditCard size={40}/>
               </div>
@@ -334,7 +334,7 @@ export default function ContractWizard() {
       case 5:
         return (
           <div className="space-y-xl animate-in fade-in slide-in-from-bottom-4 duration-500" >
-            <div className="bg-white rounded-card-strong border border-border-light overflow-hidden shadow-card-soft" >
+            <div className="bg-3 rounded-card-strong border border-border-light overflow-hidden shadow-card-soft" >
               <div className="bg-bg-main-light-blue p-lg border-b border-border-light flex justify-between items-center" >
                 <h3 className="text-Heading 2 text-text-dark-grey" >계약서 미리보기</h3>
                 <StatusBadge variant="info" label="전자계약 표준약관 준수"/>
@@ -398,7 +398,7 @@ export default function ContractWizard() {
                   </h3>
                   <button className="text-Label text-text-grey-blue hover:text-error" >서명 지우기</button>
                 </div>
-                <div className="bg-white h-[200px] rounded-card-normal border border-border-light flex items-center justify-center text-text-grey-blue cursor-crosshair" >
+                <div className="bg-3 h-[200px] rounded-card-normal border border-border-light flex items-center justify-center text-text-grey-blue cursor-crosshair" >
                   <p className="select-none" >여기에 서명해 주세요</p>
                 </div>
               </div>
@@ -418,7 +418,7 @@ export default function ContractWizard() {
             <div className="flex items-center gap-sm">
               <button 
                 onClick={() => moveToPage(970)}
-                className="px-lg py-md rounded-button border border-border-light text-text-grey-blue hover:bg-white transition-all"
+                className="px-lg py-md rounded-button border border-border-light text-text-grey-blue hover:bg-3 transition-all"
               >
                 취소
               </button>
@@ -438,7 +438,7 @@ export default function ContractWizard() {
                         ? "bg-primary-coral text-white shadow-lg shadow-primary-coral/30 scale-110" 
                         : step > s.id 
                           ? "bg-secondary-mint text-white" 
-                          : "bg-white border border-border-light text-text-grey-blue"
+                          : "bg-3 border border-border-light text-text-grey-blue"
                     )} >
                     {step > s.id ? <CheckCircle2 size={24}/> : <s.icon size={24}/>}
                   </div>
@@ -471,8 +471,8 @@ export default function ContractWizard() {
             className={cn(
               "flex items-center gap-sm px-xl py-lg rounded-button font-bold transition-all",
               step === 1 
-                ? "text-gray-300 cursor-not-allowed" 
-                : "text-text-grey-blue hover:bg-white hover:text-text-dark-grey"
+                ? "text-8 cursor-not-allowed"
+                : "text-text-grey-blue hover:bg-3 hover:text-text-dark-grey"
             )} onClick={prevStep} disabled={step === 1}>
             <ChevronLeft size={20}/> 이전
           </button>

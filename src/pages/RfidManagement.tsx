@@ -350,7 +350,7 @@ export default function RfidManagement() {
       {/* 밴드/카드 등록 & 수정 모달 */}
       {isAddModalOpen && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 backdrop-blur-sm p-md" >
-          <div className="w-full max-w-2xl rounded-modal bg-white shadow-card-soft overflow-hidden flex flex-col max-h-[90vh] animate-in fade-in zoom-in duration-200" >
+          <div className="w-full max-w-2xl rounded-modal bg-3 shadow-card-soft overflow-hidden flex flex-col max-h-[90vh] animate-in fade-in zoom-in duration-200" >
             <div className="flex items-center justify-between p-xl border-b border-border-light bg-bg-soft-peach/30" >
               <div >
                 <h2 className="text-Heading 2 text-text-dark-grey" >
@@ -360,7 +360,7 @@ export default function RfidManagement() {
                   RFID 리더기를 통해 ID를 자동 입력하거나 수동으로 입력할 수 있습니다.
                 </p>
               </div>
-              <button className="p-sm hover:bg-white rounded-full transition-colors" onClick={closeAddModal}>
+              <button className="p-sm hover:bg-3 rounded-full transition-colors" onClick={closeAddModal}>
                 <X className="text-text-grey-blue" size={24}/>
               </button>
             </div>
@@ -447,7 +447,7 @@ export default function RfidManagement() {
       {/* 사용 이력 모달 */}
       {isHistoryModalOpen && selectedItem && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 backdrop-blur-sm p-md" >
-          <div className="w-full max-w-3xl rounded-modal bg-white shadow-card-soft overflow-hidden flex flex-col max-h-[85vh] animate-in fade-in zoom-in duration-200" >
+          <div className="w-full max-w-3xl rounded-modal bg-3 shadow-card-soft overflow-hidden flex flex-col max-h-[85vh] animate-in fade-in zoom-in duration-200" >
             <div className="flex items-center justify-between p-xl border-b border-border-light" >
               <div >
                 <h2 className="text-Heading 2 text-text-dark-grey flex items-center gap-sm" >
@@ -458,7 +458,7 @@ export default function RfidManagement() {
                   밴드 ID: <span className="font-bold text-text-dark-grey" >{selectedItem.rfidId}</span> 의 발급 및 사용 기록입니다.
                 </p>
               </div>
-              <button className="p-sm hover:bg-gray-100 rounded-full transition-colors" onClick={() => setIsHistoryModalOpen(false)}>
+              <button className="p-sm hover:bg-2 rounded-full transition-colors" onClick={() => setIsHistoryModalOpen(false)}>
                 <X className="text-text-grey-blue" size={24}/>
               </button>
             </div>

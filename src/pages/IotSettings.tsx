@@ -310,14 +310,14 @@ export default function IotSettings() {
               </div>
               <label className="relative inline-flex items-center cursor-pointer" >
                 <input className="sr-only peer" type="checkbox"/>
-                <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-secondary-mint" ></div>
+                <div className="w-11 h-6 bg-7 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-8 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-secondary-mint" ></div>
               </label>
             </div>
           </div>
         </FormSection>
 
         <div className="flex justify-end gap-sm" >
-          <button className="px-xl py-md bg-white border border-border-light text-text-dark-grey rounded-button text-Body 1 font-semibold hover:bg-input-bg-light transition-colors" >
+          <button className="px-xl py-md bg-3 border border-border-light text-text-dark-grey rounded-button text-Body 1 font-semibold hover:bg-input-bg-light transition-colors" >
             초기화
           </button>
           <button className="px-xl py-md bg-secondary-mint text-white rounded-button text-Body 1 font-semibold hover:opacity-90 shadow-lg shadow-secondary-mint/20 transition-all" >
@@ -334,7 +334,7 @@ export default function IotSettings() {
           <div className="flex items-center gap-sm">
             <button 
               onClick={() => moveToPage(994)}
-              className="flex items-center gap-xs px-md py-sm bg-white border border-border-light text-text-grey-blue rounded-button text-Label font-semibold hover:bg-input-bg-light transition-all"
+              className="flex items-center gap-xs px-md py-sm bg-3 border border-border-light text-text-grey-blue rounded-button text-Label font-semibold hover:bg-input-bg-light transition-all"
             >
               <Settings2 size={18} />
               키오스크 설정
@@ -350,7 +350,7 @@ export default function IotSettings() {
           </div>
         }>
         <TabNav 
-          className="bg-white px-lg rounded-t-card-normal border-x border-t border-border-light" tabs={tabs} activeTab={activeTab} onTabChange={setActiveTab}/>
+          className="bg-3 px-lg rounded-t-card-normal border-x border-t border-border-light" tabs={tabs} activeTab={activeTab} onTabChange={setActiveTab}/>
       </PageHeader>
 
       <div className="animate-in fade-in slide-in-from-bottom-2 duration-500" >

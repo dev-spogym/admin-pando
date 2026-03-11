@@ -121,7 +121,7 @@ const CalendarGrid = ({ viewType, events }: { viewType: string; events: any[] })
   const days = ["일", "월", "화", "수", "목", "금", "토"];
   
   return (
-    <div className="bg-white rounded-card-normal border border-border-light overflow-hidden shadow-card-soft" >
+    <div className="bg-3 rounded-card-normal border border-border-light overflow-hidden shadow-card-soft" >
       <div className="grid grid-cols-8 border-b border-border-light bg-bg-main-light-blue/30" >
         <div className="p-md border-r border-border-light text-center text-Label text-text-grey-blue font-bold" >시간</div>
         {days.map((day, idx) => (
@@ -242,40 +242,40 @@ export default function Calendar() {
       <div className="space-y-lg" >
         {activeTab === "schedule" && (
           <>
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-md bg-white p-md rounded-card-normal border border-border-light shadow-card-soft" >
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-md bg-3 p-md rounded-card-normal border border-border-light shadow-card-soft" >
               <div className="flex items-center gap-md" >
                 <div className="flex items-center bg-input-bg-light rounded-button p-xs" >
                   <button 
                     className={cn(
                       "px-lg py-xs text-Label font-bold rounded-button transition-all",
-                      calendarView === "month" ? "bg-white text-primary-coral shadow-sm" : "text-text-grey-blue hover:text-text-dark-grey"
+                      calendarView === "month" ? "bg-3 text-primary-coral shadow-sm" : "text-text-grey-blue hover:text-text-dark-grey"
                     )} onClick={() => setCalendarView("month")}>
                     월
                   </button>
                   <button 
                     className={cn(
                       "px-lg py-xs text-Label font-bold rounded-button transition-all",
-                      calendarView === "week" ? "bg-white text-primary-coral shadow-sm" : "text-text-grey-blue hover:text-text-dark-grey"
+                      calendarView === "week" ? "bg-3 text-primary-coral shadow-sm" : "text-text-grey-blue hover:text-text-dark-grey"
                     )} onClick={() => setCalendarView("week")}>
                     주
                   </button>
                   <button 
                     className={cn(
                       "px-lg py-xs text-Label font-bold rounded-button transition-all",
-                      calendarView === "day" ? "bg-white text-primary-coral shadow-sm" : "text-text-grey-blue hover:text-text-dark-grey"
+                      calendarView === "day" ? "bg-3 text-primary-coral shadow-sm" : "text-text-grey-blue hover:text-text-dark-grey"
                     )} onClick={() => setCalendarView("day")}>
                     일
                   </button>
                 </div>
                 <div className="flex items-center gap-sm" >
-                  <button className="p-xs rounded-full hover:bg-gray-100 text-text-grey-blue" >
+                  <button className="p-xs rounded-full hover:bg-2 text-text-grey-blue" >
                     <ChevronLeft size={20}/>
                   </button>
                   <span className="text-Body 1 font-bold text-text-dark-grey" >2026.02.15 ~ 2026.02.21</span>
-                  <button className="p-xs rounded-full hover:bg-gray-100 text-text-grey-blue" >
+                  <button className="p-xs rounded-full hover:bg-2 text-text-grey-blue" >
                     <ChevronRight size={20}/>
                   </button>
-                  <button className="px-md py-xs border border-border-light rounded-button text-Label font-semibold text-text-grey-blue hover:bg-gray-50" >
+                  <button className="px-md py-xs border border-border-light rounded-button text-Label font-semibold text-text-grey-blue hover:bg-2" >
                     오늘
                   </button>
                 </div>
@@ -313,7 +313,7 @@ export default function Calendar() {
                     header: "관리",
                     align: "center",
                     render: () => (
-                      <button className="p-sm hover:bg-gray-100 rounded-full text-text-grey-blue" >
+                      <button className="p-sm hover:bg-2 rounded-full text-text-grey-blue" >
                         <MoreHorizontal size={16}/>
                       </button>
                     )
@@ -323,7 +323,7 @@ export default function Calendar() {
         )}
 
         {activeTab === "counts" && (
-           <div className="bg-white rounded-card-normal border border-border-light p-xxl text-center shadow-card-soft" >
+           <div className="bg-3 rounded-card-normal border border-border-light p-xxl text-center shadow-card-soft" >
              <div className="w-20 h-20 bg-bg-soft-peach rounded-full flex items-center justify-center text-primary-coral mx-auto mb-lg" >
                <Clock size={40}/>
              </div>
@@ -337,7 +337,7 @@ export default function Calendar() {
             <div className="flex items-center justify-between" >
               <h3 className="text-Heading 2 text-text-dark-grey" >페널티 부여 내역</h3>
               <div className="flex items-center gap-sm" >
-                 <button className="flex items-center gap-xs px-md py-sm border border-border-light rounded-button text-Label font-semibold text-text-grey-blue hover:bg-gray-50" >
+                 <button className="flex items-center gap-xs px-md py-sm border border-border-light rounded-button text-Label font-semibold text-text-grey-blue hover:bg-2" >
                    <Filter size={14}/>
                    필터
                  </button>
@@ -411,10 +411,10 @@ export default function Calendar() {
       {/* Class Registration Modal (Mockup) */}
       {isModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-md" >
-          <div className="bg-white rounded-modal w-full max-w-[800px] max-h-[90vh] overflow-y-auto shadow-2xl animate-in fade-in zoom-in duration-200" >
-            <div className="sticky top-0 bg-white px-xl py-lg border-b border-border-light flex items-center justify-between z-10" >
+          <div className="bg-3 rounded-modal w-full max-w-[800px] max-h-[90vh] overflow-y-auto shadow-2xl animate-in fade-in zoom-in duration-200" >
+            <div className="sticky top-0 bg-3 px-xl py-lg border-b border-border-light flex items-center justify-between z-10" >
               <h2 className="text-Heading 2 text-text-dark-grey" >{selectedEvent ? "수업 수정" : "새 수업 등록"}</h2>
-              <button className="p-sm hover:bg-gray-100 rounded-full transition-colors" onClick={() => setIsModalOpen(false)}>
+              <button className="p-sm hover:bg-2 rounded-full transition-colors" onClick={() => setIsModalOpen(false)}>
                 <XCircle className="text-text-grey-blue" size={24}/>
               </button>
             </div>
@@ -474,15 +474,15 @@ export default function Calendar() {
                     <div className="p-md bg-bg-main-light-blue/50 rounded-card-normal space-y-md" >
                       <div className="flex flex-wrap gap-xs" >
                         {["월", "화", "수", "목", "금", "토", "일"].map(day => (
-                          <button className="w-10 h-10 rounded-full bg-white border border-border-light text-Label font-bold text-text-grey-blue hover:border-primary-coral hover:text-primary-coral transition-colors" key={day}>
+                          <button className="w-10 h-10 rounded-full bg-3 border border-border-light text-Label font-bold text-text-grey-blue hover:border-primary-coral hover:text-primary-coral transition-colors" key={day}>
                             {day}
                           </button>
                         ))}
                       </div>
                       <div className="flex items-center gap-sm" >
-                        <input className="flex-1 h-10 rounded-input bg-white border border-border-light px-md text-Body 2 outline-none" type="date" placeholder="시작일"/>
+                        <input className="flex-1 h-10 rounded-input bg-3 border border-border-light px-md text-Body 2 outline-none" type="date" placeholder="시작일"/>
                         <span className="text-text-grey-blue" >~</span>
-                        <input className="flex-1 h-10 rounded-input bg-white border border-border-light px-md text-Body 2 outline-none" type="date" placeholder="종료일"/>
+                        <input className="flex-1 h-10 rounded-input bg-3 border border-border-light px-md text-Body 2 outline-none" type="date" placeholder="종료일"/>
                       </div>
                     </div>
                   </div>
@@ -530,7 +530,7 @@ export default function Calendar() {
 
             <div className="sticky bottom-0 bg-bg-main-light-blue/50 backdrop-blur-sm px-xl py-lg border-t border-border-light flex items-center justify-end gap-md z-10" >
               <button 
-                className="px-xl py-md rounded-button text-Body 1 font-bold text-text-grey-blue hover:bg-gray-200 transition-all" onClick={() => setIsModalOpen(false)}>
+                className="px-xl py-md rounded-button text-Body 1 font-bold text-text-grey-blue hover:bg-7 transition-all" onClick={() => setIsModalOpen(false)}>
                 취소
               </button>
               <button 

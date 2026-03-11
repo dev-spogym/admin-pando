@@ -127,14 +127,14 @@ export default function AutoAlarm() {
           <div className="flex gap-sm">
             <button 
               onClick={() => moveToPage(980)}
-              className="flex items-center gap-xs rounded-button border border-border-light bg-white px-md py-sm text-Body-2 font-medium text-text-dark-grey hover:bg-bg-soft-peach hover:text-primary-coral transition-colors"
+              className="flex items-center gap-xs rounded-button border border-border-light bg-3 px-md py-sm text-Body-2 font-medium text-text-dark-grey hover:bg-bg-soft-peach hover:text-primary-coral transition-colors"
             >
               <MessageSquare size={16} />
               메시지 발송
             </button>
             <button 
               onClick={handleUseAll}
-              className="flex items-center gap-xs rounded-button border border-border-light bg-white px-md py-sm text-Body-2 font-medium text-text-dark-grey hover:bg-bg-soft-peach hover:text-primary-coral transition-colors"
+              className="flex items-center gap-xs rounded-button border border-border-light bg-3 px-md py-sm text-Body-2 font-medium text-text-dark-grey hover:bg-bg-soft-peach hover:text-primary-coral transition-colors"
             >
               <CheckCircle2 size={16} />
               모두 사용
@@ -150,7 +150,7 @@ export default function AutoAlarm() {
 
       {/* Global Settings & Stats */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-lg mb-xl" >
-        <div className="bg-white p-lg rounded-card-normal border border-border-light shadow-card-soft" >
+        <div className="bg-3 p-lg rounded-card-normal border border-border-light shadow-card-soft" >
           <label className="block text-Label text-text-grey-blue mb-sm" >발신 번호</label>
           <div className="relative" >
             <select
@@ -202,7 +202,7 @@ export default function AutoAlarm() {
       {/* Template Edit Modal */}
       {isModalOpen && editingTrigger && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 p-lg" >
-          <div className="w-full max-w-[800px] bg-white rounded-modal shadow-xl overflow-hidden animate-in fade-in zoom-in duration-200" >
+          <div className="w-full max-w-[800px] bg-3 rounded-modal shadow-xl overflow-hidden animate-in fade-in zoom-in duration-200" >
             <div className="flex items-center justify-between border-b border-border-light px-xl py-lg" >
               <div className="flex items-center gap-sm" >
                 <div className="rounded-full bg-bg-soft-peach p-sm" >
@@ -230,7 +230,7 @@ export default function AutoAlarm() {
                           "flex items-center justify-center gap-xs rounded-button border py-sm text-Body-2 transition-all",
                           modalData.channel === ch 
                             ? "border-secondary-mint bg-bg-soft-mint text-secondary-mint font-bold" 
-                            : "border-border-light bg-white text-text-grey-blue hover:bg-input-bg-light"
+                            : "border-border-light bg-3 text-text-grey-blue hover:bg-input-bg-light"
                         )} key={ch} onClick={() => setModalData(prev => ({ ...prev, channel: ch as any }))}>
                         {ch === 'talk' && '알림톡'}
                         {ch === 'sms' && 'SMS'}
@@ -298,7 +298,7 @@ export default function AutoAlarm() {
                     <div className="w-16 h-4 rounded-full bg-black/30" ></div>
                   </div>
                   <div className="mt-8 p-md space-y-md" >
-                    <div className="bg-white rounded-[16px] p-md shadow-sm" >
+                    <div className="bg-3 rounded-[16px] p-md shadow-sm" >
                       <div className="flex items-center gap-xs mb-sm" >
                         <div className="w-6 h-6 rounded-full bg-primary-coral flex items-center justify-center" >
                           <Smartphone className="text-white" size={12}/>
@@ -313,7 +313,7 @@ export default function AutoAlarm() {
                   </div>
                 </div>
                 <div className="flex gap-sm mt-md" >
-                  <button className="flex items-center gap-xs rounded-full bg-white px-md py-sm border border-border-light text-[12px] text-text-grey-blue hover:text-primary-coral transition-colors" >
+                  <button className="flex items-center gap-xs rounded-full bg-3 px-md py-sm border border-border-light text-[12px] text-text-grey-blue hover:text-primary-coral transition-colors" >
                     <Smartphone size={14}/>
                     테스트 발송
                   </button>
@@ -323,7 +323,7 @@ export default function AutoAlarm() {
 
             <div className="flex items-center justify-end gap-sm border-t border-border-light bg-input-bg-light px-xl py-lg" >
               <button
-                className="rounded-button border border-border-light bg-white px-xl py-md text-Body-2 font-medium text-text-grey-blue hover:bg-gray-50 transition-colors" onClick={() => setIsModalOpen(false)}>
+                className="rounded-button border border-border-light bg-3 px-xl py-md text-Body-2 font-medium text-text-grey-blue hover:bg-2 transition-colors" onClick={() => setIsModalOpen(false)}>
                 취소
               </button>
               <button
@@ -345,12 +345,12 @@ function TriggerItem({ trigger, onToggle, onEdit }: { trigger: Trigger; onToggle
     <div className={cn(
       "relative group flex items-start gap-md p-lg rounded-card-normal border transition-all",
       trigger.status === 'ON' 
-        ? "bg-white border-secondary-mint shadow-sm" 
+        ? "bg-3 border-secondary-mint shadow-sm" 
         : "bg-input-bg-light border-border-light grayscale opacity-70"
     )} >
       <div className={cn(
         "flex-shrink-0 w-12 h-12 rounded-full flex items-center justify-center transition-colors",
-        trigger.status === 'ON' ? "bg-bg-soft-mint text-secondary-mint" : "bg-white text-text-grey-blue"
+        trigger.status === 'ON' ? "bg-bg-soft-mint text-secondary-mint" : "bg-3 text-text-grey-blue"
       )} >
         {trigger.id.includes('01') ? <User size={22}/> : <Ticket size={22}/>}
       </div>
@@ -369,7 +369,7 @@ function TriggerItem({ trigger, onToggle, onEdit }: { trigger: Trigger; onToggle
                 trigger.status === 'ON' ? "bg-secondary-mint" : "bg-text-grey-blue/30"
               )} onClick={onToggle}>
               <span className={cn(
-                "inline-block h-4 w-4 transform rounded-full bg-white transition-transform",
+                "inline-block h-4 w-4 transform rounded-full bg-3 transition-transform",
                 trigger.status === 'ON' ? "translate-x-6" : "translate-x-1"
               )} />
             </button>

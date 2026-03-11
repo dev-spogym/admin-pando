@@ -264,7 +264,7 @@ export default function MemberForm() {
                       </>
                     )}
                   </div>
-                  <button className="absolute bottom-0 right-0 p-sm bg-white rounded-full shadow-card-soft border border-border-light text-text-grey-blue hover:text-primary-coral" >
+                  <button className="absolute bottom-0 right-0 p-sm bg-3 rounded-full shadow-card-soft border border-border-light text-text-grey-blue hover:text-primary-coral" >
                     <Camera size={16}/>
                   </button>
                 </div>
@@ -472,7 +472,7 @@ export default function MemberForm() {
               <button
                 className={cn(
                   "flex items-center gap-xs px-xl py-md rounded-button text-white transition-all shadow-md",
-                  isSubmitting ? "bg-gray-400 cursor-not-allowed" : "bg-secondary-mint hover:bg-[#3dbdb8] active:scale-[0.98]"
+                  isSubmitting ? "bg-7 cursor-not-allowed" : "bg-secondary-mint hover:bg-[#3dbdb8] active:scale-[0.98]"
                 )} onClick={handleSave} disabled={isSubmitting}>
                 {isSubmitting ? (
                   <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />

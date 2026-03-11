@@ -105,8 +105,8 @@ export default function MemberForm({ memberId }: { memberId?: string }) {
   };
 
   // --- 렌더링 헬퍼 ---
-  const inputClass = "w-full rounded-input border border-border-light bg-input-bg-light px-md py-sm text-Body-2 focus:border-secondary-mint focus:outline-none transition-all dark:bg-gray-700 dark:border-gray-600 dark:text-white";
-  const labelClass = "mb-sm block text-Label text-text-grey-blue dark:text-gray-400";
+  const inputClass = "w-full rounded-input border border-border-light bg-input-bg-light px-md py-sm text-Body-2 focus:border-secondary-mint focus:outline-none transition-all";
+  const labelClass = "mb-sm block text-Label text-text-grey-blue";
 
   return (
     <AppLayout >
@@ -116,7 +116,7 @@ export default function MemberForm({ memberId }: { memberId?: string }) {
             <div className="flex gap-sm">
               <button 
                 onClick={handleCancel}
-                className="flex items-center gap-xs rounded-button border border-border-light bg-white px-lg py-sm text-Label text-text-grey-blue hover:bg-input-bg-light transition-all dark:bg-gray-800 dark:border-gray-700"
+                className="flex items-center gap-xs rounded-button border border-border-light bg-3 px-lg py-sm text-Label text-text-grey-blue hover:bg-input-bg-light transition-all"
               >
                 <X size={16} />
                 취소
@@ -208,13 +208,13 @@ export default function MemberForm({ memberId }: { memberId?: string }) {
                 {memberTickets.length > 0 ? (
                   memberTickets.map((ticket) => (
                     <div 
-                      className="flex items-center justify-between rounded-card-normal border border-border-light bg-bg-main-light-blue p-md dark:bg-gray-800 dark:border-gray-700" key={ticket.id}>
+                      className="flex items-center justify-between rounded-card-normal border border-border-light bg-bg-main-light-blue p-md" key={ticket.id}>
                       <div className="flex items-center gap-md" >
-                        <div className="flex h-[40px] w-[40px] items-center justify-center rounded-full bg-white text-secondary-mint shadow-sm dark:bg-gray-700" >
+                        <div className="flex h-[40px] w-[40px] items-center justify-center rounded-full bg-3 text-secondary-mint shadow-sm" >
                           <Tag size={18}/>
                         </div>
                         <div >
-                          <p className="text-Body-1 font-bold text-text-dark-grey dark:text-white" >{ticket.name}</p>
+                          <p className="text-Body-1 font-bold text-text-dark-grey" >{ticket.name}</p>
                           <p className="text-Label text-text-grey-blue" >
                             만료일: {ticket.expiryDate} 
                             {ticket.remainingCount !== null && ` | 잔여: ${ticket.remainingCount}회`}
