@@ -99,7 +99,8 @@ export default function PosPayment() {
   const [isMixedPaymentModalOpen, setIsMixedPaymentModalOpen] = useState(false);
   const [isSuccessState, setIsSuccessState] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState<"card" | "cash" | "transfer" | "mixed">("card");
-  
+  const [mileageError, setMileageError] = useState<string | null>(null);
+
   // Mixed Payment States
   const [mixedCard, setMixedCard] = useState(0);
   const [mixedCash, setMixedCash] = useState(0);
@@ -133,7 +134,26 @@ export default function PosPayment() {
   const clearCart = () => {
     setCart([]);
     setMileageToUse(0);
+    setMileageError(null);
     setCashReceived(0);
+  };
+
+  // 마일리지 검증 핸들러
+  const handleMileageChange = (value: number) => {
+    setMileageError(null);
+    if (!selectedMember) return;
+    if (value < 0) return;
+    if (value > 0 && value < 1000) {
+      setMileageError('최소 사용 금액은 1,000원입니다.');
+      setMileageToUse(value);
+      return;
+    }
+    if (value > selectedMember.mileage) {
+      setMileageError(`보유 마일리지(${selectedMember.mileage.toLocaleString()}P)를 초과할 수 없습니다.`);
+      setMileageToUse(selectedMember.mileage);
+      return;
+    }
+    setMileageToUse(value);
   };
 
   // Calculations
@@ -176,6 +196,7 @@ export default function PosPayment() {
     setMemberSearch("");
     setIsSuccessState(false);
     setPaymentMethod("card");
+    setMileageError(null);
   };
 
   // Mixed Payment Logic
@@ -199,7 +220,7 @@ export default function PosPayment() {
           </div>
           <h2 className="text-KPI-Large text-5 mb-4 font-bold" >결제가 완료되었습니다</h2>
           <p className="text-Body-Primary-KR text-5 mb-10 text-center leading-1.7 break-keep" >
-            홍길동 회원님의 결제가 정상적으로 처리되었습니다.<br />
+            {selectedMember ? `${selectedMember.name} 회원님의` : '비회원'} 결제가 정상적으로 처리되었습니다.<br />
             영수증 및 계약서를 발송하시겠습니까?
           </p>
           
@@ -419,17 +440,37 @@ export default function PosPayment() {
               </div>
 
               {/* Mileage Use Input */}
-              {selectedMember && (
-                <div className="flex items-center gap-3" >
-                  <div className="flex-1 relative" >
-                    <input
-                      className="w-full bg-2/10 border border-2/20 rounded-2 px-4 py-3 text-2 text-14px font-monospace outline-none focus:border-0 transition-all placeholder:text-2/30" type="number" placeholder="마일리지 사용" value={mileageToUse || ""} onChange={(e) => setMileageToUse(Math.min(selectedMember.mileage, Number(e.target.value)))}/>
-                    <Gift className="absolute right-3 top-3 text-2/40" size={16} strokeWidth={1.5}/>
+              {selectedMember ? (
+                <div className="flex flex-col gap-2" >
+                  <div className="flex items-center gap-3" >
+                    <div className="flex-1 relative" >
+                      <input
+                        className={cn(
+                          "w-full bg-2/10 border rounded-2 px-4 py-3 text-2 text-14px font-monospace outline-none focus:border-0 transition-all placeholder:text-2/30",
+                          mileageError ? "border-red-400" : "border-2/20"
+                        )}
+                        type="number"
+                        placeholder="마일리지 사용 (최소 1,000P)"
+                        value={mileageToUse || ""}
+                        onChange={(e) => handleMileageChange(Number(e.target.value))}
+                      />
+                      <Gift className="absolute right-3 top-3 text-2/40" size={16} strokeWidth={1.5}/>
+                    </div>
+                    <button
+                      className="px-4 py-3 bg-1 text-2 rounded-2 text-1px font-bold hover:bg-1/90 transition-colors shadow-sm"
+                      onClick={() => handleMileageChange(Math.min(selectedMember.mileage, totalAmount))}
+                    >
+                      전액
+                    </button>
                   </div>
-                  <button
-                    className="px-4 py-3 bg-1 text-2 rounded-2 text-1px font-bold hover:bg-1/90 transition-colors shadow-sm" onClick={() => setMileageToUse(Math.min(selectedMember.mileage, totalAmount))}>
-                    전액
-                  </button>
+                  {mileageError && (
+                    <p className="text-red-400 text-[11px] px-1">{mileageError}</p>
+                  )}
+                </div>
+              ) : (
+                <div className="flex items-center gap-2 px-4 py-3 bg-2/5 border border-2/10 rounded-2" >
+                  <User className="text-2/30" size={16} strokeWidth={1.5}/>
+                  <span className="text-2/40 text-13px" >비회원 — 마일리지 적립/사용 불가</span>
                 </div>
               )}
 
@@ -499,11 +540,11 @@ export default function PosPayment() {
               <button
                 className={cn(
                   "w-full py-5 rounded-card-strong text-18px font-800 transition-all flex items-center justify-center gap-2 mt-2",
-                  cart.length === 0 
-                    ? "bg-2/10 text-2/20 cursor-not-allowed" 
+                  cart.length === 0 || !!mileageError
+                    ? "bg-2/10 text-2/20 cursor-not-allowed"
                     : "bg-0 text-2 hover:scale-[1.02] active:scale-[0.98] shadow-xl shadow-0/30"
-                )} disabled={cart.length === 0} onClick={handlePaymentConfirm}>
-                {cart.length === 0 ? "상품을 선택해주세요" : `₩${finalAmount.toLocaleString()} 결제하기`}
+                )} disabled={cart.length === 0 || !!mileageError} onClick={handlePaymentConfirm}>
+                {cart.length === 0 ? "상품을 선택해주세요" : mileageError ? "마일리지 오류 확인" : `₩${finalAmount.toLocaleString()} 결제하기`}
               </button>
             </div>
           </div>

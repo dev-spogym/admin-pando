@@ -182,13 +182,54 @@ const MOCK_SALES_DATA = [
   }
 ];
 
+// 기간 프리셋 계산 유틸
+const getPresetRange = (preset: string): { start: string; end: string } => {
+  const today = new Date('2026-03-11');
+  const fmt = (d: Date) => d.toISOString().split('T')[0];
+
+  if (preset === '오늘') {
+    return { start: fmt(today), end: fmt(today) };
+  }
+  if (preset === '이번주') {
+    const day = today.getDay(); // 0=일
+    const mon = new Date(today);
+    mon.setDate(today.getDate() - (day === 0 ? 6 : day - 1));
+    const sun = new Date(mon);
+    sun.setDate(mon.getDate() + 6);
+    return { start: fmt(mon), end: fmt(sun) };
+  }
+  if (preset === '이번달') {
+    const start = new Date(today.getFullYear(), today.getMonth(), 1);
+    const end = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+    return { start: fmt(start), end: fmt(end) };
+  }
+  if (preset === '이번분기') {
+    const q = Math.floor(today.getMonth() / 3);
+    const start = new Date(today.getFullYear(), q * 3, 1);
+    const end = new Date(today.getFullYear(), q * 3 + 3, 0);
+    return { start: fmt(start), end: fmt(end) };
+  }
+  return { start: fmt(today), end: fmt(today) };
+};
+
 export default function Sales() {
   const [activeTab, setActiveTab] = useState('TAB-001');
   const [searchValue, setSearchValue] = useState('');
+  const [activePreset, setActivePreset] = useState<string | null>(null);
   const [filterValues, setFilterValues] = useState<Record<string, any>>({
     dateRangeStart: '2026-02-01',
     dateRangeEnd: '2026-02-28'
   });
+
+  const handlePreset = (preset: string) => {
+    if (preset === '커스텀') {
+      setActivePreset('커스텀');
+      return;
+    }
+    const { start, end } = getPresetRange(preset);
+    setActivePreset(preset);
+    setFilterValues(prev => ({ ...prev, dateRangeStart: start, dateRangeEnd: end }));
+  };
 
   // --- Filtering & Logic ---
   const filteredData = useMemo(() => {
@@ -206,8 +247,11 @@ export default function Sales() {
   }, [searchValue, filterValues, activeTab]);
 
   const summary = useMemo(() => {
-    return filteredData.reduce((acc, curr) => {
-      acc.total += curr.salePrice;
+    const raw = filteredData.reduce((acc, curr) => {
+      // 환불 항목은 총매출에서 제외하고 refund에만 합산
+      if (curr.status !== '환불') {
+        acc.total += curr.salePrice;
+      }
       acc.card += curr.card;
       acc.cash += curr.cash;
       acc.mileage += curr.mileage;
@@ -216,6 +260,8 @@ export default function Sales() {
       if (curr.status === '환불') acc.refund += curr.salePrice;
       return acc;
     }, { total: 0, card: 0, cash: 0, mileage: 0, unpaid: 0, discount: 0, refund: 0 });
+    // 순매출 = 매출 합계 - 환불 금액
+    return { ...raw, netTotal: raw.total - raw.refund };
   }, [filteredData]);
 
   // --- Table Columns ---
@@ -328,7 +374,26 @@ export default function Sales() {
   ];
 
   const handleDownloadExcel = () => {
-    alert('엑셀 파일 다운로드를 시작합니다.');
+    const headers = ['날짜', '회원명', '상품명', '금액', '결제방식', '상태'];
+    const rows = filteredData.map(item => [
+      item.purchaseDate,
+      item.buyer,
+      item.productName,
+      item.salePrice,
+      item.paymentMethod,
+      item.status,
+    ]);
+    const csvContent = [headers, ...rows]
+      .map(row => row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(','))
+      .join('\n');
+    const bom = '\uFEFF';
+    const blob = new Blob([bom + csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `매출내역_${filterValues.dateRangeStart}_${filterValues.dateRangeEnd}.csv`;
+    link.click();
+    URL.revokeObjectURL(url);
   };
 
   return (
@@ -354,7 +419,7 @@ export default function Sales() {
 
       {/* 요약 카드 영역 */}
       <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-md mb-xl" >
-        <StatCard label="총 매출" value={`₩${summary.total.toLocaleString()}`} variant="peach" icon={<DollarSign />} change={{ value: 12.5, label: "전월 대비" }}/>
+        <StatCard label="순 매출" value={`₩${summary.netTotal.toLocaleString()}`} variant="peach" icon={<DollarSign />} change={{ value: 12.5, label: "전월 대비" }}/>
         <StatCard label="카드 결제" value={`₩${summary.card.toLocaleString()}`} icon={<CreditCard />}/>
         <StatCard label="현금 결제" value={`₩${summary.cash.toLocaleString()}`} icon={<Wallet />}/>
         <StatCard label="마일리지 사용" value={`₩${summary.mileage.toLocaleString()}`} icon={<AlertCircle className="text-information" />}/>
@@ -415,8 +480,27 @@ export default function Sales() {
 
       {/* 필터 및 목록 영역 */}
       <div className="space-y-md" >
+        {/* 기간 프리셋 버튼 그룹 */}
+        <div className="flex items-center gap-xs flex-wrap">
+          {['오늘', '이번주', '이번달', '이번분기', '커스텀'].map(preset => (
+            <button
+              key={preset}
+              onClick={() => handlePreset(preset)}
+              className={cn(
+                'px-md py-xs rounded-button text-Label font-semibold transition-all border',
+                activePreset === preset
+                  ? 'bg-primary-coral text-white border-primary-coral shadow-sm'
+                  : 'bg-white text-text-grey-blue border-border-light hover:border-primary-coral hover:text-primary-coral'
+              )}
+            >
+              {preset}
+            </button>
+          ))}
+        </div>
+
         <SearchFilter searchValue={searchValue} onSearchChange={setSearchValue} onSearch={(v) => console.log('Search:', v)} filters={filters} filterValues={filterValues} onFilterChange={(k, v) => setFilterValues(prev => ({ ...prev, [k]: v }))} onReset={() => {
             setSearchValue('');
+            setActivePreset(null);
             setFilterValues({ dateRangeStart: '2026-02-01', dateRangeEnd: '2026-02-28' });
           }}/>
 
@@ -436,6 +520,10 @@ export default function Sales() {
           <div >
             <p className="text-Label text-text-grey-blue mb-xs" >총 매출액</p>
             <p className="text-Heading 2 font-bold text-primary-coral" >₩{summary.total.toLocaleString()}</p>
+          </div>
+          <div >
+            <p className="text-Label text-text-grey-blue mb-xs" >순 매출액 <span className="text-[10px]">(환불 차감)</span></p>
+            <p className="text-Heading 2 font-bold text-secondary-mint" >₩{summary.netTotal.toLocaleString()}</p>
           </div>
           <div className="h-xxl w-[1px] bg-border-light hidden sm:block" />
           <div >

@@ -1,16 +1,16 @@
 import React, { useState, useMemo } from 'react';
-import { 
-  Plus, 
-  Search, 
-  MoreHorizontal, 
-  Edit2, 
-  Trash2, 
-  Download,
+import {
+  Plus,
+  Search,
+  Edit2,
+  Trash2,
   Package,
   CheckCircle,
   XCircle,
-  ArrowRightLeft,
-  LayoutGrid
+  LayoutGrid,
+  ArrowUp,
+  ArrowDown,
+  ArrowUpDown
 } from 'lucide-react';
 import AppLayout from '@/components/AppLayout';
 import PageHeader from '@/components/PageHeader';
@@ -31,13 +31,6 @@ const CATEGORIES = [
   { key: 'group', label: '그룹수업' },
   { key: 'option', label: '옵션' },
 ];
-
-const SUB_CATEGORIES = {
-  facility: ['헬스', '골프'],
-  pt: ['PT', '기구필라테스', '골프레슨'],
-  group: ['그룹필라테스', '그룹요가', '그룹스피닝', '그룹줌바', '그룹살세이션', '그룹기구필라테스', '그룹매트필라테스'],
-  option: ['운동복', '개인락카', '골프락카'],
-};
 
 const INITIAL_PRODUCTS = [
   {
@@ -120,36 +113,41 @@ const INITIAL_PRODUCTS = [
   },
 ];
 
+type SortKey = 'name' | 'cashPrice' | 'category' | 'status' | null;
+type SortDir = 'asc' | 'desc';
+
 export default function ProductList() {
   const [activeTab, setActiveTab] = useState('all');
   const [searchValue, setSearchValue] = useState('');
-  const [filterValues, setFilterValues] = useState({
-    status: '',
-  });
+  const [filterValues, setFilterValues] = useState({ status: '' });
   const [products, setProducts] = useState(INITIAL_PRODUCTS);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [productToDelete, setProductToDelete] = useState<number | null>(null);
+  const [sortKey, setSortKey] = useState<SortKey>(null);
+  const [sortDir, setSortDir] = useState<SortDir>('asc');
+
+  // --- 정렬 핸들러 ---
+  const handleSort = (key: SortKey) => {
+    if (sortKey === key) {
+      setSortDir(prev => (prev === 'asc' ? 'desc' : 'asc'));
+    } else {
+      setSortKey(key);
+      setSortDir('asc');
+    }
+  };
+
+  const SortIcon = ({ col }: { col: SortKey }) => {
+    if (sortKey !== col) return <ArrowUpDown size={14} className="text-text-grey-blue/50 ml-xs inline" />;
+    return sortDir === 'asc'
+      ? <ArrowUp size={14} className="text-primary-coral ml-xs inline" />
+      : <ArrowDown size={14} className="text-primary-coral ml-xs inline" />;
+  };
 
   // --- Handlers ---
-  const handleSearch = (value: string) => {
-    setSearchValue(value);
-  };
-
-  const handleFilterChange = (key: string, value: any) => {
-    setFilterValues(prev => ({ ...prev, [key]: value }));
-  };
-
-  const handleReset = () => {
-    setSearchValue('');
-    setFilterValues({ status: '' });
-    setActiveTab('all');
-  };
-
-  const handleDeleteClick = (id: number) => {
-    setProductToDelete(id);
-    setDeleteDialogOpen(true);
-  };
-
+  const handleSearch = (value: string) => setSearchValue(value);
+  const handleFilterChange = (key: string, value: any) => setFilterValues(prev => ({ ...prev, [key]: value }));
+  const handleReset = () => { setSearchValue(''); setFilterValues({ status: '' }); setActiveTab('all'); setSortKey(null); };
+  const handleDeleteClick = (id: number) => { setProductToDelete(id); setDeleteDialogOpen(true); };
   const confirmDelete = () => {
     if (productToDelete !== null) {
       setProducts(prev => prev.filter(p => p.id !== productToDelete));
@@ -158,21 +156,40 @@ export default function ProductList() {
     }
   };
 
-  // --- Filtered Data ---
+  // --- Filtered & Sorted Data ---
   const filteredData = useMemo(() => {
-    return products.filter(item => {
+    let data = products.filter(item => {
       const matchTab = activeTab === 'all' || item.categoryKey === activeTab;
       const matchSearch = item.name.toLowerCase().includes(searchValue.toLowerCase());
       const matchStatus = filterValues.status === '' || item.status === filterValues.status;
       return matchTab && matchSearch && matchStatus;
     });
-  }, [products, activeTab, searchValue, filterValues]);
+
+    if (sortKey) {
+      data = [...data].sort((a, b) => {
+        let aVal: any = a[sortKey as keyof typeof a];
+        let bVal: any = b[sortKey as keyof typeof b];
+        if (typeof aVal === 'string') aVal = aVal.localeCompare(bVal, 'ko');
+        else aVal = aVal - bVal;
+        if (typeof aVal === 'number') {
+          return sortDir === 'asc' ? aVal : -aVal;
+        }
+        return sortDir === 'asc' ? aVal : -aVal;
+      });
+    }
+
+    return data;
+  }, [products, activeTab, searchValue, filterValues, sortKey, sortDir]);
 
   // --- Table Columns ---
   const columns = [
     {
       key: 'category',
-      header: '카테고리',
+      header: (
+        <button className="flex items-center cursor-pointer select-none" onClick={() => handleSort('category')}>
+          카테고리<SortIcon col="category" />
+        </button>
+      ),
       width: '120px',
       render: (val: string) => <span className="text-Body-2 font-medium text-text-dark-grey" >{val}</span>,
     },
@@ -184,9 +201,13 @@ export default function ProductList() {
     },
     {
       key: 'name',
-      header: '상품명',
+      header: (
+        <button className="flex items-center cursor-pointer select-none" onClick={() => handleSort('name')}>
+          상품명<SortIcon col="name" />
+        </button>
+      ),
       render: (val: string) => (
-        <button // ProductForm (Edit mode placeholder)
+        <button
           className="text-Body-1 font-semibold text-text-dark-grey hover:text-primary-coral transition-colors text-left" onClick={() => moveToPage(987)}>
           {val}
         </button>
@@ -194,7 +215,11 @@ export default function ProductList() {
     },
     {
       key: 'cashPrice',
-      header: '현금가',
+      header: (
+        <button className="flex items-center cursor-pointer select-none ml-auto" onClick={() => handleSort('cashPrice')}>
+          현금가<SortIcon col="cashPrice" />
+        </button>
+      ),
       width: '140px',
       align: 'right' as const,
       render: (val: number) => <span className="text-Body-2 font-medium" >₩{val.toLocaleString()}</span>,
@@ -223,7 +248,11 @@ export default function ProductList() {
     },
     {
       key: 'status',
-      header: '상태',
+      header: (
+        <button className="flex items-center cursor-pointer select-none" onClick={() => handleSort('status')}>
+          상태<SortIcon col="status" />
+        </button>
+      ),
       width: '100px',
       align: 'center' as const,
       render: (val: string) => (
@@ -267,7 +296,7 @@ export default function ProductList() {
   return (
     <AppLayout >
       <PageHeader title="상품 관리" description="센터에서 판매하는 회원권, 수업권 및 옵션 상품을 구성하고 관리합니다." actions={
-          <button 
+          <button
             onClick={() => moveToPage(987)}
             className="flex items-center gap-xs rounded-button bg-primary-coral px-lg py-md text-Body-2 font-bold text-white shadow-sm hover:opacity-90 transition-all"
           >
@@ -286,7 +315,7 @@ export default function ProductList() {
       {/* 필터 섹션 */}
       <div className="mb-lg space-y-md" >
         <TabNav tabs={CATEGORIES} activeTab={activeTab} onTabChange={setActiveTab}/>
-        
+
         <SearchFilter searchPlaceholder="상품명으로 검색하세요" searchValue={searchValue} onSearchChange={handleSearch} filters={[
             {
               key: 'status',
