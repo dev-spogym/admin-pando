@@ -1,333 +1,546 @@
-import React, { useState } from 'react';
+import React, { useState } from "react";
 import {
   Bell,
-  ChevronRight,
-  Settings,
   Plus,
-  MoreHorizontal,
+  X,
+  CheckCircle2,
   Smartphone,
   MessageSquare,
-  Mail,
-  Info,
-  CheckCircle2,
-  AlertCircle,
-  X,
-  PlusCircle,
-  Calendar,
-  Clock,
+  ChevronRight,
+  MoreHorizontal,
   User,
+  Gift,
+  UserPlus,
+  RefreshCw,
+  PauseCircle,
+  Timer,
+  Clock,
+  ShieldCheck,
   Ticket
-} from 'lucide-react';
-import { cn } from '@/lib/utils';
-import AppLayout from '@/components/AppLayout';
-import PageHeader from '@/components/PageHeader';
-import StatCard from '@/components/StatCard';
-import StatusBadge from '@/components/StatusBadge';
-import FormSection from '@/components/FormSection';
-import ConfirmDialog from '@/components/ConfirmDialog';
-import { moveToPage } from '@/internal';
+} from "lucide-react";
+import { cn } from "@/lib/utils";
+import AppLayout from "@/components/AppLayout";
+import PageHeader from "@/components/PageHeader";
+import StatCard from "@/components/StatCard";
+import StatusBadge from "@/components/StatusBadge";
+import FormSection from "@/components/FormSection";
+import { moveToPage } from "@/internal";
 
 /**
- * SCR-024: 자동 알림 설정 (13종)
+ * SCR-071: 자동 알림 설정 (UI-101 ~ UI-102)
+ * 13종 알림 규칙 카드 + 규칙 설정 모달
  */
 
-interface Trigger {
+interface AlarmRule {
   id: string;
   name: string;
   description: string;
-  type: 'customer' | 'product';
-  status: 'ON' | 'OFF';
+  channel: "talk" | "sms" | "push";
+  type: "customer" | "product";
+  enabled: boolean;
   hasNumberInput?: boolean;
   numberValue?: number;
   numberLabel?: string;
   template?: {
-    channel: 'talk' | 'sms' | 'lms' | 'push';
     timing: string;
-    target: string[];
-    title?: string;
+    target: string;
     content: string;
   };
 }
 
+const INITIAL_RULES: AlarmRule[] = [
+  // 고객 관련 7종
+  {
+    id: "expire-d7",    name: "만료 D-7 알림",      description: "회원권 만료 7일 전 안내 발송",
+    channel: "talk", type: "customer", enabled: true,
+    hasNumberInput: true, numberValue: 7, numberLabel: "일 전",
+    template: { timing: "만료 7일 전", target: "전체 회원", content: "안녕하세요 {이름}님! 회원권이 7일 후 만료됩니다. 재등록 시 특별 혜택을 드립니다." }
+  },
+  {
+    id: "expire-d3",    name: "만료 D-3 알림",      description: "회원권 만료 3일 전 안내 발송",
+    channel: "talk", type: "customer", enabled: true,
+    hasNumberInput: true, numberValue: 3, numberLabel: "일 전",
+    template: { timing: "만료 3일 전", target: "전체 회원", content: "안녕하세요 {이름}님! 회원권이 3일 후 만료됩니다." }
+  },
+  {
+    id: "expire-d1",    name: "만료 D-1 알림",      description: "회원권 만료 1일 전 최종 안내",
+    channel: "sms", type: "customer", enabled: false,
+    hasNumberInput: true, numberValue: 1, numberLabel: "일 전",
+    template: { timing: "만료 1일 전", target: "전체 회원", content: "내일 {이름}님의 회원권이 만료됩니다." }
+  },
+  {
+    id: "birthday",     name: "생일 축하 알림",      description: "생일 당일 축하 메시지 발송",
+    channel: "talk", type: "customer", enabled: true,
+    template: { timing: "생일 당일 오전 9시", target: "전체 회원", content: "🎉 {이름}님, 생일을 축하합니다! 특별 혜택을 확인해보세요." }
+  },
+  {
+    id: "absence",      name: "장기 미출석 알림",    description: "N일 이상 미출석 회원 안내",
+    channel: "sms", type: "customer", enabled: false,
+    hasNumberInput: true, numberValue: 30, numberLabel: "일 미출석",
+    template: { timing: "미출석 30일 경과", target: "전체 회원", content: "{이름}님, 오랫동안 뵙지 못했어요. 센터에서 기다리고 있습니다." }
+  },
+  {
+    id: "new-member",   name: "신규 회원 환영 알림", description: "첫 등록 시 환영 메시지 발송",
+    channel: "talk", type: "customer", enabled: true,
+    template: { timing: "등록 즉시", target: "신규 등록 회원", content: "환영합니다 {이름}님! {센터명}에 오신 것을 환영합니다." }
+  },
+  {
+    id: "payment",      name: "결제 완료 알림",      description: "결제 완료 시 영수증 발송",
+    channel: "talk", type: "customer", enabled: true,
+    template: { timing: "결제 즉시", target: "결제 완료 회원", content: "{이름}님의 결제가 완료되었습니다. 금액: {금액}원" }
+  },
+
+  // 상품 관련 6종
+  {
+    id: "holding",      name: "상품 홀딩 알림",      description: "이용권 홀딩 처리 시 발송",
+    channel: "talk", type: "product", enabled: false,
+    template: { timing: "홀딩 처리 즉시", target: "홀딩 회원", content: "{이름}님의 이용권이 홀딩 처리되었습니다. 홀딩 기간: {기간}" }
+  },
+  {
+    id: "course-expire", name: "수강권 만료 알림",   description: "수강권 만료 당일 발송",
+    channel: "sms", type: "product", enabled: true,
+    template: { timing: "만료 당일", target: "수강권 보유 회원", content: "{이름}님의 수강권이 오늘 만료됩니다." }
+  },
+  {
+    id: "course-soon",  name: "수강권 만료 임박",    description: "수강권 만료 N일 전 발송",
+    channel: "talk", type: "product", enabled: true,
+    hasNumberInput: true, numberValue: 7, numberLabel: "일 전",
+    template: { timing: "만료 7일 전", target: "수강권 보유 회원", content: "{이름}님의 수강권이 {만료일}에 만료됩니다." }
+  },
+  {
+    id: "holding-soon", name: "홀딩 종료 임박 알림", description: "홀딩 해제 N일 전 발송",
+    channel: "sms", type: "product", enabled: false,
+    hasNumberInput: true, numberValue: 3, numberLabel: "일 전",
+    template: { timing: "홀딩 종료 3일 전", target: "홀딩 회원", content: "{이름}님의 홀딩이 {만료일}에 종료됩니다." }
+  },
+  {
+    id: "member-expire", name: "회원권 만료 알림",   description: "회원권 만료 당일 발송",
+    channel: "talk", type: "product", enabled: true,
+    template: { timing: "만료 당일", target: "전체 회원", content: "{이름}님의 회원권이 오늘 만료됩니다. 재등록을 통해 계속 이용하세요." }
+  },
+  {
+    id: "member-soon",  name: "회원권 만료 임박",    description: "회원권 만료 N일 전 발송",
+    channel: "talk", type: "product", enabled: true,
+    hasNumberInput: true, numberValue: 14, numberLabel: "일 전",
+    template: { timing: "만료 14일 전", target: "전체 회원", content: "{이름}님의 회원권이 {만료일}에 만료됩니다. 지금 재등록하세요!" }
+  },
+];
+
+const CHANNEL_ICON: Record<string, React.ReactNode> = {
+  talk: <MessageSquare size={12} />,
+  sms:  <Smartphone    size={12} />,
+  push: <Bell          size={12} />,
+};
+
+const CHANNEL_LABEL: Record<string, string> = {
+  talk: "알림톡",
+  sms:  "SMS",
+  push: "앱 푸시",
+};
+
+// --- 토글 컴포넌트 ---
+const Toggle = ({ checked, onChange }: { checked: boolean; onChange: () => void }) => (
+  <button
+    className={cn(
+      "relative inline-flex h-6 w-11 flex-shrink-0 items-center rounded-full transition-colors focus:outline-none",
+      checked ? "bg-accent" : "bg-content-secondary/30"
+    )}
+    onClick={onChange}
+  >
+    <span className={cn(
+      "inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform",
+      checked ? "translate-x-6" : "translate-x-1"
+    )} />
+  </button>
+);
+
+// --- 알림 규칙 카드 (UI-101) ---
+function RuleCard({
+  rule,
+  onToggle,
+  onEdit,
+  onNumberChange,
+}: {
+  rule: AlarmRule;
+  onToggle: () => void;
+  onEdit: () => void;
+  onNumberChange?: (val: number) => void;
+}) {
+  const [numVal, setNumVal] = useState(rule.numberValue ?? 0);
+
+  return (
+    <div className={cn(
+      "relative group flex items-start gap-md p-lg rounded-xl border transition-all",
+      rule.enabled
+        ? "bg-surface border-accent/40 shadow-sm"
+        : "bg-surface-secondary/40 border-line opacity-75"
+    )}>
+      {/* 아이콘 */}
+      <div className={cn(
+        "flex-shrink-0 w-11 h-11 rounded-full flex items-center justify-center transition-colors",
+        rule.enabled ? "bg-accent-light text-accent" : "bg-surface text-content-secondary"
+      )}>
+        {rule.type === "customer" ? <User size={20} /> : <Ticket size={20} />}
+      </div>
+
+      {/* 내용 */}
+      <div className="flex-1 min-w-0">
+        <div className="flex items-start justify-between gap-sm mb-xs">
+          <h3 className="text-Body-2 font-bold text-content truncate">{rule.name}</h3>
+          <div className="flex items-center gap-sm flex-shrink-0">
+            <button
+              className="p-xs text-content-secondary hover:text-primary transition-colors opacity-0 group-hover:opacity-100"
+              onClick={onEdit}
+              title="편집"
+            >
+              <MoreHorizontal size={16} />
+            </button>
+            <Toggle checked={rule.enabled} onChange={onToggle} />
+          </div>
+        </div>
+
+        <p className="text-Label text-content-secondary mb-sm line-clamp-1">{rule.description}</p>
+
+        {/* 발송 채널 + 숫자 입력 */}
+        <div className="flex items-center gap-sm flex-wrap">
+          <span className={cn(
+            "inline-flex items-center gap-[3px] px-sm py-[2px] rounded-full text-[11px] font-semibold border",
+            rule.enabled
+              ? "bg-primary-light text-primary border-primary/20"
+              : "bg-surface text-content-secondary border-line"
+          )}>
+            {CHANNEL_ICON[rule.channel]}
+            {CHANNEL_LABEL[rule.channel]}
+          </span>
+
+          {rule.hasNumberInput && onNumberChange && (
+            <div className="flex items-center bg-surface border border-line rounded-button px-sm gap-xs">
+              <input
+                type="number"
+                min={1}
+                className="w-10 bg-transparent border-none py-[2px] text-center text-Label font-bold text-content focus:ring-0 outline-none"
+                value={numVal}
+                onChange={e => {
+                  const v = Number(e.target.value);
+                  setNumVal(v);
+                  onNumberChange(v);
+                }}
+              />
+              <span className="text-[11px] text-content-secondary">{rule.numberLabel}</span>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* 활성 표시 dot */}
+      {rule.enabled && (
+        <span className="absolute -top-1 -right-1 flex h-3 w-3">
+          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-accent opacity-75" />
+          <span className="relative inline-flex h-3 w-3 rounded-full bg-accent" />
+        </span>
+      )}
+    </div>
+  );
+}
+
 export default function AutoAlarm() {
-  // Mock Data
-  const [triggers, setTriggers] = useState<Trigger[]>([
-    { id: 'UI-010', name: '계약 완료 시', description: '이용권 계약 완료 시 발송', type: 'customer', status: 'OFF' },
-    { id: 'UI-011', name: '대여권 구매 시', description: '락커 등 대여권 구매 시 발송', type: 'customer', status: 'OFF' },
-    { id: 'UI-012', name: '생일자 고객', description: '생일 당일 축하 메시지 발송', type: 'customer', status: 'ON' },
-    { id: 'UI-013', name: '이용권 신규 등록 시', description: '신규 회원 환영 메시지 발송', type: 'customer', status: 'ON' },
-    { id: 'UI-014', name: '이용권 재등록 시', description: '재등록 감사 메시지 발송', type: 'customer', status: 'OFF' },
-    { id: 'UI-015', name: '장기 미출석 시', description: 'N일 이상 미출석 시 발송', type: 'customer', status: 'OFF', hasNumberInput: true, numberValue: 30, numberLabel: '일 미출석' },
-    { id: 'UI-016', name: '쿠폰 만료', description: '쿠폰 만료 N일 전 발송', type: 'customer', status: 'OFF', hasNumberInput: true, numberValue: 7, numberLabel: '일 전' },
-    { id: 'UI-020', name: '상품 홀딩', description: '이용권 홀딩 처리 시 발송', type: 'product', status: 'OFF' },
-    { id: 'UI-021', name: '수강권 만료 시', description: '수강권 만료 당일 발송', type: 'product', status: 'ON' },
-    { id: 'UI-022', name: '수강권 만료 전', description: '수강권 만료 N일 전 발송', type: 'product', status: 'OFF', hasNumberInput: true, numberValue: 7, numberLabel: '일 전' },
-    { id: 'UI-023', name: '홀딩 종료 임박', description: '홀딩 해제 N일 전 발송', type: 'product', status: 'OFF', hasNumberInput: true, numberValue: 3, numberLabel: '일 전' },
-    { id: 'UI-024', name: '회원권 만료 시', description: '회원권 만료 당일 발송', type: 'product', status: 'ON' },
-    { id: 'UI-025', name: '회원권 만료 전', description: '회원권 만료 N일 전 발송', type: 'product', status: 'OFF', hasNumberInput: true, numberValue: 14, numberLabel: '일 전' },
-  ]);
+  const [rules, setRules] = useState<AlarmRule[]>(INITIAL_RULES);
+  const [isModalOpen, setIsModalOpen]     = useState(false);
+  const [editingRule, setEditingRule]     = useState<AlarmRule | null>(null);
+  const [senderNumber, setSenderNumber]   = useState("02-1234-5678");
 
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [editingTrigger, setEditingTrigger] = useState<Trigger | null>(null);
-  const [senderNumber, setSenderNumber] = useState('02-1234-5678');
-
-  // Modal states
+  // 모달 편집 상태
   const [modalData, setModalData] = useState({
-    channel: 'talk',
-    timing: '즉시',
-    targets: ['전체 회원'],
-    title: '',
-    content: '안녕하세요 {이름}님! 이용권이 만료될 예정입니다. 만료일: {만료일}',
+    channel: "talk",
+    timing:  "즉시",
+    target:  "전체 회원",
+    content: "",
   });
 
   const handleToggle = (id: string) => {
-    setTriggers(prev => prev.map(t => t.id === id ? { ...t, status: t.status === 'ON' ? 'OFF' : 'ON' } : t));
+    setRules(prev => prev.map(r => r.id === id ? { ...r, enabled: !r.enabled } : r));
   };
 
-  const handleEditClick = (trigger: Trigger) => {
-    setEditingTrigger(trigger);
+  const handleNumberChange = (id: string, val: number) => {
+    setRules(prev => prev.map(r => r.id === id ? { ...r, numberValue: val } : r));
+  };
+
+  const handleEdit = (rule: AlarmRule) => {
+    setEditingRule(rule);
     setModalData({
-      channel: 'talk',
-      timing: '즉시',
-      targets: ['전체 회원'],
-      title: '',
-      content: trigger.template?.content || `안녕하세요 {이름}님! ${trigger.name} 안내 드립니다.`,
+      channel: rule.channel,
+      timing:  rule.template?.timing  ?? "즉시",
+      target:  rule.template?.target  ?? "전체 회원",
+      content: rule.template?.content ?? `안녕하세요 {이름}님! ${rule.name} 안내 드립니다.`,
     });
     setIsModalOpen(true);
   };
 
-  const handleUseAll = () => {
-    setTriggers(prev => prev.map(t => ({ ...t, status: 'ON' })));
-  };
-
-  const handleSaveModal = () => {
-    if (editingTrigger) {
-      setTriggers(prev => prev.map(t => t.id === editingTrigger.id ? {
-        ...t,
-        template: {
-          channel: modalData.channel as any,
-          timing: modalData.timing,
-          target: modalData.targets,
-          title: modalData.title,
-          content: modalData.content
-        }
-      } : t));
-    }
+  const handleSave = () => {
+    if (!editingRule) return;
+    setRules(prev => prev.map(r => r.id === editingRule.id ? {
+      ...r,
+      channel: modalData.channel as AlarmRule["channel"],
+      template: { timing: modalData.timing, target: modalData.target, content: modalData.content },
+    } : r));
     setIsModalOpen(false);
-    setEditingTrigger(null);
+    setEditingRule(null);
   };
 
-  const insertVariable = (variable: string) => {
-    setModalData(prev => ({ ...prev, content: prev.content + variable }));
-  };
+  const enabledCount   = rules.filter(r => r.enabled).length;
+  const customerRules  = rules.filter(r => r.type === "customer");
+  const productRules   = rules.filter(r => r.type === "product");
 
   return (
-    <AppLayout >
-      <PageHeader title="자동 알림 설정 (13종)" description="회원 이벤트 발생 시 자동으로 메시지를 발송하기 위한 트리거를 설정합니다." actions={
+    <AppLayout>
+      <PageHeader
+        title="자동 알림 설정"
+        description="회원 이벤트 발생 시 자동으로 메시지를 발송하는 알림 규칙을 관리합니다."
+        actions={
           <div className="flex gap-sm">
             <button
+              className="flex items-center gap-xs rounded-button border border-line bg-surface px-md py-sm text-Body-2 font-medium text-content hover:bg-primary-light hover:text-primary transition-colors"
               onClick={() => moveToPage(980)}
-              className="flex items-center gap-xs rounded-button border border-line bg-surface px-md py-sm text-Body-2 font-medium text-content hover:bg-primary-light hover:text-primary transition-colors"
             >
-              <MessageSquare size={16} />
-              메시지 발송
+              <MessageSquare size={16} />메시지 발송
             </button>
             <button
-              onClick={handleUseAll}
               className="flex items-center gap-xs rounded-button border border-line bg-surface px-md py-sm text-Body-2 font-medium text-content hover:bg-primary-light hover:text-primary transition-colors"
+              onClick={() => setRules(prev => prev.map(r => ({ ...r, enabled: true })))}
             >
-              <CheckCircle2 size={16} />
-              모두 사용
+              <CheckCircle2 size={16} />모두 사용
             </button>
-            <button
-              className="flex items-center gap-xs rounded-button bg-primary px-md py-sm text-Body-2 font-bold text-white shadow-sm hover:opacity-90 transition-opacity"
-            >
-              <Plus size={16} />
-              설정 추가
+            <button className="flex items-center gap-xs rounded-button bg-primary px-md py-sm text-Body-2 font-bold text-white shadow-sm hover:opacity-90 transition-opacity">
+              <Plus size={16} />설정 추가
             </button>
           </div>
-        }/>
+        }
+      />
 
-      {/* Global Settings & Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-lg mb-xl" >
-        <div className="bg-surface p-lg rounded-xl border border-line shadow-card" >
-          <label className="block text-Label text-content-secondary mb-sm" >발신 번호</label>
-          <div className="relative" >
-            <select
-              className="w-full appearance-none rounded-input bg-surface-secondary border-none px-md py-[10px] text-Body-1 text-content focus:ring-2 focus:ring-accent outline-none" value={senderNumber} onChange={(e) => setSenderNumber(e.target.value)}>
-              <option value="02-1234-5678">02-1234-5678 (대표번호)</option>
-              <option value="010-9876-5432">010-9876-5432 (김매니저)</option>
-            </select>
-            <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-md text-content-secondary" >
-              <ChevronRight className="rotate-90" size={16}/>
-            </div>
-          </div>
+      {/* 상단 카드 */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-lg mb-xl">
+        {/* 발신 번호 */}
+        <div className="bg-surface p-lg rounded-xl border border-line shadow-card">
+          <label className="block text-Label text-content-secondary mb-sm">발신 번호</label>
+          <select
+            className="w-full rounded-input bg-surface-secondary border-none px-md py-[10px] text-Body-2 text-content outline-none focus:ring-2 focus:ring-primary"
+            value={senderNumber}
+            onChange={e => setSenderNumber(e.target.value)}
+          >
+            <option value="02-1234-5678">02-1234-5678 (대표번호)</option>
+            <option value="010-9876-5432">010-9876-5432 (김매니저)</option>
+          </select>
         </div>
 
-        <StatCard label="보유 포인트" value="125,400 P" icon={<MessageSquare className="text-primary" size={20} />} description="약 8,360건 발송 가능 (단문 기준)" variant="peach"/>
+        <StatCard
+          label="보유 포인트"
+          value="125,400 P"
+          icon={<MessageSquare />}
+          description="약 8,360건 발송 가능 (단문 기준)"
+          variant="peach"
+        />
 
-        <div className="bg-accent-light p-lg rounded-xl border border-accent/20 flex flex-col justify-between" >
-          <div className="flex items-center justify-between" >
-            <span className="text-Label text-content-secondary" >현재 활성화된 트리거</span>
-            <StatusBadge label="정상 작동 중" variant="success" dot={true}/>
+        {/* 활성 트리거 현황 */}
+        <div className="bg-accent-light p-lg rounded-xl border border-accent/20 flex flex-col justify-between">
+          <div className="flex items-center justify-between">
+            <span className="text-Label text-content-secondary">활성화된 알림 규칙</span>
+            <StatusBadge variant="success" dot={true}>정상 작동 중</StatusBadge>
           </div>
-          <div className="mt-sm" >
-            <span className="text-Heading-1 text-accent font-bold" >
-              {triggers.filter(t => t.status === 'ON').length}
-            </span>
-            <span className="text-Body-1 text-content ml-xs" >/ {triggers.length}종</span>
+          <div className="mt-sm">
+            <span className="text-Heading-1 text-accent font-bold">{enabledCount}</span>
+            <span className="text-Body-1 text-content ml-xs">/ {rules.length}종</span>
           </div>
         </div>
       </div>
 
-      {/* Trigger Lists */}
-      <div className="space-y-xl" >
-        <FormSection title="고객 관련 자동 알림 (7종)" description="회원 계약, 생일, 출석 등 고객 이벤트 기반 알림" columns={1}>
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-md" >
-            {triggers.filter(t => t.type === 'customer').map(trigger => (
-              <TriggerItem key={trigger.id} trigger={trigger} onToggle={() => handleToggle(trigger.id)} onEdit={() => handleEditClick(trigger)}/>
+      {/* UI-101 알림 규칙 리스트 */}
+      <div className="space-y-xl">
+        {/* 고객 관련 7종 */}
+        <FormSection
+          title="고객 관련 자동 알림 (7종)"
+          description="회원 계약, 생일, 출석 등 고객 이벤트 기반 알림"
+          columns={1}
+        >
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-md">
+            {customerRules.map(rule => (
+              <RuleCard
+                key={rule.id}
+                rule={rule}
+                onToggle={() => handleToggle(rule.id)}
+                onEdit={() => handleEdit(rule)}
+                onNumberChange={rule.hasNumberInput ? (val) => handleNumberChange(rule.id, val) : undefined}
+              />
             ))}
           </div>
         </FormSection>
 
-        <FormSection title="상품 관련 자동 알림 (6종)" description="이용권 만료, 홀딩 해제 등 상품 상태 기반 알림" columns={1}>
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-md" >
-            {triggers.filter(t => t.type === 'product').map(trigger => (
-              <TriggerItem key={trigger.id} trigger={trigger} onToggle={() => handleToggle(trigger.id)} onEdit={() => handleEditClick(trigger)}/>
+        {/* 상품 관련 6종 */}
+        <FormSection
+          title="상품 관련 자동 알림 (6종)"
+          description="이용권 만료, 홀딩 해제 등 상품 상태 기반 알림"
+          columns={1}
+        >
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-md">
+            {productRules.map(rule => (
+              <RuleCard
+                key={rule.id}
+                rule={rule}
+                onToggle={() => handleToggle(rule.id)}
+                onEdit={() => handleEdit(rule)}
+                onNumberChange={rule.hasNumberInput ? (val) => handleNumberChange(rule.id, val) : undefined}
+              />
             ))}
           </div>
         </FormSection>
       </div>
 
-      {/* Template Edit Modal */}
-      {isModalOpen && editingTrigger && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 p-lg" >
-          <div className="w-full max-w-[800px] bg-surface rounded-modal shadow-xl overflow-hidden animate-in fade-in zoom-in duration-200" >
-            <div className="flex items-center justify-between border-b border-line px-xl py-lg" >
-              <div className="flex items-center gap-sm" >
-                <div className="rounded-full bg-primary-light p-sm" >
-                  <Bell className="text-primary" size={20}/>
+      {/* UI-102 규칙 설정 모달 */}
+      {isModalOpen && editingRule && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 backdrop-blur-sm p-lg">
+          <div className="w-full max-w-[820px] bg-surface rounded-modal shadow-xl overflow-hidden animate-in fade-in zoom-in duration-200">
+            {/* 모달 헤더 */}
+            <div className="flex items-center justify-between border-b border-line px-xl py-lg">
+              <div className="flex items-center gap-sm">
+                <div className="rounded-full bg-primary-light p-sm">
+                  <Bell className="text-primary" size={20} />
                 </div>
-                <div >
-                  <h2 className="text-Heading-2 text-content" >{editingTrigger.name}</h2>
-                  <p className="text-Body-2 text-content-secondary" >자동 알림 템플릿 편집</p>
+                <div>
+                  <h2 className="text-Heading-2 text-content font-bold">{editingRule.name}</h2>
+                  <p className="text-Body-2 text-content-secondary">자동 알림 템플릿 편집</p>
                 </div>
               </div>
-              <button className="text-content-secondary hover:text-content" onClick={() => setIsModalOpen(false)}>
-                <X size={24}/>
+              <button className="text-content-secondary hover:text-content transition-colors" onClick={() => setIsModalOpen(false)}>
+                <X size={24} />
               </button>
             </div>
 
-            <div className="p-xl grid grid-cols-1 md:grid-cols-2 gap-xl" >
-              {/* Form Side */}
-              <div className="space-y-lg" >
-                <div >
-                  <label className="block text-Label text-content-secondary mb-sm" >발송 채널</label>
-                  <div className="grid grid-cols-2 gap-sm" >
-                    {['talk', 'sms', 'lms', 'push'].map((ch) => (
+            {/* 모달 본문 */}
+            <div className="p-xl grid grid-cols-1 md:grid-cols-2 gap-xl">
+              {/* 편집 폼 */}
+              <div className="space-y-lg">
+                {/* 발송 채널 */}
+                <div>
+                  <label className="block text-Label text-content-secondary mb-sm">발송 채널</label>
+                  <div className="grid grid-cols-2 gap-sm">
+                    {["talk", "sms", "lms", "push"].map(ch => (
                       <button
+                        key={ch}
                         className={cn(
                           "flex items-center justify-center gap-xs rounded-button border py-sm text-Body-2 transition-all",
                           modalData.channel === ch
                             ? "border-accent bg-accent-light text-accent font-bold"
                             : "border-line bg-surface text-content-secondary hover:bg-surface-secondary"
-                        )} key={ch} onClick={() => setModalData(prev => ({ ...prev, channel: ch as any }))}>
-                        {ch === 'talk' && '알림톡'}
-                        {ch === 'sms' && 'SMS'}
-                        {ch === 'lms' && 'LMS'}
-                        {ch === 'push' && '앱 푸시'}
+                        )}
+                        onClick={() => setModalData(prev => ({ ...prev, channel: ch }))}
+                      >
+                        {ch === "talk" && "알림톡"}
+                        {ch === "sms"  && "SMS"}
+                        {ch === "lms"  && "LMS"}
+                        {ch === "push" && "앱 푸시"}
                       </button>
                     ))}
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-lg" >
-                  <div >
-                    <label className="block text-Label text-content-secondary mb-sm" >발송 시점</label>
+                {/* 발송 시점 / 대상 */}
+                <div className="grid grid-cols-2 gap-md">
+                  <div>
+                    <label className="block text-Label text-content-secondary mb-sm">발송 시점</label>
                     <select
-                      className="w-full rounded-input bg-surface-secondary border-none px-md py-[10px] text-Body-2 text-content outline-none" value={modalData.timing} onChange={(e) => setModalData(prev => ({ ...prev, timing: e.target.value }))}>
-                      <option >즉시</option>
-                      <option >1일 전</option>
-                      <option >3일 전</option>
-                      <option >7일 전</option>
+                      className="w-full rounded-input bg-surface-secondary border-none px-md py-[10px] text-Body-2 text-content outline-none"
+                      value={modalData.timing}
+                      onChange={e => setModalData(prev => ({ ...prev, timing: e.target.value }))}
+                    >
+                      <option>즉시</option>
+                      <option>1일 전</option>
+                      <option>3일 전</option>
+                      <option>7일 전</option>
+                      <option>14일 전</option>
                     </select>
                   </div>
-                  <div >
-                    <label className="block text-Label text-content-secondary mb-sm" >발송 대상</label>
-                    <select className="w-full rounded-input bg-surface-secondary border-none px-md py-[10px] text-Body-2 text-content outline-none" >
-                      <option >전체 회원</option>
-                      <option >신규 회원</option>
-                      <option >장기 회원</option>
+                  <div>
+                    <label className="block text-Label text-content-secondary mb-sm">발송 대상</label>
+                    <select
+                      className="w-full rounded-input bg-surface-secondary border-none px-md py-[10px] text-Body-2 text-content outline-none"
+                      value={modalData.target}
+                      onChange={e => setModalData(prev => ({ ...prev, target: e.target.value }))}
+                    >
+                      <option>전체 회원</option>
+                      <option>신규 회원</option>
+                      <option>장기 회원</option>
+                      <option>VIP 회원</option>
                     </select>
                   </div>
                 </div>
 
-                {modalData.channel === 'lms' && (
-                  <div >
-                    <label className="block text-Label text-content-secondary mb-sm" >메시지 제목</label>
-                    <input
-                      className="w-full rounded-input bg-surface-secondary border-none px-md py-[10px] text-Body-2 text-content outline-none" type="text" value={modalData.title} onChange={(e) => setModalData(prev => ({ ...prev, title: e.target.value }))} placeholder="제목을 입력하세요"/>
-                  </div>
-                )}
-
-                <div >
-                  <div className="flex items-center justify-between mb-sm" >
-                    <label className="block text-Label text-content-secondary" >메시지 내용</label>
-                    <div className="flex gap-xs" >
-                      {['{이름}', '{만료일}', '{상품명}'].map(v => (
+                {/* 메시지 내용 */}
+                <div>
+                  <div className="flex items-center justify-between mb-sm">
+                    <label className="block text-Label text-content-secondary">메시지 내용</label>
+                    <div className="flex gap-xs">
+                      {["{이름}", "{만료일}", "{상품명}"].map(v => (
                         <button
-                          className="rounded-full bg-surface-secondary px-xs py-[2px] text-[10px] font-medium text-content-secondary hover:bg-primary-light hover:text-primary transition-colors" key={v} onClick={() => insertVariable(v)}>
+                          key={v}
+                          className="rounded-full bg-surface-secondary px-xs py-[2px] text-[10px] font-medium text-content-secondary hover:bg-primary-light hover:text-primary transition-colors"
+                          onClick={() => setModalData(prev => ({ ...prev, content: prev.content + v }))}
+                        >
                           {v}
                         </button>
                       ))}
                     </div>
                   </div>
                   <textarea
-                    className="w-full h-[150px] rounded-input bg-surface-secondary border-none p-md text-Body-2 text-content outline-none resize-none" value={modalData.content} onChange={(e) => setModalData(prev => ({ ...prev, content: e.target.value }))} placeholder="내용을 입력하세요"/>
-                  <p className="mt-xs text-right text-[12px] text-content-secondary" >
-                    {modalData.content.length} / 1000 자
+                    className="w-full h-[140px] rounded-input bg-surface-secondary border-none p-md text-Body-2 text-content outline-none resize-none focus:ring-2 focus:ring-primary"
+                    value={modalData.content}
+                    onChange={e => setModalData(prev => ({ ...prev, content: e.target.value }))}
+                    placeholder="내용을 입력하세요"
+                  />
+                  <p className="mt-xs text-right text-Label text-content-secondary">
+                    {modalData.content.length} / 1,000자
                   </p>
                 </div>
               </div>
 
-              {/* Preview Side */}
-              <div className="bg-surface-secondary rounded-xl p-lg flex flex-col items-center justify-center space-y-md border border-line" >
-                <div className="text-Label text-content-secondary mb-sm" >발송 미리보기</div>
-                <div className="relative w-[240px] h-[480px] bg-content rounded-[36px] border-[8px] border-content shadow-xl overflow-hidden" >
-                  <div className="absolute top-0 w-full h-8 bg-content flex items-center justify-center" >
-                    <div className="w-16 h-4 rounded-full bg-black/30" ></div>
+              {/* 미리보기 */}
+              <div className="bg-surface-secondary rounded-xl p-lg flex flex-col items-center border border-line">
+                <p className="text-Label text-content-secondary mb-md">발송 미리보기</p>
+                <div className="relative w-[220px] h-[440px] bg-content rounded-[32px] border-[7px] border-content shadow-xl overflow-hidden">
+                  <div className="absolute top-0 w-full h-7 bg-content flex items-center justify-center">
+                    <div className="w-14 h-3 rounded-full bg-black/30" />
                   </div>
-                  <div className="mt-8 p-md space-y-md" >
-                    <div className="bg-surface rounded-[16px] p-md shadow-sm" >
-                      <div className="flex items-center gap-xs mb-sm" >
-                        <div className="w-6 h-6 rounded-full bg-primary flex items-center justify-center" >
-                          <Smartphone className="text-white" size={12}/>
+                  <div className="mt-7 p-md">
+                    <div className="bg-surface rounded-[14px] p-md shadow-sm">
+                      <div className="flex items-center gap-xs mb-sm">
+                        <div className="w-5 h-5 rounded-full bg-primary flex items-center justify-center">
+                          <Smartphone className="text-white" size={10} />
                         </div>
-                        <span className="text-[10px] font-bold text-content" >FitGenie CRM</span>
-                        <span className="text-[10px] text-content-secondary ml-auto" >방금 전</span>
+                        <span className="text-[9px] font-bold text-content">스포짐 CRM</span>
+                        <span className="text-[9px] text-content-secondary ml-auto">방금 전</span>
                       </div>
-                      <div className="text-[12px] text-content whitespace-pre-wrap leading-tight" >
-                        {modalData.content}
-                      </div>
+                      <p className="text-[11px] text-content whitespace-pre-wrap leading-relaxed">
+                        {modalData.content || "(내용을 입력하세요)"}
+                      </p>
                     </div>
                   </div>
                 </div>
-                <div className="flex gap-sm mt-md" >
-                  <button className="flex items-center gap-xs rounded-full bg-surface px-md py-sm border border-line text-[12px] text-content-secondary hover:text-primary transition-colors" >
-                    <Smartphone size={14}/>
-                    테스트 발송
-                  </button>
-                </div>
+                <button className="mt-md flex items-center gap-xs rounded-full bg-surface px-md py-sm border border-line text-[12px] text-content-secondary hover:text-primary transition-colors">
+                  <Smartphone size={13} />테스트 발송
+                </button>
               </div>
             </div>
 
-            <div className="flex items-center justify-end gap-sm border-t border-line bg-surface-secondary px-xl py-lg" >
+            {/* 모달 푸터 */}
+            <div className="flex items-center justify-end gap-sm border-t border-line bg-surface-secondary/30 px-xl py-lg">
               <button
-                className="rounded-button border border-line bg-surface px-xl py-md text-Body-2 font-medium text-content-secondary hover:bg-surface-secondary transition-colors" onClick={() => setIsModalOpen(false)}>
+                className="rounded-button border border-line bg-surface px-xl py-md text-Body-2 font-medium text-content-secondary hover:bg-surface-secondary transition-colors"
+                onClick={() => setIsModalOpen(false)}
+              >
                 취소
               </button>
               <button
-                className="rounded-button bg-accent px-xl py-md text-Body-2 font-bold text-white shadow-sm hover:opacity-90 transition-opacity" onClick={handleSaveModal}>
+                className="rounded-button bg-accent px-xl py-md text-Body-2 font-bold text-white shadow-sm hover:opacity-90 transition-opacity"
+                onClick={handleSave}
+              >
                 저장하기
               </button>
             </div>
@@ -335,68 +548,5 @@ export default function AutoAlarm() {
         </div>
       )}
     </AppLayout>
-  );
-}
-
-function TriggerItem({ trigger, onToggle, onEdit }: { trigger: Trigger; onToggle: () => void; onEdit: () => void }) {
-  const [val, setVal] = useState(trigger.numberValue || 0);
-
-  return (
-    <div className={cn(
-      "relative group flex items-start gap-md p-lg rounded-xl border transition-all",
-      trigger.status === 'ON'
-        ? "bg-surface border-accent shadow-sm"
-        : "bg-surface-secondary border-line grayscale opacity-70"
-    )} >
-      <div className={cn(
-        "flex-shrink-0 w-12 h-12 rounded-full flex items-center justify-center transition-colors",
-        trigger.status === 'ON' ? "bg-accent-light text-accent" : "bg-surface text-content-secondary"
-      )} >
-        {trigger.id.includes('01') ? <User size={22}/> : <Ticket size={22}/>}
-      </div>
-
-      <div className="flex-1 min-w-0" >
-        <div className="flex items-center justify-between mb-xs" >
-          <h3 className="text-Body-1 font-bold text-content truncate" >{trigger.name}</h3>
-          <div className="flex items-center gap-sm" >
-            <button
-              className="p-xs text-content-secondary hover:text-primary transition-colors" onClick={onEdit} title="편집">
-              <MoreHorizontal size={18}/>
-            </button>
-            <button
-              className={cn(
-                "relative inline-flex h-6 w-11 items-center rounded-full transition-colors outline-none",
-                trigger.status === 'ON' ? "bg-accent" : "bg-content-secondary/30"
-              )} onClick={onToggle}>
-              <span className={cn(
-                "inline-block h-4 w-4 transform rounded-full bg-surface transition-transform",
-                trigger.status === 'ON' ? "translate-x-6" : "translate-x-1"
-              )} />
-            </button>
-          </div>
-        </div>
-        <p className="text-Body-2 text-content-secondary mb-md line-clamp-1" >{trigger.description}</p>
-
-        {trigger.hasNumberInput && (
-          <div className="flex items-center gap-sm" >
-            <div className="flex items-center bg-surface-secondary rounded-button border border-line px-sm" >
-              <input
-                className="w-12 bg-transparent border-none py-xs text-center text-Body-2 font-bold text-content focus:ring-0 outline-none" type="number" value={val} onChange={(e) => setVal(Number(e.target.value))}/>
-              <span className="text-[12px] text-content-secondary" >{trigger.numberLabel}</span>
-            </div>
-            <span className="text-[12px] text-content-secondary" >기준 발송</span>
-          </div>
-        )}
-      </div>
-
-      {trigger.status === 'ON' && (
-        <div className="absolute -top-1 -right-1" >
-          <div className="flex h-3 w-3" >
-            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-accent opacity-75" ></span>
-            <span className="relative inline-flex rounded-full h-3 w-3 bg-accent" ></span>
-          </div>
-        </div>
-      )}
-    </div>
   );
 }
