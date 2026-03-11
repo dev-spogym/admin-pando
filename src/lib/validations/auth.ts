@@ -10,7 +10,7 @@ export const loginSchema = z.object({
     .string()
     .min(1, '비밀번호를 입력해주세요.'),
   branchId: z
-    .number({ required_error: '지점을 선택해주세요.' })
+    .number({ error: '지점을 선택해주세요.' })
     .int('지점 ID는 정수여야 합니다.'),
 });
 
