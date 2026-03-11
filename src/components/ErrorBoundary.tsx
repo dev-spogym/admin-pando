@@ -44,12 +44,12 @@ export class ErrorBoundary extends Component<Props, State> {
 
     // 기본 폴백 UI
     return (
-      <div className="min-h-screen bg-2 flex items-center justify-center p-md">
-        <div className="bg-3 rounded-card-strong shadow-3 p-xl max-w-md w-full text-center">
+      <div className="min-h-screen bg-surface-secondary flex items-center justify-center p-md">
+        <div className="bg-surface rounded-xl shadow-3 p-xl max-w-md w-full text-center">
           {/* 에러 아이콘 */}
-          <div className="w-16 h-16 rounded-full bg-6 flex items-center justify-center mx-auto mb-lg">
+          <div className="w-16 h-16 rounded-full bg-primary-light flex items-center justify-center mx-auto mb-lg">
             <svg
-              className="w-8 h-8 text-0"
+              className="w-8 h-8 text-primary"
               fill="none"
               stroke="currentColor"
               viewBox="0 0 24 24"
@@ -63,24 +63,24 @@ export class ErrorBoundary extends Component<Props, State> {
             </svg>
           </div>
 
-          <h2 className="text-Section-Title text-4 mb-sm">
+          <h2 className="text-Section-Title text-content mb-sm">
             오류가 발생했습니다
           </h2>
 
           {/* 에러 메시지 */}
           {error?.message && (
-            <p className="text-Body-Primary-KR text-5 mb-lg bg-2 rounded-1 px-md py-sm break-all">
+            <p className="text-Body-Primary-KR text-content-secondary mb-lg bg-surface-secondary rounded-1 px-md py-sm break-all">
               {error.message}
             </p>
           )}
 
-          <p className="text-Body-Primary-KR text-5 mb-xl">
+          <p className="text-Body-Primary-KR text-content-secondary mb-xl">
             페이지를 새로고침하거나 관리자에게 문의하세요.
           </p>
 
           <button
             onClick={this.handleReset}
-            className="w-full bg-0 text-3 rounded-button py-sm px-md text-Section-Title hover:opacity-90 transition-opacity"
+            className="w-full bg-primary text-white rounded-button py-sm px-md text-Section-Title hover:opacity-90 transition-opacity"
           >
             새로고침
           </button>

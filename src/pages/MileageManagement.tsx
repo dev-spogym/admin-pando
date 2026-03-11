@@ -101,10 +101,10 @@ const ManualAdjustmentModal = ({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-      <div className="w-full max-w-md rounded-modal bg-3 p-lg shadow-card-soft">
+      <div className="w-full max-w-md rounded-modal bg-surface p-lg shadow-card">
         <h2 className="text-Heading-2 font-bold mb-md">마일리지 {type} 처리</h2>
-        <p className="text-Body-2 text-text-grey-blue mb-lg">
-          회원: <span className="font-semibold text-text-dark-grey">{member?.name} ({member?.contact})</span>
+        <p className="text-Body-2 text-content-secondary mb-lg">
+          회원: <span className="font-semibold text-content">{member?.name} ({member?.contact})</span>
         </p>
 
         <div className="space-y-md">
@@ -115,7 +115,7 @@ const ManualAdjustmentModal = ({
               <button
                 className={cn(
                   "flex-1 py-sm px-md rounded-button border-[1px] flex items-center justify-center gap-xs transition-colors",
-                  type === '적립' ? "bg-bg-soft-peach border-primary-coral text-primary-coral" : "bg-3 border-border-light text-text-grey-blue"
+                  type === '적립' ? "bg-primary-light border-primary text-primary" : "bg-surface border-line text-content-secondary"
                 )}
                 onClick={() => setType('적립')}
               >
@@ -124,7 +124,7 @@ const ManualAdjustmentModal = ({
               <button
                 className={cn(
                   "flex-1 py-sm px-md rounded-button border-[1px] flex items-center justify-center gap-xs transition-colors",
-                  type === '차감' ? "bg-bg-soft-mint border-secondary-mint text-secondary-mint" : "bg-3 border-border-light text-text-grey-blue"
+                  type === '차감' ? "bg-accent-light border-accent text-accent" : "bg-surface border-line text-content-secondary"
                 )}
                 onClick={() => setType('차감')}
               >
@@ -138,13 +138,13 @@ const ManualAdjustmentModal = ({
             <label className="text-Label mb-xs block">마일리지 금액</label>
             <div className="relative">
               <input
-                className="w-full rounded-input bg-input-bg-light border-none p-md pr-xl focus:ring-2 focus:ring-secondary-mint transition-all"
+                className="w-full rounded-input bg-surface-secondary border-none p-md pr-xl focus:ring-2 focus:ring-accent transition-all"
                 type="number"
                 value={amount}
                 onChange={(e) => setAmount(e.target.value)}
                 placeholder="금액을 입력하세요"
               />
-              <span className="absolute right-md top-1/2 -translate-y-1/2 text-text-grey-blue">P</span>
+              <span className="absolute right-md top-1/2 -translate-y-1/2 text-content-secondary">P</span>
             </div>
           </div>
 
@@ -152,7 +152,7 @@ const ManualAdjustmentModal = ({
           <div>
             <label className="text-Label mb-xs block">사유</label>
             <select
-              className="w-full rounded-input bg-input-bg-light border-none p-md focus:ring-2 focus:ring-secondary-mint transition-all"
+              className="w-full rounded-input bg-surface-secondary border-none p-md focus:ring-2 focus:ring-accent transition-all"
               value={reason}
               onChange={(e) => setReason(e.target.value)}
             >
@@ -167,7 +167,7 @@ const ManualAdjustmentModal = ({
           <div>
             <label className="text-Label mb-xs block">메모 (선택)</label>
             <textarea
-              className="w-full rounded-input bg-input-bg-light border-none p-md h-[80px] focus:ring-2 focus:ring-secondary-mint transition-all resize-none"
+              className="w-full rounded-input bg-surface-secondary border-none p-md h-[80px] focus:ring-2 focus:ring-accent transition-all resize-none"
               value={memo}
               onChange={(e) => setMemo(e.target.value)}
               placeholder="상세 내용을 입력하세요"
@@ -177,13 +177,13 @@ const ManualAdjustmentModal = ({
 
         <div className="mt-xl flex gap-sm">
           <button
-            className="flex-1 py-md rounded-button bg-bg-main-light-blue text-text-grey-blue hover:bg-border-light transition-colors"
+            className="flex-1 py-md rounded-button bg-surface-secondary text-content-secondary hover:bg-line transition-colors"
             onClick={onClose}
           >
             취소
           </button>
           <button
-            className="flex-1 py-md rounded-button bg-primary-coral text-white hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
+            className="flex-1 py-md rounded-button bg-primary text-white hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
             onClick={() => onConfirm({ type, amount: Number(amount), reason, memo })}
             disabled={!amount}
           >
@@ -199,15 +199,15 @@ const ManualAdjustmentModal = ({
 function ExpiryBadge({ expiryDate }: { expiryDate: string }) {
   const days = getDaysUntil(expiryDate);
   if (days < 0) {
-    return <span className="text-[11px] text-text-grey-blue line-through">{expiryDate} (만료)</span>;
+    return <span className="text-[11px] text-content-secondary line-through">{expiryDate} (만료)</span>;
   }
   if (days <= 30) {
     return (
       <div className="flex flex-col gap-[2px]">
-        <span className="text-[11px] text-text-dark-grey">{expiryDate}</span>
+        <span className="text-[11px] text-content">{expiryDate}</span>
         <span className={cn(
           "text-[10px] font-semibold flex items-center gap-[2px]",
-          days <= 7 ? "text-error" : "text-warning"
+          days <= 7 ? "text-state-error" : "text-amber-600"
         )}>
           <AlertTriangle size={10} />
           D-{days} 만료 임박
@@ -215,7 +215,7 @@ function ExpiryBadge({ expiryDate }: { expiryDate: string }) {
       </div>
     );
   }
-  return <span className="text-[11px] text-text-dark-grey">{expiryDate}</span>;
+  return <span className="text-[11px] text-content">{expiryDate}</span>;
 }
 
 // --- Main View ---
@@ -252,10 +252,10 @@ export default function MileageManagement() {
           className="flex items-center gap-xs cursor-pointer group"
           onClick={() => moveToPage(985)}
         >
-          <div className="w-8 h-8 rounded-full bg-bg-soft-peach flex items-center justify-center text-primary-coral group-hover:bg-primary-coral group-hover:text-white transition-colors">
+          <div className="w-8 h-8 rounded-full bg-primary-light flex items-center justify-center text-primary group-hover:bg-primary group-hover:text-white transition-colors">
             <User size={14} />
           </div>
-          <span className="font-medium group-hover:text-primary-coral transition-colors">{val}</span>
+          <span className="font-medium group-hover:text-primary transition-colors">{val}</span>
         </div>
       )
     },
@@ -263,7 +263,7 @@ export default function MileageManagement() {
       key: 'contact',
       header: '연락처',
       render: (val: string) => (
-        <div className="flex items-center gap-xs text-text-grey-blue">
+        <div className="flex items-center gap-xs text-content-secondary">
           <Smartphone size={14} />
           <span>{val}</span>
         </div>
@@ -276,7 +276,7 @@ export default function MileageManagement() {
       header: '잔여 마일리지',
       align: 'right' as const,
       render: (val: number) => (
-        <span className="font-bold text-primary-coral">{val.toLocaleString()} P</span>
+        <span className="font-bold text-primary">{val.toLocaleString()} P</span>
       )
     },
     { key: 'lastEarnedAt', header: '최근 적립일', align: 'center' as const },
@@ -293,7 +293,7 @@ export default function MileageManagement() {
       render: (_: any, row: any) => (
         <div className="flex items-center justify-center gap-sm">
           <button
-            className="px-sm py-xs text-Label bg-bg-soft-peach text-primary-coral rounded-button hover:bg-primary-coral hover:text-white transition-all"
+            className="px-sm py-xs text-Label bg-primary-light text-primary rounded-button hover:bg-primary hover:text-white transition-all"
             onClick={() => {
               setSelectedMember(row);
               setIsManualModalOpen(true);
@@ -302,7 +302,7 @@ export default function MileageManagement() {
             수동 처리
           </button>
           <button
-            className="p-xs text-text-grey-blue hover:text-text-dark-grey transition-colors"
+            className="p-xs text-content-secondary hover:text-content transition-colors"
             onClick={() => setActiveTab('history')}
           >
             <History size={16} />
@@ -329,7 +329,7 @@ export default function MileageManagement() {
       header: '마일리지',
       align: 'right' as const,
       render: (val: number) => (
-        <span className={cn("font-medium", val > 0 ? "text-success" : "text-error")}>
+        <span className={cn("font-medium", val > 0 ? "text-state-success" : "text-state-error")}>
           {val > 0 ? `+${val.toLocaleString()}` : val.toLocaleString()} P
         </span>
       )
@@ -368,7 +368,7 @@ export default function MileageManagement() {
           actions={
             <div className="flex gap-sm">
               <button
-                className="flex items-center gap-xs px-md py-sm bg-3 border-[1px] border-border-light text-text-grey-blue rounded-button hover:bg-bg-main-light-blue transition-colors"
+                className="flex items-center gap-xs px-md py-sm bg-surface border-[1px] border-line text-content-secondary rounded-button hover:bg-surface-secondary transition-colors"
                 onClick={() => alert('엑셀 다운로드가 시작됩니다.')}
               >
                 <Download size={18} />
@@ -380,16 +380,16 @@ export default function MileageManagement() {
 
         {/* Summary Cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-md">
-          <StatCard label="전체 발행 마일리지" value={MOCK_SUMMARY.totalIssued.toLocaleString()} icon={<Coins className="text-primary-coral" />} variant="peach" description="현재까지 누적 발행된 총액" />
-          <StatCard label="전체 사용 마일리지" value={MOCK_SUMMARY.totalUsed.toLocaleString()} icon={<ArrowDownRight className="text-secondary-mint" />} variant="mint" description="현재까지 사용 완료된 총액" />
+          <StatCard label="전체 발행 마일리지" value={MOCK_SUMMARY.totalIssued.toLocaleString()} icon={<Coins className="text-primary" />} variant="peach" description="현재까지 누적 발행된 총액" />
+          <StatCard label="전체 사용 마일리지" value={MOCK_SUMMARY.totalUsed.toLocaleString()} icon={<ArrowDownRight className="text-accent" />} variant="mint" description="현재까지 사용 완료된 총액" />
           <StatCard label="잔여 마일리지" value={MOCK_SUMMARY.currentBalance.toLocaleString()} icon={<ArrowUpRight className="text-information" />} description="현재 회원들이 보유 중인 총액" />
-          <StatCard label="이번 달 적립" value={MOCK_SUMMARY.monthlyEarned.toLocaleString()} icon={<CheckCircle2 className="text-success" />} change={{ value: 12.5, label: "전월 대비" }} description="당월 신규 적립된 마일리지" />
+          <StatCard label="이번 달 적립" value={MOCK_SUMMARY.monthlyEarned.toLocaleString()} icon={<CheckCircle2 className="text-state-success" />} change={{ value: 12.5, label: "전월 대비" }} description="당월 신규 적립된 마일리지" />
         </div>
 
         {/* Tab Navigation */}
-        <div className="bg-3 rounded-card-normal shadow-card-soft overflow-hidden">
+        <div className="bg-surface rounded-xl shadow-card overflow-hidden">
           <TabNav
-            className="border-b-[1px] border-border-light px-md pt-sm"
+            className="border-b-[1px] border-line px-md pt-sm"
             tabs={tabs}
             activeTab={activeTab}
             onTabChange={setActiveTab}
@@ -472,20 +472,20 @@ export default function MileageManagement() {
               <div className="max-w-4xl space-y-lg">
                 {/* 변경 감지 배너 */}
                 {isPolicyDirty && (
-                  <div className="flex items-center justify-between p-md rounded-card-normal bg-warning/10 border border-warning/30 animate-in fade-in duration-300">
-                    <div className="flex items-center gap-sm text-warning">
+                  <div className="flex items-center justify-between p-md rounded-xl bg-amber-600/10 border border-amber-600/30 animate-in fade-in duration-300">
+                    <div className="flex items-center gap-sm text-amber-600">
                       <AlertCircle size={16} />
                       <span className="text-Body-2 font-semibold">저장되지 않은 변경사항이 있습니다.</span>
                     </div>
                     <div className="flex gap-sm">
                       <button
-                        className="px-md py-xs rounded-button border border-border-light text-text-grey-blue text-Body-2 hover:bg-3 transition-colors"
+                        className="px-md py-xs rounded-button border border-line text-content-secondary text-Body-2 hover:bg-surface transition-colors"
                         onClick={() => setPolicy(savedPolicy)}
                       >
                         되돌리기
                       </button>
                       <button
-                        className="px-md py-xs rounded-button bg-warning text-white text-Body-2 font-semibold hover:opacity-90 transition-opacity"
+                        className="px-md py-xs rounded-button bg-amber-600 text-white text-Body-2 font-semibold hover:opacity-90 transition-opacity"
                         onClick={() => setIsPolicySaveDialogOpen(true)}
                       >
                         지금 저장
@@ -498,22 +498,22 @@ export default function MileageManagement() {
                   <div className="space-y-sm">
                     <label className="text-Label">기본 적립률 (%)</label>
                     <input
-                      className="w-full rounded-input bg-input-bg-light border-none p-md focus:ring-2 focus:ring-secondary-mint outline-none transition-all"
+                      className="w-full rounded-input bg-surface-secondary border-none p-md focus:ring-2 focus:ring-accent outline-none transition-all"
                       type="number"
                       value={policy.earnRate}
                       onChange={e => setPolicy(prev => ({ ...prev, earnRate: Number(e.target.value) }))}
                     />
-                    <p className="text-[12px] text-text-grey-blue">결제 금액의 일정 비율을 마일리지로 적립합니다.</p>
+                    <p className="text-[12px] text-content-secondary">결제 금액의 일정 비율을 마일리지로 적립합니다.</p>
                   </div>
                   <div className="space-y-sm">
                     <label className="text-Label">마일리지 유효기간 (개월)</label>
                     <input
-                      className="w-full rounded-input bg-input-bg-light border-none p-md focus:ring-2 focus:ring-secondary-mint outline-none transition-all"
+                      className="w-full rounded-input bg-surface-secondary border-none p-md focus:ring-2 focus:ring-accent outline-none transition-all"
                       type="number"
                       value={policy.expiryMonths}
                       onChange={e => setPolicy(prev => ({ ...prev, expiryMonths: Number(e.target.value) }))}
                     />
-                    <p className="text-[12px] text-text-grey-blue">적립일로부터 해당 기간이 지나면 자동 소멸됩니다.</p>
+                    <p className="text-[12px] text-content-secondary">적립일로부터 해당 기간이 지나면 자동 소멸됩니다.</p>
                   </div>
                 </FormSection>
 
@@ -521,35 +521,35 @@ export default function MileageManagement() {
                   <div className="space-y-sm">
                     <label className="text-Label">최소 사용 금액 (P)</label>
                     <input
-                      className="w-full rounded-input bg-input-bg-light border-none p-md focus:ring-2 focus:ring-secondary-mint outline-none transition-all"
+                      className="w-full rounded-input bg-surface-secondary border-none p-md focus:ring-2 focus:ring-accent outline-none transition-all"
                       type="number"
                       value={policy.minUsage}
                       onChange={e => setPolicy(prev => ({ ...prev, minUsage: Number(e.target.value) }))}
                     />
-                    <p className="text-[12px] text-text-grey-blue">마일리지를 사용하기 위한 최소 보유 및 사용 포인트입니다.</p>
+                    <p className="text-[12px] text-content-secondary">마일리지를 사용하기 위한 최소 보유 및 사용 포인트입니다.</p>
                   </div>
                   <div className="space-y-sm">
                     <label className="text-Label">1회 최대 사용 제한 (P)</label>
                     <input
-                      className="w-full rounded-input bg-input-bg-light border-none p-md focus:ring-2 focus:ring-secondary-mint outline-none transition-all"
+                      className="w-full rounded-input bg-surface-secondary border-none p-md focus:ring-2 focus:ring-accent outline-none transition-all"
                       type="number"
                       value={policy.maxUsagePerTx}
                       onChange={e => setPolicy(prev => ({ ...prev, maxUsagePerTx: Number(e.target.value) }))}
                     />
-                    <p className="text-[12px] text-text-grey-blue">1회 결제 시 사용할 수 있는 최대 마일리지입니다.</p>
+                    <p className="text-[12px] text-content-secondary">1회 결제 시 사용할 수 있는 최대 마일리지입니다.</p>
                   </div>
                 </FormSection>
 
                 <FormSection title="대상 상품 설정" description="적립 및 사용 대상에서 제외하거나 포함할 상품 범위를 지정합니다." columns={1}>
                   <div className="space-y-sm">
                     <label className="text-Label">사용 가능 상품</label>
-                    <div className="p-md rounded-input bg-input-bg-light border-dashed border-2 border-border-light text-center text-text-grey-blue cursor-pointer hover:bg-3 transition-all">
+                    <div className="p-md rounded-input bg-surface-secondary border-dashed border-2 border-line text-center text-content-secondary cursor-pointer hover:bg-surface transition-all">
                       + 상품 범위 추가 (수강권, PT, 락커 등)
                     </div>
                   </div>
                   <div className="space-y-sm">
                     <label className="text-Label">적립 제외 상품</label>
-                    <div className="p-md rounded-input bg-input-bg-light border-dashed border-2 border-border-light text-center text-text-grey-blue cursor-pointer hover:bg-3 transition-all">
+                    <div className="p-md rounded-input bg-surface-secondary border-dashed border-2 border-line text-center text-content-secondary cursor-pointer hover:bg-surface transition-all">
                       + 제외 상품 추가 (일일권, 특가 상품 등)
                     </div>
                   </div>
@@ -560,8 +560,8 @@ export default function MileageManagement() {
                     className={cn(
                       "flex items-center gap-xs px-xl py-md rounded-button shadow-md transition-all font-semibold",
                       isPolicyDirty
-                        ? "bg-secondary-mint text-white hover:opacity-90 shadow-secondary-mint/20"
-                        : "bg-border-light text-text-grey-blue cursor-not-allowed opacity-60"
+                        ? "bg-accent text-white hover:opacity-90 shadow-accent/20"
+                        : "bg-line text-content-secondary cursor-not-allowed opacity-60"
                     )}
                     disabled={!isPolicyDirty}
                     onClick={() => isPolicyDirty && setIsPolicySaveDialogOpen(true)}

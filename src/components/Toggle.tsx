@@ -77,7 +77,7 @@ export default function Toggle({
         className={cn(
           "relative flex-shrink-0 rounded-full transition-colors duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-0/30",
           TRACK_SIZE[size],
-          checked ? "bg-0" : "bg-7"
+          checked ? "bg-primary" : "bg-surface-tertiary"
         )}
       >
         {/* 썸 */}
@@ -93,7 +93,7 @@ export default function Toggle({
 
       {/* 레이블 */}
       {label && (
-        <span className="text-Body-Primary-KR text-4">{label}</span>
+        <span className="text-Body-Primary-KR text-content">{label}</span>
       )}
     </label>
   );

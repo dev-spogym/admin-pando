@@ -64,14 +64,14 @@ export default function Modal({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-4/50 backdrop-blur-sm p-md animate-in fade-in duration-200"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-content/50 backdrop-blur-sm p-md animate-in fade-in duration-200"
       onClick={handleBackdropClick}
     >
       <div
         ref={panelRef}
         tabIndex={-1}
         className={cn(
-          "relative w-full rounded-modal bg-3 shadow-card-deep outline-none",
+          "relative w-full rounded-modal bg-surface shadow-card-deep outline-none",
           "animate-in fade-in zoom-in-95 duration-200",
           SIZE_CLASSES[size]
         )}
@@ -81,16 +81,16 @@ export default function Modal({
       >
         {/* 헤더 */}
         {title && (
-          <div className="flex items-center justify-between border-b border-7 px-xl py-lg">
+          <div className="flex items-center justify-between border-b border-line px-xl py-lg">
             <h2
               id="modal-title"
-              className="text-Section-Title text-4 font-semibold leading-[1.4]"
+              className="text-Section-Title text-content font-semibold leading-[1.4]"
             >
               {title}
             </h2>
             <button
               onClick={onClose}
-              className="ml-md rounded-button p-xs text-5 transition-colors hover:bg-2 hover:text-4"
+              className="ml-md rounded-button p-xs text-content-secondary transition-colors hover:bg-surface-secondary hover:text-content"
               aria-label="닫기"
             >
               <X size={20} />
@@ -102,7 +102,7 @@ export default function Modal({
         {!title && (
           <button
             onClick={onClose}
-            className="absolute right-md top-md rounded-button p-xs text-5 transition-colors hover:bg-2 hover:text-4"
+            className="absolute right-md top-md rounded-button p-xs text-content-secondary transition-colors hover:bg-surface-secondary hover:text-content"
             aria-label="닫기"
           >
             <X size={20} />
@@ -110,11 +110,11 @@ export default function Modal({
         )}
 
         {/* 본문 */}
-        <div className="px-xl py-lg text-Body-Primary-KR text-4">{children}</div>
+        <div className="px-xl py-lg text-Body-Primary-KR text-content">{children}</div>
 
         {/* 푸터 */}
         {footer && (
-          <div className="border-t border-7 px-xl py-lg">{footer}</div>
+          <div className="border-t border-line px-xl py-lg">{footer}</div>
         )}
       </div>
     </div>

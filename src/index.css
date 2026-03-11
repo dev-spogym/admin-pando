@@ -12,10 +12,19 @@ body {
   font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  background-color: #F4F7FA;
-  color: #2D3748;
+  background-color: #F8FAFC;
+  color: #1E293B;
 }
 
 #root {
   min-height: 100vh;
+}
+
+/* 스크롤바 최소화 */
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
 }

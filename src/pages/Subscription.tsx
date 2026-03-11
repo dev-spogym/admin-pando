@@ -136,10 +136,10 @@ export default function Subscription() {
     const isWarning = percent >= 90;
     
     return (
-      <div className="bg-3 p-lg rounded-card-normal border border-border-light shadow-card-soft" >
+      <div className="bg-surface p-lg rounded-xl border border-line shadow-card" >
         <div className="flex justify-between items-center mb-sm" >
           <div className="flex items-center gap-sm" >
-            <div className={cn("p-xs rounded-button", isWarning ? "bg-bg-soft-peach" : "bg-bg-soft-mint")} >
+            <div className={cn("p-xs rounded-button", isWarning ? "bg-primary-light" : "bg-accent-light")} >
               <Icon className={isWarning ? "text-primary-coral" : "text-secondary-mint"} size={18}/>
             </div>
             <span className="text-Body 1 font-semibold text-text-dark-grey" >{label}</span>
@@ -153,7 +153,7 @@ export default function Subscription() {
             className={cn("h-full transition-all duration-500", isWarning ? "bg-primary-coral" : "bg-secondary-mint")} style={{ width: `${percent}%` }}/>
         </div>
         {isWarning && (
-          <p className="mt-xs text-Label text-error flex items-center gap-1" >
+          <p className="mt-xs text-Label text-state-error flex items-center gap-1" >
             <AlertCircle size={12}/> 한도에 도달하고 있습니다. 플랜을 업그레이드하세요.
           </p>
         )}
@@ -186,7 +186,7 @@ export default function Subscription() {
           <div className="space-y-lg" >
             {/* 현재 플랜 요약 */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-lg" >
-              <div className="lg:col-span-2 bg-3 rounded-card-strong border border-border-light shadow-card-soft p-xxl relative overflow-hidden" >
+              <div className="lg:col-span-2 bg-surface rounded-xl border border-line shadow-card p-xxl relative overflow-hidden" >
                 <div className="absolute top-0 right-0 p-lg" >
                   <StatusBadge variant={currentPlan.status === 'active' ? 'success' : 'error'} label={currentPlan.status === 'active' ? '구독 중' : '만료'} dot={true}/>
                 </div>
@@ -202,11 +202,11 @@ export default function Subscription() {
                     </div>
                   </div>
                   <div className="flex flex-col gap-sm min-w-[200px]" >
-                    <button className="w-full py-md bg-bg-soft-mint text-secondary-mint rounded-button font-bold flex items-center justify-center gap-2 hover:bg-[#E2F5F4] transition-colors" >
+                    <button className="w-full py-md bg-accent-light text-secondary-mint rounded-button font-bold flex items-center justify-center gap-2 hover:bg-[#E2F5F4] transition-colors" >
                       플랜 변경하기 <ChevronRight size={18}/>
                     </button>
                     <button
-                      className="w-full py-md text-text-grey-blue hover:text-error transition-colors text-Body 2 font-medium" onClick={() => setIsCancelDialogOpen(true)}>
+                      className="w-full py-md text-text-grey-blue hover:text-state-error transition-colors text-Body 2 font-medium" onClick={() => setIsCancelDialogOpen(true)}>
                       구독 취소 신청
                     </button>
                   </div>
@@ -214,7 +214,7 @@ export default function Subscription() {
               </div>
 
               {/* 결제 수단 요약 */}
-              <div className="bg-bg-soft-peach rounded-card-strong border border-primary-coral/10 p-xl flex flex-col" >
+              <div className="bg-primary-light rounded-xl border border-primary-coral/10 p-xl flex flex-col" >
                 <div className="flex justify-between items-center mb-lg" >
                   <h4 className="text-Body 1 font-bold text-text-dark-grey flex items-center gap-2" >
                     <CreditCard className="text-primary-coral" size={20}/> 결제 수단
@@ -223,7 +223,7 @@ export default function Subscription() {
                 </div>
                 <div className="flex-1 flex flex-col justify-center" >
                   {paymentMethods.filter(m => m.isDefault).map(card => (
-                    <div className="bg-3/80 backdrop-blur-sm p-lg rounded-card-normal border border-white shadow-sm" key={card.id}>
+                    <div className="bg-surface/80 backdrop-blur-sm p-lg rounded-xl border border-white shadow-sm" key={card.id}>
                       <div className="flex justify-between items-start mb-md" >
                         <span className="px-xs py-[2px] bg-primary-coral text-white text-[10px] rounded-sm font-bold uppercase" >{card.type}</span>
                         <span className="text-Label text-text-grey-blue" >기본 결제 수단</span>
@@ -236,7 +236,7 @@ export default function Subscription() {
                     </div>
                   ))}
                 </div>
-                <button className="mt-lg w-full py-sm border border-dashed border-primary-coral text-primary-coral rounded-button text-Label font-bold flex items-center justify-center gap-2 hover:bg-3/50 transition-colors" >
+                <button className="mt-lg w-full py-sm border border-dashed border-primary-coral text-primary-coral rounded-button text-Label font-bold flex items-center justify-center gap-2 hover:bg-surface/50 transition-colors" >
                   <Plus size={16}/> 새 카드 추가
                 </button>
               </div>
@@ -263,11 +263,11 @@ export default function Subscription() {
               
               <div className="flex items-center justify-center mt-xl gap-lg" >
                 <span className="text-Body 2 font-medium text-text-grey-blue" >월간 결제</span>
-                <div className="w-12 h-6 bg-input-bg-light rounded-full p-1 cursor-pointer relative shadow-inner border border-border-light" >
+                <div className="w-12 h-6 bg-input-bg-light rounded-full p-1 cursor-pointer relative shadow-inner border border-line" >
                   <div className="w-4 h-4 bg-primary-coral rounded-full absolute right-1" />
                 </div>
                 <span className="text-Body 2 font-bold text-primary-coral flex items-center gap-2" >
-                  연간 결제 <span className="text-[11px] bg-bg-soft-peach px-2 py-0.5 rounded-full border border-primary-coral/20" >20% 할인</span>
+                  연간 결제 <span className="text-[11px] bg-primary-light px-2 py-0.5 rounded-full border border-primary-coral/20" >20% 할인</span>
                 </span>
               </div>
             </div>
@@ -276,15 +276,15 @@ export default function Subscription() {
               {plans.map((plan) => (
                 <div
                   className={cn(
-                    "flex flex-col bg-3 rounded-card-strong border shadow-card-soft overflow-hidden transition-all duration-300 hover:shadow-xl",
-                    plan.isCurrent ? "border-primary-coral ring-4 ring-primary-coral/5 scale-[1.02]" : "border-border-light"
+                    "flex flex-col bg-surface rounded-xl border shadow-card overflow-hidden transition-all duration-300 hover:shadow-xl",
+                    plan.isCurrent ? "border-primary-coral ring-4 ring-primary-coral/5 scale-[1.02]" : "border-line"
                   )} key={plan.id}>
                   {plan.isCurrent && (
                     <div className="bg-primary-coral text-white py-2 text-center text-Label font-bold tracking-wider" >
                       현재 이용 중인 플랜
                     </div>
                   )}
-                  <div className="p-xl border-b border-border-light" >
+                  <div className="p-xl border-b border-line" >
                     <h3 className="text-Heading 2 text-text-dark-grey mb-xl font-bold" >{plan.name}</h3>
                     <div className="flex items-end gap-1 mb-md" >
                       <span className="text-Heading 1 font-bold text-text-dark-grey" >₩{plan.price.annual.toLocaleString()}</span>
@@ -293,7 +293,7 @@ export default function Subscription() {
                     <p className="text-Label text-text-grey-blue" >연간 ₩{(plan.price.annual * 12).toLocaleString()} 결제</p>
                   </div>
                   
-                  <div className="p-xl flex-1 space-y-md bg-bg-main-light-blue/30" >
+                  <div className="p-xl flex-1 space-y-md bg-surface-secondary/30" >
                     <div className="flex items-center gap-sm text-Body 2" >
                       <CheckCircle2 className="text-secondary-mint" size={16}/>
                       <span className="font-semibold text-text-dark-grey" >회원 수:</span>
@@ -314,7 +314,7 @@ export default function Subscription() {
                       <span className="font-semibold text-text-dark-grey" >자동 알림:</span>
                       <span className="text-text-grey-blue" >{plan.features.alarms}</span>
                     </div>
-                    <div className="pt-sm space-y-md border-t border-border-light/50" >
+                    <div className="pt-sm space-y-md border-t border-line/50" >
                       {[
                         { label: '키오스크', value: plan.features.kiosk, icon: Smartphone },
                         { label: 'IoT 연동', value: plan.features.iot, icon: Wifi },
@@ -341,7 +341,7 @@ export default function Subscription() {
                       className={cn(
                         "w-full py-md rounded-button font-bold transition-all",
                         plan.isCurrent 
-                          ? "bg-bg-soft-mint text-secondary-mint cursor-default"
+                          ? "bg-accent-light text-secondary-mint cursor-default"
                           : "bg-primary-coral text-white hover:shadow-lg hover:translate-y-[-2px]"
                       )} disabled={plan.isCurrent}>
                       {plan.isCurrent ? '현재 플랜' : '선택하기'}
@@ -355,7 +355,7 @@ export default function Subscription() {
 
         {/* --- 결제 이력 탭 --- */}
         {activeTab === 'history' && (
-          <div className="bg-3 rounded-card-strong border border-border-light shadow-card-soft overflow-hidden" >
+          <div className="bg-surface rounded-xl border border-line shadow-card overflow-hidden" >
             <DataTable title="최근 결제 내역" data={billingHistory} columns={[
                 { key: 'date', header: '결제일', width: 150 },
                 { key: 'plan', header: '플랜명', width: 200 },

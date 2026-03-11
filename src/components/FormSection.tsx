@@ -43,23 +43,23 @@ export default function FormSection({
   const [open, setOpen] = useState(defaultOpen);
 
   return (
-    <div className={cn("rounded-card-normal border-[1px] border-7 bg-3 p-lg shadow-card-soft", className)} >
+    <div className={cn("rounded-xl border-[1px] border-line bg-surface p-lg shadow-card", className)} >
       <div
         className={cn(
           "flex items-center justify-between",
           collapsible && "cursor-pointer select-none"
         )} onClick={() => collapsible && setOpen(!open)}>
         <div className="flex-1" >
-          <h3 className="text-Section-Title text-4 leading-[1.4] font-semibold" >{title}</h3>
+          <h3 className="text-Section-Title text-content leading-[1.4] font-semibold" >{title}</h3>
           {description && (
-            <p className="mt-xs text-Body-Primary-KR text-5 leading-[1.5]" >
+            <p className="mt-xs text-Body-Primary-KR text-content-secondary leading-[1.5]" >
               {description}
             </p>
           )}
         </div>
         {actions && <div className="ml-auto mr-md">{actions}</div>}
         {collapsible && (
-          <div className="text-5 transition-transform duration-200 ml-md" >
+          <div className="text-content-secondary transition-transform duration-200 ml-md" >
             {open ? <ChevronUp size={24}/> : <ChevronDown size={24}/>}
           </div>
         )}

@@ -28,11 +28,11 @@ export default function FormField({
   return (
     <div className={cn('flex flex-col gap-xs', className)}>
       {/* 라벨 영역 */}
-      <label className="text-Body-Primary-KR text-4 font-medium leading-[1.5]">
+      <label className="text-Body-Primary-KR text-content font-medium leading-[1.5]">
         {label}
         {/* 필수 항목 표시 */}
         {required && (
-          <span className="ml-xs text-error" aria-hidden="true">
+          <span className="ml-xs text-state-error" aria-hidden="true">
             *
           </span>
         )}
@@ -44,7 +44,7 @@ export default function FormField({
       {/* 에러 메시지 영역 */}
       {error && (
         <p
-          className="text-Body-Primary-KR text-error leading-[1.5]"
+          className="text-Body-Primary-KR text-state-error leading-[1.5]"
           role="alert"
         >
           {error}

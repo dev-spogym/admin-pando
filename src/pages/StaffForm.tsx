@@ -1,324 +1,261 @@
-import React, { useState } from 'react';
-import { 
-  Save, 
-  X, 
-  User, 
-  Phone, 
-  Mail, 
-  MapPin, 
-  Briefcase, 
-  Calendar as CalendarIcon, 
-  CreditCard, 
-  ShieldCheck,
-  Plus,
-  Trash2,
-  Camera,
-  Check
-} from 'lucide-react';
-import AppLayout from '@/components/AppLayout';
-import PageHeader from '@/components/PageHeader';
-import FormSection from '@/components/FormSection';
-import ConfirmDialog from '@/components/ConfirmDialog';
-import StatusBadge from '@/components/StatusBadge';
-import { cn } from '@/lib/utils';
-import { moveToPage } from '@/internal';
+import React, { useState } from "react";
+import { Save, User, Phone, Mail, Calendar, FileText, Check, ShieldCheck } from "lucide-react";
+import AppLayout from "@/components/AppLayout";
+import PageHeader from "@/components/PageHeader";
+import FormSection from "@/components/FormSection";
+import ConfirmDialog from "@/components/ConfirmDialog";
+import { cn } from "@/lib/utils";
+import { moveToPage } from "@/internal";
+
+// 역할별 권한 미리보기
+const ROLE_PERMISSIONS: Record<string, { label: string; desc: string; perms: string[] }> = {
+  owner:   { label: "센터장",   desc: "지점 내 전체 데이터 접근 및 관리",         perms: ["회원 전체 관리", "직원 관리", "급여 확정", "매출 통계", "설정 변경"] },
+  manager: { label: "매니저",   desc: "운영 전반 관리 및 주요 기능 접근",         perms: ["회원 관리", "스케줄 관리", "매출 통계 조회", "직원 조회"] },
+  fc:      { label: "FC",       desc: "상담·결제 및 매출 통계 접근",             perms: ["회원 상담", "결제 처리", "매출 통계 조회"] },
+  trainer: { label: "트레이너", desc: "담당 회원 관리 및 수업 스케줄 관리",       perms: ["담당 회원 조회", "수업 스케줄 관리", "출석 체크"] },
+  staff:   { label: "스태프",   desc: "기본 회원 조회 및 출석 확인",             perms: ["회원 조회", "출석 확인"] },
+};
 
 export default function StaffForm() {
-  // 폼 상태 관리
   const [formData, setFormData] = useState({
-    name: '',
-    phone: '',
-    email: '',
-    birthDate: '',
-    gender: 'male',
-    address: '',
-    role: 'trainer',
-    employmentType: 'full-time',
-    joinDate: new Date().toISOString().split('T')[0],
-    department: 'PT팀',
-    baseSalary: '',
-    incentiveRate: '',
-    bank: '',
-    accountNumber: '',
-    username: '',
-    password: '',
-    permissionGroup: 'trainer_standard',
-    status: 'active'
+    name: "",
+    role: "trainer",
+    contact: "",
+    joinDate: new Date().toISOString().split("T")[0],
+    email: "",
+    memo: "",
   });
 
-  const [showConfirm, setShowConfirm] = useState(false);
-  const [isSaving, setIsSaving] = useState(false);
+  const [errors, setErrors] = useState<Record<string, string>>({});
+  const [showCancelDialog, setShowCancelDialog] = useState(false);
 
-  // 핸들러들
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
+
+    // 연락처 자동 하이픈 포맷
+    if (name === "contact") {
+      const digits = value.replace(/\D/g, "");
+      let formatted = digits;
+      if (digits.length <= 3) {
+        formatted = digits;
+      } else if (digits.length <= 7) {
+        formatted = `${digits.slice(0, 3)}-${digits.slice(3)}`;
+      } else {
+        formatted = `${digits.slice(0, 3)}-${digits.slice(3, 7)}-${digits.slice(7, 11)}`;
+      }
+      setFormData(prev => ({ ...prev, contact: formatted }));
+      if (errors.contact) setErrors(prev => ({ ...prev, contact: "" }));
+      return;
+    }
+
     setFormData(prev => ({ ...prev, [name]: value }));
+    if (errors[name]) setErrors(prev => ({ ...prev, [name]: "" }));
+  };
+
+  const validate = () => {
+    const newErrors: Record<string, string> = {};
+    if (!formData.name.trim())    newErrors.name    = "이름을 입력하세요";
+    if (!formData.role)           newErrors.role    = "역할을 선택하세요";
+    if (!formData.joinDate)       newErrors.joinDate = "입사일을 입력하세요";
+    if (formData.contact && !/^010-\d{4}-\d{4}$/.test(formData.contact)) {
+      newErrors.contact = "올바른 연락처를 입력하세요";
+    }
+    if (!formData.contact.trim()) newErrors.contact = "연락처를 입력하세요";
+    return newErrors;
   };
 
   const handleSave = () => {
-    setIsSaving(true);
-    // Mock 저장 로직
-    setTimeout(() => {
-      setIsSaving(false);
-      alert('직원 정보가 성공적으로 저장되었습니다.');
-      moveToPage(974); // 직원 목록으로 이동
-    }, 1000);
-  };
-
-  const handleCancel = () => {
-    setShowConfirm(true);
-  };
-
-  const confirmCancel = () => {
-    setShowConfirm(false);
+    const newErrors = validate();
+    if (Object.keys(newErrors).length > 0) {
+      setErrors(newErrors);
+      return;
+    }
+    alert("직원이 성공적으로 등록되었습니다.");
     moveToPage(974);
   };
 
+  const roleInfo = ROLE_PERMISSIONS[formData.role] || ROLE_PERMISSIONS.staff;
+
   return (
-    <AppLayout >
-      <PageHeader title="직원 등록" description="새로운 직원을 시스템에 등록하고 권한을 설정합니다." actions={
+    <AppLayout>
+      <PageHeader
+        title="직원 등록"
+        description="새로운 직원 정보를 입력하고 역할을 설정합니다."
+        actions={
           <div className="flex gap-sm">
-            <button 
-              onClick={handleCancel}
-              className="px-lg py-sm rounded-button border border-border-light bg-3 text-text-grey-blue hover:bg-bg-main-light-blue transition-all font-medium"
+            <button
+              className="px-lg py-sm rounded-button border border-line bg-surface text-content-secondary hover:bg-surface-secondary transition-all text-Label font-medium"
+              onClick={() => setShowCancelDialog(true)}
             >
               취소
             </button>
-            <button 
+            <button
+              className="flex items-center gap-xs px-lg py-sm rounded-button bg-primary text-white hover:opacity-90 transition-all text-Label font-semibold shadow-sm"
               onClick={handleSave}
-              disabled={isSaving}
-              className="flex items-center gap-xs px-lg py-sm rounded-button bg-primary-coral text-white hover:bg-opacity-90 transition-all font-medium shadow-sm disabled:opacity-50"
             >
-              <Save size={18} />
-              {isSaving ? '저장 중...' : '저장하기'}
+              <Save size={16} />
+              저장하기
             </button>
           </div>
-        }/>
+        }
+      />
 
-      <div className="space-y-lg pb-xxl" >
-        {/* 프로필 요약 카드 (선택사항) */}
-        <div className="flex flex-col md:flex-row gap-lg" >
-          <div className="w-full md:w-[300px] flex flex-col gap-md" >
-            <div className="rounded-card-normal border border-border-light bg-3 p-lg flex flex-col items-center shadow-card-soft" >
-              <div className="relative mb-md" >
-                <div className="w-[120px] h-[120px] rounded-full bg-bg-main-light-blue flex items-center justify-center overflow-hidden border-2 border-border-light" >
-                  <User className="text-text-grey-blue" size={64}/>
-                </div>
-                <button className="absolute bottom-0 right-0 p-sm bg-secondary-mint text-white rounded-full shadow-md hover:scale-105 transition-transform" >
-                  <Camera size={16}/>
-                </button>
-              </div>
-              <h3 className="text-Heading 2 text-text-dark-grey font-bold" >{formData.name || '이름 없음'}</h3>
-              <p className="text-Body 2 text-text-grey-blue mb-md" >{formData.role === 'trainer' ? '트레이너' : '매니저'}</p>
-              <StatusBadge label="등록 대기" variant="default" dot={true}/>
+      <div className="space-y-lg pb-xxl max-w-[860px]">
+        {/* 기본 정보 */}
+        <FormSection title="기본 정보" description="직원의 이름, 역할, 연락처를 입력합니다.">
+          {/* 이름 */}
+          <div className="space-y-xs">
+            <label className="text-Label font-semibold text-content-secondary">
+              이름 <span className="text-error">*</span>
+            </label>
+            <div className="relative">
+              <User className="absolute left-md top-1/2 -translate-y-1/2 text-content-secondary" size={16} />
+              <input
+                name="name"
+                value={formData.name}
+                onChange={handleChange}
+                placeholder="홍길동"
+                className={cn(
+                  "w-full pl-[40px] pr-md py-md bg-surface-secondary border rounded-input text-Body-2 outline-none focus:ring-2 focus:ring-primary transition-all",
+                  errors.name ? "border-error focus:ring-error/30" : "border-line"
+                )}
+              />
             </div>
-
-            <div className="rounded-card-normal border border-border-light bg-3 p-md shadow-card-soft" >
-              <h4 className="text-Label text-text-grey-blue mb-sm" >참고 사항</h4>
-              <p className="text-Body 2 text-text-grey-blue leading-relaxed" >
-                직원 등록 시 입력한 아이디와 초기 비밀번호로 시스템 접속이 가능합니다. 
-                권한 설정에 따라 접근 가능한 메뉴가 제한될 수 있습니다.
-              </p>
-            </div>
+            {errors.name && <p className="text-Label text-error">{errors.name}</p>}
           </div>
 
-          <div className="flex-1 space-y-lg" >
-            {/* 섹션 1: 인적 사항 */}
-            <FormSection title="인적 사항" description="직원의 기본적인 연락처 및 개인 정보를 입력합니다.">
-              <div className="space-y-xs" >
-                <label className="text-Label text-text-grey-blue font-semibold" >이름 <span className="text-error" >*</span></label>
-                <div className="relative" >
-                  <User className="absolute left-md top-1/2 -translate-y-1/2 text-text-grey-blue" size={18}/>
-                  <input
-                    className="w-full pl-[44px] pr-md py-md bg-input-bg-light border-none rounded-input focus:ring-2 focus:ring-secondary-mint outline-none transition-all" name="name" value={formData.name} onChange={handleChange} placeholder="홍길동"/>
+          {/* 역할 선택 */}
+          <div className="space-y-xs">
+            <label className="text-Label font-semibold text-content-secondary">
+              역할 <span className="text-error">*</span>
+            </label>
+            <select
+              name="role"
+              value={formData.role}
+              onChange={handleChange}
+              className={cn(
+                "w-full px-md py-md bg-surface-secondary border rounded-input text-Body-2 outline-none focus:ring-2 focus:ring-primary transition-all cursor-pointer",
+                errors.role ? "border-error" : "border-line"
+              )}
+            >
+              <option value="">역할 선택</option>
+              <option value="owner">센터장</option>
+              <option value="manager">매니저</option>
+              <option value="fc">FC</option>
+              <option value="trainer">트레이너</option>
+              <option value="staff">스태프</option>
+            </select>
+            {errors.role && <p className="text-Label text-error">{errors.role}</p>}
+            {/* 역할 권한 미리보기 */}
+            {formData.role && (
+              <div className="mt-sm p-md bg-primary-light border border-primary/20 rounded-input">
+                <div className="flex items-center gap-xs mb-xs">
+                  <ShieldCheck size={14} className="text-primary" />
+                  <span className="text-Label font-semibold text-primary">{roleInfo.label} 권한</span>
                 </div>
-              </div>
-
-              <div className="space-y-xs" >
-                <label className="text-Label text-text-grey-blue font-semibold" >연락처 <span className="text-error" >*</span></label>
-                <div className="relative" >
-                  <Phone className="absolute left-md top-1/2 -translate-y-1/2 text-text-grey-blue" size={18}/>
-                  <input
-                    className="w-full pl-[44px] pr-md py-md bg-input-bg-light border-none rounded-input focus:ring-2 focus:ring-secondary-mint outline-none transition-all" name="phone" value={formData.phone} onChange={handleChange} placeholder="010-1234-5678"/>
-                </div>
-              </div>
-
-              <div className="space-y-xs" >
-                <label className="text-Label text-text-grey-blue font-semibold" >이메일</label>
-                <div className="relative" >
-                  <Mail className="absolute left-md top-1/2 -translate-y-1/2 text-text-grey-blue" size={18}/>
-                  <input
-                    className="w-full pl-[44px] pr-md py-md bg-input-bg-light border-none rounded-input focus:ring-2 focus:ring-secondary-mint outline-none transition-all" name="email" type="email" value={formData.email} onChange={handleChange} placeholder="example@wellness.com"/>
-                </div>
-              </div>
-
-              <div className="space-y-xs" >
-                <label className="text-Label text-text-grey-blue font-semibold" >생년월일</label>
-                <input
-                  className="w-full px-md py-md bg-input-bg-light border-none rounded-input focus:ring-2 focus:ring-secondary-mint outline-none transition-all" name="birthDate" type="date" value={formData.birthDate} onChange={handleChange}/>
-              </div>
-
-              <div className="space-y-xs" >
-                <label className="text-Label text-text-grey-blue font-semibold" >성별</label>
-                <div className="flex gap-sm" >
-                  <button
-                    className={cn(
-                      "flex-1 py-md rounded-input border transition-all font-medium",
-                      formData.gender === 'male' 
-                        ? "bg-bg-soft-peach border-primary-coral text-primary-coral" 
-                        : "bg-3 border-border-light text-text-grey-blue"
-                    )} onClick={() => setFormData(prev => ({ ...prev, gender: 'male' }))}>
-                    남성
-                  </button>
-                  <button
-                    className={cn(
-                      "flex-1 py-md rounded-input border transition-all font-medium",
-                      formData.gender === 'female' 
-                        ? "bg-bg-soft-peach border-primary-coral text-primary-coral" 
-                        : "bg-3 border-border-light text-text-grey-blue"
-                    )} onClick={() => setFormData(prev => ({ ...prev, gender: 'female' }))}>
-                    여성
-                  </button>
-                </div>
-              </div>
-
-              <div className="space-y-xs" >
-                <label className="text-Label text-text-grey-blue font-semibold" >주소</label>
-                <div className="relative" >
-                  <MapPin className="absolute left-md top-1/2 -translate-y-1/2 text-text-grey-blue" size={18}/>
-                  <input
-                    className="w-full pl-[44px] pr-md py-md bg-input-bg-light border-none rounded-input focus:ring-2 focus:ring-secondary-mint outline-none transition-all" name="address" value={formData.address} onChange={handleChange} placeholder="서울시 강남구..."/>
-                </div>
-              </div>
-            </FormSection>
-
-            {/* 섹션 2: 근무 정보 */}
-            <FormSection title="근무 정보" description="직책, 소속 및 근무 형태를 설정합니다.">
-              <div className="space-y-xs" >
-                <label className="text-Label text-text-grey-blue font-semibold" >직책 <span className="text-error" >*</span></label>
-                <select
-                  className="w-full px-md py-md bg-input-bg-light border-none rounded-input focus:ring-2 focus:ring-secondary-mint outline-none cursor-pointer" name="role" value={formData.role} onChange={handleChange}>
-                  <option value="trainer">트레이너</option>
-                  <option value="manager">매니저</option>
-                  <option value="reception">안내데스크</option>
-                  <option value="admin">슈퍼관리자</option>
-                </select>
-              </div>
-
-              <div className="space-y-xs" >
-                <label className="text-Label text-text-grey-blue font-semibold" >고용 형태</label>
-                <select
-                  className="w-full px-md py-md bg-input-bg-light border-none rounded-input focus:ring-2 focus:ring-secondary-mint outline-none cursor-pointer" name="employmentType" value={formData.employmentType} onChange={handleChange}>
-                  <option value="full-time">정규직</option>
-                  <option value="part-time">계약직/파트타임</option>
-                  <option value="freelancer">프리랜서</option>
-                </select>
-              </div>
-
-              <div className="space-y-xs" >
-                <label className="text-Label text-text-grey-blue font-semibold" >입사일 <span className="text-error" >*</span></label>
-                <input
-                  className="w-full px-md py-md bg-input-bg-light border-none rounded-input focus:ring-2 focus:ring-secondary-mint outline-none transition-all" name="joinDate" type="date" value={formData.joinDate} onChange={handleChange}/>
-              </div>
-
-              <div className="space-y-xs" >
-                <label className="text-Label text-text-grey-blue font-semibold" >소속 부서/팀</label>
-                <input
-                  className="w-full px-md py-md bg-input-bg-light border-none rounded-input focus:ring-2 focus:ring-secondary-mint outline-none transition-all" name="department" value={formData.department} onChange={handleChange} placeholder="예: PT팀, FC팀"/>
-              </div>
-            </FormSection>
-
-            {/* 섹션 3: 급여 및 정산 */}
-            <FormSection title="급여 및 정산" description="급여 기준과 정산 계좌 정보를 등록합니다.">
-              <div className="space-y-xs" >
-                <label className="text-Label text-text-grey-blue font-semibold" >기본급 (월)</label>
-                <div className="relative" >
-                  <input
-                    className="w-full px-md py-md bg-input-bg-light border-none rounded-input focus:ring-2 focus:ring-secondary-mint outline-none text-right pr-xl" name="baseSalary" type="number" value={formData.baseSalary} onChange={handleChange} placeholder="0"/>
-                  <span className="absolute right-md top-1/2 -translate-y-1/2 text-text-grey-blue" >원</span>
-                </div>
-              </div>
-
-              <div className="space-y-xs" >
-                <label className="text-Label text-text-grey-blue font-semibold" >인센티브 요율</label>
-                <div className="relative" >
-                  <input
-                    className="w-full px-md py-md bg-input-bg-light border-none rounded-input focus:ring-2 focus:ring-secondary-mint outline-none text-right pr-xl" name="incentiveRate" type="number" value={formData.incentiveRate} onChange={handleChange} placeholder="0"/>
-                  <span className="absolute right-md top-1/2 -translate-y-1/2 text-text-grey-blue" >%</span>
-                </div>
-              </div>
-
-              <div className="space-y-xs" >
-                <label className="text-Label text-text-grey-blue font-semibold" >지급 은행</label>
-                <select
-                  className="w-full px-md py-md bg-input-bg-light border-none rounded-input focus:ring-2 focus:ring-secondary-mint outline-none cursor-pointer" name="bank" value={formData.bank} onChange={handleChange}>
-                  <option value="">은행 선택</option>
-                  <option value="shinhan">신한은행</option>
-                  <option value="kb">국민은행</option>
-                  <option value="woori">우리은행</option>
-                  <option value="hana">하나은행</option>
-                  <option value="kakao">카카오뱅크</option>
-                </select>
-              </div>
-
-              <div className="space-y-xs" >
-                <label className="text-Label text-text-grey-blue font-semibold" >계좌번호</label>
-                <input
-                  className="w-full px-md py-md bg-input-bg-light border-none rounded-input focus:ring-2 focus:ring-secondary-mint outline-none transition-all" name="accountNumber" value={formData.accountNumber} onChange={handleChange} placeholder="'-' 제외하고 입력"/>
-              </div>
-            </FormSection>
-
-            {/* 섹션 4: 계정 및 권한 */}
-            <FormSection title="계정 및 권한" description="시스템 접속 계정과 접근 권한을 설정합니다." columns={1}>
-              <div className="grid grid-cols-2 gap-md" >
-                <div className="space-y-xs" >
-                  <label className="text-Label text-text-grey-blue font-semibold" >아이디 (ID) <span className="text-error" >*</span></label>
-                  <input
-                    className="w-full px-md py-md bg-input-bg-light border-none rounded-input focus:ring-2 focus:ring-secondary-mint outline-none transition-all" name="username" value={formData.username} onChange={handleChange} placeholder="영문, 숫자 조합"/>
-                </div>
-                <div className="space-y-xs" >
-                  <label className="text-Label text-text-grey-blue font-semibold" >비밀번호 <span className="text-error" >*</span></label>
-                  <input
-                    className="w-full px-md py-md bg-input-bg-light border-none rounded-input focus:ring-2 focus:ring-secondary-mint outline-none transition-all" name="password" type="password" value={formData.password} onChange={handleChange} placeholder="초기 비밀번호 설정"/>
-                </div>
-              </div>
-
-              <div className="space-y-xs" >
-                <label className="text-Label text-text-grey-blue font-semibold" >접근 권한 그룹 <span className="text-error" >*</span></label>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-sm" >
-                  {[
-                    { key: 'trainer_standard', label: '트레이너 표준', desc: '담당 회원 관리 및 스케줄 관리' },
-                    { key: 'sales_standard', label: '영업/FC 표준', desc: '상담, 결제 및 매출 통계 접근' },
-                    { key: 'manager_full', label: '지점 관리자', desc: '지점 내 모든 데이터 관리' }
-                  ].map((group) => (
-                    <div
-                      className={cn(
-                        "p-md rounded-input border cursor-pointer transition-all",
-                        formData.permissionGroup === group.key 
-                          ? "bg-bg-soft-mint border-secondary-mint ring-1 ring-secondary-mint" 
-                          : "bg-3 border-border-light hover:border-secondary-mint/50"
-                      )} key={group.key} onClick={() => setFormData(prev => ({ ...prev, permissionGroup: group.key }))}>
-                      <div className="flex justify-between items-center mb-xs" >
-                        <span className={cn(
-                          "text-Body 1 font-bold",
-                          formData.permissionGroup === group.key ? "text-secondary-mint" : "text-text-dark-grey"
-                        )} >
-                          {group.label}
-                        </span>
-                        {formData.permissionGroup === group.key && <Check className="text-secondary-mint" size={16}/>}
-                      </div>
-                      <p className="text-Label text-text-grey-blue" >{group.desc}</p>
-                    </div>
+                <p className="text-Label text-content-secondary mb-sm">{roleInfo.desc}</p>
+                <div className="flex flex-wrap gap-xs">
+                  {roleInfo.perms.map(p => (
+                    <span key={p} className="flex items-center gap-[3px] text-[11px] text-primary bg-white border border-primary/20 px-xs py-[2px] rounded-full">
+                      <Check size={10} />
+                      {p}
+                    </span>
                   ))}
                 </div>
               </div>
-            </FormSection>
+            )}
           </div>
-        </div>
+
+          {/* 연락처 */}
+          <div className="space-y-xs">
+            <label className="text-Label font-semibold text-content-secondary">
+              연락처 <span className="text-error">*</span>
+            </label>
+            <div className="relative">
+              <Phone className="absolute left-md top-1/2 -translate-y-1/2 text-content-secondary" size={16} />
+              <input
+                name="contact"
+                value={formData.contact}
+                onChange={handleChange}
+                placeholder="010-0000-0000"
+                maxLength={13}
+                className={cn(
+                  "w-full pl-[40px] pr-md py-md bg-surface-secondary border rounded-input text-Body-2 outline-none focus:ring-2 focus:ring-primary transition-all",
+                  errors.contact ? "border-error focus:ring-error/30" : "border-line"
+                )}
+              />
+            </div>
+            {errors.contact && <p className="text-Label text-error">{errors.contact}</p>}
+          </div>
+
+          {/* 입사일 */}
+          <div className="space-y-xs">
+            <label className="text-Label font-semibold text-content-secondary">
+              입사일 <span className="text-error">*</span>
+            </label>
+            <div className="relative">
+              <Calendar className="absolute left-md top-1/2 -translate-y-1/2 text-content-secondary" size={16} />
+              <input
+                name="joinDate"
+                type="date"
+                value={formData.joinDate}
+                onChange={handleChange}
+                className={cn(
+                  "w-full pl-[40px] pr-md py-md bg-surface-secondary border rounded-input text-Body-2 outline-none focus:ring-2 focus:ring-primary transition-all",
+                  errors.joinDate ? "border-error focus:ring-error/30" : "border-line"
+                )}
+              />
+            </div>
+            {errors.joinDate && <p className="text-Label text-error">{errors.joinDate}</p>}
+          </div>
+        </FormSection>
+
+        {/* 추가 정보 (선택) */}
+        <FormSection title="추가 정보" description="이메일과 메모는 선택 항목입니다.">
+          {/* 이메일 */}
+          <div className="space-y-xs">
+            <label className="text-Label font-semibold text-content-secondary">이메일</label>
+            <div className="relative">
+              <Mail className="absolute left-md top-1/2 -translate-y-1/2 text-content-secondary" size={16} />
+              <input
+                name="email"
+                type="email"
+                value={formData.email}
+                onChange={handleChange}
+                placeholder="example@center.com"
+                className="w-full pl-[40px] pr-md py-md bg-surface-secondary border border-line rounded-input text-Body-2 outline-none focus:ring-2 focus:ring-primary transition-all"
+              />
+            </div>
+          </div>
+
+          {/* 메모 */}
+          <div className="space-y-xs">
+            <label className="text-Label font-semibold text-content-secondary">메모</label>
+            <div className="relative">
+              <FileText className="absolute left-md top-[14px] text-content-secondary" size={16} />
+              <textarea
+                name="memo"
+                value={formData.memo}
+                onChange={handleChange}
+                placeholder="특이사항이나 참고 내용을 입력하세요"
+                rows={3}
+                className="w-full pl-[40px] pr-md py-md bg-surface-secondary border border-line rounded-input text-Body-2 outline-none focus:ring-2 focus:ring-primary transition-all resize-none"
+              />
+            </div>
+          </div>
+        </FormSection>
       </div>
 
-      {/* 취소 확인 다이얼로그 */}
-      <ConfirmDialog open={showConfirm} title="등록 취소" description="입력 중인 정보가 저장되지 않고 사라집니다. 정말 취소하시겠습니까?" confirmLabel="네, 취소합니다" cancelLabel="계속 작성하기" variant="danger" onConfirm={confirmCancel} onCancel={() => setShowConfirm(false)}/>
+      <ConfirmDialog
+        open={showCancelDialog}
+        title="등록 취소"
+        description="입력 중인 내용이 저장되지 않습니다. 정말 취소하시겠습니까?"
+        confirmLabel="네, 취소합니다"
+        cancelLabel="계속 작성하기"
+        variant="danger"
+        onConfirm={() => { setShowCancelDialog(false); moveToPage(974); }}
+        onCancel={() => setShowCancelDialog(false)}
+      />
     </AppLayout>
   );
 }

@@ -98,7 +98,7 @@ export default function FileUpload({
     <div className={cn("flex flex-col gap-xs", className)}>
       {/* 레이블 */}
       {label && (
-        <label htmlFor={id} className="text-Label font-medium text-4">
+        <label htmlFor={id} className="text-Label font-medium text-content">
           {label}
         </label>
       )}
@@ -110,11 +110,11 @@ export default function FileUpload({
           onDragOver={handleDragOver}
           onDragLeave={handleDragLeave}
           className={cn(
-            "flex flex-col items-center justify-center gap-sm rounded-card-normal border-2 border-dashed p-xl",
+            "flex flex-col items-center justify-center gap-sm rounded-xl border-2 border-dashed p-xl",
             "transition-colors duration-150 cursor-pointer",
             isDragging
-              ? "border-0 bg-6"
-              : "border-7 bg-9 hover:border-5 hover:bg-2"
+              ? "border-0 bg-primary-light"
+              : "border-line bg-surface-secondary hover:border-5 hover:bg-surface-secondary"
           )}
           onClick={() => inputRef.current?.click()}
           role="button"
@@ -126,16 +126,16 @@ export default function FileUpload({
         >
           <Upload
             size={28}
-            className={cn(isDragging ? "text-0" : "text-5")}
+            className={cn(isDragging ? "text-primary" : "text-content-secondary")}
           />
           <div className="text-center">
-            <p className="text-Body-Primary-KR text-4">
+            <p className="text-Body-Primary-KR text-content">
               파일을 드래그하거나{" "}
-              <span className="font-semibold text-0 underline underline-offset-2">
+              <span className="font-semibold text-primary underline underline-offset-2">
                 클릭하여 선택
               </span>
             </p>
-            <p className="mt-xs text-[11px] text-5">
+            <p className="mt-xs text-[11px] text-content-secondary">
               허용 형식: {acceptLabel}
               {maxSize !== undefined && ` · 최대 ${maxSize}MB`}
             </p>
@@ -145,26 +145,26 @@ export default function FileUpload({
 
       {/* 선택된 파일 표시 */}
       {selectedFile && (
-        <div className="rounded-card-normal border border-7 bg-3 p-md">
+        <div className="rounded-xl border border-line bg-surface p-md">
           {/* 이미지 미리보기 */}
           {previewUrl && (
             <div className="mb-sm overflow-hidden rounded-1">
               <img
                 src={previewUrl}
                 alt="미리보기"
-                className="max-h-48 w-full object-contain bg-2"
+                className="max-h-48 w-full object-contain bg-surface-secondary"
               />
             </div>
           )}
 
           {/* 파일 정보 */}
           <div className="flex items-center gap-sm">
-            <File size={18} className="flex-shrink-0 text-5" />
+            <File size={18} className="flex-shrink-0 text-content-secondary" />
             <div className="min-w-0 flex-1">
-              <p className="truncate text-Body-Primary-KR text-4 font-medium">
+              <p className="truncate text-Body-Primary-KR text-content font-medium">
                 {selectedFile.name}
               </p>
-              <p className="text-[11px] text-5">
+              <p className="text-[11px] text-content-secondary">
                 {(selectedFile.size / 1024).toFixed(1)} KB
               </p>
             </div>
@@ -172,7 +172,7 @@ export default function FileUpload({
             <button
               type="button"
               onClick={handleRemove}
-              className="flex-shrink-0 rounded-button p-xs text-5 transition-colors hover:bg-2 hover:text-error"
+              className="flex-shrink-0 rounded-button p-xs text-content-secondary transition-colors hover:bg-surface-secondary hover:text-state-error"
               aria-label="파일 제거"
             >
               <X size={16} />
@@ -183,7 +183,7 @@ export default function FileUpload({
 
       {/* 에러 메시지 */}
       {error && (
-        <p className="text-[11px] font-medium text-error">{error}</p>
+        <p className="text-[11px] font-medium text-state-error">{error}</p>
       )}
 
       {/* 숨겨진 file input */}

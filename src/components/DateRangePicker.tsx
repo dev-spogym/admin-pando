@@ -98,7 +98,7 @@ export default function DateRangePicker({
     <div className={cn("flex flex-col gap-sm", className)}>
       {/* 레이블 */}
       {label && (
-        <span className="text-Label font-medium text-4">{label}</span>
+        <span className="text-Label font-medium text-content">{label}</span>
       )}
 
       {/* 프리셋 버튼 */}
@@ -109,9 +109,9 @@ export default function DateRangePicker({
             type="button"
             onClick={() => applyPreset(preset.getRange)}
             className={cn(
-              "rounded-button border border-7 px-sm py-xs",
-              "text-[11px] font-medium text-5 transition-colors",
-              "hover:border-0 hover:text-0 hover:bg-6"
+              "rounded-button border border-line px-sm py-xs",
+              "text-[11px] font-medium text-content-secondary transition-colors",
+              "hover:border-0 hover:text-primary hover:bg-primary-light"
             )}
           >
             {preset.label}
@@ -127,7 +127,7 @@ export default function DateRangePicker({
           placeholder="시작일"
           className="flex-1"
         />
-        <span className="mb-[10px] text-Body-Primary-KR text-5 flex-shrink-0">~</span>
+        <span className="mb-[10px] text-Body-Primary-KR text-content-secondary flex-shrink-0">~</span>
         <DatePicker
           value={endDate}
           onChange={handleEndChange}

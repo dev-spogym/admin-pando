@@ -228,17 +228,17 @@ export default function BranchManagement() {
       render: (_: any, row: any) => (
         <div className="flex items-center gap-xs" >
           <button
-            className="text-text-grey-blue hover:text-primary-coral p-xs" onClick={() => {
+            className="text-content-secondary hover:text-primary p-xs" onClick={() => {
               alert(`${row.name} 관리 모드로 전환합니다.`);
               moveToPage(966);
             }}>
             관리
           </button>
-          <div className="w-[1px] h-3 bg-border-light" />
-          <button className="text-text-grey-blue hover:text-primary-coral p-xs" >수정</button>
-          <div className="w-[1px] h-3 bg-border-light" />
+          <div className="w-[1px] h-3 bg-line" />
+          <button className="text-content-secondary hover:text-primary p-xs" >수정</button>
+          <div className="w-[1px] h-3 bg-line" />
           <button
-            className="text-text-grey-blue hover:text-error p-xs"
+            className="text-content-secondary hover:text-state-error p-xs"
             onClick={() => openDeactivate(row)}
           >
             비활성
@@ -255,7 +255,7 @@ export default function BranchManagement() {
       sortable: true,
       render: (v: string, row: any) => (
         <button
-          className="text-primary-coral hover:underline font-medium" onClick={() => moveToPage(985)}>
+          className="text-primary hover:underline font-medium" onClick={() => moveToPage(985)}>
           {v}
         </button>
       )
@@ -278,14 +278,14 @@ export default function BranchManagement() {
       <PageHeader title="지점 관리 (멀티지점)" description="전체 지점의 운영 현황을 통합 관리하고 지점 간 데이터 이동을 처리합니다." actions={
           <div className="flex gap-sm">
             <button
-              className="flex items-center gap-xs px-md py-sm bg-bg-soft-peach text-primary-coral hover:bg-primary-coral hover:text-white transition-all rounded-button text-Label font-semibold"
+              className="flex items-center gap-xs px-md py-sm bg-primary-light text-primary hover:bg-primary hover:text-white transition-all rounded-button text-Label font-semibold"
               onClick={handleMoveMember}
             >
               <ArrowLeftRight size={16} />
               지점 이동 신청
             </button>
             <button
-              className="flex items-center gap-xs px-md py-sm bg-primary-coral text-white hover:opacity-90 transition-all rounded-button text-Label font-semibold"
+              className="flex items-center gap-xs px-md py-sm bg-primary text-white hover:opacity-90 transition-all rounded-button text-Label font-semibold"
               onClick={() => setIsAddBranchOpen(true)}
             >
               <Plus size={16} />
@@ -332,19 +332,19 @@ export default function BranchManagement() {
       {activeTab === 'integrated' && (
         <div className="space-y-lg animate-in fade-in duration-300" >
           <div className="flex justify-between items-center" >
-            <div className="flex items-center gap-sm p-sm bg-3 rounded-card-normal border border-border-light shadow-card-soft" >
-              <button className="px-md py-xs bg-bg-soft-peach text-primary-coral rounded-button text-Label font-semibold" >월간</button>
-              <button className="px-md py-xs text-text-grey-blue hover:text-text-dark-grey rounded-button text-Label" >주간</button>
-              <button className="px-md py-xs text-text-grey-blue hover:text-text-dark-grey rounded-button text-Label" >연간</button>
+            <div className="flex items-center gap-sm p-sm bg-surface rounded-xl border border-line shadow-card" >
+              <button className="px-md py-xs bg-primary-light text-primary rounded-button text-Label font-semibold" >월간</button>
+              <button className="px-md py-xs text-content-secondary hover:text-content rounded-button text-Label" >주간</button>
+              <button className="px-md py-xs text-content-secondary hover:text-content rounded-button text-Label" >연간</button>
             </div>
-            <p className="text-Body 2 text-text-grey-blue" >기준: 2026.02.01 ~ 2026.02.19</p>
+            <p className="text-Body 2 text-content-secondary" >기준: 2026.02.01 ~ 2026.02.19</p>
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-md" >
-            <div className="lg:col-span-2 p-lg bg-3 rounded-card-normal border border-border-light shadow-card-soft" >
+            <div className="lg:col-span-2 p-lg bg-surface rounded-xl border border-line shadow-card" >
               <div className="flex items-center justify-between mb-lg" >
-                <h3 className="text-Heading 2 text-text-dark-grey flex items-center gap-xs" >
-                  <BarChart3 className="text-primary-coral" size={20}/>
+                <h3 className="text-Heading 2 text-content flex items-center gap-xs" >
+                  <BarChart3 className="text-primary" size={20}/>
                   지점별 매출 비교
                 </h3>
               </div>
@@ -352,44 +352,44 @@ export default function BranchManagement() {
                 {integratedStats.map((item, idx) => (
                   <div className="space-y-xs" key={idx}>
                     <div className="flex justify-between text-Body 2" >
-                      <span className="font-medium text-text-dark-grey" >{item.branch}</span>
-                      <span className="text-text-grey-blue" >{item.sales}원</span>
+                      <span className="font-medium text-content" >{item.branch}</span>
+                      <span className="text-content-secondary" >{item.sales}원</span>
                     </div>
-                    <div className="h-2 w-full bg-bg-main-light-blue rounded-full overflow-hidden" >
+                    <div className="h-2 w-full bg-surface-secondary rounded-full overflow-hidden" >
                       <div
-                        className="h-full bg-primary-coral rounded-full" style={{ width: `${(parseInt(item.sales.replace(/,/g, '')) / 80000000) * 100}%` }}/>
+                        className="h-full bg-primary rounded-full" style={{ width: `${(parseInt(item.sales.replace(/,/g, '')) / 80000000) * 100}%` }}/>
                     </div>
                   </div>
                 ))}
               </div>
             </div>
 
-            <div className="p-lg bg-3 rounded-card-normal border border-border-light shadow-card-soft" >
-              <h3 className="text-Heading 2 text-text-dark-grey flex items-center gap-xs mb-lg" >
-                <PieChart className="text-secondary-mint" size={20}/>
+            <div className="p-lg bg-surface rounded-xl border border-line shadow-card" >
+              <h3 className="text-Heading 2 text-content flex items-center gap-xs mb-lg" >
+                <PieChart className="text-accent" size={20}/>
                 지점별 회원 현황
               </h3>
               <div className="flex flex-col items-center justify-center h-[240px]" >
-                <div className="relative w-40 h-40 rounded-full border-[12px] border-bg-main-light-blue flex items-center justify-center" >
-                  <div className="absolute inset-[-12px] rounded-full border-[12px] border-primary-coral border-r-transparent border-b-transparent border-l-transparent rotate-[45deg]" />
-                  <div className="absolute inset-[-12px] rounded-full border-[12px] border-secondary-mint border-t-transparent border-b-transparent border-l-transparent rotate-[-30deg]" />
+                <div className="relative w-40 h-40 rounded-full border-[12px] border-surface-secondary flex items-center justify-center" >
+                  <div className="absolute inset-[-12px] rounded-full border-[12px] border-primary border-r-transparent border-b-transparent border-l-transparent rotate-[45deg]" />
+                  <div className="absolute inset-[-12px] rounded-full border-[12px] border-accent border-t-transparent border-b-transparent border-l-transparent rotate-[-30deg]" />
                   <div className="text-center" >
-                    <p className="text-Label text-text-grey-blue" >전체 회원</p>
-                    <p className="text-Heading 2 font-bold text-text-dark-grey" >4,010</p>
+                    <p className="text-Label text-content-secondary" >전체 회원</p>
+                    <p className="text-Heading 2 font-bold text-content" >4,010</p>
                   </div>
                 </div>
                 <div className="mt-lg grid grid-cols-2 gap-sm w-full" >
                   <div className="flex items-center gap-xs" >
-                    <div className="w-2 h-2 rounded-full bg-primary-coral" />
-                    <span className="text-Label text-text-grey-blue" >강남점 (46%)</span>
+                    <div className="w-2 h-2 rounded-full bg-primary" />
+                    <span className="text-Label text-content-secondary" >강남점 (46%)</span>
                   </div>
                   <div className="flex items-center gap-xs" >
-                    <div className="w-2 h-2 rounded-full bg-secondary-mint" />
-                    <span className="text-Label text-text-grey-blue" >종각점 (31%)</span>
+                    <div className="w-2 h-2 rounded-full bg-accent" />
+                    <span className="text-Label text-content-secondary" >종각점 (31%)</span>
                   </div>
                   <div className="flex items-center gap-xs" >
                     <div className="w-2 h-2 rounded-full bg-information" />
-                    <span className="text-Label text-text-grey-blue" >여의도점 (23%)</span>
+                    <span className="text-Label text-content-secondary" >여의도점 (23%)</span>
                   </div>
                 </div>
               </div>
@@ -430,10 +430,10 @@ export default function BranchManagement() {
       {/* --- MODAL: 신규 지점 등록 (검증 포함) --- */}
       {isAddBranchOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-md" >
-          <div className="w-full max-w-2xl bg-3 rounded-modal shadow-card-strong max-h-[90vh] overflow-y-auto" >
-            <div className="p-xl border-b border-border-light flex justify-between items-center sticky top-0 bg-3 z-10" >
-              <h2 className="text-Heading 2 text-text-dark-grey" >신규 지점 등록</h2>
-              <button className="text-text-grey-blue hover:text-text-dark-grey" onClick={handleCloseAddBranch}>
+          <div className="w-full max-w-2xl bg-surface rounded-modal shadow-card max-h-[90vh] overflow-y-auto" >
+            <div className="p-xl border-b border-line flex justify-between items-center sticky top-0 bg-surface z-10" >
+              <h2 className="text-Heading 2 text-content" >신규 지점 등록</h2>
+              <button className="text-content-secondary hover:text-content" onClick={handleCloseAddBranch}>
                 <X size={24}/>
               </button>
             </div>
@@ -442,33 +442,33 @@ export default function BranchManagement() {
               <FormSection title="기본 정보" columns={2}>
                 {/* 지점명 */}
                 <div className="space-y-xs" >
-                  <label className="text-Label text-text-grey-blue" >지점명 <span className="text-error" >*</span></label>
+                  <label className="text-Label text-content-secondary" >지점명 <span className="text-state-error" >*</span></label>
                   <input
                     className={cn(
-                      "w-full p-sm bg-input-bg-light rounded-input border focus:outline-none transition-colors",
-                      formErrors.name ? "border-error focus:border-error" : "border-transparent focus:border-secondary-mint"
+                      "w-full p-sm bg-surface-secondary rounded-input border focus:outline-none transition-colors",
+                      formErrors.name ? "border-state-error focus:border-state-error" : "border-transparent focus:border-accent"
                     )}
                     placeholder="예: 스포짐 광화문점"
                     value={branchForm.name}
                     onChange={e => handleFormChange('name', e.target.value)}
                   />
                   {formErrors.name && (
-                    <p className="flex items-center gap-xs text-Label text-error">
+                    <p className="flex items-center gap-xs text-Label text-state-error">
                       <AlertCircle size={12}/> {formErrors.name}
                     </p>
                   )}
-                  <p className="text-Label text-text-grey-blue">2~30자 입력</p>
+                  <p className="text-Label text-content-secondary">2~30자 입력</p>
                 </div>
 
                 {/* 지점 코드 */}
                 <div className="space-y-xs" >
-                  <label className="text-Label text-text-grey-blue" >지점 코드 <span className="text-error" >*</span></label>
+                  <label className="text-Label text-content-secondary" >지점 코드 <span className="text-state-error" >*</span></label>
                   <div className="flex gap-xs" >
                     <input
                       className={cn(
-                        "flex-1 p-sm bg-input-bg-light rounded-input border focus:outline-none transition-colors uppercase",
-                        formErrors.code ? "border-error focus:border-error" : "border-transparent focus:border-secondary-mint",
-                        codeAutoGenerated && "bg-bg-soft-mint/30"
+                        "flex-1 p-sm bg-surface-secondary rounded-input border focus:outline-none transition-colors uppercase",
+                        formErrors.code ? "border-state-error focus:border-state-error" : "border-transparent focus:border-accent",
+                        codeAutoGenerated && "bg-accent-light/30"
                       )}
                       placeholder="예: SGJ"
                       value={branchForm.code}
@@ -476,7 +476,7 @@ export default function BranchManagement() {
                       onChange={e => handleFormChange('code', e.target.value.toUpperCase())}
                     />
                     <button
-                      className="px-md py-sm bg-bg-soft-mint text-secondary-mint text-Label font-semibold rounded-button whitespace-nowrap hover:opacity-80 transition-opacity"
+                      className="px-md py-sm bg-accent-light text-accent text-Label font-semibold rounded-button whitespace-nowrap hover:opacity-80 transition-opacity"
                       type="button"
                       onClick={handleAutoGenerateCode}
                     >
@@ -484,27 +484,27 @@ export default function BranchManagement() {
                     </button>
                   </div>
                   {formErrors.code && (
-                    <p className="flex items-center gap-xs text-Label text-error">
+                    <p className="flex items-center gap-xs text-Label text-state-error">
                       <AlertCircle size={12}/> {formErrors.code}
                     </p>
                   )}
-                  <p className="text-Label text-text-grey-blue">영문 대문자 2~5자 (예: SGJ, SGKWH)</p>
+                  <p className="text-Label text-content-secondary">영문 대문자 2~5자 (예: SGJ, SGKWH)</p>
                 </div>
 
                 {/* 대표 연락처 */}
                 <div className="space-y-xs" >
-                  <label className="text-Label text-text-grey-blue" >대표 연락처 <span className="text-error" >*</span></label>
+                  <label className="text-Label text-content-secondary" >대표 연락처 <span className="text-state-error" >*</span></label>
                   <input
                     className={cn(
-                      "w-full p-sm bg-input-bg-light rounded-input border focus:outline-none transition-colors",
-                      formErrors.phone ? "border-error focus:border-error" : "border-transparent focus:border-secondary-mint"
+                      "w-full p-sm bg-surface-secondary rounded-input border focus:outline-none transition-colors",
+                      formErrors.phone ? "border-state-error focus:border-state-error" : "border-transparent focus:border-accent"
                     )}
                     placeholder="02-000-0000"
                     value={branchForm.phone}
                     onChange={e => handleFormChange('phone', e.target.value)}
                   />
                   {formErrors.phone && (
-                    <p className="flex items-center gap-xs text-Label text-error">
+                    <p className="flex items-center gap-xs text-Label text-state-error">
                       <AlertCircle size={12}/> {formErrors.phone}
                     </p>
                   )}
@@ -512,11 +512,11 @@ export default function BranchManagement() {
 
                 {/* 지점 관리자 */}
                 <div className="space-y-xs" >
-                  <label className="text-Label text-text-grey-blue" >지점 관리자 <span className="text-error" >*</span></label>
+                  <label className="text-Label text-content-secondary" >지점 관리자 <span className="text-state-error" >*</span></label>
                   <select
                     className={cn(
-                      "w-full p-sm bg-input-bg-light rounded-input border focus:outline-none transition-colors",
-                      formErrors.managerId ? "border-error focus:border-error" : "border-transparent focus:border-secondary-mint"
+                      "w-full p-sm bg-surface-secondary rounded-input border focus:outline-none transition-colors",
+                      formErrors.managerId ? "border-state-error focus:border-state-error" : "border-transparent focus:border-accent"
                     )}
                     value={branchForm.managerId}
                     onChange={e => handleFormChange('managerId', e.target.value)}
@@ -526,7 +526,7 @@ export default function BranchManagement() {
                     <option value="owner2">박대표 (owner)</option>
                   </select>
                   {formErrors.managerId && (
-                    <p className="flex items-center gap-xs text-Label text-error">
+                    <p className="flex items-center gap-xs text-Label text-state-error">
                       <AlertCircle size={12}/> {formErrors.managerId}
                     </p>
                   )}
@@ -535,19 +535,19 @@ export default function BranchManagement() {
 
               <FormSection title="위치 및 운영 정보" columns={1}>
                 <div className="space-y-xs" >
-                  <label className="text-Label text-text-grey-blue" >주소 <span className="text-error" >*</span></label>
+                  <label className="text-Label text-content-secondary" >주소 <span className="text-state-error" >*</span></label>
                   <div className="flex gap-xs" >
                     <input
                       className={cn(
-                        "flex-1 p-sm bg-input-bg-light rounded-input border focus:outline-none transition-colors",
-                        formErrors.address ? "border-error focus:border-error" : "border-transparent focus:border-secondary-mint"
+                        "flex-1 p-sm bg-surface-secondary rounded-input border focus:outline-none transition-colors",
+                        formErrors.address ? "border-state-error focus:border-state-error" : "border-transparent focus:border-accent"
                       )}
                       placeholder="주소를 검색하세요"
                       readOnly={true}
                       value={branchForm.address}
                     />
                     <button
-                      className="px-md py-sm bg-bg-main-light-blue text-text-dark-grey text-Label font-semibold rounded-button whitespace-nowrap hover:bg-input-bg-light transition-colors"
+                      className="px-md py-sm bg-surface-secondary text-content text-Label font-semibold rounded-button whitespace-nowrap hover:bg-surface-secondary transition-colors"
                       type="button"
                       onClick={() => {
                         // Mock 주소 설정
@@ -558,29 +558,29 @@ export default function BranchManagement() {
                     </button>
                   </div>
                   {formErrors.address && (
-                    <p className="flex items-center gap-xs text-Label text-error">
+                    <p className="flex items-center gap-xs text-Label text-state-error">
                       <AlertCircle size={12}/> {formErrors.address}
                     </p>
                   )}
                   <input
-                    className="w-full mt-sm p-sm bg-input-bg-light rounded-input border border-transparent focus:border-secondary-mint focus:outline-none"
+                    className="w-full mt-sm p-sm bg-surface-secondary rounded-input border border-transparent focus:border-accent focus:outline-none"
                     placeholder="상세 주소를 입력하세요"
                     value={branchForm.addressDetail}
                     onChange={e => handleFormChange('addressDetail', e.target.value)}
                   />
                 </div>
                 <div className="space-y-xs mt-md" >
-                  <label className="text-Label text-text-grey-blue" >운영 시간 <span className="text-error" >*</span></label>
+                  <label className="text-Label text-content-secondary" >운영 시간 <span className="text-state-error" >*</span></label>
                   <div className="flex items-center gap-sm" >
                     <input
-                      className="flex-1 p-sm bg-input-bg-light rounded-input border border-transparent focus:border-secondary-mint focus:outline-none"
+                      className="flex-1 p-sm bg-surface-secondary rounded-input border border-transparent focus:border-accent focus:outline-none"
                       type="time"
                       value={branchForm.openTime}
                       onChange={e => handleFormChange('openTime', e.target.value)}
                     />
-                    <span className="text-text-grey-blue" >~</span>
+                    <span className="text-content-secondary" >~</span>
                     <input
-                      className="flex-1 p-sm bg-input-bg-light rounded-input border border-transparent focus:border-secondary-mint focus:outline-none"
+                      className="flex-1 p-sm bg-surface-secondary rounded-input border border-transparent focus:border-accent focus:outline-none"
                       type="time"
                       value={branchForm.closeTime}
                       onChange={e => handleFormChange('closeTime', e.target.value)}
@@ -591,16 +591,16 @@ export default function BranchManagement() {
 
               <FormSection title="추가 설정" columns={1}>
                 <div className="space-y-xs" >
-                  <label className="text-Label text-text-grey-blue" >지점 로고</label>
-                  <div className="border-2 border-dashed border-border-light rounded-card-normal p-xl flex flex-col items-center justify-center text-text-grey-blue hover:border-secondary-mint transition-colors cursor-pointer" >
+                  <label className="text-Label text-content-secondary" >지점 로고</label>
+                  <div className="border-2 border-dashed border-line rounded-xl p-xl flex flex-col items-center justify-center text-content-secondary hover:border-accent transition-colors cursor-pointer" >
                     <Plus size={32}/>
                     <span className="mt-sm text-Body 2" >이미지 업로드 (PNG, JPG)</span>
                   </div>
                 </div>
                 <div className="space-y-xs mt-md" >
-                  <label className="text-Label text-text-grey-blue" >메모</label>
+                  <label className="text-Label text-content-secondary" >메모</label>
                   <textarea
-                    className="w-full p-sm bg-input-bg-light rounded-input border border-transparent focus:border-secondary-mint focus:outline-none min-h-[80px]"
+                    className="w-full p-sm bg-surface-secondary rounded-input border border-transparent focus:border-accent focus:outline-none min-h-[80px]"
                     placeholder="지점 관련 특이사항을 입력하세요."
                     value={branchForm.memo}
                     onChange={e => handleFormChange('memo', e.target.value)}
@@ -609,10 +609,10 @@ export default function BranchManagement() {
               </FormSection>
             </div>
 
-            <div className="p-xl border-t border-border-light flex justify-end gap-sm sticky bottom-0 bg-3" >
-              <button className="px-lg py-sm text-text-grey-blue hover:bg-input-bg-light rounded-button transition-colors" onClick={handleCloseAddBranch}>취소</button>
+            <div className="p-xl border-t border-line flex justify-end gap-sm sticky bottom-0 bg-surface" >
+              <button className="px-lg py-sm text-content-secondary hover:bg-surface-secondary rounded-button transition-colors" onClick={handleCloseAddBranch}>취소</button>
               <button
-                className="px-lg py-sm bg-primary-coral text-white font-semibold rounded-button shadow-md hover:scale-[1.02] active:scale-[0.98] transition-all"
+                className="px-lg py-sm bg-primary text-white font-semibold rounded-button shadow-md hover:scale-[1.02] active:scale-[0.98] transition-all"
                 onClick={handleAddBranchSubmit}
               >
                 등록 완료
@@ -625,31 +625,31 @@ export default function BranchManagement() {
       {/* --- MODAL: 지점 이동 신청 --- */}
       {isMoveMemberOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-md" >
-          <div className="w-full max-w-lg bg-3 rounded-modal shadow-card-strong" >
-            <div className="p-xl border-b border-border-light flex justify-between items-center" >
-              <h2 className="text-Heading 2 text-text-dark-grey" >회원 지점 이동 신청</h2>
-              <button className="text-text-grey-blue hover:text-text-dark-grey" onClick={() => setIsMoveMemberOpen(false)}>
+          <div className="w-full max-w-lg bg-surface rounded-modal shadow-card" >
+            <div className="p-xl border-b border-line flex justify-between items-center" >
+              <h2 className="text-Heading 2 text-content" >회원 지점 이동 신청</h2>
+              <button className="text-content-secondary hover:text-content" onClick={() => setIsMoveMemberOpen(false)}>
                 <X size={24}/>
               </button>
             </div>
 
             <div className="p-xl space-y-lg" >
               <div className="space-y-xs" >
-                <label className="text-Label text-text-grey-blue" >회원 검색 <span className="text-error" >*</span></label>
+                <label className="text-Label text-content-secondary" >회원 검색 <span className="text-state-error" >*</span></label>
                 <div className="relative" >
-                  <Search className="absolute left-md top-1/2 -translate-y-1/2 text-text-grey-blue w-sm h-sm" />
-                  <input className="w-full pl-xl pr-md py-sm bg-input-bg-light rounded-input border border-transparent focus:border-secondary-mint focus:outline-none" placeholder="회원명 또는 연락처 입력"/>
+                  <Search className="absolute left-md top-1/2 -translate-y-1/2 text-content-secondary w-sm h-sm" />
+                  <input className="w-full pl-xl pr-md py-sm bg-surface-secondary rounded-input border border-transparent focus:border-accent focus:outline-none" placeholder="회원명 또는 연락처 입력"/>
                 </div>
               </div>
 
               <div className="grid grid-cols-2 gap-md" >
                 <div className="space-y-xs" >
-                  <label className="text-Label text-text-grey-blue" >현재 지점</label>
-                  <input className="w-full p-sm bg-bg-main-light-blue rounded-input border border-transparent text-text-grey-blue" value="스포짐 종각점" disabled={true}/>
+                  <label className="text-Label text-content-secondary" >현재 지점</label>
+                  <input className="w-full p-sm bg-surface-secondary rounded-input border border-transparent text-content-secondary" value="스포짐 종각점" disabled={true}/>
                 </div>
                 <div className="space-y-xs" >
-                  <label className="text-Label text-text-grey-blue" >이동할 지점 <span className="text-error" >*</span></label>
-                  <select className="w-full p-sm bg-input-bg-light rounded-input border border-transparent focus:border-secondary-mint focus:outline-none" >
+                  <label className="text-Label text-content-secondary" >이동할 지점 <span className="text-state-error" >*</span></label>
+                  <select className="w-full p-sm bg-surface-secondary rounded-input border border-transparent focus:border-accent focus:outline-none" >
                     <option value="">지점 선택</option>
                     <option value="2">스포짐 강남점</option>
                     <option value="3">스포짐 여의도점</option>
@@ -658,33 +658,33 @@ export default function BranchManagement() {
               </div>
 
               <div className="space-y-xs" >
-                <label className="text-Label text-text-grey-blue" >이동일 <span className="text-error" >*</span></label>
-                <input className="w-full p-sm bg-input-bg-light rounded-input border border-transparent focus:border-secondary-mint focus:outline-none" type="date" defaultValue="2026-02-19"/>
+                <label className="text-Label text-content-secondary" >이동일 <span className="text-state-error" >*</span></label>
+                <input className="w-full p-sm bg-surface-secondary rounded-input border border-transparent focus:border-accent focus:outline-none" type="date" defaultValue="2026-02-19"/>
               </div>
 
               <div className="space-y-xs" >
-                <label className="text-Label text-text-grey-blue" >이용권 처리 <span className="text-error" >*</span></label>
+                <label className="text-Label text-content-secondary" >이용권 처리 <span className="text-state-error" >*</span></label>
                 <div className="flex gap-md mt-xs" >
                   <label className="flex items-center gap-xs cursor-pointer" >
-                    <input className="accent-primary-coral" type="radio" name="pass-action" defaultChecked={true}/>
+                    <input className="accent-primary" type="radio" name="pass-action" defaultChecked={true}/>
                     <span className="text-Body 2" >기존 이용권 유지</span>
                   </label>
                   <label className="flex items-center gap-xs cursor-pointer" >
-                    <input className="accent-primary-coral" type="radio" name="pass-action"/>
+                    <input className="accent-primary" type="radio" name="pass-action"/>
                     <span className="text-Body 2" >신규 이용권 등록</span>
                   </label>
                 </div>
               </div>
 
               <div className="space-y-xs" >
-                <label className="text-Label text-text-grey-blue" >이동 사유</label>
-                <textarea className="w-full p-sm bg-input-bg-light rounded-input border border-transparent focus:border-secondary-mint focus:outline-none min-h-[80px]" placeholder="이동 사유를 메모하세요."/>
+                <label className="text-Label text-content-secondary" >이동 사유</label>
+                <textarea className="w-full p-sm bg-surface-secondary rounded-input border border-transparent focus:border-accent focus:outline-none min-h-[80px]" placeholder="이동 사유를 메모하세요."/>
               </div>
             </div>
 
-            <div className="p-xl border-t border-border-light flex justify-end gap-sm" >
-              <button className="px-lg py-sm text-text-grey-blue hover:bg-input-bg-light rounded-button transition-colors" onClick={() => setIsMoveMemberOpen(false)}>취소</button>
-              <button className="px-lg py-sm bg-secondary-mint text-white font-semibold rounded-button shadow-md hover:scale-[1.02] active:scale-[0.98] transition-all" >신청 완료</button>
+            <div className="p-xl border-t border-line flex justify-end gap-sm" >
+              <button className="px-lg py-sm text-content-secondary hover:bg-surface-secondary rounded-button transition-colors" onClick={() => setIsMoveMemberOpen(false)}>취소</button>
+              <button className="px-lg py-sm bg-accent text-white font-semibold rounded-button shadow-md hover:scale-[1.02] active:scale-[0.98] transition-all" >신청 완료</button>
             </div>
           </div>
         </div>
@@ -693,13 +693,13 @@ export default function BranchManagement() {
       {/* --- MODAL: 지점 비활성화 (2단계) --- */}
       {isDeactivateOpen && deactivateTarget && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-md">
-          <div className="w-full max-w-md bg-3 rounded-modal shadow-card-strong">
-            <div className="p-xl border-b border-border-light flex justify-between items-center">
-              <h2 className="text-Heading 2 text-text-dark-grey flex items-center gap-sm">
-                <AlertTriangle className="text-error" size={20}/>
+          <div className="w-full max-w-md bg-surface rounded-modal shadow-card">
+            <div className="p-xl border-b border-line flex justify-between items-center">
+              <h2 className="text-Heading 2 text-content flex items-center gap-sm">
+                <AlertTriangle className="text-state-error" size={20}/>
                 지점 비활성화
               </h2>
-              <button className="text-text-grey-blue hover:text-text-dark-grey" onClick={() => setIsDeactivateOpen(false)}>
+              <button className="text-content-secondary hover:text-content" onClick={() => setIsDeactivateOpen(false)}>
                 <X size={24}/>
               </button>
             </div>
@@ -708,35 +708,35 @@ export default function BranchManagement() {
               {deactivateStep === 1 ? (
                 <>
                   {/* 1단계: 영향 범위 표시 */}
-                  <div className="rounded-card-normal bg-error/5 border border-error/20 p-lg space-y-md">
-                    <p className="text-Body 1 font-semibold text-text-dark-grey">
+                  <div className="rounded-xl bg-state-error/5 border border-state-error/20 p-lg space-y-md">
+                    <p className="text-Body 1 font-semibold text-content">
                       "{deactivateTarget.name}" 비활성화 시 영향 범위
                     </p>
                     <div className="grid grid-cols-2 gap-md">
-                      <div className="bg-3 rounded-card-normal p-md text-center border border-border-light">
-                        <p className="text-KPI-Large font-bold text-primary-coral">
+                      <div className="bg-surface rounded-xl p-md text-center border border-line">
+                        <p className="text-KPI-Large font-bold text-primary">
                           {deactivateTarget.members.toLocaleString()}명
                         </p>
-                        <p className="text-Label text-text-grey-blue mt-xs">소속 회원</p>
+                        <p className="text-Label text-content-secondary mt-xs">소속 회원</p>
                       </div>
-                      <div className="bg-3 rounded-card-normal p-md text-center border border-border-light">
-                        <p className="text-KPI-Large font-bold text-warning">
+                      <div className="bg-surface rounded-xl p-md text-center border border-line">
+                        <p className="text-KPI-Large font-bold text-amber-600">
                           {deactivateTarget.activeContracts}건
                         </p>
-                        <p className="text-Label text-text-grey-blue mt-xs">진행중 계약</p>
+                        <p className="text-Label text-content-secondary mt-xs">진행중 계약</p>
                       </div>
                     </div>
                     <div className="space-y-xs">
-                      <p className="text-Body 2 text-text-grey-blue flex items-start gap-xs">
-                        <AlertCircle size={14} className="flex-shrink-0 mt-xs text-warning"/>
+                      <p className="text-Body 2 text-content-secondary flex items-start gap-xs">
+                        <AlertCircle size={14} className="flex-shrink-0 mt-xs text-amber-600"/>
                         비활성화 시 해당 지점의 키오스크 및 앱 접근이 즉시 제한됩니다.
                       </p>
-                      <p className="text-Body 2 text-text-grey-blue flex items-start gap-xs">
-                        <AlertCircle size={14} className="flex-shrink-0 mt-xs text-warning"/>
+                      <p className="text-Body 2 text-content-secondary flex items-start gap-xs">
+                        <AlertCircle size={14} className="flex-shrink-0 mt-xs text-amber-600"/>
                         소속 회원 {deactivateTarget.members.toLocaleString()}명의 이용 내역이 일시 동결됩니다.
                       </p>
                       {deactivateTarget.activeContracts > 0 && (
-                        <p className="text-Body 2 text-error flex items-start gap-xs">
+                        <p className="text-Body 2 text-state-error flex items-start gap-xs">
                           <AlertTriangle size={14} className="flex-shrink-0 mt-xs"/>
                           진행중인 계약 {deactivateTarget.activeContracts}건을 먼저 처리하는 것을 권장합니다.
                         </p>
@@ -745,13 +745,13 @@ export default function BranchManagement() {
                   </div>
                   <div className="flex justify-end gap-sm">
                     <button
-                      className="px-lg py-sm text-text-grey-blue hover:bg-input-bg-light rounded-button transition-colors"
+                      className="px-lg py-sm text-content-secondary hover:bg-surface-secondary rounded-button transition-colors"
                       onClick={() => setIsDeactivateOpen(false)}
                     >
                       취소
                     </button>
                     <button
-                      className="px-lg py-sm bg-error text-white font-semibold rounded-button hover:opacity-90 transition-opacity"
+                      className="px-lg py-sm bg-state-error text-white font-semibold rounded-button hover:opacity-90 transition-opacity"
                       onClick={handleDeactivateConfirm}
                     >
                       계속 진행
@@ -762,26 +762,26 @@ export default function BranchManagement() {
                 <>
                   {/* 2단계: 최종 확인 */}
                   <div className="text-center space-y-md py-md">
-                    <div className="w-[64px] h-[64px] bg-error/10 rounded-full flex items-center justify-center mx-auto">
-                      <AlertTriangle className="text-error" size={32}/>
+                    <div className="w-[64px] h-[64px] bg-state-error/10 rounded-full flex items-center justify-center mx-auto">
+                      <AlertTriangle className="text-state-error" size={32}/>
                     </div>
-                    <p className="text-Body 1 font-semibold text-text-dark-grey">
+                    <p className="text-Body 1 font-semibold text-content">
                       정말로 비활성화하시겠습니까?
                     </p>
-                    <p className="text-Body 2 text-text-grey-blue">
-                      <span className="font-semibold text-text-dark-grey">"{deactivateTarget.name}"</span>을(를) 비활성화합니다.
+                    <p className="text-Body 2 text-content-secondary">
+                      <span className="font-semibold text-content">"{deactivateTarget.name}"</span>을(를) 비활성화합니다.
                       <br/>이 작업은 즉시 적용되며, 재활성화 전까지 해당 지점 서비스가 중단됩니다.
                     </p>
                   </div>
                   <div className="flex justify-end gap-sm">
                     <button
-                      className="px-lg py-sm text-text-grey-blue hover:bg-input-bg-light rounded-button transition-colors"
+                      className="px-lg py-sm text-content-secondary hover:bg-surface-secondary rounded-button transition-colors"
                       onClick={() => setDeactivateStep(1)}
                     >
                       이전
                     </button>
                     <button
-                      className="px-lg py-sm bg-error text-white font-semibold rounded-button hover:opacity-90 transition-opacity"
+                      className="px-lg py-sm bg-state-error text-white font-semibold rounded-button hover:opacity-90 transition-opacity"
                       onClick={handleDeactivateConfirm}
                     >
                       최종 비활성화

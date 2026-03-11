@@ -19,20 +19,20 @@ export interface BadgeProps {
 
 // variant별 배경/텍스트 색상
 const VARIANT_STYLES: Record<BadgeVariant, string> = {
-  default: "bg-1 text-4 border border-7",
-  success: "bg-bg-soft-mint text-success border border-secondary-mint/20",
-  warning: "bg-bg-soft-peach text-warning border border-primary-coral/20",
-  error: "bg-error/10 text-error border border-error/20",
-  info: "bg-6 text-0 border border-0/20",
+  default: "bg-accent text-content border border-line",
+  success: "bg-accent-light text-state-success border border-secondary-mint/20",
+  warning: "bg-primary-light text-amber-600 border border-primary-coral/20",
+  error: "bg-error/10 text-state-error border border-error/20",
+  info: "bg-primary-light text-primary border border-0/20",
 };
 
 // variant별 dot 색상
 const DOT_STYLES: Record<BadgeVariant, string> = {
-  default: "bg-5",
+  default: "bg-content-secondary",
   success: "bg-success",
   warning: "bg-warning",
   error: "bg-error",
-  info: "bg-0",
+  info: "bg-primary",
 };
 
 // size별 패딩/폰트

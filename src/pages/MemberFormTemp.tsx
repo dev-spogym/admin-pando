@@ -105,7 +105,7 @@ export default function MemberForm({ memberId }: { memberId?: string }) {
   };
 
   // --- 렌더링 헬퍼 ---
-  const inputClass = "w-full rounded-input border border-border-light bg-input-bg-light px-md py-sm text-Body-2 focus:border-secondary-mint focus:outline-none transition-all";
+  const inputClass = "w-full rounded-input border border-line bg-input-bg-light px-md py-sm text-Body-2 focus:border-secondary-mint focus:outline-none transition-all";
   const labelClass = "mb-sm block text-Label text-text-grey-blue";
 
   return (
@@ -116,7 +116,7 @@ export default function MemberForm({ memberId }: { memberId?: string }) {
             <div className="flex gap-sm">
               <button 
                 onClick={handleCancel}
-                className="flex items-center gap-xs rounded-button border border-border-light bg-3 px-lg py-sm text-Label text-text-grey-blue hover:bg-input-bg-light transition-all"
+                className="flex items-center gap-xs rounded-button border border-line bg-surface px-lg py-sm text-Label text-text-grey-blue hover:bg-input-bg-light transition-all"
               >
                 <X size={16} />
                 취소
@@ -140,7 +140,7 @@ export default function MemberForm({ memberId }: { memberId?: string }) {
           <FormSection title="기본 정보" collapsible={false}>
             <div className="space-y-md" >
               <div >
-                <label className={labelClass} >이름 <span className="text-error" >*</span></label>
+                <label className={labelClass} >이름 <span className="text-state-error" >*</span></label>
                 <div className="relative" >
                   <input
                     className={inputClass} type="text" name="name" value={formData.name} onChange={handleInputChange} placeholder="회원 이름 입력"/>
@@ -149,7 +149,7 @@ export default function MemberForm({ memberId }: { memberId?: string }) {
               </div>
               
               <div >
-                <label className={labelClass} >연락처 <span className="text-error" >*</span></label>
+                <label className={labelClass} >연락처 <span className="text-state-error" >*</span></label>
                 <div className="relative" >
                   <input
                     className={inputClass} type="text" name="phone" value={formData.phone} onChange={handleInputChange} placeholder="010-0000-0000"/>
@@ -165,8 +165,8 @@ export default function MemberForm({ memberId }: { memberId?: string }) {
                       className={cn(
                         "flex-1 rounded-button py-sm text-Label transition-all border",
                         formData.gender === g 
-                          ? "border-secondary-mint bg-bg-soft-mint text-secondary-mint font-bold" 
-                          : "border-border-light bg-input-bg-light text-text-grey-blue"
+                          ? "border-secondary-mint bg-accent-light text-secondary-mint font-bold" 
+                          : "border-line bg-input-bg-light text-text-grey-blue"
                       )} key={g} type="button" onClick={() => setFormData(prev => ({ ...prev, gender: g }))}>
                       {g === "male" ? "남성" : "여성"}
                     </button>
@@ -208,9 +208,9 @@ export default function MemberForm({ memberId }: { memberId?: string }) {
                 {memberTickets.length > 0 ? (
                   memberTickets.map((ticket) => (
                     <div 
-                      className="flex items-center justify-between rounded-card-normal border border-border-light bg-bg-main-light-blue p-md" key={ticket.id}>
+                      className="flex items-center justify-between rounded-xl border border-line bg-surface-secondary p-md" key={ticket.id}>
                       <div className="flex items-center gap-md" >
-                        <div className="flex h-[40px] w-[40px] items-center justify-center rounded-full bg-3 text-secondary-mint shadow-sm" >
+                        <div className="flex h-[40px] w-[40px] items-center justify-center rounded-full bg-surface text-secondary-mint shadow-sm" >
                           <Tag size={18}/>
                         </div>
                         <div >
@@ -232,13 +232,13 @@ export default function MemberForm({ memberId }: { memberId?: string }) {
                 )}
                 
                 <button // POS로 이동
-                  className="flex w-full items-center justify-center gap-xs rounded-button border border-dashed border-secondary-mint py-md text-Label text-secondary-mint hover:bg-bg-soft-mint transition-all" type="button" onClick={() => moveToPage(971)}>
+                  className="flex w-full items-center justify-center gap-xs rounded-button border border-dashed border-secondary-mint py-md text-Label text-secondary-mint hover:bg-accent-light transition-all" type="button" onClick={() => moveToPage(971)}>
                   <Plus size={16}/>
                   새 이용권 추가/결제
                 </button>
               </div>
             ) : (
-              <div className="rounded-card-normal bg-bg-soft-peach p-md text-center" >
+              <div className="rounded-xl bg-primary-light p-md text-center" >
                 <p className="text-Body-2 text-primary-coral font-medium" >
                   회원 등록 완료 후 바로 결제 화면으로 이동하시겠습니까?
                 </p>
