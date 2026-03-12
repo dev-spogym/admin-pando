@@ -28,6 +28,7 @@ import { moveToPage } from '@/internal';
 import { supabase } from '@/lib/supabase';
 import { toast } from 'sonner';
 import { updateMembershipPeriod, accruePoints, checkDuplicatePayment } from '@/lib/businessLogic';
+import { uploadFile } from '@/lib/uploadFile';
 
 const getBranchId = (): number => {
   const stored = localStorage.getItem('branchId');
@@ -143,7 +144,9 @@ export default function ContractWizard() {
   const [paymentMethod, setPaymentMethod] = useState('card');
   const [showCompleteDialog, setShowCompleteDialog] = useState(false);
   const [stepErrors, setStepErrors] = useState<Record<number, string>>({});
-  const [signatureDataUrl, setSignatureDataUrl] = useState<string | null>(null);
+  const [customerSignatureDataUrl, setCustomerSignatureDataUrl] = useState<string | null>(null);
+  const [managerSignatureDataUrl, setManagerSignatureDataUrl] = useState<string | null>(null);
+  const [signatureError, setSignatureError] = useState('');
 
   const totalPrice = selectedProducts.reduce((sum, p) => sum + p.price, 0);
   const discountRateNum = Math.min(50, Math.max(0, parseFloat(discountRate) || 0));
@@ -190,18 +193,41 @@ export default function ContractWizard() {
   const nextStep = () => { if (validateStep(step) && step < 5) setStep(step + 1); };
   const prevStep = () => { if (step > 1) setStep(step - 1); };
 
+  // dataUrl → Blob → File 변환 후 Supabase Storage 업로드
+  const uploadSignature = async (dataUrl: string, contractId: number, type: 'customer' | 'manager'): Promise<string | null> => {
+    const res = await fetch(dataUrl);
+    const blob = await res.blob();
+    const timestamp = Date.now();
+    const fileName = `${contractId}_${type}_${timestamp}.png`;
+    const path = `contracts/${getBranchId()}/${fileName}`;
+    const file = new File([blob], fileName, { type: 'image/png' });
+    const result = await uploadFile('contracts', path, file);
+    if ('error' in result) {
+      toast.error(`서명 이미지 업로드 실패: ${result.error}`);
+      return null;
+    }
+    return result.url;
+  };
+
   // contracts 테이블에 계약 정보 저장
   const handleContractSave = async () => {
     if (!selectedMember) {
       toast.error('회원을 선택해주세요.');
       return;
     }
+
+    // 서명 유효성 검사
+    if (!customerSignatureDataUrl || !managerSignatureDataUrl) {
+      setSignatureError('고객 서명과 센터장 서명을 모두 완료해주세요.');
+      return;
+    }
+
     // 중복 저장 방지
     if (isSaving) return;
     setIsSaving(true);
+    setSignatureError('');
 
     try {
-
     // 결제수단 → DB enum 매핑
     const paymentMethodMap: Record<string, string> = {
       card: 'CARD',
@@ -212,6 +238,19 @@ export default function ContractWizard() {
 
     const productName = selectedProducts.map((p: { name: string }) => p.name).join(', ');
 
+    // 임시 계약 ID 생성 (timestamp 기반)
+    const tempContractId = Date.now();
+
+    // 서명 이미지 Storage 업로드
+    const [customerSigUrl, managerSigUrl] = await Promise.all([
+      uploadSignature(customerSignatureDataUrl, tempContractId, 'customer'),
+      uploadSignature(managerSignatureDataUrl, tempContractId, 'manager'),
+    ]);
+
+    if (!customerSigUrl || !managerSigUrl) {
+      return;
+    }
+
     const { error } = await supabase.from('contracts').insert({
       branchId: getBranchId(),
       memberId: selectedMember.id,
@@ -220,8 +259,9 @@ export default function ContractWizard() {
       amount: finalPrice,
       startDate: contractDetails.startDate ? new Date(contractDetails.startDate).toISOString() : null,
       endDate: computedEndDate ? new Date(computedEndDate).toISOString() : null,
-      signatureUrl: signatureDataUrl || null,
-      signedAt: signatureDataUrl ? new Date().toISOString() : null,
+      signatureUrl: customerSigUrl,
+      managerSignatureUrl: managerSigUrl,
+      signedAt: new Date().toISOString(),
       status: '서명완료',
       createdAt: new Date().toISOString(),
     });
@@ -760,18 +800,57 @@ export default function ContractWizard() {
       </div>
 
       {/* 전자서명 */}
-      <div className="bg-surface rounded-xl border border-line p-xl shadow-card">
-        <h3 className="text-Heading-2 text-content mb-sm">전자서명</h3>
-        <p className="text-Body-2 text-content-secondary mb-lg">
-          위 계약 내용에 동의하며 서명합니다.
-        </p>
-        <SignaturePad
-          onSign={(dataUrl) => setSignatureDataUrl(dataUrl)}
-          height={200}
-        />
-        {!signatureDataUrl && (
-          <p className="mt-sm text-[11px] text-content-secondary">서명 후 '서명 확인' 버튼을 눌러주세요.</p>
+      <div className="bg-surface rounded-xl border border-line p-xl shadow-card space-y-xl">
+        <div>
+          <h3 className="text-Heading-2 text-content mb-sm">전자서명</h3>
+          <p className="text-Body-2 text-content-secondary">
+            위 계약 내용에 동의하며 고객과 센터장이 각각 서명합니다.
+          </p>
+        </div>
+
+        {signatureError && (
+          <div className="flex items-center gap-sm text-state-error text-Body-2 bg-state-error/5 border border-state-error/20 rounded-xl px-md py-sm">
+            <AlertCircle size={16} /> {signatureError}
+          </div>
         )}
+
+        {/* 고객 서명 */}
+        <div className="space-y-sm">
+          <div className="flex items-center gap-sm">
+            <span className="text-Body-1 font-bold text-content">고객 서명</span>
+            {customerSignatureDataUrl && (
+              <span className="text-[12px] text-state-success font-semibold flex items-center gap-xs">
+                <CheckCircle2 size={14} /> 서명 완료
+              </span>
+            )}
+          </div>
+          <SignaturePad
+            onSign={(dataUrl) => {
+              setCustomerSignatureDataUrl(dataUrl);
+              setSignatureError('');
+            }}
+            height={180}
+          />
+        </div>
+
+        {/* 센터장 서명 */}
+        <div className="space-y-sm">
+          <div className="flex items-center gap-sm">
+            <span className="text-Body-1 font-bold text-content">센터장 서명</span>
+            {managerSignatureDataUrl && (
+              <span className="text-[12px] text-state-success font-semibold flex items-center gap-xs">
+                <CheckCircle2 size={14} /> 서명 완료
+              </span>
+            )}
+          </div>
+          <SignaturePad
+            onSign={(dataUrl) => {
+              setManagerSignatureDataUrl(dataUrl);
+              setSignatureError('');
+            }}
+            height={180}
+          />
+        </div>
       </div>
     </div>
   );

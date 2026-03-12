@@ -1,51 +1,61 @@
-import React, { useEffect } from 'react';
+import React, { Suspense, useEffect } from 'react';
 import { Routes, Route, useNavigate } from 'react-router-dom';
 import { setNavigate } from '@/internal';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import PrivateRoute from '@/components/PrivateRoute';
 import { initAuthListener, restoreSupabaseSession } from '@/stores/authStore';
 
-// --- Pages ---
-import Dashboard from '@/pages/Dashboard';
-import MemberList from '@/pages/MemberList';
-import MemberDetail from '@/pages/MemberDetail';
-import MemberForm from '@/pages/MemberForm';
-import BodyComposition from '@/pages/BodyComposition';
-import Attendance from '@/pages/Attendance';
-import Calendar from '@/pages/Calendar';
-import Sales from '@/pages/Sales';
-import SalesPos from '@/pages/SalesPos';
-import PosPayment from '@/pages/PosPayment';
-import ProductList from '@/pages/ProductList';
-import ProductForm from '@/pages/ProductForm';
-import Locker from '@/pages/Locker';
-import LockerManagement from '@/pages/LockerManagement';
-import RfidManagement from '@/pages/RfidManagement';
-import RoomManagement from '@/pages/RoomManagement';
-import StaffList from '@/pages/StaffList';
-import StaffForm from '@/pages/StaffForm';
-import StaffResignation from '@/pages/StaffResignation';
-import Payroll from '@/pages/Payroll';
-import PayrollStatement from '@/pages/PayrollStatement';
-import MessageSend from '@/pages/MessageSend';
-import AutoAlarm from '@/pages/AutoAlarm';
-import CouponManagement from '@/pages/CouponManagement';
-import MileageManagement from '@/pages/MileageManagement';
-import ContractWizard from '@/pages/ContractWizard';
-import Settings from '@/pages/Settings';
-import PermissionSettings from '@/pages/PermissionSettings';
-import KioskSettings from '@/pages/KioskSettings';
-import IotSettings from '@/pages/IotSettings';
-import Subscription from '@/pages/Subscription';
-import BranchManagement from '@/pages/BranchManagement';
-import Login from '@/pages/Login';
-import NotFound from '@/pages/NotFound';
-import Forbidden from '@/pages/Forbidden';
+// --- 로딩 스피너 ---
+function PageLoader() {
+  return (
+    <div className="flex items-center justify-center min-h-screen">
+      <div className="w-8 h-8 border-3 border-primary/30 border-t-primary rounded-full animate-spin" />
+    </div>
+  );
+}
+
+// --- Lazy Pages ---
+const Dashboard = React.lazy(() => import('@/pages/Dashboard'));
+const MemberList = React.lazy(() => import('@/pages/MemberList'));
+const MemberDetail = React.lazy(() => import('@/pages/MemberDetail'));
+const MemberForm = React.lazy(() => import('@/pages/MemberForm'));
+const BodyComposition = React.lazy(() => import('@/pages/BodyComposition'));
+const Attendance = React.lazy(() => import('@/pages/Attendance'));
+const Calendar = React.lazy(() => import('@/pages/Calendar'));
+const Sales = React.lazy(() => import('@/pages/Sales'));
+const SalesPos = React.lazy(() => import('@/pages/SalesPos'));
+const PosPayment = React.lazy(() => import('@/pages/PosPayment'));
+const ProductList = React.lazy(() => import('@/pages/ProductList'));
+const ProductForm = React.lazy(() => import('@/pages/ProductForm'));
+const Locker = React.lazy(() => import('@/pages/Locker'));
+const LockerManagement = React.lazy(() => import('@/pages/LockerManagement'));
+const RfidManagement = React.lazy(() => import('@/pages/RfidManagement'));
+const RoomManagement = React.lazy(() => import('@/pages/RoomManagement'));
+const StaffList = React.lazy(() => import('@/pages/StaffList'));
+const StaffForm = React.lazy(() => import('@/pages/StaffForm'));
+const StaffResignation = React.lazy(() => import('@/pages/StaffResignation'));
+const Payroll = React.lazy(() => import('@/pages/Payroll'));
+const PayrollStatement = React.lazy(() => import('@/pages/PayrollStatement'));
+const MessageSend = React.lazy(() => import('@/pages/MessageSend'));
+const AutoAlarm = React.lazy(() => import('@/pages/AutoAlarm'));
+const CouponManagement = React.lazy(() => import('@/pages/CouponManagement'));
+const MileageManagement = React.lazy(() => import('@/pages/MileageManagement'));
+const ContractWizard = React.lazy(() => import('@/pages/ContractWizard'));
+const Settings = React.lazy(() => import('@/pages/Settings'));
+const PermissionSettings = React.lazy(() => import('@/pages/PermissionSettings'));
+const KioskSettings = React.lazy(() => import('@/pages/KioskSettings'));
+const IotSettings = React.lazy(() => import('@/pages/IotSettings'));
+const Subscription = React.lazy(() => import('@/pages/Subscription'));
+const BranchManagement = React.lazy(() => import('@/pages/BranchManagement'));
+const BranchReport = React.lazy(() => import('@/pages/BranchReport'));
+const Login = React.lazy(() => import('@/pages/Login'));
+const NotFound = React.lazy(() => import('@/pages/NotFound'));
+const Forbidden = React.lazy(() => import('@/pages/Forbidden'));
 
 // --- 멀티테넌트 페이지 ---
-import SuperDashboard from '@/pages/SuperDashboard';
-import AuditLog from '@/pages/AuditLog';
-import MemberTransfer from '@/pages/MemberTransfer';
+const SuperDashboard = React.lazy(() => import('@/pages/SuperDashboard'));
+const AuditLog = React.lazy(() => import('@/pages/AuditLog'));
+const MemberTransfer = React.lazy(() => import('@/pages/MemberTransfer'));
 
 export default function App() {
   const navigate = useNavigate();
@@ -66,6 +76,7 @@ export default function App() {
 
   return (
     <ErrorBoundary>
+    <Suspense fallback={<PageLoader />}>
     <Routes>
       <Route path="/login" element={<Login />} />
       <Route path="/forbidden" element={<Forbidden />} />
@@ -93,7 +104,6 @@ export default function App() {
       {/* 상품 */}
       <Route path="/products" element={<PrivateRoute><ProductList /></PrivateRoute>} />
       <Route path="/products/new" element={<PrivateRoute><ProductForm /></PrivateRoute>} />
-      {/* 상품 수정 */}
       <Route path="/products/edit" element={<PrivateRoute><ProductForm /></PrivateRoute>} />
 
       {/* 시설 */}
@@ -105,7 +115,6 @@ export default function App() {
       {/* 직원/급여 */}
       <Route path="/staff" element={<PrivateRoute><StaffList /></PrivateRoute>} />
       <Route path="/staff/new" element={<PrivateRoute><StaffForm /></PrivateRoute>} />
-      {/* 직원 수정 */}
       <Route path="/staff/edit" element={<PrivateRoute><StaffForm /></PrivateRoute>} />
       <Route path="/staff/resignation" element={<PrivateRoute><StaffResignation /></PrivateRoute>} />
       <Route path="/payroll" element={<PrivateRoute><Payroll /></PrivateRoute>} />
@@ -125,6 +134,7 @@ export default function App() {
       <Route path="/settings/iot" element={<PrivateRoute><IotSettings /></PrivateRoute>} />
       <Route path="/subscription" element={<PrivateRoute><Subscription /></PrivateRoute>} />
       <Route path="/branches" element={<PrivateRoute><BranchManagement /></PrivateRoute>} />
+      <Route path="/branch-report" element={<PrivateRoute><BranchReport /></PrivateRoute>} />
 
       {/* 멀티테넌트 */}
       <Route path="/super-dashboard" element={<PrivateRoute><SuperDashboard /></PrivateRoute>} />
@@ -133,6 +143,7 @@ export default function App() {
       {/* 존재하지 않는 경로 → 404 페이지 */}
       <Route path="*" element={<NotFound />} />
     </Routes>
+    </Suspense>
     </ErrorBoundary>
   );
 }
