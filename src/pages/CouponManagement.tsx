@@ -1,5 +1,7 @@
 
-import React, { useState, useMemo, useEffect } from "react";
+import React, { useState, useMemo, useEffect, useCallback } from "react";
+import { toast } from "sonner";
+import { supabase } from "@/lib/supabase";
 import {
   Plus,
   Ticket,
@@ -24,6 +26,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { moveToPage } from "@/internal";
+import { exportToExcel } from "@/lib/exportExcel";
 import AppLayout from "@/components/AppLayout";
 import PageHeader from "@/components/PageHeader";
 import TabNav from "@/components/TabNav";
@@ -42,21 +45,20 @@ function generateCouponCode(): string {
 }
 
 // -- 날짜 유틸 --
-const TODAY = '2026-03-11';
-
 function getDaysUntil(dateStr: string): number {
-  const today = new Date(TODAY);
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
   const target = new Date(dateStr);
   return Math.floor((target.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
 }
 
 function computeCouponStatus(coupon: any): string {
-  if (coupon.status === 'inactive') return 'inactive';
-  if (coupon.validityType === 'period' && coupon.endDate) {
-    const days = getDaysUntil(coupon.endDate);
+  if (!coupon.isActive) return 'inactive';
+  if (coupon.validUntil) {
+    const days = getDaysUntil(coupon.validUntil);
     if (days < 0) return 'expired';
   }
-  if (coupon.maxUsage && coupon.usedCount >= coupon.maxUsage) return 'exhausted';
+  if (coupon.totalIssued > 0 && coupon.totalUsed >= coupon.totalIssued) return 'exhausted';
   return 'active';
 }
 
@@ -79,127 +81,28 @@ export default function CouponManagement() {
   const [searchValue, setSearchValue] = useState("");
   const [filterValues, setFilterValues] = useState<Record<string, any>>({});
 
-  // --- Mock Data ---
-  const [coupons, setCoupons] = useState([
-    {
-      id: 1,
-      code: 'COUP-AB3X-7YQZ',
-      name: "신규 회원 가입 10% 할인",
-      type: "discount",
-      discountType: "percent",
-      discountValue: 10,
-      issuedCount: 150,
-      usedCount: 85,
-      remainingCount: 65,
-      maxUsage: 200,
-      validityType: "period",
-      startDate: "2026-01-01",
-      endDate: "2026-12-31",
-      status: "active",
-      createdAt: "2025-12-20",
-    },
-    {
-      id: 2,
-      code: 'COUP-PQ5R-2MNW',
-      name: "여름맞이 PT 1회 체험권",
-      type: "free",
-      discountType: "fixed",
-      discountValue: 0,
-      issuedCount: 50,
-      usedCount: 12,
-      remainingCount: 38,
-      maxUsage: 50,
-      validityType: "days",
-      validDays: 30,
-      status: "active",
-      createdAt: "2026-02-10",
-    },
-    {
-      id: 3,
-      code: 'COUP-VIP5-0001',
-      name: "VIP 재등록 5만원 할인",
-      type: "discount",
-      discountType: "amount",
-      discountValue: 50000,
-      issuedCount: 20,
-      usedCount: 20,
-      remainingCount: 0,
-      maxUsage: 20,
-      validityType: "period",
-      startDate: "2026-01-01",
-      endDate: "2026-01-31",
-      status: "active",
-      createdAt: "2025-12-28",
-    },
-    {
-      id: 4,
-      code: 'COUP-FRIE-NDLY',
-      name: "지인 추천 1주일 이용권",
-      type: "free",
-      discountValue: 0,
-      issuedCount: 100,
-      usedCount: 45,
-      remainingCount: 55,
-      maxUsage: null,
-      validityType: "days",
-      validDays: 14,
-      status: "inactive",
-      createdAt: "2026-01-15",
-    },
-    {
-      id: 5,
-      code: 'COUP-EXPR-SOON',
-      name: "봄맞이 20% 할인 쿠폰",
-      type: "discount",
-      discountType: "percent",
-      discountValue: 20,
-      issuedCount: 80,
-      usedCount: 30,
-      remainingCount: 50,
-      maxUsage: 100,
-      validityType: "period",
-      startDate: "2026-02-01",
-      endDate: "2026-03-17",
-      status: "active",
-      createdAt: "2026-01-28",
-    }
-  ]);
+  // --- Data ---
+  const [coupons, setCoupons] = useState<any[]>([]);
+  const [issuanceLogs] = useState<any[]>([]);
 
-  const [issuanceLogs, setIssuanceLogs] = useState([
-    {
-      id: 101,
-      memberName: "김철수",
-      memberNo: "M2024-0012",
-      couponName: "신규 회원 가입 10% 할인",
-      issuedDate: "2026-02-15",
-      expiryDate: "2026-12-31",
-      usedDate: "2026-02-18",
-      status: "used",
-      usedProduct: "헬스 12개월권",
-    },
-    {
-      id: 102,
-      memberName: "이영희",
-      memberNo: "M2024-0045",
-      couponName: "신규 회원 가입 10% 할인",
-      issuedDate: "2026-02-17",
-      expiryDate: "2026-12-31",
-      usedDate: null,
-      status: "unused",
-      usedProduct: "-",
-    },
-    {
-      id: 103,
-      memberName: "박지민",
-      memberNo: "M2025-0003",
-      couponName: "VIP 재등록 5만원 할인",
-      issuedDate: "2026-01-10",
-      expiryDate: "2026-01-31",
-      usedDate: null,
-      status: "expired",
-      usedProduct: "-",
+  const branchId = Number(localStorage.getItem('branchId')) || 1;
+
+  const fetchCoupons = useCallback(async () => {
+    setLoading(true);
+    const { data, error } = await supabase
+      .from('coupons')
+      .select('*')
+      .eq('branchId', branchId)
+      .order('id', { ascending: false });
+    if (!error && data) {
+      setCoupons(data.map(c => ({ ...c, value: Number(c.value) })));
     }
-  ]);
+    setLoading(false);
+  }, [branchId]);
+
+  useEffect(() => {
+    fetchCoupons();
+  }, [fetchCoupons]);
 
   // --- Handlers ---
   const handleTabChange = (key: string) => {
@@ -228,12 +131,21 @@ export default function CouponManagement() {
     setIsConfirmDeleteOpen(true);
   };
 
-  const confirmDelete = () => {
+  const confirmDelete = async () => {
     if (selectedCoupon) {
-      setCoupons(prev => prev.filter(c => c.id !== selectedCoupon.id));
+      const { error } = await supabase
+        .from('coupons')
+        .update({ isActive: false })
+        .eq('id', selectedCoupon.id);
+      if (error) {
+        console.error("쿠폰 삭제 실패:", error);
+        toast.error("쿠폰 삭제에 실패했습니다.");
+        return;
+      }
       setIsConfirmDeleteOpen(false);
       setSelectedCoupon(null);
-      alert("쿠폰이 삭제되었습니다.");
+      fetchCoupons();
+      toast.success("쿠폰이 삭제되었습니다.");
     }
   };
 
@@ -362,12 +274,14 @@ export default function CouponManagement() {
       )
     },
     {
-      key: "discountValue",
+      key: "value",
       header: "할인 값",
       width: 100,
       render: (val: number, row: any) => {
         if (row.type === "free") return "무료 체험";
-        return row.discountType === "percent" ? `${val}%` : `${val?.toLocaleString()}원`;
+        // type 문자열에 "percent" 또는 "%"가 포함되면 퍼센트로 표시
+        const isPercent = row.type?.toLowerCase().includes("percent") || row.type?.toLowerCase().includes("%");
+        return isPercent ? `${val}%` : `${Number(val).toLocaleString()}원`;
       }
     },
     {
@@ -375,15 +289,14 @@ export default function CouponManagement() {
       header: "사용 현황",
       width: 180,
       render: (_: any, row: any) => {
-        const max = row.maxUsage;
-        const used = row.usedCount;
-        const issued = row.issuedCount;
-        const pct = max ? Math.min((used / max) * 100, 100) : issued > 0 ? Math.min((used / issued) * 100, 100) : 0;
-        const isExhausted = max && used >= max;
+        const used = row.totalUsed ?? 0;
+        const issued = row.totalIssued ?? 0;
+        const pct = issued > 0 ? Math.min((used / issued) * 100, 100) : 0;
+        const isExhausted = issued > 0 && used >= issued;
         return (
           <div className="space-y-[4px]">
             <div className="flex justify-between text-Label">
-              <span className="text-content-secondary">사용 {used.toLocaleString()}{max ? ` / ${max.toLocaleString()}건` : `건`}</span>
+              <span className="text-content-secondary">사용 {used.toLocaleString()} / {issued.toLocaleString()}건</span>
               {isExhausted && (
                 <span className="text-amber-600 font-bold text-[10px] bg-amber-600/10 px-xs rounded-full">소진</span>
               )}
@@ -406,19 +319,21 @@ export default function CouponManagement() {
       header: "유효 기간",
       width: 180,
       render: (_: any, row: any) => {
-        if (row.validityType === "period") {
+        if (row.validFrom || row.validUntil) {
           return (
             <div>
-              <span className="text-Body-2">{row.startDate} ~ {row.endDate}</span>
-              {row.endDate && (() => {
-                const d = getDaysUntil(row.endDate);
+              <span className="text-Body-2">
+                {row.validFrom ? row.validFrom.slice(0, 10) : '∞'} ~ {row.validUntil ? row.validUntil.slice(0, 10) : '∞'}
+              </span>
+              {row.validUntil && (() => {
+                const d = getDaysUntil(row.validUntil);
                 if (d >= 0 && d <= 7) return <span className="ml-xs text-[10px] text-amber-600 font-semibold">D-{d}</span>;
                 return null;
               })()}
             </div>
           );
         }
-        return `발급 후 ${row.validDays}일`;
+        return '-';
       }
     },
     {
@@ -426,9 +341,9 @@ export default function CouponManagement() {
       header: "상태",
       width: 90,
       align: "center" as const,
-      render: (val: string, row: any) => renderStatusBadge(val, row.endDate)
+      render: (val: string, row: any) => renderStatusBadge(val, row.validUntil)
     },
-    { key: "createdAt", header: "등록일", width: 110 },
+    { key: "createdAt", header: "등록일", width: 110, render: (val: string) => val ? val.slice(0, 10) : '-' },
     {
       key: "actions",
       header: "메뉴",
@@ -453,7 +368,7 @@ export default function CouponManagement() {
           <button
             className="p-xs hover:bg-primary-light text-state-error rounded-button transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
             title="삭제"
-            disabled={row.issuedCount > 0}
+            disabled={row.totalIssued > 0}
             onClick={() => handleDeleteClick(row)}
           >
             <Trash2 size={16} />
@@ -469,10 +384,10 @@ export default function CouponManagement() {
       key: "memberName",
       header: "회원명",
       width: 120,
-      render: (val: string) => (
+      render: (val: string, row: any) => (
         <button
           className="text-primary hover:underline font-medium transition-colors"
-          onClick={() => moveToPage(985)}
+          onClick={() => row.id && moveToPage(985, { id: row.id })}
         >
           {val}
         </button>
@@ -525,13 +440,13 @@ export default function CouponManagement() {
           />
           <StatCard
             label="총 발급 건수"
-            value={coupons.reduce((acc, curr) => acc + curr.issuedCount, 0)}
+            value={coupons.reduce((acc, curr) => acc + (curr.totalIssued ?? 0), 0)}
             icon={<Send />}
             variant="default"
           />
           <StatCard
             label="사용 완료"
-            value={coupons.reduce((acc, curr) => acc + curr.usedCount, 0)}
+            value={coupons.reduce((acc, curr) => acc + (curr.totalUsed ?? 0), 0)}
             icon={<Gift />}
             variant="peach"
           />
@@ -570,7 +485,37 @@ export default function CouponManagement() {
             pageSize: 10,
             total: activeTab === "list" ? filteredCoupons.length : filteredLogs.length
           }}
-          onDownloadExcel={() => alert("Excel 다운로드를 시작합니다.")}
+          onDownloadExcel={() => {
+            if (activeTab === "list") {
+              const exportColumns = [
+                { key: 'id', header: 'No' },
+                { key: 'name', header: '쿠폰명' },
+                { key: 'discountType', header: '할인유형' },
+                { key: 'discountValue', header: '할인값' },
+                { key: 'validUntil', header: '유효기간' },
+                { key: 'totalIssued', header: '발급수' },
+                { key: 'totalUsed', header: '사용수' },
+                { key: 'computedStatus', header: '상태' },
+                { key: 'createdAt', header: '등록일' },
+              ];
+              exportToExcel(filteredCoupons as Record<string, unknown>[], exportColumns, { filename: '쿠폰목록' });
+              toast.success(`${filteredCoupons.length}건 엑셀 다운로드 완료`);
+            } else {
+              const exportColumns = [
+                { key: 'id', header: 'No' },
+                { key: 'memberName', header: '회원명' },
+                { key: 'memberNo', header: '회원번호' },
+                { key: 'couponName', header: '쿠폰명' },
+                { key: 'issuedDate', header: '발급일' },
+                { key: 'expiryDate', header: '만료일' },
+                { key: 'usedDate', header: '사용일' },
+                { key: 'status', header: '상태' },
+                { key: 'usedProduct', header: '사용 상품' },
+              ];
+              exportToExcel(filteredLogs as Record<string, unknown>[], exportColumns, { filename: '쿠폰발급이력' });
+              toast.success(`${filteredLogs.length}건 엑셀 다운로드 완료`);
+            }
+          }}
           emptyMessage={activeTab === "list" ? "등록된 쿠폰이 없습니다." : "발급 이력이 없습니다."}
         />
       </div>
@@ -580,21 +525,37 @@ export default function CouponManagement() {
         <CouponFormModal
           coupon={editingCoupon}
           onClose={() => setIsFormOpen(false)}
-          onSave={(data: any) => {
+          onSave={async (data: any) => {
             if (editingCoupon) {
-              setCoupons(prev => prev.map(c => c.id === editingCoupon.id ? { ...c, ...data } : c));
+              await supabase
+                .from('coupons')
+                .update({
+                  name: data.name,
+                  type: data.type,
+                  value: Number(data.discountValue ?? data.value ?? 0),
+                  validFrom: data.startDate || null,
+                  validUntil: data.endDate || null,
+                  isActive: true,
+                })
+                .eq('id', editingCoupon.id);
             } else {
-              setCoupons(prev => [...prev, {
-                ...data,
-                id: prev.length + 1,
-                issuedCount: 0,
-                usedCount: 0,
-                remainingCount: 0,
-                status: "active",
-                createdAt: TODAY
-              }]);
+              await supabase
+                .from('coupons')
+                .insert({
+                  name: data.name,
+                  type: data.type,
+                  value: Number(data.discountValue ?? data.value ?? 0),
+                  validFrom: data.startDate || null,
+                  validUntil: data.endDate || null,
+                  totalIssued: 0,
+                  totalUsed: 0,
+                  isActive: true,
+                  branchId,
+                })
+                .select();
             }
             setIsFormOpen(false);
+            fetchCoupons();
           }}
         />
       )}
@@ -604,14 +565,9 @@ export default function CouponManagement() {
         <IssueCouponModal
           coupon={selectedCoupon}
           onClose={() => setIsIssueModalOpen(false)}
-          onIssue={(count: any) => {
-            setCoupons(prev => prev.map(c =>
-              c.id === selectedCoupon.id
-                ? { ...c, issuedCount: c.issuedCount + count, remainingCount: c.remainingCount + count }
-                : c
-            ));
+          onIssue={(_count: any) => {
             setIsIssueModalOpen(false);
-            alert(`${selectedCoupon.name} 쿠폰이 발급되었습니다.`);
+            toast.success(`${selectedCoupon.name} 쿠폰이 발급되었습니다.`);
           }}
         />
       )}

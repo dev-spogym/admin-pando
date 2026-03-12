@@ -13,7 +13,8 @@ import {
   AlertTriangle,
   Moon,
   Sun,
-  Monitor
+  Monitor,
+  Package
 } from 'lucide-react';
 import AppLayout from '@/components/AppLayout';
 import PageHeader from '@/components/PageHeader';
@@ -21,8 +22,9 @@ import TabNav from '@/components/TabNav';
 import FormSection from '@/components/FormSection';
 import { cn } from '@/lib/utils';
 import { moveToPage } from '@/internal';
+import { supabase } from '@/lib/supabase';
 
-type TabKey = 'basic' | 'notification' | 'theme';
+type TabKey = 'basic' | 'notification' | 'theme' | 'supplies';
 
 interface CenterInfo {
   name: string;
@@ -55,41 +57,71 @@ interface ThemeSettings {
   fontSize: 'sm' | 'md' | 'lg';
 }
 
-const INITIAL_CENTER: CenterInfo = {
-  name: '발란스 웰니스 센터',
-  description: '프리미엄 피트니스 및 필라테스 전문 센터입니다.',
-  address: '서울특별시 강남구 테헤란로 123, 4층',
-  businessNumber: '123-45-67890',
-  phone: '02-1234-5678',
-  openTime: '06:00',
-  closeTime: '23:00',
+const EMPTY_CENTER: CenterInfo = {
+  name: '',
+  description: '',
+  address: '',
+  businessNumber: '',
+  phone: '',
+  openTime: '09:00',
+  closeTime: '22:00',
   weekendOpenTime: '09:00',
   weekendCloseTime: '20:00',
-  sectors: ['헬스', '필라테스', 'PT샵'],
+  sectors: [],
 };
 
-const INITIAL_NOTIFICATIONS: NotificationSettings = {
-  pushEntrance: true,
-  pushExpiry: true,
+const EMPTY_NOTIFICATIONS: NotificationSettings = {
+  pushEntrance: false,
+  pushExpiry: false,
   pushPayment: false,
-  pushReservation: true,
-  emailWeeklyReport: true,
+  pushReservation: false,
+  emailWeeklyReport: false,
   emailExpiry: false,
-  smsPayment: true,
-  smsExpiry: true,
+  smsPayment: false,
+  smsExpiry: false,
 };
 
-const INITIAL_THEME: ThemeSettings = {
+const EMPTY_THEME: ThemeSettings = {
   mode: 'light',
   primaryColor: '#3B82F6',
   accentColor: '#10B981',
   fontSize: 'md',
 };
 
+interface SupplyItem {
+  stock: number;
+  dailyLimit: number;
+  remaining: number;
+}
+
+interface SuppliesSettings {
+  towelLarge: SupplyItem;
+  towelSmall: SupplyItem;
+  uniformTop: SupplyItem;
+  uniformBottom: SupplyItem;
+}
+
+const EMPTY_SUPPLY_ITEM: SupplyItem = { stock: 0, dailyLimit: 0, remaining: 0 };
+
+const EMPTY_SUPPLIES: SuppliesSettings = {
+  towelLarge: { ...EMPTY_SUPPLY_ITEM },
+  towelSmall: { ...EMPTY_SUPPLY_ITEM },
+  uniformTop: { ...EMPTY_SUPPLY_ITEM },
+  uniformBottom: { ...EMPTY_SUPPLY_ITEM },
+};
+
+const SUPPLY_LABELS: Record<keyof SuppliesSettings, string> = {
+  towelLarge: '수건 (대)',
+  towelSmall: '수건 (소)',
+  uniformTop: '운동복 (상의)',
+  uniformBottom: '운동복 (하의)',
+};
+
 const TABS = [
   { key: 'basic', label: '기본정보', icon: Info },
   { key: 'notification', label: '알림설정', icon: Bell },
   { key: 'theme', label: '테마설정', icon: Palette },
+  { key: 'supplies', label: '물품 관리', icon: Package },
 ];
 
 function ToggleSwitch({ checked, onChange }: { checked: boolean; onChange: () => void }) {
@@ -110,9 +142,12 @@ function ToggleSwitch({ checked, onChange }: { checked: boolean; onChange: () =>
 }
 
 export default function Settings() {
+  const branchId = Number(localStorage.getItem('branchId')) || 1;
+
   const [activeTab, setActiveTab] = useState<TabKey>('basic');
   const [isSaving, setIsSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
 
   const [tabDirty, setTabDirty] = useState<Record<string, boolean>>({});
   const isDirty = tabDirty[activeTab] ?? false;
@@ -120,9 +155,64 @@ export default function Settings() {
   const [pendingTab, setPendingTab] = useState<string | null>(null);
   const [showUnsavedWarning, setShowUnsavedWarning] = useState(false);
 
-  const [centerInfo, setCenterInfo] = useState<CenterInfo>(INITIAL_CENTER);
-  const [notifications, setNotifications] = useState<NotificationSettings>(INITIAL_NOTIFICATIONS);
-  const [theme, setTheme] = useState<ThemeSettings>(INITIAL_THEME);
+  const [centerInfo, setCenterInfo] = useState<CenterInfo>(EMPTY_CENTER);
+  const [notifications, setNotifications] = useState<NotificationSettings>(EMPTY_NOTIFICATIONS);
+  const [theme, setTheme] = useState<ThemeSettings>(EMPTY_THEME);
+  const [supplies, setSupplies] = useState<SuppliesSettings>(EMPTY_SUPPLIES);
+
+  // Supabase 데이터 로드
+  useEffect(() => {
+    const fetchSettings = async () => {
+      setIsLoading(true);
+      const [{ data: branch }, { data: settings }] = await Promise.all([
+        supabase.from('branches').select('name, address, phone').eq('id', branchId).single(),
+        supabase.from('settings').select('*').eq('branchId', branchId).single(),
+      ]);
+
+      if (branch) {
+        setCenterInfo(prev => ({
+          ...prev,
+          name: branch.name ?? prev.name,
+          address: branch.address ?? prev.address,
+          phone: branch.phone ?? prev.phone,
+        }));
+      }
+
+      if (settings) {
+        setCenterInfo(prev => ({
+          ...prev,
+          name: settings.centerName ?? prev.name,
+          openTime: settings.businessHoursOpen ?? prev.openTime,
+          closeTime: settings.businessHoursClose ?? prev.closeTime,
+        }));
+        setNotifications({
+          pushEntrance: false,
+          pushExpiry: settings.autoExpireNotify ?? false,
+          pushPayment: false,
+          pushReservation: false,
+          emailWeeklyReport: false,
+          emailExpiry: settings.autoExpireNotify ?? false,
+          smsPayment: settings.smsEnabled ?? false,
+          smsExpiry: settings.smsEnabled ?? false,
+        });
+        setTheme(prev => ({
+          ...prev,
+          mode: (settings.theme as ThemeSettings['mode']) ?? prev.mode,
+        }));
+        if (settings.supplies) {
+          try {
+            const parsed = typeof settings.supplies === 'string'
+              ? JSON.parse(settings.supplies)
+              : settings.supplies;
+            setSupplies(prev => ({ ...prev, ...parsed }));
+          } catch { /* 파싱 실패 시 기본값 유지 */ }
+        }
+      }
+      setIsLoading(false);
+    };
+
+    fetchSettings();
+  }, [branchId]);
 
   useEffect(() => {
     const hasAnyDirty = Object.values(tabDirty).some(Boolean);
@@ -142,14 +232,31 @@ export default function Settings() {
     else setActiveTab(tab as TabKey);
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     setIsSaving(true);
-    setTimeout(() => {
-      setIsSaving(false);
-      setSaveSuccess(true);
-      setTabDirty(prev => ({ ...prev, [activeTab]: false }));
-      setTimeout(() => setSaveSuccess(false), 3000);
-    }, 1200);
+    const payload: Record<string, unknown> = {};
+
+    if (activeTab === 'basic') {
+      payload.centerName = centerInfo.name;
+      payload.businessHoursOpen = centerInfo.openTime;
+      payload.businessHoursClose = centerInfo.closeTime;
+      // branch 정보도 동기화
+      await supabase.from('branches').update({ name: centerInfo.name, address: centerInfo.address, phone: centerInfo.phone }).eq('id', branchId);
+    } else if (activeTab === 'notification') {
+      payload.smsEnabled = notifications.smsPayment || notifications.smsExpiry;
+      payload.autoExpireNotify = notifications.pushExpiry || notifications.emailExpiry;
+    } else if (activeTab === 'theme') {
+      payload.theme = theme.mode;
+    } else if (activeTab === 'supplies') {
+      payload.supplies = supplies;
+    }
+
+    await supabase.from('settings').update(payload).eq('branchId', branchId);
+
+    setIsSaving(false);
+    setSaveSuccess(true);
+    setTabDirty(prev => ({ ...prev, [activeTab]: false }));
+    setTimeout(() => setSaveSuccess(false), 3000);
   };
 
   const handleDiscardAndSwitch = () => {
@@ -357,6 +464,44 @@ export default function Settings() {
     );
   };
 
+  // ── 물품 관리 탭 ──
+  const renderSupplies = () => (
+    <div className="space-y-lg">
+      <FormSection title="수건/운동복 발급 관리" description="각 물품의 재고, 1일 발급량, 현재 잔여량을 설정합니다." columns={1}>
+        <div className="col-span-full space-y-sm">
+          <div className="grid grid-cols-4 gap-md px-lg py-sm bg-surface-secondary rounded-xl">
+            <span className="text-Label text-content-secondary font-semibold">물품명</span>
+            <span className="text-Label text-content-secondary font-semibold text-center">재고 수량</span>
+            <span className="text-Label text-content-secondary font-semibold text-center">1일 발급량</span>
+            <span className="text-Label text-content-secondary font-semibold text-center">현재 잔여량</span>
+          </div>
+          {(Object.keys(SUPPLY_LABELS) as (keyof SuppliesSettings)[]).map(key => (
+            <div key={key} className="grid grid-cols-4 gap-md items-center px-lg py-md bg-surface-secondary/50 rounded-xl border border-line hover:border-accent/30 transition-colors">
+              <span className="text-Body-1 font-semibold text-content">{SUPPLY_LABELS[key]}</span>
+              {(['stock', 'dailyLimit', 'remaining'] as (keyof SupplyItem)[]).map(field => (
+                <input
+                  key={field}
+                  type="number"
+                  min={0}
+                  className="w-full bg-surface p-md rounded-input text-center outline-none border border-line focus:ring-1 focus:ring-accent transition-all"
+                  value={supplies[key][field]}
+                  onChange={e => {
+                    const val = Math.max(0, Number(e.target.value));
+                    setSupplies(prev => ({
+                      ...prev,
+                      [key]: { ...prev[key], [field]: val },
+                    }));
+                    markDirty();
+                  }}
+                />
+              ))}
+            </div>
+          ))}
+        </div>
+      </FormSection>
+    </div>
+  );
+
   // ── 테마설정 탭 ──
   const renderTheme = () => (
     <div className="space-y-xl">
@@ -492,6 +637,7 @@ export default function Settings() {
                 {activeTab === 'basic' && renderBasic()}
                 {activeTab === 'notification' && renderNotification()}
                 {activeTab === 'theme' && renderTheme()}
+                {activeTab === 'supplies' && renderSupplies()}
               </div>
             </div>
           </div>

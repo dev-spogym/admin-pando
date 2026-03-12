@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import {
   FileText,
   Download,
@@ -11,88 +11,65 @@ import {
   CheckCircle2,
   Clock
 } from "lucide-react";
+import { toast } from "sonner";
 import AppLayout from "@/components/AppLayout";
 import PageHeader from "@/components/PageHeader";
 import StatCard from "@/components/StatCard";
 import DataTable from "@/components/DataTable";
 import StatusBadge from "@/components/StatusBadge";
 import { cn } from "@/lib/utils";
+import { supabase } from "@/lib/supabase";
+import { exportToExcel } from "@/lib/exportExcel";
+
+const getBranchId = (): number => {
+  const stored = localStorage.getItem('branchId');
+  return stored ? Number(stored) : 1;
+};
 
 /**
  * SCR-063: 급여 명세서 (UI-127 ~ UI-129)
  */
 
-const STAFF_LIST = [
-  { id: 1, name: "김철수",  position: "시니어 트레이너" },
-  { id: 2, name: "이영희",  position: "FC 매니저" },
-  { id: 3, name: "박지민",  position: "센터장" },
-  { id: 4, name: "최성호",  position: "GX 강사" },
-  { id: 5, name: "정수진",  position: "주니어 트레이너" },
-  { id: 6, name: "한미래",  position: "운영 매니저" },
-];
+interface StaffItem {
+  id: number;
+  name: string;
+  position: string;
+}
 
-const MOCK_STATEMENTS: Record<string, Record<string, {
+interface EarningItem {
+  name: string;
+  amount: number;
+}
+
+interface DeductionItem {
+  name: string;
+  amount: number;
+}
+
+interface StatementDetail {
   baseSalary: number;
-  earnings: { name: string; amount: number }[];
-  deductions: { name: string; amount: number }[];
+  earnings: EarningItem[];
+  deductions: DeductionItem[];
   status: "paid" | "pending";
   paymentDate: string;
-}>> = {
-  "1": {
-    "2026-01": {
-      baseSalary: 3500000,
-      earnings: [
-        { name: "기본급",   amount: 3500000 },
-        { name: "식대",     amount: 150000 },
-        { name: "교통비",   amount: 100000 },
-        { name: "성과급",   amount: 200000 },
-      ],
-      deductions: [
-        { name: "소득세",   amount: 120000 },
-        { name: "국민연금", amount: 157500 },
-        { name: "건강보험", amount: 124000 },
-        { name: "고용보험", amount: 31500 },
-      ],
-      status: "paid",
-      paymentDate: "2026-01-25",
-    },
-    "2025-12": {
-      baseSalary: 3500000,
-      earnings: [
-        { name: "기본급",   amount: 3500000 },
-        { name: "식대",     amount: 150000 },
-        { name: "교통비",   amount: 100000 },
-      ],
-      deductions: [
-        { name: "소득세",   amount: 95000 },
-        { name: "국민연금", amount: 157500 },
-        { name: "건강보험", amount: 124000 },
-        { name: "고용보험", amount: 31500 },
-      ],
-      status: "paid",
-      paymentDate: "2025-12-25",
-    }
-  },
-  "2": {
-    "2026-01": {
-      baseSalary: 2800000,
-      earnings: [
-        { name: "기본급",   amount: 2800000 },
-        { name: "식대",     amount: 100000 },
-        { name: "수업수당", amount: 320000 },
-      ],
-      deductions: [
-        { name: "소득세",   amount: 83000 },
-        { name: "국민연금", amount: 126000 },
-        { name: "건강보험", amount: 99000 },
-        { name: "고용보험", amount: 25200 },
-        { name: "장기요양", amount: 12000 },
-      ],
-      status: "pending",
-      paymentDate: "2026-01-25",
-    }
-  },
-};
+}
+
+interface PayrollRecord {
+  id: number;
+  staffId: number;
+  staffName: string;
+  position: string;
+  year: number;
+  month: number;
+  baseSalary: number;
+  netSalary: number;
+  status: "paid" | "pending";
+  paymentDate: string;
+  details: {
+    earnings: EarningItem[];
+    deductions: DeductionItem[];
+  } | null;
+}
 
 // 최근 12개월
 function getRecentMonths() {
@@ -108,54 +85,123 @@ function getRecentMonths() {
 
 export default function PayrollStatement() {
   const MONTHS = useMemo(() => getRecentMonths(), []);
-  const [selectedStaffId, setSelectedStaffId] = useState("1");
+  const [staffList, setStaffList] = useState<StaffItem[]>([]);
+  const [payrollRecords, setPayrollRecords] = useState<PayrollRecord[]>([]);
+  const [isLoadingData, setIsLoadingData] = useState(true);
+  const [selectedStaffId, setSelectedStaffId] = useState("");
   const [selectedMonth, setSelectedMonth] = useState(MONTHS[0].value);
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [modalStatement, setModalStatement] = useState<typeof MOCK_STATEMENTS["1"]["2026-01"] | null>(null);
+  const [modalStatement, setModalStatement] = useState<StatementDetail | null>(null);
   const [modalStaffName, setModalStaffName] = useState("");
 
-  // UI-128 명세서 상세 (선택된 직원 + 월)
-  const statement = useMemo(() => {
-    const staffData = MOCK_STATEMENTS[selectedStaffId];
-    if (!staffData) return null;
-    return staffData[selectedMonth] ?? null;
-  }, [selectedStaffId, selectedMonth]);
+  // 직원 목록 로드
+  useEffect(() => {
+    async function fetchStaff() {
+      const { data, error } = await supabase
+        .from("staff")
+        .select("id, name, position")
+        .eq("branchId", getBranchId())
+        .order("name");
+      if (error) {
+        console.error("직원 목록 로드 실패:", error);
+        toast.error("직원 목록을 불러오지 못했습니다.");
+      } else if (data && data.length > 0) {
+        const mapped: StaffItem[] = data.map((s: any) => ({
+          id: s.id,
+          name: s.name,
+          position: s.position ?? "",
+        }));
+        setStaffList(mapped);
+        setSelectedStaffId(String(mapped[0].id));
+      }
+    }
+    fetchStaff();
+  }, []);
 
-  const selectedStaff = STAFF_LIST.find(s => s.id === Number(selectedStaffId));
+  // 급여 데이터 로드 (월 변경 시)
+  useEffect(() => {
+    async function fetchPayroll() {
+      setIsLoadingData(true);
+      const [year, month] = selectedMonth.split("-").map(Number);
+      const { data, error } = await supabase
+        .from("payroll")
+        .select("id, staffId, staffName, year, month, baseSalary, netSalary, status, paymentDate, details, staff(position)")
+        .eq("branchId", getBranchId())
+        .eq("year", year)
+        .eq("month", month);
+      if (error) {
+        console.error("급여 명세서 로드 실패:", error);
+        toast.error("급여 명세서를 불러오지 못했습니다.");
+      } else if (data) {
+        const mapped: PayrollRecord[] = data.map((r: any) => ({
+          id: r.id,
+          staffId: r.staffId,
+          staffName: r.staffName,
+          position: r.staff?.position ?? "",
+          year: r.year,
+          month: r.month,
+          baseSalary: Number(r.baseSalary ?? 0),
+          netSalary: Number(r.netSalary ?? 0),
+          status: r.status ?? "pending",
+          paymentDate: r.paymentDate ?? "-",
+          details: r.details ?? null,
+        }));
+        setPayrollRecords(mapped);
+      }
+      setIsLoadingData(false);
+    }
+    fetchPayroll();
+  }, [selectedMonth]);
 
-  const totalEarnings  = statement ? statement.earnings.reduce((s, e) => s + e.amount, 0) : 0;
+  // 선택된 직원+월의 명세서 상세
+  const statement = useMemo((): StatementDetail | null => {
+    if (!selectedStaffId) return null;
+    const rec = payrollRecords.find(r => String(r.staffId) === selectedStaffId);
+    if (!rec) return null;
+    return {
+      baseSalary: rec.baseSalary,
+      earnings: rec.details?.earnings ?? [{ name: "기본급", amount: rec.baseSalary }],
+      deductions: rec.details?.deductions ?? [],
+      status: rec.status,
+      paymentDate: rec.paymentDate,
+    };
+  }, [selectedStaffId, payrollRecords]);
+
+  const selectedStaff = staffList.find(s => String(s.id) === selectedStaffId);
+
+  const totalEarnings   = statement ? statement.earnings.reduce((s, e) => s + e.amount, 0) : 0;
   const totalDeductions = statement ? statement.deductions.reduce((s, e) => s + e.amount, 0) : 0;
   const netPay = totalEarnings - totalDeductions;
 
   // 테이블용 요약 데이터 (전체 직원 × 선택 월)
   const tableData = useMemo(() =>
-    STAFF_LIST.map(staff => {
-      const d = MOCK_STATEMENTS[String(staff.id)]?.[selectedMonth];
-      if (!d) return {
+    staffList.map(staff => {
+      const rec = payrollRecords.find(r => r.staffId === staff.id);
+      if (!rec) return {
         id: staff.id, name: staff.name, position: staff.position,
         baseSalary: 0, totalEarnings: 0, totalDeductions: 0, netPay: 0,
         status: "pending" as const, paymentDate: "-",
       };
-      const earn = d.earnings.reduce((s, e) => s + e.amount, 0);
-      const ded  = d.deductions.reduce((s, e) => s + e.amount, 0);
+      const earn = rec.details?.earnings.reduce((s, e) => s + e.amount, 0) ?? rec.baseSalary;
+      const ded  = rec.details?.deductions.reduce((s, e) => s + e.amount, 0) ?? 0;
       return {
         id: staff.id,
         name: staff.name,
         position: staff.position,
-        baseSalary: d.baseSalary,
+        baseSalary: rec.baseSalary,
         totalEarnings: earn,
         totalDeductions: ded,
-        netPay: earn - ded,
-        status: d.status,
-        paymentDate: d.paymentDate,
+        netPay: rec.netSalary || (earn - ded),
+        status: rec.status,
+        paymentDate: rec.paymentDate,
       };
     }),
-    [selectedMonth]
+    [staffList, payrollRecords]
   );
 
-  const paidCount   = tableData.filter(r => r.status === "paid").length;
+  const paidCount    = tableData.filter(r => r.status === "paid").length;
   const pendingCount = tableData.filter(r => r.status === "pending").length;
-  const totalNet    = tableData.reduce((s, r) => s + r.netPay, 0);
+  const totalNet     = tableData.reduce((s, r) => s + r.netPay, 0);
 
   const columns = [
     {
@@ -213,13 +259,19 @@ export default function PayrollStatement() {
         <button
           className="text-primary text-Label font-semibold hover:underline"
           onClick={() => {
-            const d = MOCK_STATEMENTS[String(row.id)]?.[selectedMonth];
-            if (d) {
-              setModalStatement(d);
+            const rec = payrollRecords.find(r => r.staffId === row.id);
+            if (rec) {
+              setModalStatement({
+                baseSalary: rec.baseSalary,
+                earnings: rec.details?.earnings ?? [{ name: "기본급", amount: rec.baseSalary }],
+                deductions: rec.details?.deductions ?? [],
+                status: rec.status,
+                paymentDate: rec.paymentDate,
+              });
               setModalStaffName(row.name);
               setIsModalOpen(true);
             } else {
-              alert("해당 월의 명세서가 없습니다.");
+              toast.info("해당 월의 명세서가 없습니다.");
             }
           }}
         >
@@ -238,7 +290,7 @@ export default function PayrollStatement() {
           actions={
             <button
               className="flex items-center gap-xs px-md py-sm bg-primary text-white rounded-button text-Label font-bold hover:opacity-90 transition-all"
-              onClick={() => alert("일괄 인쇄 준비 중입니다.")}
+              onClick={() => window.print()}
             >
               <Printer size={16} />
               일괄 인쇄
@@ -268,7 +320,7 @@ export default function PayrollStatement() {
                   onChange={e => setSelectedStaffId(e.target.value)}
                   className="w-full px-md py-sm bg-surface-secondary border border-line rounded-button text-Body-2 outline-none focus:border-primary cursor-pointer"
                 >
-                  {STAFF_LIST.map(s => (
+                  {staffList.map(s => (
                     <option key={s.id} value={String(s.id)}>{s.name}</option>
                   ))}
                 </select>
@@ -359,13 +411,13 @@ export default function PayrollStatement() {
                 <div className="flex gap-sm pt-sm">
                   <button
                     className="flex-1 flex items-center justify-center gap-xs px-md py-sm border border-line rounded-button text-Label text-content-secondary hover:bg-primary-light hover:text-primary hover:border-primary transition-all"
-                    onClick={() => alert("이메일 발송 준비 중입니다.")}
+                    onClick={() => toast.info("이메일 발송 기능은 추후 지원 예정입니다.")}
                   >
                     <Mail size={16} />이메일 발송
                   </button>
                   <button
                     className="flex-1 flex items-center justify-center gap-xs px-md py-sm border border-line rounded-button text-Label text-content-secondary hover:bg-accent-light hover:text-accent hover:border-accent transition-all"
-                    onClick={() => alert("PDF 다운로드")}
+                    onClick={() => window.print()}
                   >
                     <Download size={16} />PDF 다운로드
                   </button>
@@ -377,7 +429,9 @@ export default function PayrollStatement() {
                   <FileText size={28} className="text-content-secondary" />
                 </div>
                 <p className="text-Body-1 font-semibold text-content mb-xs">명세서 없음</p>
-                <p className="text-Body-2 text-content-secondary">선택한 직원 및 월의 급여 데이터가 없습니다.</p>
+                <p className="text-Body-2 text-content-secondary">
+                  {isLoadingData ? "데이터를 불러오는 중..." : "선택한 직원 및 월의 급여 데이터가 없습니다."}
+                </p>
               </div>
             )}
           </div>
@@ -391,8 +445,25 @@ export default function PayrollStatement() {
               columns={columns}
               data={tableData}
               pagination={{ page: 1, pageSize: 10, total: tableData.length }}
-              onDownloadExcel={() => alert("엑셀 다운로드")}
-              emptyMessage="급여 데이터가 없습니다."
+              onDownloadExcel={() => {
+                const exportColumns = [
+                  { key: 'name', header: '직원명' },
+                  { key: 'position', header: '직급' },
+                  { key: 'baseSalary', header: '기본급' },
+                  { key: 'totalEarnings', header: '지급총액' },
+                  { key: 'totalDeductions', header: '공제총액' },
+                  { key: 'netPay', header: '실지급액' },
+                  { key: 'status', header: '상태' },
+                  { key: 'paymentDate', header: '지급일' },
+                ];
+                const exportData = tableData.map(r => ({
+                  ...r,
+                  status: r.status === 'paid' ? '지급완료' : '미지급',
+                }));
+                exportToExcel(exportData as unknown as Record<string, unknown>[], exportColumns, { filename: `급여명세서_${selectedMonth}` });
+                toast.success("엑셀 다운로드가 완료되었습니다.");
+              }}
+              emptyMessage={isLoadingData ? "데이터를 불러오는 중..." : "급여 데이터가 없습니다."}
             />
           </div>
         </div>
@@ -470,13 +541,13 @@ export default function PayrollStatement() {
               <div className="flex gap-sm">
                 <button
                   className="flex items-center gap-xs px-md py-sm border border-line rounded-button text-Label text-content-secondary hover:bg-primary-light hover:text-primary transition-all"
-                  onClick={() => alert("이메일 발송")}
+                  onClick={() => toast.info("이메일 발송 기능은 추후 지원 예정입니다.")}
                 >
                   <Mail size={14} />이메일
                 </button>
                 <button
                   className="flex items-center gap-xs px-md py-sm border border-line rounded-button text-Label text-content-secondary hover:bg-accent-light hover:text-accent transition-all"
-                  onClick={() => alert("PDF 다운로드")}
+                  onClick={() => window.print()}
                 >
                   <Download size={14} />PDF 다운로드
                 </button>

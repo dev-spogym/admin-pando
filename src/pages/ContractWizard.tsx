@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import {
   User,
   Search,
@@ -22,37 +22,20 @@ import FormSection from '@/components/FormSection';
 import StatusBadge from '@/components/StatusBadge';
 import TabNav from '@/components/TabNav';
 import ConfirmDialog from '@/components/ConfirmDialog';
+import SignaturePad from '@/components/SignaturePad';
 import { cn } from '@/lib/utils';
 import { moveToPage } from '@/internal';
+import { supabase } from '@/lib/supabase';
+import { toast } from 'sonner';
+import { updateMembershipPeriod, accruePoints, checkDuplicatePayment } from '@/lib/businessLogic';
 
-// Mock Data
-const MOCK_MEMBERS = [
-  { id: 1, name: '홍길동', phone: '010-1234-5678', status: 'active', membership: '프리미엄 12개월' },
-  { id: 2, name: '김영희', phone: '010-2222-3333', status: 'expired', membership: 'GX 3개월' },
-  { id: 3, name: '이철수', phone: '010-4444-5555', status: 'hold', membership: 'PT 20회' },
-  { id: 4, name: '박민수', phone: '010-8888-9999', status: 'active', membership: '헬스 6개월' },
-];
-
-const MOCK_PRODUCTS: Record<string, { id: string; name: string; price: number; duration: number }[]> = {
-  facility: [
-    { id: 'f1', name: '헬스 12개월 (전지점)', price: 840000, duration: 365 },
-    { id: 'f2', name: '헬스 6개월', price: 480000, duration: 180 },
-    { id: 'f3', name: '헬스 3개월', price: 270000, duration: 90 },
-  ],
-  pt: [
-    { id: 'p1', name: '1:1 PT 30회', price: 1800000, duration: 180 },
-    { id: 'p2', name: '1:1 PT 20회', price: 1300000, duration: 120 },
-    { id: 'p3', name: '1:1 PT 10회', price: 700000, duration: 60 },
-  ],
-  gx: [
-    { id: 'g1', name: '요가/필라테스 3개월', price: 350000, duration: 90 },
-    { id: 'g2', name: '그룹 사이클 1개월', price: 120000, duration: 30 },
-  ],
-  option: [
-    { id: 'o1', name: '개인 락커 12개월', price: 120000, duration: 365 },
-    { id: 'o2', name: '운동복 대여 12개월', price: 60000, duration: 365 },
-  ]
+const getBranchId = (): number => {
+  const stored = localStorage.getItem('branchId');
+  return stored ? Number(stored) : 1;
 };
+
+type MemberRow = { id: number; name: string; phone: string; status: string; membership: string };
+type ProductRow = { id: string; name: string; price: number; duration: number };
 
 const DISCOUNT_TYPES = [
   { value: 'renew', label: '재등록' },
@@ -78,10 +61,72 @@ const STEPS = [
 
 export default function ContractWizard() {
   const [step, setStep] = useState(1);
+  const [isSaving, setIsSaving] = useState(false);
   const [selectedMember, setSelectedMember] = useState<any>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedProducts, setSelectedProducts] = useState<any[]>([]);
   const [activeCategory, setActiveCategory] = useState('facility');
+  const [members, setMembers] = useState<MemberRow[]>([]);
+  const [products, setProducts] = useState<Record<string, ProductRow[]>>({ facility: [], pt: [], gx: [], option: [] });
+  const [staffs, setStaffs] = useState<{ id: number; name: string }[]>([]);
+  const [salesStaffId, setSalesStaffId] = useState<number | ''>('');
+  const [salesStaffName, setSalesStaffName] = useState<string>('');
+
+  useEffect(() => {
+    const fetchMembers = async () => {
+      const { data, error } = await supabase
+        .from('members')
+        .select('id, name, phone, status, membershipType')
+        .eq('branchId', getBranchId());
+      if (!error && data) {
+        setMembers(data.map((m: Record<string, unknown>) => ({
+          id: m.id as number,
+          name: m.name as string,
+          phone: m.phone as string,
+          status: (m.status as string) ?? 'active',
+          membership: (m.membershipType as string) ?? '',
+        })));
+      }
+    };
+
+    const fetchProducts = async () => {
+      const { data, error } = await supabase
+        .from('products')
+        .select('id, name, price, duration, category')
+        .eq('branchId', getBranchId());
+      if (!error && data) {
+        const grouped: Record<string, ProductRow[]> = { facility: [], pt: [], gx: [], option: [] };
+        data.forEach((p: Record<string, unknown>) => {
+          const cat = (p.category as string) ?? 'facility';
+          if (!grouped[cat]) grouped[cat] = [];
+          grouped[cat].push({
+            id: String(p.id),
+            name: p.name as string,
+            price: Number(p.price ?? 0),
+            duration: Number(p.duration ?? 0),
+          });
+        });
+        setProducts(grouped);
+      }
+    };
+
+    const fetchStaffs = async () => {
+      const { data, error } = await supabase
+        .from('staffs')
+        .select('id, name')
+        .eq('branchId', getBranchId());
+      if (!error && data) {
+        setStaffs(data.map((s: Record<string, unknown>) => ({
+          id: s.id as number,
+          name: s.name as string,
+        })));
+      }
+    };
+
+    fetchMembers();
+    fetchProducts();
+    fetchStaffs();
+  }, []);
 
   const [contractDetails, setContractDetails] = useState({
     startDate: new Date().toISOString().split('T')[0],
@@ -98,6 +143,7 @@ export default function ContractWizard() {
   const [paymentMethod, setPaymentMethod] = useState('card');
   const [showCompleteDialog, setShowCompleteDialog] = useState(false);
   const [stepErrors, setStepErrors] = useState<Record<number, string>>({});
+  const [signatureDataUrl, setSignatureDataUrl] = useState<string | null>(null);
 
   const totalPrice = selectedProducts.reduce((sum, p) => sum + p.price, 0);
   const discountRateNum = Math.min(50, Math.max(0, parseFloat(discountRate) || 0));
@@ -144,10 +190,101 @@ export default function ContractWizard() {
   const nextStep = () => { if (validateStep(step) && step < 5) setStep(step + 1); };
   const prevStep = () => { if (step > 1) setStep(step - 1); };
 
+  // contracts 테이블에 계약 정보 저장
+  const handleContractSave = async () => {
+    if (!selectedMember) {
+      toast.error('회원을 선택해주세요.');
+      return;
+    }
+    // 중복 저장 방지
+    if (isSaving) return;
+    setIsSaving(true);
+
+    try {
+
+    // 결제수단 → DB enum 매핑
+    const paymentMethodMap: Record<string, string> = {
+      card: 'CARD',
+      cash: 'CASH',
+      mileage: 'MILEAGE',
+      transfer: 'TRANSFER',
+    };
+
+    const productName = selectedProducts.map((p: { name: string }) => p.name).join(', ');
+
+    const { error } = await supabase.from('contracts').insert({
+      branchId: getBranchId(),
+      memberId: selectedMember.id,
+      memberName: selectedMember.name,
+      productName: productName || null,
+      amount: finalPrice,
+      startDate: contractDetails.startDate ? new Date(contractDetails.startDate).toISOString() : null,
+      endDate: computedEndDate ? new Date(computedEndDate).toISOString() : null,
+      signatureUrl: signatureDataUrl || null,
+      signedAt: signatureDataUrl ? new Date().toISOString() : null,
+      status: '서명완료',
+      createdAt: new Date().toISOString(),
+    });
+
+    if (error) {
+      toast.error('계약 저장에 실패했습니다.');
+      return;
+    }
+
+    // 중복 결제 확인
+    const dupCheck = await checkDuplicatePayment(selectedMember.id, finalPrice);
+    if (dupCheck.isDuplicate) {
+      const proceed = window.confirm(dupCheck.message + '\n계속 진행하시겠습니까?');
+      if (!proceed) return;
+    }
+
+    // 계약에 대응하는 매출 레코드도 함께 저장
+    await supabase.from('sales').insert({
+      branchId: getBranchId(),
+      memberId: selectedMember.id,
+      memberName: selectedMember.name,
+      productName: productName || null,
+      type: '이용권',
+      amount: finalPrice,
+      originalPrice: totalPrice,
+      discountPrice: discountAmount,
+      paymentMethod: paymentMethodMap[paymentMethod] ?? 'CARD',
+      saleDate: new Date().toISOString(),
+      status: 'COMPLETED',
+      memo: discountReason || null,
+      staffId: salesStaffId !== '' ? salesStaffId : null,
+      staffName: salesStaffName || null,
+    });
+
+    // 결제 후 이용권 시작/종료일 자동 설정 + 회원 상태 ACTIVE로 변경
+    if (contractDetails.startDate && computedEndDate) {
+      await updateMembershipPeriod(
+        selectedMember.id,
+        new Date(contractDetails.startDate).toISOString(),
+        new Date(computedEndDate).toISOString(),
+        productName || undefined,
+      );
+    }
+
+    // 마일리지 자동 적립 (결제금액의 1%)
+    if (paymentMethod !== 'mileage') {
+      const pointResult = await accruePoints(selectedMember.id, finalPrice);
+      if (pointResult.success && pointResult.accrued > 0) {
+        toast.info(`${pointResult.accrued}P 마일리지가 적립되었습니다.`);
+      }
+    }
+
+    toast.success('계약이 완료되었습니다.');
+    moveToPage(985, { id: selectedMember.id });
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
   const filteredMembers = useMemo(() => {
-    if (!searchQuery) return MOCK_MEMBERS;
-    return MOCK_MEMBERS.filter(m => m.name.includes(searchQuery) || m.phone.includes(searchQuery));
-  }, [searchQuery]);
+    if (!searchQuery) return members;
+    return members.filter(m => m.name.includes(searchQuery) || m.phone.includes(searchQuery));
+  }, [searchQuery, members]);
 
   // ── Step 1: 회원 선택 ──
   const renderStep1 = () => (
@@ -245,7 +382,7 @@ export default function ContractWizard() {
           onTabChange={setActiveCategory}
         />
         <div className="grid grid-cols-1 md:grid-cols-2 gap-md">
-          {MOCK_PRODUCTS[activeCategory].map(p => {
+          {(products[activeCategory] ?? []).map(p => {
             const already = selectedProducts.find(item => item.id === p.id);
             return (
               <div
@@ -436,6 +573,27 @@ export default function ContractWizard() {
         )}
       </FormSection>
 
+      <FormSection title="실적 담당자" columns={1}>
+        <div className="space-y-xs">
+          <label className="text-Label text-content-secondary">실적 담당자 선택</label>
+          <select
+            className="w-full p-md bg-surface-secondary rounded-input outline-none focus:ring-2 focus:ring-accent transition-all"
+            value={salesStaffId}
+            onChange={e => {
+              const id = e.target.value === '' ? '' : Number(e.target.value);
+              setSalesStaffId(id as number | '');
+              setSalesStaffName(staffs.find(s => s.id === Number(e.target.value))?.name ?? '');
+            }}
+          >
+            <option value="">담당자 없음</option>
+            {staffs.map(s => (
+              <option key={s.id} value={s.id}>{s.name}</option>
+            ))}
+          </select>
+          <p className="text-[11px] text-content-secondary">계약 실적이 귀속될 직원을 선택하세요.</p>
+        </div>
+      </FormSection>
+
       <FormSection title="특약 및 메모" columns={1}>
         <div className="space-y-xs">
           <label className="text-Label text-content-secondary">특약 사항</label>
@@ -507,7 +665,10 @@ export default function ContractWizard() {
         <p className="text-Body-2 text-content-secondary text-center mb-xl">
           단말기를 통해 결제를 진행하거나,<br />아래 버튼을 눌러 결제 처리를 완료하세요.
         </p>
-        <button className="w-full py-xl bg-accent text-white rounded-button text-Heading-2 font-bold hover:scale-[1.02] active:scale-[0.98] transition-all shadow-lg shadow-accent/20">
+        <button
+          onClick={nextStep}
+          className="w-full py-xl bg-accent text-white rounded-button text-Heading-2 font-bold hover:scale-[1.02] active:scale-[0.98] transition-all shadow-lg shadow-accent/20"
+        >
           결제 실행하기
         </button>
       </div>
@@ -596,6 +757,21 @@ export default function ContractWizard() {
             </div>
           </div>
         </div>
+      </div>
+
+      {/* 전자서명 */}
+      <div className="bg-surface rounded-xl border border-line p-xl shadow-card">
+        <h3 className="text-Heading-2 text-content mb-sm">전자서명</h3>
+        <p className="text-Body-2 text-content-secondary mb-lg">
+          위 계약 내용에 동의하며 서명합니다.
+        </p>
+        <SignaturePad
+          onSign={(dataUrl) => setSignatureDataUrl(dataUrl)}
+          height={200}
+        />
+        {!signatureDataUrl && (
+          <p className="mt-sm text-[11px] text-content-secondary">서명 후 '서명 확인' 버튼을 눌러주세요.</p>
+        )}
       </div>
     </div>
   );
@@ -692,24 +868,16 @@ export default function ContractWizard() {
             </button>
           ) : (
             <button
-              onClick={() => setShowCompleteDialog(true)}
-              className="flex items-center gap-sm px-[48px] py-lg bg-accent text-white rounded-button font-bold hover:scale-[1.02] active:scale-[0.98] transition-all shadow-lg shadow-accent/20"
+              onClick={handleContractSave}
+              disabled={isSaving}
+              className="flex items-center gap-sm px-[48px] py-lg bg-accent text-white rounded-button font-bold hover:scale-[1.02] active:scale-[0.98] transition-all shadow-lg shadow-accent/20 disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              <FileText size={20} /> 계약 완료 확인
+              <FileText size={20} /> {isSaving ? "저장 중..." : "계약 완료 확인"}
             </button>
           )}
         </div>
       </div>
 
-      <ConfirmDialog
-        open={showCompleteDialog}
-        title="계약 등록 완료"
-        description={`${selectedMember?.name} 회원의 계약이 성공적으로 등록되었습니다.\n회원 상세 페이지로 이동하시겠습니까?`}
-        confirmLabel="회원 상세로 이동"
-        cancelLabel="목록으로 이동"
-        onConfirm={() => moveToPage(985)}
-        onCancel={() => moveToPage(967)}
-      />
     </AppLayout>
   );
 }

@@ -1,5 +1,7 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
+import { toast } from "sonner";
 import { useSearchParams } from "react-router-dom";
+import { startHolding, endHolding } from "@/lib/businessLogic";
 import {
   User,
   Phone,
@@ -34,7 +36,9 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { moveToPage } from "@/internal";
+import { supabase } from "@/lib/supabase";
 
+import SignaturePad from "@/components/SignaturePad";
 import AppLayout from "@/components/AppLayout";
 import PageHeader from "@/components/PageHeader";
 import TabNav from "@/components/TabNav";
@@ -45,118 +49,50 @@ import FormSection from "@/components/FormSection";
 import ConfirmDialog from "@/components/ConfirmDialog";
 
 // ────────────────────────────────────────────────────────────
-// Mock 데이터
+// 타입 정의
 // ────────────────────────────────────────────────────────────
 
-const MEMBER = {
-  id: "M-12345",
-  name: "김민수",
-  attendanceNo: "8823",
-  gender: "남",
-  birthDate: "1992-05-14",
-  phone: "010-1234-5678",
-  email: "minsoo.kim@example.com",
-  status: "active",
-  dDay: 7,
-  recentVisit: "2026-02-18 14:30",
-  joinDate: "2025-01-10",
-  trainer: "이지은 (Jenny)",
-  fc: "박상준 (Leo)",
-  address: "서울시 강남구 테헤란로 123, 온핏 타워 8층",
-  company: "(주)온핏테크",
-  marketingAgreed: true,
-  appLinked: true,
-  appAccount: "minsoo_92",
-  purpose: "다이어트 및 근력 강화",
-  source: "인스타그램 광고",
-  memo: "좌측 무릎 부상 이력 있음 (2년 전 수술). 하체 운동 시 가동 범위 주의 필요. 식단 관리 철저히 요청함.",
-};
-
-type Ticket = {
+type Member = {
   id: number;
   name: string;
-  type: string;
-  status: "active" | "holding" | "expired";
-  startDate: string;
-  endDate: string;
-  totalCount: number | null;
-  usedCount: number | null;
-  remainDays: number;
-  price: string;
+  phone: string | null;
+  email: string | null;
+  gender: string | null;
+  birthDate: string | null;
+  profileImage: string | null;
+  registeredAt: string | null;
+  membershipType: string | null;
+  membershipStart: string | null;
+  membershipExpiry: string | null;
+  status: string | null;
+  mileage: number | null;
+  memo: string | null;
+  height: number | null;
+  branchId: number | null;
 };
 
-const TICKETS: Ticket[] = [
-  {
-    id: 1,
-    name: "퍼스널 트레이닝 30회 (1:1)",
-    type: "수강권",
-    status: "active",
-    startDate: "2026.01.10",
-    endDate: "2026.07.10",
-    totalCount: 30,
-    usedCount: 12,
-    remainDays: 142,
-    price: "1,800,000원",
-  },
-  {
-    id: 2,
-    name: "헬스 회원권 6개월 (전지점)",
-    type: "회원권",
-    status: "active",
-    startDate: "2026.01.10",
-    endDate: "2026.01.17",
-    totalCount: null,
-    usedCount: null,
-    remainDays: 7,
-    price: "660,000원",
-  },
-  {
-    id: 3,
-    name: "운동복 & 수건 대여 (6개월)",
-    type: "대여권",
-    status: "active",
-    startDate: "2026.01.10",
-    endDate: "2026.02.10",
-    totalCount: null,
-    usedCount: null,
-    remainDays: 25,
-    price: "55,000원",
-  },
-];
+type SaleRecord = {
+  id: number;
+  saleDate: string | null;
+  itemName: string | null;
+  amount: number;
+  salePrice: number;
+  originalPrice: number;
+  discountPrice: number;
+  cash: number;
+  card: number;
+  mileageUsed: number;
+  unpaid: number;
+  paymentMethod: string | null;
+  status: string | null;
+};
 
 type AttendanceRecord = {
-  date: string;
-  checkIn: string;
-  checkOut: string;
-  branch: string;
-  isBranch: boolean;
-};
-
-const ATTENDANCE_LIST: AttendanceRecord[] = [
-  { date: "2026-02-18", checkIn: "14:30", checkOut: "16:10", branch: "강남점", isBranch: false },
-  { date: "2026-02-17", checkIn: "10:00", checkOut: "11:45", branch: "강남점", isBranch: false },
-  { date: "2026-02-15", checkIn: "09:20", checkOut: "11:00", branch: "홍대점", isBranch: true },
-  { date: "2026-02-14", checkIn: "14:00", checkOut: "15:30", branch: "강남점", isBranch: false },
-  { date: "2026-02-12", checkIn: "18:30", checkOut: "20:00", branch: "강남점", isBranch: false },
-  { date: "2026-02-11", checkIn: "10:10", checkOut: "11:50", branch: "판교점", isBranch: true },
-];
-
-type Payment = {
   id: number;
-  date: string;
-  product: string;
-  amount: string;
-  method: string;
-  status: string;
+  checkInAt: string | null;
+  checkOutAt: string | null;
+  branchId: number | null;
 };
-
-const PAYMENTS: Payment[] = [
-  { id: 1, date: "2026-01-10", product: "퍼스널 트레이닝 30회", amount: "1,800,000원", method: "카드", status: "완료" },
-  { id: 2, date: "2026-01-10", product: "헬스 회원권 6개월", amount: "660,000원", method: "카드", status: "완료" },
-  { id: 3, date: "2026-01-10", product: "운동복 & 수건 대여 6개월", amount: "55,000원", method: "현금", status: "완료" },
-  { id: 4, date: "2025-07-15", product: "헬스 회원권 6개월", amount: "660,000원", method: "카드", status: "완료" },
-  { id: 5, date: "2025-01-10", product: "퍼스널 트레이닝 20회", amount: "1,200,000원", method: "카드", status: "완료" },
-];
 
 type BodyRecord = {
   id: number;
@@ -168,35 +104,32 @@ type BodyRecord = {
   pbf: number;
 };
 
-const BODY_RECORDS: BodyRecord[] = [
-  { id: 1, date: "2026-02-15", weight: 78.2, muscle: 35.1, fat: 18.4, bmi: 24.8, pbf: 23.5 },
-  { id: 2, date: "2026-01-12", weight: 79.8, muscle: 34.6, fat: 20.1, bmi: 25.3, pbf: 25.2 },
-  { id: 3, date: "2025-12-10", weight: 81.5, muscle: 34.0, fat: 22.3, bmi: 25.8, pbf: 27.4 },
-  { id: 4, date: "2025-11-05", weight: 83.0, muscle: 33.5, fat: 24.1, bmi: 26.3, pbf: 29.0 },
-  { id: 5, date: "2025-10-01", weight: 84.5, muscle: 33.0, fat: 25.8, bmi: 26.8, pbf: 30.5 },
-  { id: 6, date: "2025-09-01", weight: 86.0, muscle: 32.5, fat: 27.5, bmi: 27.3, pbf: 32.0 },
-];
+type LockerRecord = {
+  id: number;
+  lockerNumber: string | null;
+  status: string | null;
+};
+
+type ContractRecord = {
+  id: number;
+  createdAt: string | null;
+  productName: string | null;
+  status: string | null;
+};
 
 // ────────────────────────────────────────────────────────────
 // 출석 히트맵 생성
 // ────────────────────────────────────────────────────────────
 
-function generateHeatmapData(): Record<string, number> {
+function buildAttendanceMap(attendances: AttendanceRecord[]): Record<string, number> {
   const data: Record<string, number> = {};
-  const today = new Date();
-  for (let i = 180; i >= 0; i--) {
-    const d = new Date(today);
-    d.setDate(d.getDate() - i);
-    const key = d.toISOString().split("T")[0];
-    const day = d.getDay();
-    if (day !== 0 && day !== 6 && Math.random() > 0.4) {
-      data[key] = Math.random() > 0.7 ? 2 : 1;
-    }
+  for (const rec of attendances) {
+    if (!rec.checkInAt) continue;
+    const key = rec.checkInAt.slice(0, 10);
+    data[key] = (data[key] || 0) + 1;
   }
   return data;
 }
-
-const ATTENDANCE_MAP = generateHeatmapData();
 
 // ────────────────────────────────────────────────────────────
 // 서브 컴포넌트
@@ -425,121 +358,59 @@ function BodyLineChart({ records }: { records: BodyRecord[] }) {
 // ────────────────────────────────────────────────────────────
 
 // UI-022 프로필 탭 (회원정보)
-function TabInfo() {
+function TabInfo({ member }: { member: Member }) {
   return (
     <div className="space-y-lg">
       <div className="grid grid-cols-1 md:grid-cols-3 gap-md">
-        <StatCard label="최근 방문일" value={MEMBER.recentVisit.split(" ")[0]} description={MEMBER.recentVisit.split(" ")[1] + " 방문"} icon={<Clock />} />
-        <StatCard label="담당 트레이너" value={MEMBER.trainer} icon={<Users />} variant="peach" />
-        <StatCard label="담당 FC" value={MEMBER.fc} icon={<User />} variant="mint" />
+        <StatCard
+          label="최근 방문일"
+          value={member.registeredAt ? member.registeredAt.slice(0, 10) : "-"}
+          icon={<Clock />}
+        />
+        <StatCard label="회원권 종류" value={member.membershipType || "-"} icon={<Users />} variant="peach" />
+        <StatCard label="상태" value={{ ACTIVE: "정상 이용중", INACTIVE: "비활성", EXPIRED: "만료", HOLDING: "홀딩", SUSPENDED: "정지" }[member.status ?? ""] || member.status || "-"} icon={<User />} variant="mint" />
       </div>
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-lg">
         <FormSection title="기본 정보" collapsible>
           <div className="space-y-xs">
-            <InfoItem label="휴대전화" value={MEMBER.phone} icon={<Phone size={16} />} />
-            <InfoItem label="생년월일" value={`${MEMBER.birthDate} (${MEMBER.gender})`} icon={<CalendarIcon size={16} />} />
-            <InfoItem label="이메일" value={MEMBER.email} icon={<Mail size={16} />} />
-            <InfoItem label="주소" value={MEMBER.address} icon={<MapPin size={16} />} />
-            <InfoItem label="회원번호" value={MEMBER.id} />
-            <InfoItem label="출석번호" value={MEMBER.attendanceNo} />
-            <InfoItem label="가입일" value={MEMBER.joinDate} />
-            <InfoItem label="앱 연동" value={MEMBER.appLinked ? `연동됨 (${MEMBER.appAccount})` : "미연동"} badge={MEMBER.appLinked ? "success" : "default"} />
+            <InfoItem label="휴대전화" value={member.phone || "-"} icon={<Phone size={16} />} />
+            <InfoItem
+              label="생년월일"
+              value={`${member.birthDate ? member.birthDate.slice(0, 10) : "-"} (${member.gender === "M" ? "남" : member.gender === "F" ? "여" : "-"})`}
+              icon={<CalendarIcon size={16} />}
+            />
+            <InfoItem label="이메일" value={member.email || "-"} icon={<Mail size={16} />} />
+            <InfoItem label="키" value={member.height ? `${member.height}cm` : "-"} icon={<Scale size={16} />} />
+            <InfoItem label="회원번호" value={String(member.id)} />
+            <InfoItem label="가입일" value={member.registeredAt ? member.registeredAt.slice(0, 10) : "-"} />
+            <InfoItem
+              label="회원권 기간"
+              value={`${member.membershipStart ? member.membershipStart.slice(0, 10) : "-"} ~ ${member.membershipExpiry ? member.membershipExpiry.slice(0, 10) : "-"}`}
+            />
           </div>
         </FormSection>
         <FormSection title="운영 정보" collapsible>
           <div className="space-y-xs">
-            <InfoItem label="유입경로" value={MEMBER.source} />
-            <InfoItem label="운동목적" value={MEMBER.purpose} />
-            <InfoItem label="소속 회사" value={MEMBER.company} />
-            <InfoItem label="광고 수신" value={MEMBER.marketingAgreed ? "동의" : "미동의"} badge={MEMBER.marketingAgreed ? "success" : "error"} />
+            <InfoItem label="마일리지" value={`${member.mileage ?? 0}P`} />
           </div>
           <div className="md:col-span-2">
             <div className="flex flex-col gap-xs">
-              <span className="text-[12px] text-content-secondary font-medium">특이사항 및 메모</span>
+              <span className="text-[12px] text-content-secondary font-medium">메모</span>
               <div className="p-md bg-surface-secondary rounded-lg text-[13px] text-content min-h-[100px] whitespace-pre-wrap border border-line">
-                {MEMBER.memo}
+                {member.memo || "메모가 없습니다."}
               </div>
             </div>
           </div>
         </FormSection>
-      </div>
-    </div>
-  );
-}
-
-// UI-023 이용권 탭
-function TabTickets() {
-  return (
-    <div className="space-y-lg">
-      <div className="grid gap-md">
-        {TICKETS.map(ticket => {
-          const dDayClass = getDDayClass(ticket.remainDays);
-          const remainClass = getRemainClass(ticket.remainDays);
-          const statusMap: Record<string, { label: string; variant: any }> = {
-            active: { label: "이용중", variant: "success" },
-            holding: { label: "홀딩", variant: "info" },
-            expired: { label: "만료", variant: "error" },
-          };
-          const s = statusMap[ticket.status];
-
-          return (
-            <div key={ticket.id} className="bg-surface rounded-xl border border-line p-lg shadow-card">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-md">
-                <div className="flex-1 space-y-xs">
-                  <div className="flex items-center gap-sm flex-wrap">
-                    <span className="text-[15px] font-bold text-content">{ticket.name}</span>
-                    <StatusBadge variant={s.variant} dot>{s.label}</StatusBadge>
-                    <span className="text-[11px] px-sm py-[2px] bg-surface-secondary rounded-full text-content-secondary border border-line">
-                      {ticket.type}
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-md text-[12px] text-content-secondary flex-wrap">
-                    <span className="flex items-center gap-xs">
-                      <CalendarIcon size={12} />
-                      {ticket.startDate} ~ {ticket.endDate}
-                    </span>
-                    {ticket.totalCount !== null && (
-                      <span className="flex items-center gap-xs">
-                        <Activity size={12} />
-                        잔여 <strong className="text-content">{ticket.totalCount - (ticket.usedCount ?? 0)}회</strong> / {ticket.totalCount}회
-                      </span>
-                    )}
-                  </div>
-                </div>
-                <div className="flex items-center gap-md shrink-0">
-                  <div className={cn("px-md py-xs rounded-full text-[12px] font-bold", dDayClass)}>
-                    D-{ticket.remainDays}
-                  </div>
-                  <span className={cn("text-[14px]", remainClass)}>
-                    {ticket.remainDays <= 7 ? "곧 만료!" : ticket.remainDays <= 30 ? "만료 임박" : ""}
-                  </span>
-                  <span className="text-[14px] font-semibold text-content">{ticket.price}</span>
-                  <button className="p-xs hover:bg-surface-secondary rounded-full transition-colors text-content-secondary">
-                    <MoreVertical size={16} />
-                  </button>
-                </div>
-              </div>
-            </div>
-          );
-        })}
-      </div>
-
-      <div className="flex justify-center p-xl bg-surface rounded-xl border border-dashed border-line">
-        <button
-          className="flex items-center gap-sm px-xl py-md bg-primary-light text-primary rounded-button font-bold hover:bg-primary hover:text-white transition-all shadow-sm"
-          onClick={() => moveToPage(971)}
-        >
-          <Plus size={20} />
-          신규 이용권 / 상품 구매
-        </button>
       </div>
     </div>
   );
 }
 
 // UI-024 출석 탭
-function TabAttendance() {
-  const totalDays = Object.values(ATTENDANCE_MAP).filter(v => v > 0).length;
+function TabAttendance({ attendances }: { attendances: AttendanceRecord[] }) {
+  const attendanceMap = buildAttendanceMap(attendances);
+  const totalDays = Object.values(attendanceMap).filter(v => v > 0).length;
   const today = new Date();
 
   // 히트맵 주차 계산
@@ -573,7 +444,7 @@ function TabAttendance() {
 
   const getCellColor = (date: Date) => {
     const key = date.toISOString().split("T")[0];
-    const count = ATTENDANCE_MAP[key];
+    const count = attendanceMap[key];
     if (date > today) return "bg-transparent";
     if (!count) return "bg-surface-tertiary";
     if (count >= 2) return "bg-primary";
@@ -584,8 +455,7 @@ function TabAttendance() {
     <div className="space-y-lg">
       <div className="flex gap-md flex-wrap">
         <StatCard label="최근 6개월 출석" value={`${totalDays}일`} icon={<History size={20} />} variant="mint" />
-        <StatCard label="이번 달 출석" value="12일" icon={<CalendarIcon size={20} />} variant="default" />
-        <StatCard label="연속 출석" value="5일" icon={<TrendingUp size={20} />} variant="peach" />
+        <StatCard label="전체 출석 기록" value={`${attendances.length}회`} icon={<CalendarIcon size={20} />} variant="default" />
       </div>
 
       {/* 히트맵 */}
@@ -615,7 +485,7 @@ function TabAttendance() {
                 <div key={wi} className="flex flex-col mr-1">
                   {week.map((date, di) => {
                     const key = date.toISOString().split("T")[0];
-                    const count = ATTENDANCE_MAP[key];
+                    const count = attendanceMap[key];
                     return (
                       <div
                         key={di}
@@ -641,30 +511,34 @@ function TabAttendance() {
       {/* 출석 리스트 */}
       <div className="bg-surface rounded-xl border border-line overflow-hidden">
         <div className="px-lg py-md border-b border-line flex items-center justify-between">
-          <h3 className="text-Section-Title text-content">최근 출석 내역</h3>
+          <h3 className="text-Section-Title text-content">최근 출석 내역 (최근 20회)</h3>
         </div>
         <div className="divide-y divide-line">
-          {ATTENDANCE_LIST.map((rec, i) => (
-            <div key={i} className="flex items-center justify-between px-lg py-sm hover:bg-surface-secondary/40 transition-colors">
-              <div className="flex items-center gap-md">
-                <div className={cn("w-2 h-2 rounded-full shrink-0", rec.isBranch ? "bg-state-info" : "bg-state-success")} />
-                <div>
-                  <span className="text-[13px] font-semibold text-content">{rec.date}</span>
-                  {rec.isBranch && (
-                    <span className="ml-sm text-[11px] px-xs py-[2px] bg-blue-50 text-state-info rounded border border-state-info/20">
-                      타지점
-                    </span>
-                  )}
+          {attendances.length === 0 && (
+            <div className="flex items-center justify-center py-xl text-content-secondary text-[13px]">
+              출석 기록이 없습니다.
+            </div>
+          )}
+          {attendances.map((rec, i) => {
+            const dateStr = rec.checkInAt ? rec.checkInAt.slice(0, 10) : "-";
+            const checkIn = rec.checkInAt ? rec.checkInAt.slice(11, 16) : "-";
+            const checkOut = rec.checkOutAt ? rec.checkOutAt.slice(11, 16) : "-";
+            return (
+              <div key={rec.id || i} className="flex items-center justify-between px-lg py-sm hover:bg-surface-secondary/40 transition-colors">
+                <div className="flex items-center gap-md">
+                  <div className="w-2 h-2 rounded-full shrink-0 bg-state-success" />
+                  <div>
+                    <span className="text-[13px] font-semibold text-content">{dateStr}</span>
+                  </div>
+                </div>
+                <div className="flex items-center gap-lg text-[12px] text-content-secondary">
+                  <span>
+                    {checkIn} ~ {checkOut}
+                  </span>
                 </div>
               </div>
-              <div className="flex items-center gap-lg text-[12px] text-content-secondary">
-                <span>{rec.branch}</span>
-                <span>
-                  {rec.checkIn} ~ {rec.checkOut}
-                </span>
-              </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       </div>
     </div>
@@ -672,38 +546,43 @@ function TabAttendance() {
 }
 
 // UI-025 결제 탭
-function TabPayment() {
+function TabPayment({ sales, memberId, memberName }: { sales: SaleRecord[]; memberId: string | null; memberName: string }) {
   const [page, setPage] = useState(1);
-  const [refundTarget, setRefundTarget] = useState<Payment | null>(null);
-  const [detailTarget, setDetailTarget] = useState<Payment | null>(null);
+  const [refundTarget, setRefundTarget] = useState<SaleRecord | null>(null);
+  const [detailTarget, setDetailTarget] = useState<SaleRecord | null>(null);
   const PAGE_SIZE = 3;
-  const paged = PAYMENTS.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+  const paged = sales.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
   const paymentColumns = [
     {
-      key: "date",
+      key: "saleDate",
       header: "결제일",
-      render: (v: string) => <span className="font-mono text-[12px] text-content">{v}</span>,
+      render: (v: string) => <span className="font-mono text-[12px] text-content">{v ? v.slice(0, 10) : "-"}</span>,
     },
-    { key: "product", header: "상품명" },
+    { key: "itemName", header: "상품명", render: (v: string) => <span>{v || "-"}</span> },
     {
-      key: "amount",
+      key: "salePrice",
       header: "금액",
       align: "right" as const,
-      render: (v: string) => <span className="font-bold text-content">{v}</span>,
+      render: (v: number) => <span className="font-bold text-content">{Number(v).toLocaleString()}원</span>,
     },
-    { key: "method", header: "결제방법", align: "center" as const },
+    {
+      key: "paymentMethod",
+      header: "결제방법",
+      align: "center" as const,
+      render: (v: string) => <span>{v || "-"}</span>,
+    },
     {
       key: "status",
       header: "상태",
       align: "center" as const,
-      render: (v: string) => <StatusBadge variant="success" dot>{v}</StatusBadge>,
+      render: (v: string) => <StatusBadge variant="success" dot>{v || "완료"}</StatusBadge>,
     },
     {
       key: "actions",
       header: "관리",
       align: "center" as const,
-      render: (_: unknown, row: Payment) => (
+      render: (_: unknown, row: SaleRecord) => (
         <div className="flex items-center justify-center gap-xs">
           <button
             className="text-[11px] px-sm py-xs rounded border border-line text-content-secondary hover:bg-surface-secondary transition-colors"
@@ -728,7 +607,7 @@ function TabPayment() {
         title="결제 이력"
         columns={paymentColumns}
         data={paged}
-        pagination={{ page, pageSize: PAGE_SIZE, total: PAYMENTS.length }}
+        pagination={{ page, pageSize: PAGE_SIZE, total: sales.length }}
         onPageChange={setPage}
         emptyMessage="결제 이력이 없습니다."
       />
@@ -737,10 +616,36 @@ function TabPayment() {
       <ConfirmDialog
         open={refundTarget !== null}
         title="환불 처리"
-        description={`[${refundTarget?.product}] ${refundTarget?.amount} 결제 건을 환불 처리하시겠습니까?`}
+        description={`[${refundTarget?.itemName}] ${Number(refundTarget?.salePrice).toLocaleString()}원 결제 건을 환불 처리하시겠습니까?`}
         confirmLabel="환불 처리"
         variant="danger"
-        onConfirm={() => { alert("환불 처리가 완료되었습니다."); setRefundTarget(null); }}
+        onConfirm={async () => {
+          if (!refundTarget) return;
+          // 환불 레코드를 sales 테이블에 저장 (음수 금액)
+          const { error } = await supabase.from('sale').insert({
+            branchId: Number(localStorage.getItem('branchId') || '1'),
+            memberId: Number(memberId),
+            memberName: memberName,
+            productName: refundTarget.itemName,
+            type: '환불',
+            amount: -Math.abs(Number(refundTarget.salePrice)),
+            salePrice: -Math.abs(Number(refundTarget.salePrice)),
+            originalPrice: Number(refundTarget.originalPrice),
+            discountPrice: 0,
+            paymentMethod: (refundTarget.paymentMethod as 'CARD' | 'CASH' | 'TRANSFER' | 'MILEAGE') ?? 'CARD',
+            status: 'REFUNDED',
+            saleDate: new Date().toISOString(),
+            memo: `환불: ${refundTarget.itemName}`,
+          });
+          if (error) {
+            toast.error(`환불 처리 실패: ${error.message}`);
+            return;
+          }
+          // 원본 결제 건 상태를 REFUNDED로 업데이트
+          await supabase.from('sale').update({ status: 'REFUNDED' }).eq('id', refundTarget.id);
+          toast.success("환불 처리가 완료되었습니다.");
+          setRefundTarget(null);
+        }}
         onCancel={() => setRefundTarget(null)}
       />
 
@@ -759,11 +664,14 @@ function TabPayment() {
             </div>
             <div className="p-lg space-y-sm">
               {[
-                { label: "상품명", value: detailTarget.product },
-                { label: "결제일", value: detailTarget.date },
-                { label: "결제금액", value: detailTarget.amount },
-                { label: "결제방법", value: detailTarget.method },
-                { label: "상태", value: detailTarget.status },
+                { label: "상품명", value: detailTarget.itemName || "-" },
+                { label: "결제일", value: detailTarget.saleDate ? detailTarget.saleDate.slice(0, 10) : "-" },
+                { label: "결제금액", value: `${Number(detailTarget.salePrice).toLocaleString()}원` },
+                { label: "카드", value: `${Number(detailTarget.card).toLocaleString()}원` },
+                { label: "현금", value: `${Number(detailTarget.cash).toLocaleString()}원` },
+                { label: "미수금", value: `${Number(detailTarget.unpaid).toLocaleString()}원` },
+                { label: "결제방법", value: detailTarget.paymentMethod || "-" },
+                { label: "상태", value: detailTarget.status || "완료" },
               ].map(item => (
                 <div key={item.label} className="flex items-center justify-between py-xs border-b border-line last:border-0">
                   <span className="text-[13px] text-content-secondary">{item.label}</span>
@@ -787,11 +695,16 @@ function TabPayment() {
 }
 
 // UI-026 체성분 탭
-function TabBody() {
+function TabBody({ initialRecords, memberHeight }: { initialRecords: BodyRecord[]; memberHeight: number }) {
   const [showAddModal, setShowAddModal] = useState(false);
-  const [records, setRecords] = useState<BodyRecord[]>(BODY_RECORDS);
+  const [records, setRecords] = useState<BodyRecord[]>(initialRecords);
   const [form, setForm] = useState({ weight: "", muscle: "", pbf: "", bmi: "", date: new Date().toISOString().split("T")[0] });
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
+
+  // initialRecords가 변경되면 동기화
+  useEffect(() => {
+    setRecords(initialRecords);
+  }, [initialRecords]);
 
   const latest = records[0];
   const prev = records[1];
@@ -826,7 +739,7 @@ function TabBody() {
       muscle: m,
       pbf: p,
       fat: +(w * (p / 100)).toFixed(1),
-      bmi: +(w / ((177 / 100) ** 2)).toFixed(1),
+      bmi: memberHeight ? +(w / ((memberHeight / 100) ** 2)).toFixed(1) : 0,
     };
     setRecords(prev => [newRecord, ...prev].sort((a, b) => b.date.localeCompare(a.date)));
     setShowAddModal(false);
@@ -856,35 +769,45 @@ function TabBody() {
         </button>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-md">
-        <StatCard
-          label="현재 체중"
-          value={`${latest.weight} kg`}
-          icon={<Scale />}
-          variant="default"
-          change={change(latest.weight, prev.weight)}
-        />
-        <StatCard
-          label="골격근량"
-          value={`${latest.muscle} kg`}
-          icon={<Activity />}
-          variant="mint"
-          change={change(latest.muscle, prev.muscle)}
-        />
-        <StatCard
-          label="체지방률"
-          value={`${latest.pbf} %`}
-          icon={<Zap />}
-          variant="peach"
-          change={change(latest.pbf, prev.pbf)}
-        />
-      </div>
+      {latest && prev ? (
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-md">
+          <StatCard
+            label="현재 체중"
+            value={`${latest.weight} kg`}
+            icon={<Scale />}
+            variant="default"
+            change={change(latest.weight, prev.weight)}
+          />
+          <StatCard
+            label="골격근량"
+            value={`${latest.muscle} kg`}
+            icon={<Activity />}
+            variant="mint"
+            change={change(latest.muscle, prev.muscle)}
+          />
+          <StatCard
+            label="체지방률"
+            value={`${latest.pbf} %`}
+            icon={<Zap />}
+            variant="peach"
+            change={change(latest.pbf, prev.pbf)}
+          />
+        </div>
+      ) : latest ? (
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-md">
+          <StatCard label="현재 체중" value={`${latest.weight} kg`} icon={<Scale />} variant="default" />
+          <StatCard label="골격근량" value={`${latest.muscle} kg`} icon={<Activity />} variant="mint" />
+          <StatCard label="체지방률" value={`${latest.pbf} %`} icon={<Zap />} variant="peach" />
+        </div>
+      ) : null}
 
       {/* 라인 차트 */}
-      <div className="bg-surface rounded-xl border border-line p-lg">
-        <h4 className="text-Section-Title text-content mb-md">변화 그래프 (최근 6회)</h4>
-        <BodyLineChart records={records.slice(0, 6)} />
-      </div>
+      {records.length >= 2 && (
+        <div className="bg-surface rounded-xl border border-line p-lg">
+          <h4 className="text-Section-Title text-content mb-md">변화 그래프 (최근 6회)</h4>
+          <BodyLineChart records={records.slice(0, 6)} />
+        </div>
+      )}
 
       {/* 테이블 */}
       <DataTable title="측정 기록" columns={bodyColumns} data={records} emptyMessage="측정 기록이 없습니다." />
@@ -955,42 +878,91 @@ function TabBody() {
 }
 
 // UI-027 메모 탭
-function TabMemo() {
-  const [memos, setMemos] = useState([
-    { id: 1, date: "2026-02-10", author: "이지원", content: "식단 상담 진행. 단백질 섭취 늘리기로 계획.", category: "상담" },
-    { id: 2, date: "2026-01-20", author: "김민수", content: "좌측 무릎 통증 호소. PT 일정 조정.", category: "특이사항" },
-    { id: 3, date: "2025-12-05", author: "이지원", content: "체성분 측정 후 목표 재설정. 체지방 5% 감량 목표.", category: "상담" },
-  ]);
+function TabMemo({ memberId }: { memberId: string }) {
+  const [memos, setMemos] = useState<{ id: number; date: string; author: string; content: string; category: string }[]>([]);
   const [newContent, setNewContent] = useState("");
   const [newCategory, setNewCategory] = useState("상담");
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editingContent, setEditingContent] = useState("");
   const [deleteId, setDeleteId] = useState<number | null>(null);
 
-  const handleAdd = () => {
+  // DB에서 메모 로드
+  useEffect(() => {
+    const fetchMemos = async () => {
+      const { data, error } = await supabase
+        .from('member_memos')
+        .select('*')
+        .eq('memberId', memberId)
+        .order('createdAt', { ascending: false });
+      if (!error && data) {
+        setMemos(data.map((m: any) => ({
+          id: m.id,
+          date: m.createdAt?.slice(0, 10) ?? '',
+          author: m.author ?? '관리자',
+          content: m.content,
+          category: m.category ?? '일반',
+        })));
+      }
+    };
+    fetchMemos();
+  }, [memberId]);
+
+  const handleAdd = async () => {
     if (!newContent.trim()) return;
-    setMemos(prev => [
-      {
-        id: Date.now(),
-        date: new Date().toISOString().split("T")[0],
-        author: "관리자",
+    const { data, error } = await supabase
+      .from('member_memos')
+      .insert({
+        memberId: Number(memberId),
         content: newContent.trim(),
         category: newCategory,
+        author: '관리자',
+        updatedAt: new Date().toISOString(),
+      })
+      .select()
+      .single();
+    if (error) {
+      toast.error(`메모 저장 실패: ${error.message}`);
+      return;
+    }
+    setMemos(prev => [
+      {
+        id: data.id,
+        date: data.createdAt?.slice(0, 10) ?? new Date().toISOString().split("T")[0],
+        author: data.author ?? '관리자',
+        content: data.content,
+        category: data.category ?? newCategory,
       },
       ...prev,
     ]);
     setNewContent("");
+    toast.success("메모가 저장되었습니다.");
   };
 
-  const handleSave = (id: number) => {
+  const handleSave = async (id: number) => {
     if (!editingContent.trim()) return;
+    const { error } = await supabase
+      .from('member_memos')
+      .update({ content: editingContent.trim(), updatedAt: new Date().toISOString() })
+      .eq('id', id);
+    if (error) {
+      toast.error(`수정 실패: ${error.message}`);
+      return;
+    }
     setMemos(prev => prev.map(m => (m.id === id ? { ...m, content: editingContent.trim() } : m)));
     setEditingId(null);
     setEditingContent("");
   };
 
-  const handleDelete = () => {
+  const handleDelete = async () => {
     if (deleteId !== null) {
+      const { error } = await supabase
+        .from('member_memos')
+        .delete()
+        .eq('id', deleteId);
+      if (error) {
+        toast.error(`삭제 실패: ${error.message}`);
+        return;
+      }
       setMemos(prev => prev.filter(m => m.id !== deleteId));
       setDeleteId(null);
     }
@@ -1122,54 +1094,508 @@ function TabMemo() {
 }
 
 // ────────────────────────────────────────────────────────────
+// UI-028 레슨 탭 (FN-039 / FN-040)
+// ────────────────────────────────────────────────────────────
+
+type LessonRecord = {
+  id: string;
+  date: string;
+  className: string;
+  trainer: string;
+  memo: string;
+  signature: string; // dataUrl or ""
+};
+
+function TabLesson({ memberId }: { memberId: string }) {
+  const SETTINGS_KEY = `lesson_records_${memberId}`;
+  const branchId = localStorage.getItem("branchId") || "1";
+
+  const [records, setRecords] = useState<LessonRecord[]>([]);
+  const [showModal, setShowModal] = useState(false);
+
+  // 저장 / 불러오기
+  const loadRecords = async () => {
+    try {
+      const { data } = await supabase
+        .from("settings")
+        .select("value")
+        .eq("branchId", branchId)
+        .eq("key", SETTINGS_KEY)
+        .single();
+      if (data?.value) {
+        const parsed = JSON.parse(data.value);
+        if (Array.isArray(parsed)) { setRecords(parsed); return; }
+      }
+    } catch {}
+    const local = localStorage.getItem(`settings_${branchId}_${SETTINGS_KEY}`);
+    if (local) {
+      try { const p = JSON.parse(local); if (Array.isArray(p)) setRecords(p); } catch {}
+    }
+  };
+
+  const saveRecords = async (next: LessonRecord[]) => {
+    const v = JSON.stringify(next);
+    localStorage.setItem(`settings_${branchId}_${SETTINGS_KEY}`, v);
+    try {
+      await supabase.from("settings").upsert(
+        { branchId, key: SETTINGS_KEY, value: v, updatedAt: new Date().toISOString() },
+        { onConflict: "branchId,key" }
+      );
+    } catch {}
+  };
+
+  useEffect(() => { loadRecords(); }, [memberId]);
+
+  const handleAdd = async (rec: Omit<LessonRecord, "id">) => {
+    const next = [{ ...rec, id: Date.now().toString() }, ...records];
+    setRecords(next);
+    await saveRecords(next);
+    toast.success("레슨 기록이 저장되었습니다.");
+  };
+
+  // FN-040 통계
+  const now = new Date();
+  const thisMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+  const totalCount = records.length;
+  const monthCount = records.filter(r => r.date.startsWith(thisMonth)).length;
+  const classFreq: Record<string, number> = {};
+  for (const r of records) classFreq[r.className] = (classFreq[r.className] || 0) + 1;
+  const topClass = Object.entries(classFreq).sort((a, b) => b[1] - a[1])[0]?.[0] ?? "-";
+
+  return (
+    <div className="space-y-lg">
+      {/* FN-040 통계 */}
+      <div className="grid grid-cols-3 gap-md">
+        <div className="bg-surface rounded-xl border border-line p-md text-center">
+          <p className="text-[11px] text-content-secondary mb-xs">총 레슨 횟수</p>
+          <p className="text-[22px] font-bold text-content">{totalCount}</p>
+        </div>
+        <div className="bg-surface rounded-xl border border-line p-md text-center">
+          <p className="text-[11px] text-content-secondary mb-xs">이번 달</p>
+          <p className="text-[22px] font-bold text-primary">{monthCount}</p>
+        </div>
+        <div className="bg-surface rounded-xl border border-line p-md text-center">
+          <p className="text-[11px] text-content-secondary mb-xs">최다 수업</p>
+          <p className="text-[15px] font-bold text-content truncate">{topClass}</p>
+        </div>
+      </div>
+
+      {/* 레슨 기록 추가 버튼 */}
+      <div className="flex justify-end">
+        <button
+          className="flex items-center gap-xs px-md py-sm bg-primary text-white rounded-button text-[13px] font-semibold hover:opacity-90 transition-all shadow-sm"
+          onClick={() => setShowModal(true)}
+        >
+          <Plus size={14} />
+          레슨 기록 추가
+        </button>
+      </div>
+
+      {/* 레슨 기록 목록 */}
+      {records.length === 0 ? (
+        <div className="flex flex-col items-center justify-center py-xxl text-content-secondary">
+          <Dumbbell size={40} className="mb-sm opacity-20" />
+          <p className="text-[13px]">등록된 레슨 기록이 없습니다.</p>
+        </div>
+      ) : (
+        <div className="space-y-sm">
+          {records.map(r => (
+            <div key={r.id} className="bg-surface rounded-xl border border-line p-md">
+              <div className="flex items-center justify-between mb-xs">
+                <div className="flex items-center gap-sm flex-wrap">
+                  <span className="text-[13px] font-bold text-content">{r.className}</span>
+                  <span className="text-[12px] text-content-secondary">{r.date}</span>
+                  <span className="text-[12px] text-content-secondary">트레이너: {r.trainer}</span>
+                </div>
+                {r.signature && (
+                  <span className="text-[11px] text-state-success font-semibold flex items-center gap-xs">
+                    <CheckCircle2 size={13} /> 서명 완료
+                  </span>
+                )}
+              </div>
+              {r.memo && <p className="text-[13px] text-content-secondary whitespace-pre-wrap">{r.memo}</p>}
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* 레슨 기록 추가 모달 */}
+      {showModal && (
+        <LessonModal
+          onClose={() => setShowModal(false)}
+          onSave={handleAdd}
+        />
+      )}
+    </div>
+  );
+}
+
+// 레슨 기록 추가 모달
+function LessonModal({
+  onClose,
+  onSave,
+}: {
+  onClose: () => void;
+  onSave: (rec: Omit<LessonRecord, "id">) => void;
+}) {
+  const [date, setDate] = useState(new Date().toISOString().split("T")[0]);
+  const [className, setClassName] = useState("");
+  const [trainer, setTrainer] = useState("");
+  const [memo, setMemo] = useState("");
+  const [signature, setSignature] = useState("");
+
+  const isValid = className.trim().length > 0 && trainer.trim().length > 0;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-md">
+      <div className="bg-surface rounded-xl w-full max-w-[560px] shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
+        <div className="px-xl py-lg border-b border-line flex items-center justify-between shrink-0">
+          <h3 className="text-[16px] font-bold text-content">레슨 기록 추가</h3>
+          <button
+            className="p-sm hover:bg-surface-secondary rounded-full transition-colors text-content-secondary"
+            onClick={onClose}
+          >
+            <X size={20} />
+          </button>
+        </div>
+
+        <div className="p-xl space-y-lg overflow-y-auto">
+          {/* 날짜 */}
+          <div>
+            <label className="block text-[12px] font-semibold text-content-secondary mb-sm">
+              날짜 <span className="text-state-error">*</span>
+            </label>
+            <input
+              type="date"
+              className="w-full h-11 rounded-lg bg-surface-secondary border border-line px-md text-[13px] focus:border-primary outline-none"
+              value={date}
+              onChange={e => setDate(e.target.value)}
+            />
+          </div>
+
+          {/* 수업명 */}
+          <div>
+            <label className="block text-[12px] font-semibold text-content-secondary mb-sm">
+              수업명 <span className="text-state-error">*</span>
+            </label>
+            <input
+              type="text"
+              className="w-full h-11 rounded-lg bg-surface-secondary border border-line px-md text-[13px] focus:border-primary outline-none"
+              placeholder="예: PT, 요가, 필라테스"
+              value={className}
+              onChange={e => setClassName(e.target.value)}
+            />
+          </div>
+
+          {/* 트레이너 */}
+          <div>
+            <label className="block text-[12px] font-semibold text-content-secondary mb-sm">
+              트레이너 <span className="text-state-error">*</span>
+            </label>
+            <input
+              type="text"
+              className="w-full h-11 rounded-lg bg-surface-secondary border border-line px-md text-[13px] focus:border-primary outline-none"
+              placeholder="트레이너 이름"
+              value={trainer}
+              onChange={e => setTrainer(e.target.value)}
+            />
+          </div>
+
+          {/* 운동 내용 메모 */}
+          <div>
+            <label className="block text-[12px] font-semibold text-content-secondary mb-sm">운동 내용 메모</label>
+            <textarea
+              className="w-full h-20 rounded-lg bg-surface-secondary border border-line p-md text-[13px] focus:border-primary outline-none resize-none"
+              placeholder="운동 내용, 특이사항 등을 입력하세요"
+              value={memo}
+              onChange={e => setMemo(e.target.value)}
+            />
+          </div>
+
+          {/* 서명 */}
+          <div>
+            <label className="block text-[12px] font-semibold text-content-secondary mb-sm">고객 서명</label>
+            <SignaturePad onSign={dataUrl => setSignature(dataUrl)} height={160} />
+            {signature && (
+              <p className="mt-xs text-[11px] text-state-success font-semibold flex items-center gap-xs">
+                <CheckCircle2 size={12} /> 서명이 저장되었습니다.
+              </p>
+            )}
+          </div>
+        </div>
+
+        <div className="px-xl py-lg bg-surface-secondary flex gap-md shrink-0">
+          <button
+            className="flex-1 h-11 rounded-lg border border-line text-content-secondary text-[13px] font-semibold hover:bg-surface-tertiary transition-colors"
+            onClick={onClose}
+          >
+            취소
+          </button>
+          <button
+            className={cn(
+              "flex-1 h-11 rounded-lg text-[13px] font-bold shadow-sm transition-all",
+              isValid ? "bg-primary text-white hover:opacity-90" : "bg-surface-tertiary text-content-tertiary cursor-not-allowed"
+            )}
+            disabled={!isValid}
+            onClick={() => {
+              if (!isValid) return;
+              onSave({ date, className, trainer, memo, signature });
+              onClose();
+            }}
+          >
+            저장
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ────────────────────────────────────────────────────────────
 // 메인 컴포넌트
 // ────────────────────────────────────────────────────────────
 
 export default function MemberDetail() {
   const [searchParams, setSearchParams] = useSearchParams();
   const activeTab = searchParams.get("tab") || "info";
-  const setActiveTab = (tab: string) => setSearchParams({ tab });
+  const memberId = searchParams.get("id");
+  const setActiveTab = (tab: string) =>
+    setSearchParams(memberId ? { id: memberId, tab } : { tab });
 
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [isFavorite, setIsFavorite] = useState(false);
+  const [isHoldingModalOpen, setIsHoldingModalOpen] = useState(false);
+
+  // 즐겨찾기 DB 연동 (settings 테이블, key='favorites')
+  useEffect(() => {
+    if (!memberId) return;
+    const loadFavorite = async () => {
+      const branchId = Number(localStorage.getItem('branchId') || '1');
+      const { data } = await supabase
+        .from('settings')
+        .select('value')
+        .eq('branchId', branchId)
+        .eq('key', 'favorites')
+        .single();
+      if (data?.value) {
+        try {
+          const favIds: number[] = JSON.parse(data.value);
+          setIsFavorite(favIds.includes(Number(memberId)));
+        } catch {}
+      }
+    };
+    loadFavorite();
+  }, [memberId]);
+
+  const toggleFavorite = async () => {
+    const branchId = Number(localStorage.getItem('branchId') || '1');
+    const { data } = await supabase
+      .from('settings')
+      .select('id, value')
+      .eq('branchId', branchId)
+      .eq('key', 'favorites')
+      .single();
+
+    let favIds: number[] = [];
+    try { favIds = data?.value ? JSON.parse(data.value) : []; } catch {}
+
+    const mid = Number(memberId);
+    if (isFavorite) {
+      favIds = favIds.filter(id => id !== mid);
+    } else {
+      if (!favIds.includes(mid)) favIds.push(mid);
+    }
+
+    if (data?.id) {
+      await supabase.from('settings').update({ value: JSON.stringify(favIds) }).eq('id', data.id);
+    } else {
+      await supabase.from('settings').insert({ branchId, key: 'favorites', value: JSON.stringify(favIds) });
+    }
+
+    setIsFavorite(!isFavorite);
+    toast.success(isFavorite ? '즐겨찾기가 해제되었습니다.' : '즐겨찾기에 추가되었습니다.');
+  };
+  const [holdDays, setHoldDays] = useState(7);
+  const [holdReason, setHoldReason] = useState('');
+
+  // Supabase 데이터 상태
+  const [loading, setLoading] = useState(true);
+  const [member, setMember] = useState<Member | null>(null);
+  const [sales, setSales] = useState<SaleRecord[]>([]);
+  const [attendances, setAttendances] = useState<AttendanceRecord[]>([]);
+  const [bodyRecords, setBodyRecords] = useState<BodyRecord[]>([]);
+  const [locker, setLocker] = useState<LockerRecord | null>(null);
+  const [contracts, setContracts] = useState<ContractRecord[]>([]);
+
+  useEffect(() => {
+    if (!memberId) {
+      setLoading(false);
+      return;
+    }
+
+    const fetchAll = async () => {
+      setLoading(true);
+      try {
+        const [
+          memberRes,
+          salesRes,
+          attendanceRes,
+          bodyRes,
+          lockerRes,
+          contractRes,
+        ] = await Promise.all([
+          supabase.from('members').select('*').eq('id', memberId).single(),
+          supabase.from('sale').select('*').eq('memberId', memberId).order('saleDate', { ascending: false }),
+          supabase.from('attendance').select('*').eq('memberId', memberId).order('checkInAt', { ascending: false }).limit(20),
+          supabase.from('bodyComposition').select('*').eq('memberId', memberId).order('date', { ascending: false }),
+          supabase.from('locker').select('*').eq('memberId', memberId).limit(1),
+          supabase.from('contract').select('*').eq('memberId', memberId).order('createdAt', { ascending: false }),
+        ]);
+
+        if (memberRes.data) setMember(memberRes.data as Member);
+
+        if (salesRes.data) {
+          setSales(
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            salesRes.data.map((s: any) => ({
+              ...s,
+              amount: Number(s.amount),
+              salePrice: Number(s.salePrice),
+              originalPrice: Number(s.originalPrice),
+              discountPrice: Number(s.discountPrice),
+              cash: Number(s.cash),
+              card: Number(s.card),
+              mileageUsed: Number(s.mileageUsed),
+              unpaid: Number(s.unpaid),
+            }))
+          );
+        }
+
+        if (attendanceRes.data) setAttendances(attendanceRes.data as AttendanceRecord[]);
+
+        if (bodyRes.data) {
+          setBodyRecords(
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            bodyRes.data.map((b: any) => ({
+              id: b.id,
+              date: b.date ? String(b.date).slice(0, 10) : "",
+              weight: Number(b.weight),
+              muscle: Number(b.muscle),
+              fat: Number(b.fat),
+              bmi: Number(b.bmi),
+              pbf: Number(b.pbf),
+            }))
+          );
+        }
+
+        if (lockerRes.data && lockerRes.data.length > 0) {
+          setLocker(lockerRes.data[0] as LockerRecord);
+        }
+
+        if (contractRes.data) setContracts(contractRes.data as ContractRecord[]);
+      } catch (err) {
+        console.error('회원 데이터 로드 실패:', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchAll();
+  }, [memberId]);
 
   const tabs = [
     { key: "info", label: "회원정보", icon: User },
-    { key: "tickets", label: "이용권", icon: CreditCard, count: TICKETS.length },
+    { key: "tickets", label: "이용권", icon: CreditCard, count: contracts.length },
     { key: "attendance", label: "출석 이력", icon: History },
     { key: "payment", label: "결제 이력", icon: ShoppingBag },
     { key: "body", label: "체성분", icon: Activity },
     { key: "memo", label: "상담·메모", icon: MessageSquare },
-    { key: "coupons", label: "쿠폰·마일리지", icon: Star },
-    { key: "reservation", label: "예약 이력", icon: ClipboardList },
-    { key: "analysis", label: "분석", icon: TrendingUp },
+    { key: "lesson", label: "레슨", icon: Dumbbell },
   ];
 
-  const confirmDelete = () => {
-    alert("회원이 삭제되었습니다.");
+  const confirmDelete = async () => {
+    if (!memberId) return;
+    const { error } = await supabase
+      .from('members')
+      .update({ deletedAt: new Date().toISOString(), status: 'INACTIVE' })
+      .eq('id', memberId);
+    if (error) {
+      toast.error(`삭제 실패: ${error.message}`);
+      return;
+    }
+    toast.success("회원이 삭제되었습니다.");
     setIsDeleteDialogOpen(false);
     moveToPage(967);
   };
 
-  // D-7 경고 배지
-  const urgentTicket = TICKETS.find(t => t.remainDays <= 7);
-  const warningTicket = TICKETS.find(t => t.remainDays > 7 && t.remainDays <= 30);
+  // 회원권 만료일까지 남은 일수 계산
+  const dDay = member?.membershipExpiry
+    ? Math.ceil((new Date(member.membershipExpiry).getTime() - Date.now()) / (1000 * 60 * 60 * 24))
+    : null;
+
+  if (loading) {
+    return (
+      <AppLayout>
+        <div className="flex items-center justify-center min-h-[400px] text-content-secondary text-[14px]">
+          <RefreshCcw size={20} className="animate-spin mr-sm" />
+          회원 정보를 불러오는 중입니다...
+        </div>
+      </AppLayout>
+    );
+  }
+
+  if (!member) {
+    return (
+      <AppLayout>
+        <div className="flex flex-col items-center justify-center min-h-[400px] text-content-secondary">
+          <User size={48} className="mb-md opacity-20" />
+          <p className="text-[16px] font-medium text-content">회원을 찾을 수 없습니다.</p>
+          <p className="text-[13px] mt-xs">URL에 올바른 회원 ID가 포함되어 있는지 확인하세요.</p>
+        </div>
+      </AppLayout>
+    );
+  }
+
+  const statusVariantMap: Record<string, "success" | "error" | "warning" | "info" | "default"> = {
+    ACTIVE: "success",
+    INACTIVE: "default",
+    EXPIRED: "error",
+    HOLDING: "info",
+    SUSPENDED: "warning",
+  };
+  const statusLabelMap: Record<string, string> = {
+    ACTIVE: "정상 이용중",
+    INACTIVE: "비활성",
+    EXPIRED: "만료",
+    HOLDING: "홀딩",
+    SUSPENDED: "정지",
+  };
+  const memberStatus = member.status || "INACTIVE";
+  const statusVariant = statusVariantMap[memberStatus] || "default";
+  const statusLabel = statusLabelMap[memberStatus] || memberStatus;
 
   return (
     <AppLayout>
       <div className="p-lg">
+        {/* Breadcrumb */}
+        <nav className="flex items-center gap-xs text-[13px] text-content-secondary mb-md">
+          <button className="hover:text-primary transition-colors" onClick={() => moveToPage(967)}>회원 목록</button>
+          <span className="text-content-tertiary">/</span>
+          <span className="text-content font-medium">{member.name} 회원 상세</span>
+        </nav>
+
         {/* UI-022 프로필 카드 */}
         <div className="bg-surface rounded-xl border border-line p-xl mb-lg shadow-card">
-          {urgentTicket && (
+          {dDay !== null && dDay <= 7 && dDay >= 0 && (
             <div className="flex items-center gap-sm px-md py-sm bg-red-50 border border-state-error/20 rounded-lg mb-lg text-[12px] text-state-error">
               <AlertTriangle size={14} />
-              <strong>{urgentTicket.name}</strong> 이용권이 D-{urgentTicket.remainDays} 만료 예정입니다.
+              회원권이 D-{dDay} 만료 예정입니다.
             </div>
           )}
-          {!urgentTicket && warningTicket && (
+          {dDay !== null && dDay > 7 && dDay <= 30 && (
             <div className="flex items-center gap-sm px-md py-sm bg-orange-50 border border-orange-200 rounded-lg mb-lg text-[12px] text-orange-600">
               <AlertTriangle size={14} />
-              <strong>{warningTicket.name}</strong> 이용권이 D-{warningTicket.remainDays} 만료 예정입니다.
+              회원권이 D-{dDay} 만료 예정입니다.
             </div>
           )}
 
@@ -1177,14 +1603,18 @@ export default function MemberDetail() {
             {/* 프로필 이미지 */}
             <div className="relative">
               <div className="w-[120px] h-[120px] rounded-full bg-surface-secondary flex items-center justify-center border-4 border-surface-tertiary overflow-hidden">
-                <User className="text-content-tertiary" size={64} />
+                {member.profileImage ? (
+                  <img src={member.profileImage} alt={member.name} className="w-full h-full object-cover" />
+                ) : (
+                  <User className="text-content-tertiary" size={64} />
+                )}
               </div>
               <button
                 className={cn(
                   "absolute bottom-0 right-0 p-sm rounded-full shadow-md transition-all border border-line",
                   isFavorite ? "bg-primary text-white border-primary" : "bg-surface text-content-secondary hover:text-primary"
                 )}
-                onClick={() => setIsFavorite(!isFavorite)}
+                onClick={toggleFavorite}
               >
                 <Star size={16} fill={isFavorite ? "currentColor" : "none"} />
               </button>
@@ -1193,28 +1623,52 @@ export default function MemberDetail() {
             {/* 회원 기본 정보 */}
             <div className="flex-1 text-center lg:text-left">
               <div className="flex flex-wrap items-center justify-center lg:justify-start gap-sm mb-xs">
-                <h1 className="text-[22px] font-bold text-content leading-tight">{MEMBER.name}</h1>
-                <span className="text-[14px] text-content-secondary">({MEMBER.attendanceNo})</span>
-                <StatusBadge variant="success" dot>정상 이용중</StatusBadge>
-                <span className={cn("text-[12px] px-sm py-[2px] rounded-full font-bold border", getDDayClass(MEMBER.dDay))}>
-                  D-{MEMBER.dDay}
-                </span>
+                <h1 className="text-[22px] font-bold text-content leading-tight">{member.name}</h1>
+                <StatusBadge variant={statusVariant} dot>{statusLabel}</StatusBadge>
+                {dDay !== null && (
+                  <span className={cn("text-[12px] px-sm py-[2px] rounded-full font-bold border", getDDayClass(dDay))}>
+                    D-{dDay}
+                  </span>
+                )}
               </div>
               <p className="text-[13px] text-content-secondary mb-md">
-                {MEMBER.gender} · {MEMBER.phone} · {MEMBER.email}
+                {member.gender === "M" ? "남" : member.gender === "F" ? "여" : "-"} · {member.phone || "-"} · {member.email || "-"}
               </p>
 
               <div className="flex flex-wrap items-center justify-center lg:justify-start gap-sm">
                 <button
                   className="flex items-center gap-xs px-md py-sm bg-state-success text-white rounded-button font-semibold text-[13px] hover:opacity-90 transition-all"
-                  onClick={() => alert(`${MEMBER.name} 회원 수동 출석 처리`)}
+                  onClick={async () => {
+                    // 수동 출석 기록을 attendance 테이블에 저장
+                    const { error } = await supabase.from('attendance').insert({
+                      branchId: Number(localStorage.getItem('branchId') || '1'),
+                      memberId: member.id,
+                      memberName: member.name,
+                      checkInAt: new Date().toISOString(),
+                      type: 'MANUAL',
+                      checkInMethod: 'MANUAL',
+                    });
+                    if (error) {
+                      toast.error(`출석 기록 실패: ${error.message}`);
+                      return;
+                    }
+                    toast.success('출석이 기록되었습니다.');
+                    // 출석 데이터 refetch
+                    const { data } = await supabase
+                      .from('attendance')
+                      .select('*')
+                      .eq('memberId', member.id)
+                      .order('checkInAt', { ascending: false })
+                      .limit(20);
+                    if (data) setAttendances(data as AttendanceRecord[]);
+                  }}
                 >
                   <CheckCircle2 size={15} />
                   수동 출석
                 </button>
                 <button
                   className="flex items-center gap-xs px-md py-sm bg-surface-secondary text-content rounded-button font-semibold text-[13px] border border-line hover:bg-surface-tertiary transition-all"
-                  onClick={() => moveToPage(986)}
+                  onClick={() => moveToPage(987, { id: memberId ?? '' })}
                 >
                   <Edit size={15} />
                   수정
@@ -1226,28 +1680,27 @@ export default function MemberDetail() {
                   <ShoppingBag size={15} />
                   상품 구매
                 </button>
-                <button
-                  className="flex items-center gap-xs px-md py-sm border border-state-error/40 text-state-error rounded-button font-semibold text-[13px] hover:bg-red-50 transition-all"
-                  onClick={() => setIsDeleteDialogOpen(true)}
-                >
-                  <Trash2 size={15} />
-                  삭제
-                </button>
               </div>
             </div>
 
             {/* 퀵 지표 */}
             <div className="hidden xl:flex flex-col gap-sm min-w-[200px]">
               {[
-                { label: "미수금", value: "0원", color: "text-state-error" },
-                { label: "마일리지", value: "1,250P", color: "text-accent" },
-                { label: "쿠폰", value: "2장", color: "text-primary" },
+                { label: "미수금", value: `${sales.reduce((acc, s) => acc + s.unpaid, 0).toLocaleString()}원`, color: "text-state-error" },
+                { label: "마일리지", value: `${member.mileage ?? 0}P`, color: "text-accent" },
+                { label: "계약 수", value: `${contracts.length}건`, color: "text-primary" },
               ].map(item => (
                 <div key={item.label} className="flex justify-between items-center p-sm bg-surface-secondary rounded-lg border border-line">
                   <span className="text-[12px] text-content-secondary">{item.label}</span>
                   <span className={cn("text-[13px] font-bold", item.color)}>{item.value}</span>
                 </div>
               ))}
+              {locker && (
+                <div className="flex justify-between items-center p-sm bg-surface-secondary rounded-lg border border-line">
+                  <span className="text-[12px] text-content-secondary">락커</span>
+                  <span className="text-[13px] font-bold text-content">{locker.lockerNumber || "-"}</span>
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -1256,48 +1709,168 @@ export default function MemberDetail() {
         <div className="bg-surface rounded-xl border border-line shadow-card overflow-hidden">
           <TabNav tabs={tabs} activeTab={activeTab} onTabChange={setActiveTab} />
           <div className="p-xl bg-surface-secondary/5 min-h-[500px]">
-            {activeTab === "info" && <TabInfo />}
-            {activeTab === "tickets" && <TabTickets />}
-            {activeTab === "attendance" && <TabAttendance />}
-            {activeTab === "payment" && <TabPayment />}
-            {activeTab === "body" && <TabBody />}
-            {activeTab === "memo" && <TabMemo />}
-
-            {!["info", "tickets", "attendance", "payment", "body", "memo"].includes(activeTab) && (
-              <div className="flex flex-col items-center justify-center py-xxl text-content-secondary">
-                <Activity className="mb-md opacity-20" size={48} />
-                <p className="text-[16px] font-medium text-content">준비 중인 탭입니다</p>
-                <p className="text-[13px] mt-xs text-content-secondary">
-                  {tabs.find(t => t.key === activeTab)?.label} 데이터를 준비하고 있습니다.
-                </p>
-                {activeTab === "coupons" && (
-                  <div className="flex gap-md mt-lg">
-                    <button
-                      className="flex items-center gap-sm px-xl py-md bg-primary text-white rounded-button font-bold hover:opacity-90 transition-all shadow-sm"
-                      onClick={() => moveToPage(993)}
-                    >
-                      <Star size={18} />
-                      쿠폰 관리
-                    </button>
-                    <button
-                      className="flex items-center gap-sm px-xl py-md bg-surface-secondary text-content rounded-button font-bold border border-line hover:bg-surface-tertiary transition-all shadow-sm"
-                      onClick={() => moveToPage(981)}
-                    >
-                      <CreditCard size={18} />
-                      마일리지 관리
-                    </button>
-                  </div>
-                )}
+            {activeTab === "info" && <TabInfo member={member} />}
+            {activeTab === "tickets" && (
+              <div className="space-y-lg">
+                <div className="grid gap-md">
+                  {contracts.length === 0 && (
+                    <div className="flex flex-col items-center justify-center py-xl text-content-secondary text-[13px]">
+                      등록된 이용권이 없습니다.
+                    </div>
+                  )}
+                  {contracts.map(c => (
+                    <div key={c.id} className="bg-surface rounded-xl border border-line p-lg shadow-card">
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-md">
+                        <div className="flex-1 space-y-xs">
+                          <div className="flex items-center gap-sm flex-wrap">
+                            <span className="text-[15px] font-bold text-content">{c.productName || "-"}</span>
+                            <StatusBadge variant={c.status === "ACTIVE" ? "success" : "default"} dot>
+                              {c.status === "ACTIVE" ? "이용중" : c.status || "-"}
+                            </StatusBadge>
+                          </div>
+                          <div className="flex items-center gap-md text-[12px] text-content-secondary flex-wrap">
+                            <span className="flex items-center gap-xs">
+                              <CalendarIcon size={12} />
+                              계약일: {c.createdAt ? c.createdAt.slice(0, 10) : "-"}
+                            </span>
+                          </div>
+                        </div>
+                        <button className="p-xs hover:bg-surface-secondary rounded-full transition-colors text-content-secondary">
+                          <MoreVertical size={16} />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                <div className="flex justify-center p-xl bg-surface rounded-xl border border-dashed border-line">
+                  <button
+                    className="flex items-center gap-sm px-xl py-md bg-primary-light text-primary rounded-button font-bold hover:bg-primary hover:text-white transition-all shadow-sm"
+                    onClick={() => moveToPage(971)}
+                  >
+                    <Plus size={20} />
+                    신규 이용권 / 상품 구매
+                  </button>
+                </div>
               </div>
             )}
+            {activeTab === "attendance" && <TabAttendance attendances={attendances} />}
+            {activeTab === "payment" && <TabPayment sales={sales} memberId={memberId} memberName={member.name} />}
+            {activeTab === "body" && <TabBody initialRecords={bodyRecords} memberHeight={member?.height ?? 0} />}
+            {activeTab === "memo" && <TabMemo memberId={memberId ?? ''} />}
+            {activeTab === "lesson" && <TabLesson memberId={memberId ?? ''} />}
+
           </div>
         </div>
       </div>
 
+      {/* 회원 상태 관리 */}
+      <div className="mx-lg mt-lg mb-lg p-lg bg-surface border border-line rounded-xl space-y-md">
+        <h3 className="text-[14px] font-bold text-content">회원 상태 관리</h3>
+        <div className="flex flex-wrap gap-sm">
+          {member.status === 'ACTIVE' && (
+            <button
+              className="flex items-center gap-xs px-md py-sm border border-state-info/40 text-state-info rounded-button font-semibold text-[13px] hover:bg-state-info hover:text-white transition-all"
+              onClick={() => setIsHoldingModalOpen(true)}
+            >
+              <Clock size={15} />
+              홀딩 처리
+            </button>
+          )}
+          {member.status === 'HOLDING' && (
+            <button
+              className="flex items-center gap-xs px-md py-sm border border-state-success/40 text-state-success rounded-button font-semibold text-[13px] hover:bg-state-success hover:text-white transition-all"
+              onClick={async () => {
+                const result = await endHolding(Number(memberId), holdDays || 7);
+                if (result.success) {
+                  toast.success(result.message);
+                  window.location.reload();
+                } else {
+                  toast.error(result.message);
+                }
+              }}
+            >
+              <CheckCircle2 size={15} />
+              홀딩 해제
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* 위험 구역 - 회원 삭제 */}
+      <div className="mx-lg mt-lg mb-lg p-lg bg-red-50 border border-state-error/20 rounded-xl">
+        <h3 className="text-[14px] font-bold text-state-error mb-xs">위험 구역</h3>
+        <p className="text-[12px] text-content-secondary mb-md">이 작업은 되돌릴 수 없습니다. 회원의 상태가 비활성으로 변경되며 목록에서 제외됩니다.</p>
+        <button
+          className="flex items-center gap-xs px-md py-sm border border-state-error/40 text-state-error rounded-button font-semibold text-[13px] hover:bg-state-error hover:text-white transition-all"
+          onClick={() => setIsDeleteDialogOpen(true)}
+        >
+          <Trash2 size={15} />
+          회원 삭제
+        </button>
+      </div>
+
+      {/* 홀딩 모달 */}
+      {isHoldingModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-md">
+          <div className="w-full max-w-sm bg-surface rounded-xl shadow-lg overflow-hidden">
+            <div className="px-xl py-lg border-b border-line">
+              <h3 className="text-[16px] font-bold text-content">홀딩 처리</h3>
+              <p className="text-[12px] text-content-secondary mt-xs">홀딩 기간만큼 이용권 종료일이 자동 연장됩니다.</p>
+            </div>
+            <div className="p-xl space-y-md">
+              <div className="space-y-xs">
+                <label className="text-[13px] font-semibold text-content-secondary">홀딩 기간 (일)</label>
+                <input
+                  type="number"
+                  min={1}
+                  max={90}
+                  value={holdDays}
+                  onChange={e => setHoldDays(Math.max(1, Math.min(90, Number(e.target.value))))}
+                  className="w-full px-md py-sm border border-line rounded-button text-[14px] focus:border-primary focus:outline-none"
+                />
+              </div>
+              <div className="space-y-xs">
+                <label className="text-[13px] font-semibold text-content-secondary">사유 (선택)</label>
+                <input
+                  type="text"
+                  value={holdReason}
+                  onChange={e => setHoldReason(e.target.value)}
+                  placeholder="예: 부상, 출장, 개인사유"
+                  className="w-full px-md py-sm border border-line rounded-button text-[14px] focus:border-primary focus:outline-none"
+                />
+              </div>
+            </div>
+            <div className="px-xl py-lg border-t border-line flex gap-md">
+              <button
+                onClick={() => setIsHoldingModalOpen(false)}
+                className="flex-1 py-sm rounded-button border border-line text-[14px] font-semibold text-content-secondary hover:bg-surface-secondary"
+              >
+                취소
+              </button>
+              <button
+                onClick={async () => {
+                  const result = await startHolding(Number(memberId), holdDays, holdReason);
+                  if (result.success) {
+                    toast.success(result.message);
+                    setIsHoldingModalOpen(false);
+                    window.location.reload();
+                  } else {
+                    toast.error(result.message);
+                  }
+                }}
+                className="flex-[2] py-sm rounded-button bg-state-info text-white text-[14px] font-bold hover:opacity-90"
+              >
+                홀딩 시작
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <ConfirmDialog
         open={isDeleteDialogOpen}
         title="회원 삭제 확인"
-        description={`${MEMBER.name} 회원의 모든 데이터가 영구적으로 삭제됩니다. 계속하시겠습니까?`}
+        description={`${member.name} 회원의 모든 데이터가 영구적으로 삭제됩니다. 계속하시겠습니까?`}
         confirmLabel="삭제하기"
         variant="danger"
         confirmationText="삭제"

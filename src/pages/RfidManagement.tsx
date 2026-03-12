@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   Plus,
   Search,
@@ -23,6 +23,14 @@ import StatusBadge from "@/components/StatusBadge";
 import ConfirmDialog from "@/components/ConfirmDialog";
 import { cn } from "@/lib/utils";
 import { moveToPage } from "@/internal";
+import { supabase } from "@/lib/supabase";
+import { toast } from "sonner";
+import { exportToExcel } from "@/lib/exportExcel";
+
+const getBranchId = (): number => {
+  const stored = localStorage.getItem('branchId');
+  return stored ? Number(stored) : 1;
+};
 
 /**
  * SCR-052: RFID/밴드 카드 관리
@@ -52,8 +60,8 @@ interface Member {
   memberNo: string;
 }
 
-// --- Mock 카드 이력 데이터 (UI-110) ---
-const MOCK_CARDS: RfidCard[] = [
+// --- 카드 초기 데이터 (rfid 테이블 없으므로 로컬 상태 유지) ---
+const INITIAL_CARDS: RfidCard[] = [
   { no: 1, cardNo: "RF-10293847", memberName: "홍길동",  memberId: 10234, status: "활성", registeredAt: "2026-01-10", issuedAt: "2026-02-01", lockerNo: "A-102", userType: "회원" },
   { no: 2, cardNo: "RF-55667788", memberName: "김민수",  memberId: null,  status: "활성", registeredAt: "2026-01-12", issuedAt: "2026-02-05", lockerNo: null,    userType: "직원" },
   { no: 3, cardNo: "RF-99881122", memberName: null,     memberId: null,  status: "해제", registeredAt: "2026-01-15", issuedAt: null,          lockerNo: null,    userType: null  },
@@ -64,14 +72,6 @@ const MOCK_CARDS: RfidCard[] = [
   { no: 8, cardNo: "RF-11223344", memberName: "정재욱",  memberId: 10456, status: "활성", registeredAt: "2026-02-10", issuedAt: "2026-02-25", lockerNo: "A-201", userType: "회원" },
 ];
 
-const MOCK_MEMBERS: Member[] = [
-  { id: "m1", name: "홍길동",  contact: "010-1111-2222", memberNo: "M-10234" },
-  { id: "m2", name: "김민수",  contact: "010-2222-3333", memberNo: "M-10235" },
-  { id: "m3", name: "이영희",  contact: "010-3333-4444", memberNo: "M-10236" },
-  { id: "m4", name: "박지성",  contact: "010-4444-5555", memberNo: "M-10237" },
-  { id: "m5", name: "손흥민",  contact: "010-5555-6666", memberNo: "M-10238" },
-  { id: "m6", name: "최유나",  contact: "010-6666-7777", memberNo: "M-10239" },
-];
 
 const CARD_STATUS_VARIANT: Record<CardStatus, "success" | "error" | "default"> = {
   활성: "success",
@@ -158,10 +158,12 @@ const CardModal = ({
   card,
   onClose,
   onSave,
+  memberList = [],
 }: {
   card: Partial<RfidCard> | null;
   onClose: () => void;
   onSave: (data: { cardNo: string; memberName: string; userType: "회원" | "직원"; lockerNo: string }) => void;
+  memberList?: Member[];
 }) => {
   const [cardNo,     setCardNo]     = useState(card?.cardNo || "");
   const [memberSearch, setMemberSearch] = useState(card?.memberName || "");
@@ -174,7 +176,7 @@ const CardModal = ({
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
 
   const filteredMembers = memberSearch.trim()
-    ? MOCK_MEMBERS.filter(m => m.name.includes(memberSearch) || m.memberNo.includes(memberSearch))
+    ? memberList.filter(m => m.name.includes(memberSearch) || m.memberNo.includes(memberSearch))
     : [];
 
   // UI-108 스캔 시뮬레이션
@@ -368,7 +370,26 @@ const CardModal = ({
 };
 
 export default function RfidManagement() {
-  const [cards, setCards]         = useState<RfidCard[]>(MOCK_CARDS);
+  const [cards, setCards]         = useState<RfidCard[]>(INITIAL_CARDS);
+  const [memberList, setMemberList] = useState<Member[]>([]);
+
+  useEffect(() => {
+    const fetchMembers = async () => {
+      const { data, error } = await supabase
+        .from('members')
+        .select('id, name, phone')
+        .eq('branchId', getBranchId());
+      if (!error && data) {
+        setMemberList(data.map((m: any, i: number) => ({
+          id: String(m.id),
+          name: m.name,
+          contact: m.phone,
+          memberNo: `M-${10234 + i}`,
+        })));
+      }
+    };
+    fetchMembers();
+  }, []);
   const [searchValue, setSearch]  = useState("");
   const [filterStatus, setFilter] = useState("");
   const [isAddModalOpen, setAddModal]   = useState(false);
@@ -428,7 +449,7 @@ export default function RfidManagement() {
       key: "memberName",
       header: "회원명",
       render: (val: string | null, row: RfidCard) => val ? (
-        <button className="text-[13px] font-semibold text-primary hover:underline" onClick={() => row.memberId && moveToPage(985)}>
+        <button className="text-[13px] font-semibold text-primary hover:underline" onClick={() => row.memberId && moveToPage(985, { id: row.memberId })}>
           {val}
         </button>
       ) : <span className="text-content-tertiary text-[12px]">-</span>
@@ -544,7 +565,20 @@ export default function RfidManagement() {
           data={filteredCards}
           title="카드 이력 목록"
           pagination={{ page: 1, pageSize: 20, total: filteredCards.length }}
-          onDownloadExcel={() => alert("Excel 다운로드를 시작합니다.")}
+          onDownloadExcel={() => {
+            const exportColumns = [
+              { key: 'no', header: 'No' },
+              { key: 'registeredAt', header: '등록일' },
+              { key: 'cardNo', header: '카드번호' },
+              { key: 'memberName', header: '회원명' },
+              { key: 'userType', header: '유형' },
+              { key: 'status', header: '상태' },
+              { key: 'issuedAt', header: '발급일' },
+              { key: 'lockerNo', header: '사물함' },
+            ];
+            exportToExcel(filteredCards as unknown as Record<string, unknown>[], exportColumns, { filename: 'RFID카드목록' });
+            toast.success(`${filteredCards.length}건 엑셀 다운로드 완료`);
+          }}
         />
       </div>
 
@@ -554,6 +588,7 @@ export default function RfidManagement() {
           card={selectedCard}
           onClose={() => { setAddModal(false); setSelectedCard(null); }}
           onSave={handleSave}
+          memberList={memberList}
         />
       )}
 

@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import {
   Bell,
   Plus,
@@ -25,6 +25,8 @@ import StatCard from "@/components/StatCard";
 import StatusBadge from "@/components/StatusBadge";
 import FormSection from "@/components/FormSection";
 import { moveToPage } from "@/internal";
+import { supabase } from "@/lib/supabase";
+import { toast } from "sonner";
 
 /**
  * SCR-071: 자동 알림 설정 (UI-101 ~ UI-102)
@@ -243,11 +245,62 @@ function RuleCard({
   );
 }
 
+// --- settings 저장/불러오기 헬퍼 ---
+const ALARM_SETTINGS_KEY = "auto_alarm";
+function getBranchId() { return localStorage.getItem("branchId") || "1"; }
+function getAlarmStorageKey() { return `settings_${getBranchId()}_${ALARM_SETTINGS_KEY}`; }
+
+interface AlarmSettingsData {
+  rules: AlarmRule[];
+  senderNumber: string;
+}
+
+async function loadAlarmSettings(): Promise<AlarmSettingsData | null> {
+  try {
+    const { data: row } = await supabase
+      .from("settings")
+      .select("value")
+      .eq("branchId", getBranchId())
+      .eq("key", ALARM_SETTINGS_KEY)
+      .single();
+    if (row?.value) {
+      const parsed = JSON.parse(row.value);
+      if (parsed?.rules) return parsed;
+    }
+  } catch {}
+  const saved = localStorage.getItem(getAlarmStorageKey());
+  if (saved) {
+    try {
+      const parsed = JSON.parse(saved);
+      if (parsed?.rules) return parsed;
+    } catch {}
+  }
+  return null;
+}
+
+async function saveAlarmSettings(data: AlarmSettingsData): Promise<boolean> {
+  const jsonValue = JSON.stringify(data);
+  localStorage.setItem(getAlarmStorageKey(), jsonValue);
+  try {
+    const { error } = await supabase.from("settings").upsert({
+      branchId: getBranchId(),
+      key: ALARM_SETTINGS_KEY,
+      value: jsonValue,
+      updatedAt: new Date().toISOString(),
+    }, { onConflict: "branchId,key" });
+    if (error) throw error;
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 export default function AutoAlarm() {
   const [rules, setRules] = useState<AlarmRule[]>(INITIAL_RULES);
   const [isModalOpen, setIsModalOpen]     = useState(false);
   const [editingRule, setEditingRule]     = useState<AlarmRule | null>(null);
   const [senderNumber, setSenderNumber]   = useState("02-1234-5678");
+  const [loading, setLoading]             = useState(true);
 
   // 모달 편집 상태
   const [modalData, setModalData] = useState({
@@ -257,12 +310,38 @@ export default function AutoAlarm() {
     content: "",
   });
 
+  // 초기 로딩
+  useEffect(() => {
+    (async () => {
+      setLoading(true);
+      const saved = await loadAlarmSettings();
+      if (saved) {
+        setRules(saved.rules);
+        if (saved.senderNumber) setSenderNumber(saved.senderNumber);
+      }
+      setLoading(false);
+    })();
+  }, []);
+
+  // 저장 헬퍼
+  const persistAlarm = useCallback(async (newRules: AlarmRule[], newSender?: string) => {
+    const ok = await saveAlarmSettings({
+      rules: newRules,
+      senderNumber: newSender ?? senderNumber,
+    });
+    if (!ok) toast.error("저장에 실패했습니다. 로컬에 임시 저장되었습니다.");
+  }, [senderNumber]);
+
   const handleToggle = (id: string) => {
-    setRules(prev => prev.map(r => r.id === id ? { ...r, enabled: !r.enabled } : r));
+    const newRules = rules.map(r => r.id === id ? { ...r, enabled: !r.enabled } : r);
+    setRules(newRules);
+    persistAlarm(newRules);
   };
 
   const handleNumberChange = (id: string, val: number) => {
-    setRules(prev => prev.map(r => r.id === id ? { ...r, numberValue: val } : r));
+    const newRules = rules.map(r => r.id === id ? { ...r, numberValue: val } : r);
+    setRules(newRules);
+    persistAlarm(newRules);
   };
 
   const handleEdit = (rule: AlarmRule) => {
@@ -278,11 +357,14 @@ export default function AutoAlarm() {
 
   const handleSave = () => {
     if (!editingRule) return;
-    setRules(prev => prev.map(r => r.id === editingRule.id ? {
+    const newRules = rules.map(r => r.id === editingRule.id ? {
       ...r,
       channel: modalData.channel as AlarmRule["channel"],
       template: { timing: modalData.timing, target: modalData.target, content: modalData.content },
-    } : r));
+    } : r);
+    setRules(newRules);
+    persistAlarm(newRules);
+    toast.success("알림 규칙이 저장되었습니다.");
     setIsModalOpen(false);
     setEditingRule(null);
   };
@@ -290,6 +372,23 @@ export default function AutoAlarm() {
   const enabledCount   = rules.filter(r => r.enabled).length;
   const customerRules  = rules.filter(r => r.type === "customer");
   const productRules   = rules.filter(r => r.type === "product");
+
+  // 로딩 중 스켈레톤
+  if (loading) {
+    return (
+      <AppLayout>
+        <div className="flex flex-col gap-xl animate-pulse">
+          <div className="h-20 bg-surface rounded-xl border border-line" />
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-lg">
+            {[1,2,3].map(i => <div key={i} className="h-28 bg-surface rounded-xl border border-line" />)}
+          </div>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-md">
+            {[1,2,3,4].map(i => <div key={i} className="h-24 bg-surface rounded-xl border border-line" />)}
+          </div>
+        </div>
+      </AppLayout>
+    );
+  }
 
   return (
     <AppLayout>
@@ -306,11 +405,35 @@ export default function AutoAlarm() {
             </button>
             <button
               className="flex items-center gap-xs rounded-button border border-line bg-surface px-md py-sm text-Body-2 font-medium text-content hover:bg-primary-light hover:text-primary transition-colors"
-              onClick={() => setRules(prev => prev.map(r => ({ ...r, enabled: true })))}
+              onClick={() => {
+                const newRules = rules.map(r => ({ ...r, enabled: true }));
+                setRules(newRules);
+                persistAlarm(newRules);
+                toast.success("모든 알림 규칙이 활성화되었습니다.");
+              }}
             >
               <CheckCircle2 size={16} />모두 사용
             </button>
-            <button className="flex items-center gap-xs rounded-button bg-primary px-md py-sm text-Body-2 font-bold text-white shadow-sm hover:opacity-90 transition-opacity">
+            <button
+              className="flex items-center gap-xs rounded-button bg-primary px-md py-sm text-Body-2 font-bold text-white shadow-sm hover:opacity-90 transition-opacity"
+              onClick={() => {
+                const newRule: AlarmRule = {
+                  id: `custom-${Date.now()}`,
+                  name: "새 알림 규칙",
+                  description: "새로운 알림 규칙을 설정하세요.",
+                  channel: "talk",
+                  type: "customer",
+                  enabled: false,
+                  template: { timing: "즉시", target: "전체 회원", content: "" },
+                };
+                const newRules = [...rules, newRule];
+                setRules(newRules);
+                persistAlarm(newRules);
+                // 바로 편집 모달 열기
+                handleEdit(newRule);
+                toast.success("새 알림 규칙이 추가되었습니다.");
+              }}
+            >
               <Plus size={16} />설정 추가
             </button>
           </div>

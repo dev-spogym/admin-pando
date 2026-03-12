@@ -20,6 +20,7 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { moveToPage } from '@/internal';
+import { exportToExcel } from '@/lib/exportExcel';
 import AppLayout from '@/components/AppLayout';
 import PageHeader from '@/components/PageHeader';
 import StatCard from '@/components/StatCard';
@@ -27,6 +28,7 @@ import StatusBadge from '@/components/StatusBadge';
 import DataTable from '@/components/DataTable';
 import TabNav from '@/components/TabNav';
 import ConfirmDialog from '@/components/ConfirmDialog';
+import { toast } from 'sonner';
 
 const currentPlan = {
   name: 'Pro',
@@ -131,7 +133,7 @@ export default function Subscription() {
 
   const handleCancelSubscription = () => {
     setIsCancelDialogOpen(false);
-    alert('구독 취소 신청이 완료되었습니다. 현재 구독 기간 종료 시까지 서비스를 이용하실 수 있습니다.');
+    toast.success('구독 취소 신청이 완료되었습니다. 현재 구독 기간 종료 시까지 서비스를 이용하실 수 있습니다.');
   };
 
   // ── 구독 현황 탭 ──
@@ -382,7 +384,17 @@ export default function Subscription() {
               align: 'right' as const
             }
           ]}
-          onDownloadExcel={() => alert('엑셀 다운로드를 시작합니다.')}
+          onDownloadExcel={() => {
+            const exportColumns = [
+              { key: 'date', header: '결제일' },
+              { key: 'plan', header: '플랜명' },
+              { key: 'amount', header: '결제금액' },
+              { key: 'method', header: '결제수단' },
+              { key: 'status', header: '상태' },
+            ];
+            exportToExcel(billingHistory as Record<string, unknown>[], exportColumns, { filename: '구독결제내역' });
+            toast.success(`${billingHistory.length}건 엑셀 다운로드 완료`);
+          }}
         />
       </div>
     </div>

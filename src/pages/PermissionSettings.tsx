@@ -22,6 +22,12 @@ import PageHeader from "@/components/PageHeader";
 import StatusBadge from "@/components/StatusBadge";
 import ConfirmDialog from "@/components/ConfirmDialog";
 import AppLayout from "@/components/AppLayout";
+import { supabase } from "@/lib/supabase";
+
+const getBranchId = (): number => {
+  const stored = localStorage.getItem('branchId');
+  return stored ? Number(stored) : 1;
+};
 
 // --- Types ---
 
@@ -50,15 +56,15 @@ interface ConflictWarning {
   message: string;
 }
 
-// --- Mock Data ---
+// --- 역할 목록 (시스템 역할 초기값) ---
 
 const INITIAL_ROLES: Role[] = [
-  { id: "1", code: "primary", name: "최고관리자", description: "모든 권한 (수정 불가)", isSystem: true, userCount: 1 },
-  { id: "2", code: "owner", name: "센터장", description: "경영/매출 전체 접근", isSystem: true, userCount: 2 },
-  { id: "3", code: "manager", name: "매니저", description: "회원·상품·일정 관리", isSystem: true, userCount: 3 },
-  { id: "4", code: "fc", name: "피트니스 코치", description: "담당 회원·수업 접근", isSystem: true, userCount: 8 },
-  { id: "5", code: "staff", name: "스태프", description: "출석 체크·기본 조회", isSystem: true, userCount: 2 },
-  { id: "6", code: "readonly", name: "조회전용", description: "읽기 전용 전체", isSystem: true, userCount: 1 },
+  { id: "1", code: "primary", name: "최고관리자", description: "모든 권한 (수정 불가)", isSystem: true, userCount: 0 },
+  { id: "2", code: "owner", name: "센터장", description: "경영/매출 전체 접근", isSystem: true, userCount: 0 },
+  { id: "3", code: "manager", name: "매니저", description: "회원·상품·일정 관리", isSystem: true, userCount: 0 },
+  { id: "4", code: "fc", name: "피트니스 코치", description: "담당 회원·수업 접근", isSystem: true, userCount: 0 },
+  { id: "5", code: "staff", name: "스태프", description: "출석 체크·기본 조회", isSystem: true, userCount: 0 },
+  { id: "6", code: "readonly", name: "조회전용", description: "읽기 전용 전체", isSystem: true, userCount: 0 },
 ];
 
 const MENU_GROUPS = [
@@ -85,30 +91,18 @@ const INITIAL_PERMISSIONS: Record<string, MenuPermission[]> = {
   ]
 };
 
-const MOCK_EMPLOYEES: Record<string, string[]> = {
-  "primary": ["김대표"],
-  "owner": ["이센터", "박이사"],
-  "manager": ["최매니저", "정팀장", "한실장"],
-  "fc": ["김코치", "이강사", "박트레이너", "최필라", "정요가", "홍크로스", "임헬스", "강서핑"],
-  "staff": ["장알바", "윤대리"],
-  "readonly": ["감사관"],
-};
-
 // --- 권한 충돌 검증 로직 ---
 function validateConflicts(permissions: MenuPermission[]): ConflictWarning[] {
   const warnings: ConflictWarning[] = [];
 
   permissions.forEach(p => {
     const perms = p.permissions;
-    // 삭제 권한이 있는데 수정 권한이 없는 경우
     if (perms.delete && !perms.update) {
       warnings.push({ menuName: p.name, message: `"${p.name}": 삭제 권한이 있지만 수정 권한이 없습니다.` });
     }
-    // 등록/수정/삭제가 있는데 접근 권한이 없는 경우
     if ((perms.create || perms.update || perms.delete) && !perms.access) {
       warnings.push({ menuName: p.name, message: `"${p.name}": 쓰기 권한이 있지만 접근 권한이 없습니다.` });
     }
-    // 조회 없이 등록/수정/삭제가 있는 경우
     if ((perms.create || perms.update || perms.delete) && !perms.read) {
       warnings.push({ menuName: p.name, message: `"${p.name}": 조회 권한 없이 쓰기 권한이 설정되어 있습니다.` });
     }
@@ -126,18 +120,18 @@ export default function PermissionSettings() {
   const [isLoading, setIsLoading] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
 
-  // 충돌 검증
+  // 역할별 직원 목록 (Supabase에서 조회)
+  const [employeesByRole, setEmployeesByRole] = useState<Record<string, string[]>>({});
+
   const [conflictWarnings, setConflictWarnings] = useState<ConflictWarning[]>([]);
   const [showConflictModal, setShowConflictModal] = useState(false);
 
-  // Modals state
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [isCopyModalOpen, setIsCopyModalOpen] = useState(false);
   const [isResetConfirmOpen, setIsResetConfirmOpen] = useState(false);
   const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
   const [roleToDelete, setRoleToDelete] = useState<Role | null>(null);
 
-  // 역할 복사 모달 상태
   const [copySourceRoleId, setCopySourceRoleId] = useState<string>("");
   const [copyNewRoleName, setCopyNewRoleName] = useState("");
   const [copyNewRoleCode, setCopyNewRoleCode] = useState("");
@@ -145,34 +139,70 @@ export default function PermissionSettings() {
   const selectedRole = roles.find(r => r.id === selectedRoleId) || roles[0];
   const isPrimary = selectedRole.code === "primary";
 
+  // 직원 목록을 role별로 조회
+  useEffect(() => {
+    async function fetchEmployees() {
+      const { data, error } = await supabase
+        .from("users")
+        .select("name, role")
+        .eq("branchId", getBranchId());
+      if (error) {
+        console.error("직원 권한 목록 로드 실패:", error);
+        return;
+      }
+      if (data) {
+        const grouped: Record<string, string[]> = {};
+        data.forEach((u: any) => {
+          const role = u.role ?? "staff";
+          if (!grouped[role]) grouped[role] = [];
+          grouped[role].push(u.name);
+        });
+        setEmployeesByRole(grouped);
+      }
+    }
+    fetchEmployees();
+  }, []);
+
+  useEffect(() => {
+    setRoles(prev => prev.map(role => ({
+      ...role,
+      userCount: employeesByRole[role.code]?.length ?? 0,
+    })));
+  }, [employeesByRole]);
+
   useEffect(() => {
     setIsLoading(true);
-    setTimeout(() => {
-      const roleCode = selectedRole.code;
-      const basePermissions: MenuPermission[] = [];
+    const roleCode = selectedRole.code;
+    const storageKey = `permissions_${selectedRole.code}`;
+    const saved = localStorage.getItem(storageKey);
+    let savedPerms: Record<string, MenuPermission['permissions']> = {};
+    if (saved) {
+      try { savedPerms = JSON.parse(saved); } catch { /* ignore */ }
+    }
 
-      MENU_GROUPS.forEach(group => {
-        group.menus.forEach((menuName) => {
-          const id = `${group.group}-${menuName}`;
-          const existing = INITIAL_PERMISSIONS[roleCode]?.find(p => p.name === menuName);
+    const basePermissions: MenuPermission[] = [];
+    MENU_GROUPS.forEach(group => {
+      group.menus.forEach((menuName) => {
+        const id = `${group.group}-${menuName}`;
+        const fromStorage = savedPerms[id];
+        const existing = INITIAL_PERMISSIONS[roleCode]?.find(p => p.name === menuName);
 
-          basePermissions.push({
-            id,
-            group: group.group,
-            name: menuName,
-            permissions: isPrimary
-              ? { access: true, read: true, create: true, update: true, delete: true }
-              : existing?.permissions || { access: false, read: false, create: false, update: false, delete: false }
-          });
+        basePermissions.push({
+          id,
+          group: group.group,
+          name: menuName,
+          permissions: isPrimary
+            ? { access: true, read: true, create: true, update: true, delete: true }
+            : fromStorage || existing?.permissions || { access: false, read: false, create: false, update: false, delete: false }
         });
       });
+    });
 
-      setPermissions(basePermissions);
-      setSavedPermissions(JSON.parse(JSON.stringify(basePermissions)));
-      setIsDirty(false);
-      setConflictWarnings([]);
-      setIsLoading(false);
-    }, 300);
+    setPermissions(basePermissions);
+    setSavedPermissions(JSON.parse(JSON.stringify(basePermissions)));
+    setIsDirty(false);
+    setConflictWarnings([]);
+    setIsLoading(false);
   }, [selectedRoleId]);
 
   const handleToggle = (menuId: string, type: PermissionType) => {
@@ -212,14 +242,15 @@ export default function PermissionSettings() {
   };
 
   const doSave = () => {
-    setIsLoading(true);
-    setTimeout(() => {
-      setSavedPermissions(JSON.parse(JSON.stringify(permissions)));
-      setIsDirty(false);
-      setIsLoading(false);
-      setSaveSuccess(true);
-      setTimeout(() => setSaveSuccess(false), 3000);
-    }, 800);
+    const storageKey = `permissions_${selectedRole.code}`;
+    const permMap: Record<string, MenuPermission['permissions']> = {};
+    permissions.forEach(p => { permMap[p.id] = p.permissions; });
+    localStorage.setItem(storageKey, JSON.stringify(permMap));
+
+    setSavedPermissions(JSON.parse(JSON.stringify(permissions)));
+    setIsDirty(false);
+    setSaveSuccess(true);
+    setTimeout(() => setSaveSuccess(false), 3000);
   };
 
   const handleSave = () => {
@@ -233,11 +264,6 @@ export default function PermissionSettings() {
   };
 
   const handleReset = () => {
-    setSelectedRoleId(prev => {
-      // trigger useEffect by toggling and re-setting
-      return prev;
-    });
-    // Re-initialize by resetting to saved state
     setPermissions(JSON.parse(JSON.stringify(savedPermissions)));
     setIsDirty(false);
     setConflictWarnings([]);
@@ -249,7 +275,6 @@ export default function PermissionSettings() {
     const formData = new FormData(e.target as HTMLFormElement);
     const name = formData.get("name") as string;
     const code = formData.get("code") as string;
-    const sourceCode = formData.get("sourceRole") as string;
 
     const newRole: Role = {
       id: String(roles.length + 1),
@@ -296,7 +321,6 @@ export default function PermissionSettings() {
     setIsDeleteConfirmOpen(false);
   };
 
-  // 변경된 셀 여부 확인 (diff 하이라이트)
   const isChanged = (menuId: string, type: PermissionType): boolean => {
     if (!isDirty) return false;
     const current = permissions.find(p => p.id === menuId);
@@ -396,16 +420,16 @@ export default function PermissionSettings() {
             <div className="rounded-lg bg-surface p-md shadow-sm" >
               <h3 className="mb-sm flex items-center gap-xs text-sm text-content" >
                 <Users className="text-content-secondary" size={14}/>
-                배정 직원 ({selectedRole.userCount}명)
+                배정 직원 ({employeesByRole[selectedRole.code]?.length ?? 0}명)
               </h3>
               <div className="flex flex-wrap gap-xs" >
-                {(MOCK_EMPLOYEES[selectedRole.code] || []).map(name => (
+                {(employeesByRole[selectedRole.code] || []).map(name => (
                   <button
                     className="rounded-full bg-surface-secondary px-sm py-xs text-sm text-content-secondary hover:bg-primary/10 hover:text-primary transition-colors" key={name} onClick={() => moveToPage(974)}>
                     {name}
                   </button>
                 ))}
-                {(!MOCK_EMPLOYEES[selectedRole.code] || MOCK_EMPLOYEES[selectedRole.code].length === 0) && (
+                {(!employeesByRole[selectedRole.code] || employeesByRole[selectedRole.code].length === 0) && (
                   <span className="text-sm text-content-secondary italic" >배정된 직원이 없습니다.</span>
                 )}
               </div>

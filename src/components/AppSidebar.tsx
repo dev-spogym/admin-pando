@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   Home,
   Users,
@@ -12,8 +12,16 @@ import {
   ChevronDown,
   LogOut,
   User,
+  LayoutDashboard,
+  BarChart3,
+  Shield,
+  CreditCard,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useAuthStore } from "@/stores/authStore";
+import { moveToPage } from "@/internal";
+import { hasMenuPermission, hasPermission, ROLE_LABELS, type UserRole } from "@/lib/permissions";
+import { getBranchesPaginated, type BranchDetail } from "@/api/endpoints/branches";
 
 interface MenuItem {
   label: string;
@@ -28,6 +36,16 @@ interface AppSidebarProps {
   onNavigate?: (path: string, viewId?: number) => void;
   activePath?: string;
 }
+
+// 슈퍼관리자 전용 본사 관리 메뉴
+const SUPER_ADMIN_MENU_ITEMS: MenuItem[] = [
+  { label: "통합 대시보드", icon: LayoutDashboard, path: "/super-dashboard" },
+  { label: "지점 관리", icon: Building2, path: "/branches", viewId: 984 },
+  { label: "지점 비교 리포트", icon: BarChart3, path: "/branch-report" },
+  { label: "전체 직원 관리", icon: Users, path: "/staff", viewId: 974 },
+  { label: "감사 로그", icon: Shield, path: "/audit-log" },
+  { label: "구독 관리", icon: CreditCard, path: "/subscription", viewId: 983 },
+];
 
 const MENU_ITEMS: MenuItem[] = [
   { label: "대시보드", icon: Home, path: "/", viewId: 966 },
@@ -103,7 +121,35 @@ const AppSidebar: React.FC<AppSidebarProps> = ({
   onNavigate,
   activePath = "/",
 }) => {
-  const [openMenus, setOpenMenus] = useState<Set<string>>(new Set(["회원"]));
+  // 현재 경로에 해당하는 메뉴 그룹 자동 열기
+  const [openMenus, setOpenMenus] = useState<Set<string>>(() => {
+    const initial = new Set<string>();
+    for (const item of MENU_ITEMS) {
+      if (item.children?.some((child) => activePath.startsWith(child.path))) {
+        initial.add(item.label);
+      }
+    }
+    if (initial.size === 0) initial.add("회원"); // 기본값
+    return initial;
+  });
+
+  // 지점 목록 상태 (슈퍼관리자 드롭다운용)
+  const [branches, setBranches] = useState<BranchDetail[]>([]);
+
+  const authUser = useAuthStore((s) => s.user);
+  const switchBranch = useAuthStore((s) => s.switchBranch);
+  const userRole = authUser?.role || '';
+  const isSuperAdmin = authUser?.isSuperAdmin ?? false;
+
+  // 슈퍼관리자인 경우 지점 목록 로드
+  useEffect(() => {
+    if (!isSuperAdmin) return;
+    getBranchesPaginated({ page: 1, size: 100 }).then((res) => {
+      if (res.success && res.data?.data) {
+        setBranches(res.data.data);
+      }
+    });
+  }, [isSuperAdmin]);
 
   const toggleMenu = (label: string) => {
     setOpenMenus((prev) => {
@@ -121,6 +167,50 @@ const AppSidebar: React.FC<AppSidebarProps> = ({
   const isMenuGroupActive = (item: MenuItem) => {
     if (item.path === activePath) return true;
     return item.children?.some((child) => child.path === activePath) ?? false;
+  };
+
+  // 슈퍼관리자 메뉴 항목 렌더링 (단일 항목, 자식 없음)
+  const renderSuperAdminMenuItem = (item: MenuItem) => {
+    const isActive = item.path === activePath;
+    return (
+      <div key={item.label} className="mb-px">
+        <button
+          className={cn(
+            "group flex h-[34px] w-full items-center gap-[10px] px-[10px] rounded-md text-[13px] font-medium transition-colors",
+            isActive
+              ? "bg-primary-light text-primary"
+              : "text-content-secondary hover:bg-surface-tertiary hover:text-content"
+          )}
+          onClick={() => item.path && handleNavigate(item.path, item.viewId)}
+        >
+          <item.icon
+            className={cn(
+              "shrink-0",
+              isActive ? "text-primary" : "text-content-tertiary group-hover:text-content-secondary"
+            )}
+            size={17}
+            strokeWidth={isActive ? 2 : 1.5}
+          />
+          {!collapsed && (
+            <span className="flex-1 text-left truncate">{item.label}</span>
+          )}
+        </button>
+      </div>
+    );
+  };
+
+  // 사용자 표시명 생성
+  const getUserDisplayName = () => {
+    if (!authUser) return '사용자';
+    if (isSuperAdmin) return `[본사] ${authUser.name}`;
+    if (authUser.branchName) return `[${authUser.branchName}] ${authUser.name}`;
+    return authUser.name;
+  };
+
+  // 사용자 역할 표시명
+  const getUserRoleLabel = () => {
+    if (isSuperAdmin) return '슈퍼관리자';
+    return ROLE_LABELS[userRole as UserRole] || '지점';
   };
 
   return (
@@ -146,66 +236,115 @@ const AppSidebar: React.FC<AppSidebarProps> = ({
         )}
       </div>
 
+      {/* 슈퍼관리자 지점 전환 드롭다운 */}
+      {isSuperAdmin && !collapsed && (
+        <div className="px-3 py-2 border-b border-line">
+          <label className="text-xs text-muted-foreground font-medium">지점 전환</label>
+          <select
+            className="w-full mt-1 px-2 py-1.5 text-sm border border-line rounded-md bg-background text-content focus:outline-none focus:ring-1 focus:ring-primary"
+            value={authUser?.currentBranchId || 'all'}
+            onChange={(e) => {
+              const val = e.target.value;
+              if (val === 'all') {
+                switchBranch('', '전체 지점');
+              } else {
+                const branch = branches.find((b) => String(b.id) === val);
+                if (branch) switchBranch(String(branch.id), branch.name);
+              }
+            }}
+          >
+            <option value="all">전체 지점 (통합)</option>
+            {branches.map((b) => (
+              <option key={b.id} value={b.id}>{b.name}</option>
+            ))}
+          </select>
+        </div>
+      )}
+
       {/* 메뉴 */}
       <nav className="flex-1 overflow-y-auto py-sm px-sm scrollbar-hide">
-        {MENU_ITEMS.map((item) => (
-          <div key={item.label} className="mb-px">
-            <button
-              className={cn(
-                "group flex h-[34px] w-full items-center gap-[10px] px-[10px] rounded-md text-[13px] font-medium transition-colors",
-                isMenuGroupActive(item)
-                  ? "bg-primary-light text-primary"
-                  : "text-content-secondary hover:bg-surface-tertiary hover:text-content"
-              )}
-              onClick={() => {
-                if (item.children) toggleMenu(item.label);
-                else if (item.path) handleNavigate(item.path, item.viewId);
-              }}
-            >
-              <item.icon
-                className={cn(
-                  "shrink-0",
-                  isMenuGroupActive(item) ? "text-primary" : "text-content-tertiary group-hover:text-content-secondary"
-                )}
-                size={17}
-                strokeWidth={isMenuGroupActive(item) ? 2 : 1.5}
-              />
-              {!collapsed && (
-                <>
-                  <span className="flex-1 text-left truncate">{item.label}</span>
-                  {item.children && (
-                    <ChevronDown
-                      className={cn(
-                        "text-content-tertiary transition-transform duration-200",
-                        openMenus.has(item.label) && "rotate-180"
-                      )}
-                      size={14}
-                    />
-                  )}
-                </>
-              )}
-            </button>
-
-            {!collapsed && item.children && openMenus.has(item.label) && (
-              <div className="mt-px ml-[18px] border-l border-line pl-[14px] space-y-px py-[2px]">
-                {item.children.map((child) => (
-                  <button
-                    key={child.label}
-                    className={cn(
-                      "flex h-[30px] w-full items-center px-[8px] rounded-md text-[12px] transition-colors",
-                      activePath === child.path
-                        ? "text-primary font-semibold bg-primary-light/50"
-                        : "text-content-secondary hover:text-content hover:bg-surface-tertiary"
-                    )}
-                    onClick={() => handleNavigate(child.path, child.viewId)}
-                  >
-                    {child.label}
-                  </button>
-                ))}
-              </div>
+        {/* 슈퍼관리자 전용 본사 관리 섹션 */}
+        {isSuperAdmin && (
+          <div className="mb-2">
+            {!collapsed && (
+              <p className="px-[10px] py-[6px] text-[10px] font-semibold text-content-tertiary uppercase tracking-wider">
+                본사 관리
+              </p>
             )}
+            {SUPER_ADMIN_MENU_ITEMS.map(renderSuperAdminMenuItem)}
+            {/* 구분선 */}
+            <div className="mt-2 mb-1 border-b border-line" />
           </div>
-        ))}
+        )}
+
+        {/* 일반 메뉴 - 역할 기반 필터링 */}
+        {MENU_ITEMS.filter((item) => isSuperAdmin || hasMenuPermission(userRole, item.label)).map((item) => {
+          // 슈퍼관리자는 하위 메뉴 필터링 없이 전체 표시
+          const filteredChildren = isSuperAdmin
+            ? item.children
+            : item.children?.filter((child) => hasPermission(userRole, child.path, isSuperAdmin));
+          // 하위 메뉴가 모두 필터링되면 상위 메뉴도 숨김
+          if (item.children && (!filteredChildren || filteredChildren.length === 0)) return null;
+
+          return (
+            <div key={item.label} className="mb-px">
+              <button
+                className={cn(
+                  "group flex h-[34px] w-full items-center gap-[10px] px-[10px] rounded-md text-[13px] font-medium transition-colors",
+                  isMenuGroupActive(item)
+                    ? "bg-primary-light text-primary"
+                    : "text-content-secondary hover:bg-surface-tertiary hover:text-content"
+                )}
+                onClick={() => {
+                  if (item.children) toggleMenu(item.label);
+                  else if (item.path) handleNavigate(item.path, item.viewId);
+                }}
+              >
+                <item.icon
+                  className={cn(
+                    "shrink-0",
+                    isMenuGroupActive(item) ? "text-primary" : "text-content-tertiary group-hover:text-content-secondary"
+                  )}
+                  size={17}
+                  strokeWidth={isMenuGroupActive(item) ? 2 : 1.5}
+                />
+                {!collapsed && (
+                  <>
+                    <span className="flex-1 text-left truncate">{item.label}</span>
+                    {item.children && (
+                      <ChevronDown
+                        className={cn(
+                          "text-content-tertiary transition-transform duration-200",
+                          openMenus.has(item.label) && "rotate-180"
+                        )}
+                        size={14}
+                      />
+                    )}
+                  </>
+                )}
+              </button>
+
+              {!collapsed && filteredChildren && openMenus.has(item.label) && (
+                <div className="mt-px ml-[18px] border-l border-line pl-[14px] space-y-px py-[2px]">
+                  {filteredChildren.map((child) => (
+                    <button
+                      key={child.label}
+                      className={cn(
+                        "flex h-[30px] w-full items-center px-[8px] rounded-md text-[12px] transition-colors",
+                        activePath === child.path
+                          ? "text-primary font-semibold bg-primary-light/50"
+                          : "text-content-secondary hover:text-content hover:bg-surface-tertiary"
+                      )}
+                      onClick={() => handleNavigate(child.path, child.viewId)}
+                    >
+                      {child.label}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          );
+        })}
       </nav>
 
       {/* 하단 프로필 */}
@@ -217,11 +356,14 @@ const AppSidebar: React.FC<AppSidebarProps> = ({
                 <User className="text-primary" size={14} />
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-[13px] font-semibold text-content truncate">김관리 매니저</p>
-                <p className="text-[11px] text-content-tertiary truncate">강남본점</p>
+                <p className="text-[13px] font-semibold text-content truncate">{getUserDisplayName()}</p>
+                <p className="text-[11px] text-content-tertiary truncate">{getUserRoleLabel()}</p>
               </div>
             </div>
-            <button className="flex w-full items-center gap-[10px] h-[30px] px-[10px] rounded-md text-content-secondary hover:bg-surface-tertiary hover:text-content transition-colors text-[12px]">
+            <button
+              className="flex w-full items-center gap-[10px] h-[30px] px-[10px] rounded-md text-content-secondary hover:bg-surface-tertiary hover:text-content transition-colors text-[12px]"
+              onClick={() => { useAuthStore.getState().logout(); moveToPage(990); }}
+            >
               <LogOut size={14} strokeWidth={1.5} />
               <span>로그아웃</span>
             </button>

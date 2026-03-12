@@ -45,18 +45,30 @@ const VIEW_ID_MAP: Record<number, string> = {
   996: '/settings/permissions',      // 권한 설정
   997: '/products/new',              // 상품 등록
   998: '/staff/new',                 // 직원 등록
+  999: '/staff/resignation',         // 직원 퇴사 처리
+  1000: '/super-dashboard',          // 슈퍼관리자 통합 대시보드
+  1001: '/audit-log',                // 감사 로그
+  1002: '/members/transfer',         // 회원 이관
+  1003: '/branch-report',            // 지점 비교 리포트
 };
 
-export function moveToPage(viewId: number) {
+export function moveToPage(viewId: number, params?: Record<string, string | number>) {
   const path = VIEW_ID_MAP[viewId];
   if (path && navigateFn) {
-    navigateFn(path);
+    if (params) {
+      const search = new URLSearchParams(
+        Object.entries(params).map(([k, v]) => [k, String(v)])
+      ).toString();
+      navigateFn(`${path}?${search}`);
+    } else {
+      navigateFn(path);
+    }
   } else {
     console.warn(`[moveToPage] viewId ${viewId} → 경로를 찾을 수 없거나 네비게이터 미등록`);
   }
 }
 
-export function stackPage(viewId: number) {
+export function stackPage(viewId: number, params?: Record<string, string | number>) {
   // stackPage는 moveToPage와 동일하게 동작 (SPA에서는 구분 불필요)
-  moveToPage(viewId);
+  moveToPage(viewId, params);
 }

@@ -23,6 +23,8 @@ import TabNav from "@/components/TabNav";
 import FormSection from "@/components/FormSection";
 import { cn } from "@/lib/utils";
 import { moveToPage } from "@/internal";
+import { toast } from "sonner";
+import { supabase } from "@/lib/supabase";
 
 type KioskStatus = "online" | "offline";
 type TabKey = "basic" | "screen" | "tts" | "access";
@@ -174,6 +176,51 @@ function KioskPreview({ settings }: { settings: SettingsData }) {
   );
 }
 
+// --- settings 저장/불러오기 헬퍼 ---
+const KIOSK_SETTINGS_KEY = "kiosk_settings";
+function getBranchId() { return localStorage.getItem("branchId") || "1"; }
+function getKioskStorageKey() { return `settings_${getBranchId()}_${KIOSK_SETTINGS_KEY}`; }
+
+async function loadKioskSettings(): Promise<SettingsData | null> {
+  try {
+    const { data: row } = await supabase
+      .from("settings")
+      .select("value")
+      .eq("branchId", getBranchId())
+      .eq("key", KIOSK_SETTINGS_KEY)
+      .single();
+    if (row?.value) {
+      const parsed = JSON.parse(row.value);
+      if (parsed?.kioskType) return parsed;
+    }
+  } catch {}
+  const saved = localStorage.getItem(getKioskStorageKey());
+  if (saved) {
+    try {
+      const parsed = JSON.parse(saved);
+      if (parsed?.kioskType) return parsed;
+    } catch {}
+  }
+  return null;
+}
+
+async function saveKioskSettings(data: SettingsData): Promise<boolean> {
+  const jsonValue = JSON.stringify(data);
+  localStorage.setItem(getKioskStorageKey(), jsonValue);
+  try {
+    const { error } = await supabase.from("settings").upsert({
+      branchId: getBranchId(),
+      key: KIOSK_SETTINGS_KEY,
+      value: jsonValue,
+      updatedAt: new Date().toISOString(),
+    }, { onConflict: "branchId,key" });
+    if (error) throw error;
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 export default function KioskSettings() {
   const [activeTab, setActiveTab] = useState<TabKey>("basic");
   const [settings, setSettings] = useState<SettingsData>(INITIAL_DATA);
@@ -181,17 +228,25 @@ export default function KioskSettings() {
   const [status, setStatus] = useState<KioskStatus>("online");
   const [isLoading, setIsLoading] = useState(true);
 
+  // 초기 로딩: settings 테이블에서 데이터 조회
   useEffect(() => {
-    const timer = setTimeout(() => setIsLoading(false), 600);
-    return () => clearTimeout(timer);
+    (async () => {
+      setIsLoading(true);
+      const saved = await loadKioskSettings();
+      if (saved) setSettings(saved);
+      setIsLoading(false);
+    })();
   }, []);
 
-  const handleSave = () => {
+  const handleSave = async () => {
     setIsSaving(true);
-    setTimeout(() => {
-      setIsSaving(false);
-      alert("키오스크 설정이 저장되었습니다. 기기에 실시간 반영됩니다.");
-    }, 1000);
+    const ok = await saveKioskSettings(settings);
+    setIsSaving(false);
+    if (ok) {
+      toast.success("키오스크 설정이 저장되었습니다. 기기에 실시간 반영됩니다.");
+    } else {
+      toast.error("저장에 실패했습니다. 로컬에 임시 저장되었습니다.");
+    }
   };
 
   const playTTS = (text: string) => {
@@ -445,7 +500,10 @@ export default function KioskSettings() {
                 </div>
               ))}
               {settings.banners.length < 5 && (
-                <button className="aspect-video rounded-xl border-2 border-dashed border-line bg-surface-secondary flex flex-col items-center justify-center text-content-secondary hover:border-accent hover:text-accent transition-all">
+                <button
+                  className="aspect-video rounded-xl border-2 border-dashed border-line bg-surface-secondary flex flex-col items-center justify-center text-content-secondary hover:border-accent hover:text-accent transition-all"
+                  onClick={() => toast.info("이미지 업로드 기능 준비 중입니다.")}
+                >
                   <Plus size={28} />
                   <span className="text-Label mt-xs">배너 추가</span>
                 </button>

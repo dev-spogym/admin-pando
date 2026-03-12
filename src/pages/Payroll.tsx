@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import {
   Calendar as CalendarIcon,
   FileText,
@@ -21,6 +21,14 @@ import StatCard from "@/components/StatCard";
 import DataTable from "@/components/DataTable";
 import StatusBadge from "@/components/StatusBadge";
 import SearchFilter from "@/components/SearchFilter";
+import { supabase } from "@/lib/supabase";
+import { toast } from "sonner";
+import { exportToExcel } from "@/lib/exportExcel";
+
+const getBranchId = (): number => {
+  const stored = localStorage.getItem('branchId');
+  return stored ? Number(stored) : 1;
+};
 
 /**
  * SCR-062: 급여 관리 페이지 (UI-098 ~ UI-100)
@@ -39,21 +47,16 @@ function getRecentMonths(): { value: string; label: string }[] {
   return months;
 }
 
-// Mock 급여 데이터 6명
-const MOCK_PAYROLL = [
-  {
-    id: 1, name: "김철수",  role: "트레이너", baseSalary: 2800000, incentive: 450000,  deduction: 298000, status: "paid"    },
-  {
-    id: 2, name: "이영희",  role: "FC",       baseSalary: 2500000, incentive: 320000,  deduction: 267000, status: "pending" },
-  {
-    id: 3, name: "박지민",  role: "센터장",   baseSalary: 4500000, incentive: 800000,  deduction: 524000, status: "paid"    },
-  {
-    id: 4, name: "최성호",  role: "트레이너", baseSalary: 2200000, incentive: 150000,  deduction: 231000, status: "hold"    },
-  {
-    id: 5, name: "정수진",  role: "트레이너", baseSalary: 2600000, incentive: 380000,  deduction: 279000, status: "paid"    },
-  {
-    id: 6, name: "한미래",  role: "매니저",   baseSalary: 3200000, incentive: 200000,  deduction: 340000, status: "pending" },
-];
+interface PayrollRow {
+  id: number;
+  name: string;
+  role: string;
+  baseSalary: number;
+  incentive: number;
+  deduction: number;
+  status: string;
+  netPay: number;
+}
 
 type SortKey = "name" | "baseSalary" | "incentive" | "deduction" | "netPay";
 type SortDir = "asc" | "desc" | null;
@@ -61,10 +64,49 @@ type SortDir = "asc" | "desc" | null;
 export default function Payroll() {
   const MONTHS = useMemo(() => getRecentMonths(), []);
   const [selectedMonth, setSelectedMonth] = useState(MONTHS[0].value);
+  const [payrollData, setPayrollData] = useState<PayrollRow[]>([]);
+  const [isLoadingData, setIsLoadingData] = useState(true);
   const [searchValue, setSearchValue] = useState("");
   const [filterValues, setFilterValues] = useState({ status: "" });
   const [sortKey, setSortKey] = useState<SortKey | null>(null);
   const [sortDir, setSortDir] = useState<SortDir>(null);
+
+  useEffect(() => {
+    async function fetchPayroll() {
+      setIsLoadingData(true);
+      const [year, month] = selectedMonth.split("-").map(Number);
+      const { data, error } = await supabase
+        .from("payroll")
+        .select("id, staffId, staffName, year, month, baseSalary, bonus, deduction, netSalary, status, staff(role)")
+        .eq("branchId", getBranchId())
+        .eq("year", year)
+        .eq("month", month);
+
+      if (error) {
+        console.error("급여 데이터 로드 실패:", error);
+        toast.error("급여 데이터를 불러오지 못했습니다.");
+      } else if (data) {
+        const mapped: PayrollRow[] = data.map((r: any) => {
+          const baseSalary = Number(r.baseSalary ?? 0);
+          const bonus = Number(r.bonus ?? 0);
+          const deduction = Number(r.deduction ?? 0);
+          return {
+            id: r.id,
+            name: r.staffName,
+            role: r.staff?.role ?? "",
+            baseSalary,
+            incentive: bonus,
+            deduction,
+            status: r.status ?? "pending",
+            netPay: r.netSalary != null ? Number(r.netSalary) : (baseSalary + bonus - deduction),
+          };
+        });
+        setPayrollData(mapped);
+      }
+      setIsLoadingData(false);
+    }
+    fetchPayroll();
+  }, [selectedMonth]);
 
   const handleSort = (key: SortKey) => {
     if (sortKey === key) {
@@ -89,14 +131,8 @@ export default function Payroll() {
     </button>
   );
 
-  // 데이터에 netPay 추가
-  const dataWithNet = useMemo(() =>
-    MOCK_PAYROLL.map(r => ({ ...r, netPay: r.baseSalary + r.incentive - r.deduction })),
-    []
-  );
-
   const filtered = useMemo(() => {
-    let data = dataWithNet.filter(r => {
+    let data = payrollData.filter(r => {
       const matchSearch = !searchValue || r.name.includes(searchValue) || r.role.includes(searchValue);
       const matchStatus = !filterValues.status || r.status === filterValues.status;
       return matchSearch && matchStatus;
@@ -114,7 +150,7 @@ export default function Payroll() {
       });
     }
     return data;
-  }, [dataWithNet, searchValue, filterValues, sortKey, sortDir]);
+  }, [payrollData, searchValue, filterValues, sortKey, sortDir]);
 
   // 합계 행 계산
   const totals = useMemo(() => filtered.reduce(
@@ -183,11 +219,11 @@ export default function Payroll() {
       header: "관리",
       width: 80,
       align: "center" as const,
-      render: (_: number, row: typeof dataWithNet[0]) =>
+      render: (_: number, row: PayrollRow) =>
         row.status !== "paid" ? (
           <button
             className="flex items-center gap-xs px-sm py-xs text-Label text-primary border border-primary rounded-button hover:bg-primary-light transition-colors"
-            onClick={() => alert(`${row.name} 급여 수정`)}
+            onClick={() => toast.info(`${row.name} 급여 수정은 급여 명세서 페이지에서 가능합니다.`, { action: { label: '명세서 이동', onClick: () => moveToPage(989) } })}
           >
             <Edit2 size={12} />수정
           </button>
@@ -196,7 +232,7 @@ export default function Payroll() {
   ];
 
   // 통계 카드 데이터
-  const paidCount   = filtered.filter(r => r.status === "paid").length;
+  const paidCount    = filtered.filter(r => r.status === "paid").length;
   const pendingCount = filtered.filter(r => r.status === "pending").length;
 
   return (
@@ -222,7 +258,24 @@ export default function Payroll() {
               </div>
               <button
                 className="flex items-center gap-xs px-md py-sm border border-line text-content-secondary rounded-button text-Label font-semibold hover:bg-surface-secondary transition-all"
-                onClick={() => alert("엑셀 다운로드")}
+                onClick={() => {
+                  const exportColumns = [
+                    { key: 'name', header: '직원명' },
+                    { key: 'role', header: '역할' },
+                    { key: 'baseSalary', header: '기본급' },
+                    { key: 'incentive', header: '인센티브' },
+                    { key: 'deduction', header: '공제' },
+                    { key: 'netPay', header: '실지급액' },
+                    { key: 'status', header: '지급상태' },
+                  ];
+                  const statusLabel: Record<string, string> = { paid: '지급완료', pending: '미지급', hold: '보류' };
+                  const exportData = filtered.map(r => ({
+                    ...r,
+                    status: statusLabel[r.status] ?? r.status,
+                  }));
+                  exportToExcel(exportData as unknown as Record<string, unknown>[], exportColumns, { filename: `급여_${selectedMonth}` });
+                  toast.success("엑셀 다운로드가 완료되었습니다.");
+                }}
               >
                 <Download size={16} />내보내기
               </button>
@@ -266,8 +319,22 @@ export default function Payroll() {
           data={filtered}
           selectable={true}
           pagination={{ page: 1, pageSize: 10, total: filtered.length }}
-          onDownloadExcel={() => alert("급여 데이터 엑셀 다운로드")}
-          emptyMessage="해당 조건의 급여 데이터가 없습니다."
+          onDownloadExcel={() => {
+            const exportColumns = [
+              { key: 'name', header: '직원명' },
+              { key: 'role', header: '역할' },
+              { key: 'baseSalary', header: '기본급' },
+              { key: 'incentive', header: '인센티브' },
+              { key: 'deduction', header: '공제' },
+              { key: 'netPay', header: '실지급액' },
+              { key: 'status', header: '지급상태' },
+            ];
+            const statusLabel: Record<string, string> = { paid: '지급완료', pending: '미지급', hold: '보류' };
+            const exportData = filtered.map(r => ({ ...r, status: statusLabel[r.status] ?? r.status }));
+            exportToExcel(exportData as unknown as Record<string, unknown>[], exportColumns, { filename: `급여_${selectedMonth}` });
+            toast.success("엑셀 다운로드가 완료되었습니다.");
+          }}
+          emptyMessage={isLoadingData ? "데이터를 불러오는 중..." : "해당 조건의 급여 데이터가 없습니다."}
         />
 
         {/* UI-100 합계 행 */}
@@ -323,7 +390,7 @@ export default function Payroll() {
           </div>
           <button
             className="px-lg py-sm bg-primary text-white rounded-button text-Label font-semibold hover:opacity-90 transition-all whitespace-nowrap"
-            onClick={() => moveToPage(977)}
+            onClick={() => moveToPage(989)}
           >
             명세서 바로가기
           </button>

@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import {
   Plus,
   Settings,
@@ -10,6 +10,7 @@ import {
   Users,
   Clock,
   LayoutGrid,
+  Loader2,
 } from "lucide-react";
 import AppLayout from "@/components/AppLayout";
 import PageHeader from "@/components/PageHeader";
@@ -18,6 +19,8 @@ import StatCard from "@/components/StatCard";
 import StatusBadge from "@/components/StatusBadge";
 import ConfirmDialog from "@/components/ConfirmDialog";
 import { cn } from "@/lib/utils";
+import { supabase } from "@/lib/supabase";
+import { toast } from "sonner";
 
 /**
  * SCR-053: 운동룸 관리
@@ -27,7 +30,7 @@ import { cn } from "@/lib/utils";
  */
 
 type RoomType   = "GX" | "PT" | "스피닝" | "필라테스" | "기타";
-type RoomStatus = "운영중" | "점검중" | "미사용";
+type RoomStatus = "운영중" | "점검중" | "고장" | "미사용";
 
 interface Room {
   id: number;
@@ -102,9 +105,10 @@ const ROOM_TYPE_STYLES: Record<RoomType, string> = {
   기타:   "bg-surface-tertiary text-content-secondary border-line",
 };
 
-const STATUS_VARIANT: Record<RoomStatus, "success" | "error" | "default"> = {
+const STATUS_VARIANT: Record<RoomStatus, "success" | "error" | "warning" | "default"> = {
   운영중: "success",
-  점검중: "error",
+  점검중: "warning",
+  고장:   "error",
   미사용: "default",
 };
 
@@ -158,12 +162,16 @@ const RoomCard = ({
 }) => (
   <div className={cn(
     "bg-surface rounded-xl border shadow-xs overflow-hidden transition-all hover:shadow-md",
-    room.status === "점검중" ? "border-state-error/20 opacity-80" : "border-line"
+    room.status === "고장"   ? "border-state-error/40 bg-state-error/5" :
+    room.status === "점검중" ? "border-amber-300/40 opacity-80" :
+    "border-line"
   )}>
     {/* 카드 헤더 */}
     <div className={cn(
       "px-lg py-md border-b",
-      room.status === "운영중" ? "border-line bg-surface" : "border-state-error/10 bg-state-error/5"
+      room.status === "운영중" ? "border-line bg-surface" :
+      room.status === "고장"   ? "border-state-error/20 bg-state-error/10" :
+      "border-amber-200/40 bg-amber-50/50"
     )}>
       <div className="flex items-start justify-between">
         <div className="flex-1">
@@ -380,6 +388,56 @@ const RoomModal = ({
   );
 };
 
+// --- settings 저장/불러오기 헬퍼 ---
+const SETTINGS_KEY = "room_management";
+function getBranchId() { return localStorage.getItem("branchId") || "1"; }
+function getStorageKey() { return `settings_${getBranchId()}_${SETTINGS_KEY}`; }
+
+async function loadRoomSettings(): Promise<Room[] | null> {
+  try {
+    // Supabase 우선 시도
+    const { data: row } = await supabase
+      .from("settings")
+      .select("value")
+      .eq("branchId", getBranchId())
+      .eq("key", SETTINGS_KEY)
+      .single();
+    if (row?.value) {
+      const parsed = JSON.parse(row.value);
+      if (Array.isArray(parsed)) return parsed;
+    }
+  } catch {
+    // Supabase 실패 시 localStorage fallback
+  }
+  const saved = localStorage.getItem(getStorageKey());
+  if (saved) {
+    try {
+      const parsed = JSON.parse(saved);
+      if (Array.isArray(parsed)) return parsed;
+    } catch {}
+  }
+  return null;
+}
+
+async function saveRoomSettings(rooms: Room[]): Promise<boolean> {
+  const jsonValue = JSON.stringify(rooms);
+  // localStorage에 항상 저장 (fallback)
+  localStorage.setItem(getStorageKey(), jsonValue);
+  try {
+    const { error } = await supabase.from("settings").upsert({
+      branchId: getBranchId(),
+      key: SETTINGS_KEY,
+      value: jsonValue,
+      updatedAt: new Date().toISOString(),
+    }, { onConflict: "branchId,key" });
+    if (error) throw error;
+    return true;
+  } catch {
+    // Supabase 실패해도 localStorage에는 저장됨
+    return false;
+  }
+}
+
 export default function RoomManagement() {
   const [rooms,         setRooms]         = useState<Room[]>(INITIAL_ROOMS);
   const [activeTab,     setActiveTab]     = useState("cards");
@@ -387,14 +445,32 @@ export default function RoomManagement() {
   const [isDeleteOpen,  setDeleteOpen]    = useState(false);
   const [selectedRoom,  setSelectedRoom]  = useState<Room | null>(null);
   const [filterType,    setFilterType]    = useState<RoomType | "">("");
+  const [loading,       setLoading]       = useState(true);
+
+  // 초기 로딩: settings에서 데이터 조회
+  useEffect(() => {
+    (async () => {
+      setLoading(true);
+      const saved = await loadRoomSettings();
+      if (saved) setRooms(saved);
+      setLoading(false);
+    })();
+  }, []);
+
+  // 룸 데이터 변경 시 자동 저장 (로딩 완료 후)
+  const persistRooms = useCallback(async (newRooms: Room[]) => {
+    const ok = await saveRoomSettings(newRooms);
+    if (!ok) toast.error("저장에 실패했습니다. 로컬에 임시 저장되었습니다.");
+  }, []);
 
   const filteredRooms = filterType ? rooms.filter(r => r.type === filterType) : rooms;
   const gxRooms = filteredRooms.filter(r => r.type === "GX");
   const ptRooms = filteredRooms.filter(r => r.type === "PT");
 
   const handleSave = (data: { name: string; type: RoomType; capacity: number; description: string }) => {
+    let newRooms: Room[];
     if (selectedRoom) {
-      setRooms(prev => prev.map(r => r.id === selectedRoom.id ? { ...r, ...data } : r));
+      newRooms = rooms.map(r => r.id === selectedRoom.id ? { ...r, ...data } : r);
     } else {
       const newRoom: Room = {
         id: Math.max(...rooms.map(r => r.id), 0) + 1,
@@ -403,20 +479,29 @@ export default function RoomManagement() {
         gate: "-",
         slots: [],
       };
-      setRooms(prev => [...prev, newRoom]);
+      newRooms = [...rooms, newRoom];
     }
+    setRooms(newRooms);
+    persistRooms(newRooms);
+    toast.success(selectedRoom ? "운동룸이 수정되었습니다." : "운동룸이 등록되었습니다.");
   };
 
   const handleToggle = (id: number) => {
-    setRooms(prev => prev.map(r =>
-      r.id === id
-        ? { ...r, status: r.status === "운영중" ? "점검중" : "운영중" as RoomStatus }
-        : r
-    ));
+    const nextStatus = (s: RoomStatus): RoomStatus =>
+      s === "운영중" ? "점검중" : s === "점검중" ? "고장" : "운영중";
+    const newRooms = rooms.map(r =>
+      r.id === id ? { ...r, status: nextStatus(r.status) } : r
+    );
+    setRooms(newRooms);
+    persistRooms(newRooms);
   };
 
   const handleDelete = () => {
-    if (selectedRoom) setRooms(prev => prev.filter(r => r.id !== selectedRoom.id));
+    if (!selectedRoom) return;
+    const newRooms = rooms.filter(r => r.id !== selectedRoom.id);
+    setRooms(newRooms);
+    persistRooms(newRooms);
+    toast.success("운동룸이 삭제되었습니다.");
     setDeleteOpen(false);
     setSelectedRoom(null);
   };
@@ -432,6 +517,23 @@ export default function RoomManagement() {
     capacityLabel: `${r.capacity}명`,
     typeLabel:     r.type,
   }));
+
+  // 로딩 중 스켈레톤
+  if (loading) {
+    return (
+      <AppLayout>
+        <div className="flex flex-col gap-xl animate-pulse">
+          <div className="h-20 bg-surface rounded-xl border border-line" />
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-md">
+            {[1,2,3,4].map(i => <div key={i} className="h-24 bg-surface rounded-xl border border-line" />)}
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-lg">
+            {[1,2].map(i => <div key={i} className="h-64 bg-surface rounded-xl border border-line" />)}
+          </div>
+        </div>
+      </AppLayout>
+    );
+  }
 
   return (
     <AppLayout>
@@ -454,7 +556,7 @@ export default function RoomManagement() {
         <div className="grid grid-cols-2 md:grid-cols-4 gap-md">
           <StatCard label="전체 운동룸"   value={rooms.length}                           icon={<Grid />} />
           <StatCard label="운영 중"       value={rooms.filter(r => r.status === "운영중").length} icon={<CheckCircle2 />} variant="mint" />
-          <StatCard label="점검/미사용"   value={rooms.filter(r => r.status !== "운영중").length} icon={<XCircle />}     variant="peach" />
+          <StatCard label="점검/고장/미사용" value={rooms.filter(r => r.status !== "운영중").length} icon={<XCircle />} variant="peach" />
           <StatCard label="GX룸 / PT룸"  value={`${rooms.filter(r => r.type === "GX").length} / ${rooms.filter(r => r.type === "PT").length}`} icon={<Users />} />
         </div>
 

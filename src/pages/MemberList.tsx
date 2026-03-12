@@ -11,6 +11,7 @@ import {
   Clock,
   AlertTriangle,
 } from 'lucide-react';
+import { toast } from 'sonner';
 import AppLayout from '@/components/AppLayout';
 import PageHeader from '@/components/PageHeader';
 import StatCard from '@/components/StatCard';
@@ -18,50 +19,46 @@ import TabNav from '@/components/TabNav';
 import SearchFilter from '@/components/SearchFilter';
 import DataTable from '@/components/DataTable';
 import StatusBadge from '@/components/StatusBadge';
+import type { BadgeVariant } from '@/components/StatusBadge';
 import { cn } from '@/lib/utils';
 import { moveToPage } from '@/internal';
-
-const MOCK_STATS = [
-  { label: '전체 회원', value: '1,284', icon: <Users size={20} />, change: { value: 12, label: '지난달 대비' }, variant: 'default' as const },
-  { label: '활성 회원', value: '942', icon: <UserCheck size={20} />, change: { value: 5, label: '지난달 대비' }, variant: 'mint' as const },
-  { label: '임박 회원', value: '48', icon: <Clock size={20} />, change: { value: -2, label: '지난달 대비' }, variant: 'peach' as const },
-  { label: '미등록/만료', value: '294', icon: <AlertTriangle size={20} />, change: { value: 8, label: '지난달 대비' }, variant: 'default' as const },
-];
+import { useMembers, useMemberStats } from '@/api/hooks/useMembers';
+import type { Member } from '@/api/endpoints/members';
+import { exportToExcel } from '@/lib/exportExcel';
+import { supabase } from '@/lib/supabase';
 
 const MAIN_TABS = [
-  { key: 'members', label: '회원 목록', count: 1284 },
-  { key: 'pass', label: '회원권 목록' },
-  { key: 'lesson', label: '수강권 목록' },
-  { key: 'locker', label: '락커 목록' },
-  { key: 'uniform', label: '운동복 목록' },
-  { key: 'product', label: '상품별 회원조회' },
+  { key: 'members', label: '회원 전체' },
+  { key: 'product', label: '보유상품별' },
+  { key: 'pass', label: '이용권 목록' },
 ];
 
 const STATUS_TABS = [
-  { key: 'all', label: '전체', count: 1284 },
-  { key: 'active', label: '활성', count: 942 },
-  { key: 'expired', label: '만료', count: 250 },
-  { key: 'pending', label: '예정', count: 42 },
-  { key: 'imminent', label: '임박', count: 48 },
-  { key: 'holding', label: '홀딩', count: 15 },
-  { key: 'unregistered', label: '미등록', count: 12 },
-];
-
-const MOCK_MEMBERS = [
-  { id: 1, name: '김철수', gender: '남', birthDate: '1990-05-15', age: 34, phone: '010-1234-5678', status: 'active', statusLabel: '활성', tickets: [{ name: 'PT 20회', status: '사용중', expiry: '2026-12-31' }], rental: '락커(102호)', subscription: '프리미엄 플랜', lockerNo: '102', finalExpiryDate: '2026-12-31', remainingDays: 315, lastVisit: '2026-02-18', lastContract: '2026-01-05', firstRegDate: '2025-01-10', manager: '이지원', attendanceNo: '5678', company: '블루프린트소프트' },
-  { id: 2, name: '이영희', gender: '여', birthDate: '1988-11-20', age: 36, phone: '010-9876-5432', status: 'imminent', statusLabel: '임박', tickets: [{ name: '헬스 3개월', status: '임박', expiry: '2026-02-28' }], rental: '운동복', subscription: '-', lockerNo: '-', finalExpiryDate: '2026-02-28', remainingDays: 9, lastVisit: '2026-02-19', lastContract: '2025-11-28', firstRegDate: '2025-05-20', manager: '김민수', attendanceNo: '5432', company: '-' },
-  { id: 3, name: '박지성', gender: '남', birthDate: '1992-03-10', age: 32, phone: '010-5555-4444', status: 'expired', statusLabel: '만료', tickets: [{ name: '요가 10회', status: '만료', expiry: '2026-01-15' }], rental: '-', subscription: '-', lockerNo: '45', finalExpiryDate: '2026-01-15', remainingDays: -35, lastVisit: '2026-01-10', lastContract: '2025-10-15', firstRegDate: '2024-10-15', manager: '최유리', attendanceNo: '4444', company: 'JS스포츠' },
-  { id: 4, name: '정수연', gender: '여', birthDate: '1995-07-22', age: 29, phone: '010-1111-2222', status: 'holding', statusLabel: '홀딩', tickets: [{ name: '필라테스 30회', status: '정지', expiry: '2026-08-20' }], rental: '-', subscription: '-', lockerNo: '-', finalExpiryDate: '2026-08-20', remainingDays: 182, lastVisit: '2026-02-01', lastContract: '2026-01-20', firstRegDate: '2026-01-20', manager: '이지원', attendanceNo: '2222', company: '-' },
-  { id: 5, name: '한상우', gender: '남', birthDate: '1985-02-14', age: 39, phone: '010-3333-7777', status: 'pending', statusLabel: '예정', tickets: [{ name: '헬스 12개월', status: '대기', expiry: '2027-03-01' }], rental: '락커(205호)', subscription: '베이직 플랜', lockerNo: '205', finalExpiryDate: '2027-03-01', remainingDays: 375, lastVisit: '-', lastContract: '2026-02-15', firstRegDate: '2026-02-15', manager: '김민수', attendanceNo: '7777', company: '테크윈' },
+  { key: 'all', label: '전체' },
+  { key: 'ACTIVE', label: '활성' },
+  { key: 'EXPIRED', label: '만료' },
+  { key: 'INACTIVE', label: '미등록' },
+  { key: 'HOLDING', label: '홀딩' },
+  { key: 'SUSPENDED', label: '정지' },
 ];
 
 const FILTER_CONFIG = [
-  { key: 'memberType', label: '회원구분', type: 'select' as const, options: [{ value: 'all', label: '전체' }, { value: 'active', label: '유효회원' }, { value: 'expired', label: '만료' }, { value: 'holding', label: '기간정지' }, { value: 'pending', label: '사용대기' }] },
   { key: 'product', label: '계약상품', type: 'select' as const, options: [{ value: 'all', label: '전체' }, { value: 'pt', label: 'PT' }, { value: 'health', label: '헬스' }, { value: 'yoga', label: '요가' }, { value: 'pilates', label: '필라테스' }] },
+  { key: 'gender', label: '성별', type: 'select' as const, options: [{ value: 'all', label: '전체' }, { value: 'male', label: '남' }, { value: 'female', label: '여' }] },
   { key: 'expiryDate', label: '최종만료일', type: 'dateRange' as const },
   { key: 'visitDate', label: '최근방문일', type: 'dateRange' as const },
-  { key: 'gender', label: '성별', type: 'select' as const, options: [{ value: 'all', label: '전체' }, { value: 'male', label: '남' }, { value: 'female', label: '여' }] },
 ];
+
+/** DB status → 표시 레이블 */
+const STATUS_LABEL: Record<string, string> = {
+  ACTIVE: '활성', INACTIVE: '미등록', EXPIRED: '만료',
+  HOLDING: '홀딩', SUSPENDED: '정지',
+};
+/** DB status → badge variant */
+const STATUS_VARIANT: Record<string, BadgeVariant> = {
+  ACTIVE: 'success', EXPIRED: 'error', HOLDING: 'default',
+  INACTIVE: 'default', SUSPENDED: 'warning',
+};
 
 export default function MemberList() {
   const [activeMainTab, setActiveMainTab] = useState('members');
@@ -75,6 +72,22 @@ export default function MemberList() {
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(20);
 
+  // API 훅 (필터/정렬 파라미터 모두 전달)
+  const membersQuery = useMembers({
+    page: currentPage,
+    size: pageSize,
+    search: debouncedSearch || undefined,
+    status: activeStatusTab !== 'all' ? activeStatusTab : undefined,
+    gender: filterValues.gender || undefined,
+    sortKey: sortKey || undefined,
+    sortDirection: sortKey ? sortDirection : undefined,
+  });
+  const statsQuery = useMemberStats();
+
+  const members = membersQuery.data?.data?.data ?? [];
+  const pagination = membersQuery.data?.data?.pagination;
+  const stats = statsQuery.data?.data;
+
   const debounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => {
     if (debounceTimer.current) clearTimeout(debounceTimer.current);
@@ -85,89 +98,127 @@ export default function MemberList() {
   const columns = useMemo(() => [
     {
       key: 'status', header: '상태', width: 90, align: 'center' as const,
-      render: (_: any, row: any) => {
-        const v: Record<string, any> = { active: 'success', expired: 'error', imminent: 'warning', pending: 'info', holding: 'default' };
-        return <StatusBadge label={row.statusLabel} variant={v[row.status] || 'default'} dot />;
-      },
+      render: (_: unknown, row: Member) => (
+        <StatusBadge label={STATUS_LABEL[row.status] ?? row.status} variant={STATUS_VARIANT[row.status] ?? 'default'} dot />
+      ),
     },
     {
       key: 'name', header: '회원명', width: 110,
-      render: (value: any) => (
-        <button className="text-primary font-medium hover:underline transition-all text-[13px]" onClick={() => moveToPage(985)}>{value}</button>
+      render: (value: unknown, row: Member) => (
+        <button className="text-primary font-medium hover:underline transition-all text-[13px]" onClick={() => moveToPage(985, { id: row.id })}>{String(value)}</button>
       ),
     },
-    { key: 'gender', header: '성별', width: 60, align: 'center' as const },
-    { key: 'age', header: '나이', width: 60, align: 'center' as const, sortable: true, render: (v: any) => <span className="tabular-nums">{v}</span> },
-    { key: 'phone', header: '연락처', width: 130, render: (v: any) => <span className="tabular-nums">{v}</span> },
     {
-      key: 'tickets', header: '보유 이용권', width: 180,
-      render: (value: any) => (
-        <div className="space-y-[2px]">
-          {value.map((t: any, idx: number) => (
-            <div className="text-[12px]" key={idx}>
-              <span className="font-medium text-content">{t.name}</span>
-              <span className="text-content-secondary ml-1">({t.status})</span>
-            </div>
-          ))}
-        </div>
-      ),
+      key: 'gender', header: '성별', width: 60, align: 'center' as const,
+      render: (v: unknown) => v === 'M' ? '남' : v === 'F' ? '여' : '-',
     },
-    { key: 'lockerNo', header: '락커', width: 60, align: 'center' as const, render: (v: any) => <span className="tabular-nums">{v}</span> },
-    { key: 'finalExpiryDate', header: '최종만료일', width: 110, sortable: true, render: (v: any) => <span className="tabular-nums">{v}</span> },
+    { key: 'birthDate', header: '생년월일', width: 110, render: (v: unknown) => <span className="tabular-nums">{v ? String(v).slice(0, 10) : '-'}</span> },
+    { key: 'phone', header: '연락처', width: 130, render: (v: unknown) => <span className="tabular-nums">{String(v)}</span> },
+    { key: 'membershipType', header: '이용권', width: 120, render: (v: unknown) => {
+      const map: Record<string, string> = { MEMBERSHIP: '이용권', PT: 'PT', GX: 'GX', ETC: '기타', '이용권': '이용권', '기타': '기타' };
+      return map[String(v)] ?? String(v);
+    }},
     {
-      key: 'remainingDays', header: '남은 일수', width: 90, align: 'right' as const, sortable: true,
-      render: (value: any) => (
-        <span className={cn("tabular-nums font-semibold text-[12px]", value < 10 ? 'text-state-error' : 'text-content-secondary')}>
-          {value > 0 ? `D-${value}` : value === 0 ? 'D-Day' : `만료 ${Math.abs(value)}일`}
-        </span>
-      ),
+      key: 'membershipExpiry', header: '만료일', width: 110, sortable: true,
+      render: (v: unknown) => <span className="tabular-nums">{v ? String(v).slice(0, 10) : '-'}</span>,
     },
-    { key: 'lastVisit', header: '최근방문일', width: 110, sortable: true, render: (v: any) => <span className="tabular-nums">{v}</span> },
-    { key: 'manager', header: '담당자', width: 80 },
-    { key: 'company', header: '회사명', width: 120 },
+    {
+      key: 'registeredAt', header: '등록일', width: 110, sortable: true,
+      render: (v: unknown) => <span className="tabular-nums">{v ? String(v).slice(0, 10) : '-'}</span>,
+    },
   ], []);
 
   const handleSort = (key: string, direction: 'asc' | 'desc') => { setSortKey(key); setSortDirection(direction); setCurrentPage(1); };
 
   const handleExcelDownload = () => {
-    alert(`현재 조회된 ${filteredData.length}건의 데이터를 엑셀로 다운로드합니다.`);
+    const exportColumns = [
+      { key: 'status', header: '상태' },
+      { key: 'name', header: '회원명' },
+      { key: 'gender', header: '성별' },
+      { key: 'birthDate', header: '생년월일' },
+      { key: 'phone', header: '연락처' },
+      { key: 'membershipType', header: '이용권' },
+      { key: 'membershipExpiry', header: '만료일' },
+      { key: 'registeredAt', header: '등록일' },
+    ];
+    exportToExcel(members as unknown as Record<string, unknown>[], exportColumns, { filename: '회원목록' });
+    toast.success(`${members.length}건 엑셀 다운로드 완료`);
   };
 
-  const filteredData = useMemo(() => {
-    let result = MOCK_MEMBERS.filter(item => {
-      if (activeStatusTab !== 'all' && item.status !== activeStatusTab) return false;
-      if (debouncedSearch) {
-        const s = debouncedSearch.toLowerCase();
-        if (!item.name.toLowerCase().includes(s) && !item.phone.replace(/-/g, '').includes(s.replace(/-/g, ''))) return false;
-      }
-      if (filterValues.memberType && filterValues.memberType !== 'all' && item.status !== filterValues.memberType) return false;
-      if (filterValues.product && filterValues.product !== 'all' && !item.tickets.some(t => t.name.toLowerCase().includes(filterValues.product.toLowerCase()))) return false;
-      if (filterValues.gender && filterValues.gender !== 'all') {
-        const m: Record<string, string> = { male: '남', female: '여' };
-        if (item.gender !== m[filterValues.gender]) return false;
-      }
-      return true;
-    });
-    if (sortKey) {
-      result = [...result].sort((a, b) => {
-        const aVal = a[sortKey as keyof typeof a]; const bVal = b[sortKey as keyof typeof b];
-        if (aVal == null) return 1; if (bVal == null) return -1;
-        const cmp = aVal < bVal ? -1 : aVal > bVal ? 1 : 0;
-        return sortDirection === 'asc' ? cmp : -cmp;
-      });
+  // 서버사이드 정렬 적용 — 클라이언트 정렬 불필요
+
+  const getBranchId = () => localStorage.getItem('branchId') || '1';
+
+  /** 일괄 액션: 상태 변경 */
+  const handleStatusChange = async () => {
+    if (selectedRows.size === 0) { toast.warning('회원을 먼저 선택해주세요.'); return; }
+    // 간단한 상태 선택: prompt 사용 (추후 모달로 교체 가능)
+    const statusOptions = '활성(ACTIVE), 만료(EXPIRED), 홀딩(HOLDING), 정지(SUSPENDED), 미등록(INACTIVE)';
+    const input = window.prompt(`변경할 상태를 입력하세요.\n${statusOptions}`, 'ACTIVE');
+    if (!input) return;
+    const validStatuses = ['ACTIVE', 'EXPIRED', 'HOLDING', 'SUSPENDED', 'INACTIVE'];
+    const newStatus = input.toUpperCase();
+    if (!validStatuses.includes(newStatus)) {
+      toast.error('올바른 상태값을 입력해주세요: ' + validStatuses.join(', '));
+      return;
     }
-    return result;
-  }, [activeStatusTab, debouncedSearch, filterValues, sortKey, sortDirection]);
+    const ids = Array.from(selectedRows).map(idx => members[idx]?.id).filter(Boolean);
+    const { error } = await supabase
+      .from('members')
+      .update({ status: newStatus })
+      .in('id', ids);
+    if (error) {
+      toast.error('상태 변경에 실패했습니다.');
+    } else {
+      toast.success(`${ids.length}명의 상태를 ${newStatus}로 변경했습니다.`);
+      setSelectedRows(new Set());
+      membersQuery.refetch();
+      statsQuery.refetch();
+    }
+  };
 
-  const pagedData = useMemo(() => {
-    const start = (currentPage - 1) * pageSize;
-    return filteredData.slice(start, start + pageSize);
-  }, [filteredData, currentPage, pageSize]);
+  /** 일괄 액션: 메시지 발송 페이지로 이동 */
+  const handleSendMessage = () => {
+    if (selectedRows.size === 0) { toast.warning('회원을 먼저 선택해주세요.'); return; }
+    moveToPage(980);
+  };
 
+  /** 일괄 액션: 출석 처리 */
+  const handleBulkAttendance = async () => {
+    if (selectedRows.size === 0) { toast.warning('회원을 먼저 선택해주세요.'); return; }
+    const ids = Array.from(selectedRows).map(idx => members[idx]).filter(Boolean);
+    const records = ids.map(m => ({
+      memberId: m.id,
+      memberName: m.name,
+      checkInAt: new Date().toISOString(),
+      type: 'MANUAL' as const,
+      checkInMethod: 'MANUAL' as const,
+      branchId: Number(getBranchId()),
+    }));
+    const { error } = await supabase.from('attendance').insert(records);
+    if (error) {
+      toast.error('출석 처리에 실패했습니다.');
+    } else {
+      toast.success(`${ids.length}명의 출석이 처리되었습니다.`);
+      setSelectedRows(new Set());
+    }
+  };
+
+  /** 일괄 액션: 관심회원 토글 */
+  const handleToggleVip = () => {
+    if (selectedRows.size === 0) { toast.warning('회원을 먼저 선택해주세요.'); return; }
+    toast.info('관심회원 기능은 추후 지원 예정입니다. (isVip 필드 필요)');
+  };
+
+  /** 일괄 액션 분기 */
   const handleAction = (type: string) => {
-    if (selectedRows.size === 0) { alert('회원을 먼저 선택해주세요.'); return; }
-    const names = Array.from(selectedRows).map(idx => filteredData[idx]?.name).filter(Boolean).join(', ');
-    alert(`${names} - ${type} 처리를 진행합니다.`);
+    switch (type) {
+      case '상태 변경': handleStatusChange(); break;
+      case '전송하기': handleSendMessage(); break;
+      case '출석 처리': handleBulkAttendance(); break;
+      case '관심회원': handleToggleVip(); break;
+      default: toast.info(`${type} 기능은 준비 중입니다.`);
+    }
   };
 
   return (
@@ -189,7 +240,10 @@ export default function MemberList() {
 
       {/* 통계 */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-md mb-lg">
-        {MOCK_STATS.map((stat, idx) => <StatCard key={idx} {...stat} />)}
+        <StatCard label="전체 회원" value={stats?.total?.toLocaleString() ?? '-'} icon={<Users size={20} />} variant="default" />
+        <StatCard label="활성 회원" value={stats?.active?.toLocaleString() ?? '-'} icon={<UserCheck size={20} />} variant="mint" />
+        <StatCard label="이번달 신규" value={stats?.newThisMonth?.toLocaleString() ?? '-'} icon={<Clock size={20} />} variant="peach" />
+        <StatCard label="이번달 만료" value={stats?.expiredThisMonth?.toLocaleString() ?? '-'} icon={<AlertTriangle size={20} />} variant="default" />
       </div>
 
       {/* 메인 탭 */}
@@ -216,7 +270,12 @@ export default function MemberList() {
                   "text-[10px] px-[6px] py-px rounded-full font-semibold tabular-nums",
                   activeStatusTab === tab.key ? 'bg-primary text-white' : 'bg-surface-tertiary text-content-secondary'
                 )}>
-                  {tab.count}
+                  {tab.key === 'all' ? (stats?.total ?? '') :
+                   tab.key === 'ACTIVE' ? (stats?.active ?? '') :
+                   tab.key === 'EXPIRED' ? (stats?.expired ?? '') :
+                   tab.key === 'INACTIVE' ? (stats?.inactive ?? '') :
+                   tab.key === 'HOLDING' ? (stats?.holding ?? '') :
+                   tab.key === 'SUSPENDED' ? (stats?.suspended ?? '') : ''}
                 </span>
                 {activeStatusTab === tab.key && <div className="absolute bottom-0 left-0 right-0 h-[2px] bg-primary rounded-t-full" />}
               </button>
@@ -265,16 +324,16 @@ export default function MemberList() {
         {/* 테이블 */}
         <DataTable
           columns={columns}
-          data={pagedData}
+          data={members}
           selectable
           selectedRows={selectedRows}
           onSelectRows={setSelectedRows}
           onSort={handleSort}
           sortConfig={sortKey ? { key: sortKey, direction: sortDirection } : undefined}
-          pagination={{ page: currentPage, pageSize, total: filteredData.length, pageSizeOptions: [20, 50, 100] }}
+          pagination={{ page: currentPage, pageSize, total: pagination?.total ?? 0, pageSizeOptions: [20, 50, 100] }}
           onPageChange={setCurrentPage}
-          onPageSizeChange={(size) => { setPageSize(size); setCurrentPage(1); }}
-          emptyMessage={debouncedSearch ? "검색 결과가 없습니다." : "등록된 회원이 없습니다."}
+          onPageSizeChange={(s) => { setPageSize(s); setCurrentPage(1); }}
+          emptyMessage={membersQuery.isLoading ? "불러오는 중..." : debouncedSearch ? "검색 결과가 없습니다." : "등록된 회원이 없습니다."}
         />
       </div>
     </AppLayout>

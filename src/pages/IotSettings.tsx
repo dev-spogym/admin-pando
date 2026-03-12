@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import {
   DoorOpen,
   Cpu,
@@ -28,6 +28,9 @@ import FormSection from "@/components/FormSection";
 import ConfirmDialog from "@/components/ConfirmDialog";
 import { moveToPage } from "@/internal";
 import { cn } from "@/lib/utils";
+import { toast } from "sonner";
+import { supabase } from "@/lib/supabase";
+import { exportToExcel } from "@/lib/exportExcel";
 
 type DeviceType = "출입문" | "체성분" | "키오스크" | "RFID" | "카메라";
 type DeviceStatus = "온라인" | "오프라인" | "오류";
@@ -49,7 +52,7 @@ interface TestResult {
   status: "loading" | "success" | "fail";
 }
 
-const MOCK_DEVICES: IotDevice[] = [
+const INITIAL_DEVICES: IotDevice[] = [
   { id: 1, name: "메인 출입구 RFID", type: "출입문", ip: "192.168.0.101", port: 8080, serial: "SN-99201-01", firmware: "v2.1.0", status: "온라인", lastComm: "2026-03-11 14:20" },
   { id: 2, name: "InBody 체성분 분석기", type: "체성분", ip: "192.168.0.110", port: 9090, serial: "SN-IB-045", firmware: "v3.2.1", status: "온라인", lastComm: "2026-03-11 13:55" },
   { id: 3, name: "로비 키오스크", type: "키오스크", ip: "192.168.0.120", port: 8443, serial: "SN-KS-012", firmware: "v1.8.3", status: "오프라인", lastComm: "2026-03-10 22:10" },
@@ -71,19 +74,104 @@ const tabs = [
   { key: "rule", label: "출입 규칙", icon: Settings2 },
 ];
 
+// --- settings 저장/불러오기 헬퍼 ---
+const IOT_SETTINGS_KEY = "iot_settings";
+function getBranchId() { return localStorage.getItem("branchId") || "1"; }
+function getIotStorageKey() { return `settings_${getBranchId()}_${IOT_SETTINGS_KEY}`; }
+
+interface IotSettingsData {
+  devices: IotDevice[];
+  accessRules?: {
+    gate: string;
+    days: string[];
+    startTime: string;
+    endTime: string;
+  }[];
+}
+
+async function loadIotSettings(): Promise<IotSettingsData | null> {
+  try {
+    const { data: row } = await supabase
+      .from("settings")
+      .select("value")
+      .eq("branchId", getBranchId())
+      .eq("key", IOT_SETTINGS_KEY)
+      .single();
+    if (row?.value) {
+      const parsed = JSON.parse(row.value);
+      if (parsed?.devices) return parsed;
+    }
+  } catch (err) {
+    console.error('IoT 설정 로드 실패:', err);
+  }
+  const saved = localStorage.getItem(getIotStorageKey());
+  if (saved) {
+    try {
+      const parsed = JSON.parse(saved);
+      if (parsed?.devices) return parsed;
+    } catch {}
+  }
+  return null;
+}
+
+async function saveIotSettings(data: IotSettingsData): Promise<boolean> {
+  const jsonValue = JSON.stringify(data);
+  localStorage.setItem(getIotStorageKey(), jsonValue);
+  try {
+    const { error } = await supabase.from("settings").upsert({
+      branchId: getBranchId(),
+      key: IOT_SETTINGS_KEY,
+      value: jsonValue,
+      updatedAt: new Date().toISOString(),
+    }, { onConflict: "branchId,key" });
+    if (error) throw error;
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 export default function IotSettings() {
   const [activeTab, setActiveTab] = useState("iot");
-  const [devices, setDevices] = useState<IotDevice[]>(MOCK_DEVICES);
+  const [devices, setDevices] = useState<IotDevice[]>(INITIAL_DEVICES);
   const [testResults, setTestResults] = useState<Record<number, TestResult>>({});
   const [isAddDeviceOpen, setIsAddDeviceOpen] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [confirmConfig, setConfirmConfig] = useState<{
     title: string; description: string; variant?: "default" | "danger"; onConfirm: () => void;
   }>({ title: "", description: "", onConfirm: () => {} });
+  const [loading, setLoading] = useState(true);
+
+  // 출입 규칙 상태
+  const [accessRules, setAccessRules] = useState<{
+    gate: string; days: string[]; startTime: string; endTime: string;
+  }[]>([{ gate: "메인 출입구", days: ["월","화","수","목","금","토","일"], startTime: "06:00", endTime: "23:00" }]);
 
   const [newDevice, setNewDevice] = useState({
     name: "", type: "출입문" as DeviceType, ip: "", port: 8080,
   });
+
+  // 초기 로딩
+  useEffect(() => {
+    (async () => {
+      setLoading(true);
+      const saved = await loadIotSettings();
+      if (saved) {
+        setDevices(saved.devices);
+        if (saved.accessRules) setAccessRules(saved.accessRules);
+      }
+      setLoading(false);
+    })();
+  }, []);
+
+  // 저장 헬퍼
+  const persistIot = useCallback(async (newDevices: IotDevice[], newRules?: typeof accessRules) => {
+    const ok = await saveIotSettings({
+      devices: newDevices,
+      accessRules: newRules ?? accessRules,
+    });
+    if (!ok) toast.error("저장에 실패했습니다. 로컬에 임시 저장되었습니다.");
+  }, [accessRules]);
 
   const handleRemoteOpen = (gateName: string) => {
     setConfirmConfig({
@@ -91,7 +179,7 @@ export default function IotSettings() {
       description: `"${gateName}" 게이트를 원격으로 개방하시겠습니까?`,
       onConfirm: () => {
         setConfirmOpen(false);
-        setTimeout(() => alert(`${gateName} 게이트가 개방되었습니다.`), 400);
+        setTimeout(() => toast.success(`${gateName} 게이트가 개방되었습니다.`), 400);
       },
     });
     setConfirmOpen(true);
@@ -118,7 +206,10 @@ export default function IotSettings() {
       description: `"${device.name}" 기기를 삭제하시겠습니까?\n이 작업은 되돌릴 수 없습니다.`,
       variant: "danger",
       onConfirm: () => {
-        setDevices(prev => prev.filter(d => d.id !== device.id));
+        const newDevices = devices.filter(d => d.id !== device.id);
+        setDevices(newDevices);
+        persistIot(newDevices);
+        toast.success("기기가 삭제되었습니다.");
         setConfirmOpen(false);
       },
     });
@@ -138,7 +229,10 @@ export default function IotSettings() {
       status: "오프라인",
       lastComm: "-",
     };
-    setDevices(prev => [...prev, d]);
+    const newDevices = [...devices, d];
+    setDevices(newDevices);
+    persistIot(newDevices);
+    toast.success("기기가 등록되었습니다.");
     setIsAddDeviceOpen(false);
     setNewDevice({ name: "", type: "출입문", ip: "", port: 8080 });
   };
@@ -250,6 +344,7 @@ export default function IotSettings() {
                 <button
                   className="p-sm text-content-secondary hover:text-primary transition-colors"
                   title="수정"
+                  onClick={() => toast.info(`"${device.name}" 기기 수정 기능 준비 중입니다.`)}
                 >
                   <Edit2 size={16} />
                 </button>
@@ -291,7 +386,11 @@ export default function IotSettings() {
         key: "menu", header: "관리", align: "right" as const,
         render: (_: any, row: any) => (
           <div className="flex items-center justify-end gap-sm">
-            <button className="p-xs text-content-secondary hover:text-primary transition-colors" title="수정">
+            <button
+              className="p-xs text-content-secondary hover:text-primary transition-colors"
+              title="수정"
+              onClick={() => toast.info(`"${row.name}" 게이트 수정 기능 준비 중입니다.`)}
+            >
               <Edit2 size={16} />
             </button>
             <button
@@ -301,7 +400,11 @@ export default function IotSettings() {
             >
               <DoorOpen size={16} />
             </button>
-            <button className="p-xs text-content-secondary hover:text-state-error transition-colors" title="삭제">
+            <button
+              className="p-xs text-content-secondary hover:text-state-error transition-colors"
+              title="삭제"
+              onClick={() => toast.info(`"${row.name}" 게이트 삭제 기능 준비 중입니다.`)}
+            >
               <Trash2 size={16} />
             </button>
           </div>
@@ -318,12 +421,33 @@ export default function IotSettings() {
 
     return (
       <div className="space-y-lg">
-        <DataTable title="게이트 목록" columns={columns} data={data} onDownloadExcel={() => {}} />
+        <DataTable
+            title="게이트 목록"
+            columns={columns}
+            data={data}
+            onDownloadExcel={() => {
+              const exportColumns = [
+                { key: 'id',       header: 'No' },
+                { key: 'name',     header: '게이트명' },
+                { key: 'type',     header: '유형' },
+                { key: 'device',   header: '연동 기기' },
+                { key: 'room',     header: '연동 운동룸' },
+                { key: 'status',   header: '상태' },
+                { key: 'lastComm', header: '마지막 통신' },
+              ];
+              exportToExcel(data as unknown as Record<string, unknown>[], exportColumns, { filename: '게이트목록' });
+              toast.success(`${data.length}건 엑셀 다운로드 완료`);
+            }}
+          />
       </div>
     );
   };
 
   // ── 출입 로그 탭 ──
+  const [logSearchQuery, setLogSearchQuery] = useState("");
+  const [logFilterGate, setLogFilterGate] = useState("");
+  const [logFilterResult, setLogFilterResult] = useState("");
+
   const renderAccessLog = () => {
     const filters = [
       { key: "gate", label: "게이트", type: "select" as const, options: [
@@ -340,8 +464,8 @@ export default function IotSettings() {
       { key: "time", header: "출입 시각", width: 180 },
       {
         key: "memberName", header: "회원명",
-        render: (val: string) => (
-          <button className="text-accent hover:underline font-medium" onClick={() => moveToPage(985)}>{val}</button>
+        render: (val: string, row: any) => (
+          <button className="text-accent hover:underline font-medium" onClick={() => row.memberId && moveToPage(985, { id: row.memberId })}>{val}</button>
         )
       },
       { key: "memberNo", header: "회원번호" },
@@ -365,19 +489,62 @@ export default function IotSettings() {
       { key: "reason", header: "거부 사유" },
     ];
 
-    const data = [
+    const allData = [
       { id: 1, time: "2026-03-11 14:25", memberName: "김철수", memberNo: "2024-0012", gateName: "메인 출입구", direction: "입", authMethod: "RFID", result: "허용", reason: "-" },
       { id: 2, time: "2026-03-11 14:22", memberName: "이영희", memberNo: "2025-0045", gateName: "운동룸 A", direction: "입", authMethod: "QR", result: "허용", reason: "-" },
       { id: 3, time: "2026-03-11 14:10", memberName: "정명훈", memberNo: "2026-0005", gateName: "메인 출입구", direction: "입", authMethod: "RFID", result: "거부", reason: "이용권 만료" },
     ];
 
+    // 로컬 필터링
+    const filteredData = allData.filter(row => {
+      if (logSearchQuery) {
+        const q = logSearchQuery.toLowerCase();
+        if (!row.memberName.toLowerCase().includes(q) && !row.memberNo.toLowerCase().includes(q)) return false;
+      }
+      if (logFilterGate === "main" && row.gateName !== "메인 출입구") return false;
+      if (logFilterGate === "rooma" && row.gateName !== "운동룸 A") return false;
+      if (logFilterResult === "allow" && row.result !== "허용") return false;
+      if (logFilterResult === "deny" && row.result !== "거부") return false;
+      return true;
+    });
+
     return (
       <div className="space-y-lg">
-        <SearchFilter filters={filters} searchPlaceholder="회원명 / 회원번호 검색" onSearch={() => {}} />
-        <DataTable title="출입 로그 이력" columns={columns} data={data} onDownloadExcel={() => {}} pagination={{ page: 1, pageSize: 10, total: 45 }} />
+        <SearchFilter
+          filters={filters}
+          searchPlaceholder="회원명 / 회원번호 검색"
+          onSearch={(query: string) => {
+            setLogSearchQuery(query);
+          }}
+        />
+        <DataTable
+          title="출입 로그 이력"
+          columns={columns}
+          data={filteredData}
+          pagination={{ page: 1, pageSize: 10, total: filteredData.length }}
+          onDownloadExcel={() => {
+            const exportColumns = [
+              { key: 'time',       header: '출입 시각' },
+              { key: 'memberName', header: '회원명' },
+              { key: 'memberNo',   header: '회원번호' },
+              { key: 'gateName',   header: '게이트명' },
+              { key: 'direction',  header: '방향' },
+              { key: 'authMethod', header: '인증 방식' },
+              { key: 'result',     header: '결과' },
+              { key: 'reason',     header: '거부 사유' },
+            ];
+            exportToExcel(filteredData as unknown as Record<string, unknown>[], exportColumns, { filename: '출입로그이력' });
+            toast.success(`${filteredData.length}건 엑셀 다운로드 완료`);
+          }}
+        />
       </div>
     );
   };
+
+  // 출입 규칙 편집 상태 (첫 번째 규칙 기반)
+  const [editRule, setEditRule] = useState(() => accessRules[0] || {
+    gate: "메인 출입구", days: ["월","화","수","목","금","토","일"], startTime: "06:00", endTime: "23:00",
+  });
 
   // ── 출입 규칙 탭 ──
   const renderAccessRules = () => (
@@ -385,7 +552,11 @@ export default function IotSettings() {
       <FormSection title="게이트별 출입 규칙" description="특정 게이트에 대한 허용 요일, 시간대, 대상 회원을 설정합니다.">
         <div className="space-y-md">
           <label className="block text-Body-2 text-content font-medium">대상 게이트 선택</label>
-          <select className="w-full bg-surface-secondary border-0 rounded-input px-md py-sm focus:ring-2 focus:ring-accent transition-all">
+          <select
+            className="w-full bg-surface-secondary border-0 rounded-input px-md py-sm focus:ring-2 focus:ring-accent transition-all"
+            value={editRule.gate}
+            onChange={e => setEditRule({ ...editRule, gate: e.target.value })}
+          >
             <option>메인 출입구</option>
             <option>운동룸 A</option>
             <option>탈의실 입구</option>
@@ -397,7 +568,17 @@ export default function IotSettings() {
           <div className="flex flex-wrap gap-sm">
             {["월", "화", "수", "목", "금", "토", "일"].map(day => (
               <label key={day} className="flex items-center gap-xs p-sm border border-line rounded-button cursor-pointer hover:bg-accent-light transition-colors">
-                <input className="w-4 h-4 accent-accent" type="checkbox" defaultChecked />
+                <input
+                  className="w-4 h-4 accent-accent"
+                  type="checkbox"
+                  checked={editRule.days.includes(day)}
+                  onChange={() => {
+                    const newDays = editRule.days.includes(day)
+                      ? editRule.days.filter(d => d !== day)
+                      : [...editRule.days, day];
+                    setEditRule({ ...editRule, days: newDays });
+                  }}
+                />
                 <span className="text-Body-2">{day}</span>
               </label>
             ))}
@@ -407,26 +588,76 @@ export default function IotSettings() {
         <div className="space-y-md">
           <label className="block text-Body-2 text-content font-medium">출입 가능 시간대</label>
           <div className="flex items-center gap-sm">
-            <input className="bg-surface-secondary border-0 rounded-input px-md py-sm focus:ring-2 focus:ring-accent transition-all" type="time" defaultValue="06:00" />
+            <input
+              className="bg-surface-secondary border-0 rounded-input px-md py-sm focus:ring-2 focus:ring-accent transition-all"
+              type="time"
+              value={editRule.startTime}
+              onChange={e => setEditRule({ ...editRule, startTime: e.target.value })}
+            />
             <span className="text-content-secondary">~</span>
-            <input className="bg-surface-secondary border-0 rounded-input px-md py-sm focus:ring-2 focus:ring-accent transition-all" type="time" defaultValue="23:00" />
-            <button className="flex items-center gap-xs px-md py-sm bg-primary-light text-primary rounded-button text-Label font-semibold hover:opacity-90">
-              <Plus size={14} /> 시간 추가
+            <input
+              className="bg-surface-secondary border-0 rounded-input px-md py-sm focus:ring-2 focus:ring-accent transition-all"
+              type="time"
+              value={editRule.endTime}
+              onChange={e => setEditRule({ ...editRule, endTime: e.target.value })}
+            />
+            <button
+              className="flex items-center gap-xs px-md py-sm bg-primary-light text-primary rounded-button text-Label font-semibold hover:opacity-90"
+              onClick={() => {
+                const newRules = [...accessRules, { gate: editRule.gate, days: ["월","화","수","목","금"], startTime: "06:00", endTime: "23:00" }];
+                setAccessRules(newRules);
+                toast.info("새 출입 규칙이 추가되었습니다.");
+              }}
+            >
+              <Plus size={14} /> 규칙 추가
             </button>
           </div>
         </div>
       </FormSection>
 
       <div className="flex justify-end gap-sm">
-        <button className="px-xl py-md bg-surface border border-line text-content rounded-button text-Body-2 font-semibold hover:bg-surface-secondary transition-colors">
+        <button
+          className="px-xl py-md bg-surface border border-line text-content rounded-button text-Body-2 font-semibold hover:bg-surface-secondary transition-colors"
+          onClick={() => {
+            const defaultRule = { gate: "메인 출입구", days: ["월","화","수","목","금","토","일"], startTime: "06:00", endTime: "23:00" };
+            setEditRule(defaultRule);
+            setAccessRules([defaultRule]);
+            toast.info("출입 규칙이 초기화되었습니다.");
+          }}
+        >
           초기화
         </button>
-        <button className="px-xl py-md bg-accent text-white rounded-button text-Body-2 font-semibold hover:opacity-90 transition-opacity shadow-lg shadow-accent/20">
+        <button
+          className="px-xl py-md bg-accent text-white rounded-button text-Body-2 font-semibold hover:opacity-90 transition-opacity shadow-lg shadow-accent/20"
+          onClick={async () => {
+            // 현재 편집 중인 규칙을 반영하여 저장
+            const updatedRules = accessRules.map((r, i) => i === 0 ? editRule : r);
+            setAccessRules(updatedRules);
+            const ok = await saveIotSettings({ devices, accessRules: updatedRules });
+            if (ok) toast.success("출입 규칙이 저장되었습니다.");
+            else toast.error("저장에 실패했습니다. 로컬에 임시 저장되었습니다.");
+          }}
+        >
           규칙 저장하기
         </button>
       </div>
     </div>
   );
+
+  // 로딩 중 스켈레톤
+  if (loading) {
+    return (
+      <AppLayout>
+        <div className="flex flex-col gap-xl animate-pulse">
+          <div className="h-20 bg-surface rounded-xl border border-line" />
+          <div className="h-12 bg-surface rounded-xl border border-line" />
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-md">
+            {[1,2,3,4].map(i => <div key={i} className="h-56 bg-surface rounded-xl border border-line" />)}
+          </div>
+        </div>
+      </AppLayout>
+    );
+  }
 
   return (
     <AppLayout>

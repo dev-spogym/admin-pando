@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import {
   Plus,
   RefreshCcw,
@@ -26,6 +26,9 @@ import DataTable from "@/components/DataTable";
 import ConfirmDialog from "@/components/ConfirmDialog";
 import { cn } from "@/lib/utils";
 import { moveToPage } from "@/internal";
+import { supabase } from "@/lib/supabase";
+import { toast } from "sonner";
+import { exportToExcel } from "@/lib/exportExcel";
 
 /**
  * SCR-050: 락커 관리
@@ -46,46 +49,11 @@ interface LockerData {
   history?: { date: string; action: string; member: string }[];
 }
 
-// --- 구역별 4x8 = 32개 락커 Mock 데이터 ---
-const buildZoneLockers = (zone: "A" | "B" | "C", offset: number): LockerData[] =>
-  Array.from({ length: 32 }, (_, i) => {
-    const num = offset + i + 1;
-    const statuses: LockerStatus[] = ["available", "in_use", "expiring", "broken"];
-    const status = statuses[i % 4];
-    const memberNames = ["김철수", "이영희", "박지민", "최강호", "한소희", "정민준", "유지훈", "김나연"];
-    const isOccupied = status === "in_use" || status === "expiring";
-    return {
-      id: `${zone}-${num}`,
-      number: num,
-      zone,
-      status,
-      memberName:    isOccupied ? memberNames[i % memberNames.length] : undefined,
-      memberId:      isOccupied ? `m${(i % 8) + 1}` : undefined,
-      assignedDate:  isOccupied ? "2026-02-01" : undefined,
-      expiryDate:    status === "expiring" ? "2026-03-13" : isOccupied ? "2026-06-30" : undefined,
-      history: isOccupied ? [
-        { date: "2026-02-01", action: "배정", member: memberNames[i % memberNames.length] },
-        { date: "2025-11-15", action: "반납", member: "이전회원" },
-      ] : [],
-    };
-  });
-
-const MOCK_LOCKERS: LockerData[] = [
-  ...buildZoneLockers("A", 0),
-  ...buildZoneLockers("B", 32),
-  ...buildZoneLockers("C", 64),
-];
-
-const MOCK_MEMBERS = [
-  { id: "m1", name: "김철수",  contact: "010-1111-2222" },
-  { id: "m2", name: "이영희",  contact: "010-2222-3333" },
-  { id: "m3", name: "박지성",  contact: "010-3333-4444" },
-  { id: "m4", name: "최유나",  contact: "010-4444-5555" },
-  { id: "m5", name: "정재욱",  contact: "010-5555-6666" },
-  { id: "m6", name: "강수진",  contact: "010-6666-7777" },
-  { id: "m7", name: "윤태호",  contact: "010-7777-8888" },
-  { id: "m8", name: "임소연",  contact: "010-8888-9999" },
-];
+interface MemberOption {
+  id: string;
+  name: string;
+  contact: string;
+}
 
 // --- D-Day 계산 ---
 function getDDay(expiryDate?: string): number | null {
@@ -163,7 +131,7 @@ const LockerDetailModal = ({
                   <span className="text-[12px] text-content-secondary">배정 회원</span>
                   <button
                     className="text-[13px] font-bold text-primary hover:underline flex items-center gap-xs"
-                    onClick={() => moveToPage(985)}
+                    onClick={() => locker.memberId && moveToPage(985, { id: locker.memberId })}
                   >
                     {locker.memberName}
                     <ChevronRight size={13} />
@@ -241,7 +209,8 @@ const LockerDetailModal = ({
 };
 
 export default function Locker() {
-  const [lockers, setLockers] = useState<LockerData[]>(MOCK_LOCKERS);
+  const [lockers, setLockers] = useState<LockerData[]>([]);
+  const [loading, setLoading] = useState(true);
   const [activeZone, setActiveZone] = useState<"A" | "B" | "C">("A");
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedLockerId, setSelectedLockerId] = useState<string | null>(null);
@@ -249,6 +218,43 @@ export default function Locker() {
   const [selectedBulkIds, setSelectedBulkIds] = useState<Set<string>>(new Set());
   const [isBulkDialogOpen, setIsBulkDialogOpen] = useState(false);
   const [isReturnDialogOpen, setIsReturnDialogOpen] = useState(false);
+
+  const branchId = Number(localStorage.getItem("branchId") ?? 1);
+
+  useEffect(() => {
+    const fetchData = async () => {
+      setLoading(true);
+      try {
+        // 락커 데이터 (lockers 테이블)
+        const { data: lockerData } = await supabase
+          .from("lockers")
+          .select("id, number, status, memberId, memberName, assignedAt, expiresAt, branchId, zone")
+          .eq("branchId", branchId);
+
+        if (lockerData) {
+          const mapped: LockerData[] = lockerData.map((l: any) => ({
+            id: String(l.id),
+            number: l.number ?? 0,
+            zone: (l.zone as "A" | "B" | "C") ?? "A",
+            status: (l.status as LockerStatus) ?? "available",
+            memberName: l.memberName ?? undefined,
+            memberId: l.memberId ? String(l.memberId) : undefined,
+            assignedDate: l.assignedAt ? String(l.assignedAt).split("T")[0] : undefined,
+            expiryDate: l.expiresAt ? String(l.expiresAt).split("T")[0] : undefined,
+            history: [],
+          }));
+          setLockers(mapped);
+        }
+      } catch (err) {
+        console.error("Locker 데이터 로드 실패:", err);
+        toast.error("락커 데이터를 불러오지 못했습니다.");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchData();
+  }, [branchId]);
 
   const zoneTabs = [
     { key: "A", label: "A구역" },
@@ -371,10 +377,49 @@ export default function Locker() {
         description="센터 내 모든 락커의 배정 현황 및 상태를 관리합니다."
         actions={
           <div className="flex items-center gap-sm">
-            <button className="flex items-center gap-xs rounded-lg border border-line bg-surface px-md py-sm text-content-secondary hover:text-primary transition-colors text-[13px] font-semibold">
+            <button
+              className="flex items-center gap-xs rounded-lg border border-line bg-surface px-md py-sm text-content-secondary hover:text-primary transition-colors text-[13px] font-semibold"
+              onClick={() => {
+                setLoading(true);
+                supabase
+                  .from("lockers")
+                  .select("id, number, status, memberId, memberName, assignedAt, expiresAt, branchId, zone")
+                  .eq("branchId", branchId)
+                  .then(({ data }) => {
+                    if (data) {
+                      setLockers(data.map((l: any) => ({
+                        id: String(l.id),
+                        number: l.number ?? 0,
+                        zone: (l.zone as "A" | "B" | "C") ?? "A",
+                        status: (l.status as LockerStatus) ?? "available",
+                        memberName: l.memberName ?? undefined,
+                        memberId: l.memberId ? String(l.memberId) : undefined,
+                        assignedDate: l.assignedAt ? String(l.assignedAt).split("T")[0] : undefined,
+                        expiryDate: l.expiresAt ? String(l.expiresAt).split("T")[0] : undefined,
+                        history: [],
+                      })));
+                    }
+                    setLoading(false);
+                  });
+              }}
+            >
               <RefreshCcw size={15} /> 새로고침
             </button>
-            <button className="flex items-center gap-xs rounded-lg border border-line bg-surface px-md py-sm text-content-secondary hover:text-primary transition-colors text-[13px] font-semibold">
+            <button
+              className="flex items-center gap-xs rounded-lg border border-line bg-surface px-md py-sm text-content-secondary hover:text-primary transition-colors text-[13px] font-semibold"
+              onClick={() => {
+                const exportColumns = [
+                  { key: 'number', header: '번호' },
+                  { key: 'zone', header: '구역' },
+                  { key: 'status', header: '상태' },
+                  { key: 'memberName', header: '이용자' },
+                  { key: 'assignedAt', header: '배정일' },
+                  { key: 'expiresAt', header: '만료일' },
+                ];
+                exportToExcel(filteredLockers as unknown as Record<string, unknown>[], exportColumns, { filename: '락커목록' });
+                toast.success(`${filteredLockers.length}건 엑셀 다운로드 완료`);
+              }}
+            >
               <Download size={15} /> 엑셀 다운로드
             </button>
             <button className="flex items-center gap-xs rounded-lg bg-primary px-md py-sm text-white shadow-sm hover:opacity-90 transition-opacity text-[13px] font-bold">
@@ -392,154 +437,162 @@ export default function Locker() {
         <StatCard label="고장"          value={stats.broken}   icon={<XCircle />} />
       </div>
 
-      {/* 구역 탭 — UI-053 */}
-      <div className="bg-surface rounded-xl border border-line shadow-sm overflow-hidden">
-        <div className="flex items-center justify-between px-lg pt-sm border-b border-line">
-          <TabNav
-            tabs={zoneTabs}
-            activeTab={activeZone}
-            onTabChange={k => { setActiveZone(k as "A" | "B" | "C"); setBulkMode(false); setSelectedBulkIds(new Set()); }}
-          />
-          <div className="flex items-center gap-sm pb-sm">
-            {expiredLockers.length > 0 && (
-              bulkMode ? (
+      {loading && (
+        <div className="flex items-center justify-center py-xl text-[13px] text-content-secondary">
+          데이터를 불러오는 중...
+        </div>
+      )}
+
+      {!loading && (
+        /* 구역 탭 — UI-053 */
+        <div className="bg-surface rounded-xl border border-line shadow-sm overflow-hidden">
+          <div className="flex items-center justify-between px-lg pt-sm border-b border-line">
+            <TabNav
+              tabs={zoneTabs}
+              activeTab={activeZone}
+              onTabChange={k => { setActiveZone(k as "A" | "B" | "C"); setBulkMode(false); setSelectedBulkIds(new Set()); }}
+            />
+            <div className="flex items-center gap-sm pb-sm">
+              {expiredLockers.length > 0 && (
+                bulkMode ? (
+                  <div className="flex items-center gap-xs">
+                    <span className="text-[12px] text-content-secondary">{selectedBulkIds.size}개 선택</span>
+                    <button
+                      className="flex items-center gap-xs rounded-lg bg-state-error/10 border border-state-error/20 px-md py-xs text-state-error text-[12px] font-semibold hover:bg-state-error hover:text-white transition-all disabled:opacity-40"
+                      disabled={selectedBulkIds.size === 0}
+                      onClick={() => setIsBulkDialogOpen(true)}
+                    >
+                      <Trash2 size={13} /> 일괄 해제
+                    </button>
+                    <button
+                      className="flex items-center gap-xs rounded-lg bg-surface-secondary border border-line px-md py-xs text-content-secondary text-[12px] font-semibold hover:bg-surface-tertiary transition-colors"
+                      onClick={() => { setBulkMode(false); setSelectedBulkIds(new Set()); }}
+                    >
+                      취소
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    className="flex items-center gap-xs rounded-lg bg-amber-50 border border-amber-200 px-md py-xs text-amber-700 text-[12px] font-semibold hover:bg-amber-100 transition-colors"
+                    onClick={() => setBulkMode(true)}
+                  >
+                    <CheckSquare size={13} /> 만료임박 일괄 해제
+                  </button>
+                )
+              )}
+            </div>
+          </div>
+
+          {bulkMode && (
+            <div className="bg-amber-50 border-b border-amber-200 px-lg py-sm flex items-center gap-sm">
+              <CheckSquare size={15} className="text-amber-600 flex-shrink-0" />
+              <span className="text-[12px] text-amber-700 font-medium">만료임박 락커를 클릭하여 선택하세요. 선택 후 일괄 해제 버튼을 누르면 배정 정보가 초기화됩니다.</span>
+            </div>
+          )}
+
+          <div className="p-lg space-y-lg">
+            {/* 검색 */}
+            <div className="relative max-w-sm">
+              <Search className="absolute left-md top-1/2 -translate-y-1/2 text-content-secondary" size={15} />
+              <input
+                className="w-full h-9 pl-[36px] pr-md rounded-lg bg-surface-secondary border border-line text-[13px] focus:border-primary outline-none transition-all"
+                placeholder="락커 번호 또는 회원명 검색"
+                value={searchQuery}
+                onChange={e => setSearchQuery(e.target.value)}
+              />
+            </div>
+
+            {/* UI-054 락커 그리드 (4x8 = 32개) */}
+            <div className="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 gap-md">
+              {filteredLockers.map(locker => {
+                const styles = STATUS_STYLES[locker.status];
+                const dday = getDDay(locker.expiryDate);
+                const isSelected = selectedBulkIds.has(locker.id);
+                const isBroken = locker.status === "broken";
+
+                return (
+                  <div
+                    key={locker.id}
+                    className={cn(
+                      "relative aspect-square rounded-xl border-2 flex flex-col items-center justify-center cursor-pointer transition-all hover:scale-[1.05] active:scale-[0.97] select-none",
+                      styles.cell,
+                      selectedLockerId === locker.id && !bulkMode ? "ring-2 ring-primary ring-offset-2" : "",
+                      isSelected ? "ring-2 ring-state-error ring-offset-2 scale-[1.02]" : "",
+                      bulkMode && locker.status !== "expiring" ? "opacity-40 cursor-not-allowed hover:scale-100" : "",
+                      isBroken ? "opacity-70" : ""
+                    )}
+                    onClick={() => handleLockerClick(locker)}
+                  >
+                    {/* 고장: 사선 표시 */}
+                    {isBroken && (
+                      <div className="absolute inset-0 rounded-xl overflow-hidden pointer-events-none">
+                        <div className="absolute top-0 left-0 w-full h-full">
+                          <div className="absolute top-0 left-0 w-[141%] h-[1px] bg-state-error/40 origin-top-left rotate-45 translate-y-[45px]" />
+                        </div>
+                      </div>
+                    )}
+
+                    {/* 일괄 선택 체크 */}
+                    {isSelected && (
+                      <div className="absolute top-1 right-1 w-4 h-4 bg-state-error rounded-full flex items-center justify-center">
+                        <CheckSquare size={9} className="text-white" />
+                      </div>
+                    )}
+
+                    <span className="text-[13px] font-bold mb-[2px]">{locker.number}</span>
+                    {locker.memberName ? (
+                      <div className="flex flex-col items-center">
+                        <span className="text-[9px] font-medium truncate max-w-[60px]">{locker.memberName}</span>
+                        {locker.expiryDate && (
+                          <span className={cn(
+                            "text-[8px] mt-[1px] font-semibold",
+                            dday !== null && dday <= 0 ? "text-state-error" :
+                            dday !== null && dday <= 7 ? "text-amber-600" : "opacity-60"
+                          )}>
+                            {getDDayLabel(locker.expiryDate)}
+                          </span>
+                        )}
+                      </div>
+                    ) : (
+                      <span className="text-[9px] opacity-60">{STATUS_LABELS[locker.status]}</span>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* UI-055 범례 */}
+            <div className="pt-md border-t border-line">
+              <div className="flex items-center gap-lg flex-wrap">
+                <span className="text-[12px] font-semibold text-content-secondary">상태 범례</span>
                 <div className="flex items-center gap-xs">
-                  <span className="text-[12px] text-content-secondary">{selectedBulkIds.size}개 선택</span>
-                  <button
-                    className="flex items-center gap-xs rounded-lg bg-state-error/10 border border-state-error/20 px-md py-xs text-state-error text-[12px] font-semibold hover:bg-state-error hover:text-white transition-all disabled:opacity-40"
-                    disabled={selectedBulkIds.size === 0}
-                    onClick={() => setIsBulkDialogOpen(true)}
-                  >
-                    <Trash2 size={13} /> 일괄 해제
-                  </button>
-                  <button
-                    className="flex items-center gap-xs rounded-lg bg-surface-secondary border border-line px-md py-xs text-content-secondary text-[12px] font-semibold hover:bg-surface-tertiary transition-colors"
-                    onClick={() => { setBulkMode(false); setSelectedBulkIds(new Set()); }}
-                  >
-                    취소
-                  </button>
+                  <div className="w-4 h-4 rounded border-2 bg-state-info/10 border-state-info" />
+                  <span className="text-[12px] text-content-secondary">사용중</span>
                 </div>
-              ) : (
-                <button
-                  className="flex items-center gap-xs rounded-lg bg-amber-50 border border-amber-200 px-md py-xs text-amber-700 text-[12px] font-semibold hover:bg-amber-100 transition-colors"
-                  onClick={() => setBulkMode(true)}
-                >
-                  <CheckSquare size={13} /> 만료임박 일괄 해제
-                </button>
-              )
+                <div className="flex items-center gap-xs">
+                  <div className="w-4 h-4 rounded border-2 bg-surface-tertiary border-line" />
+                  <span className="text-[12px] text-content-secondary">빈 락커</span>
+                </div>
+                <div className="flex items-center gap-xs">
+                  <div className="w-4 h-4 rounded border-2 bg-amber-50 border-amber-400" />
+                  <span className="text-[12px] text-content-secondary">만료임박</span>
+                </div>
+                <div className="flex items-center gap-xs">
+                  <div className="w-4 h-4 rounded border-2 bg-state-error/5 border-state-error" />
+                  <span className="text-[12px] text-content-secondary">고장</span>
+                </div>
+              </div>
+            </div>
+
+            {filteredLockers.length === 0 && (
+              <div className="py-xxl flex flex-col items-center justify-center text-content-secondary">
+                <Search className="mb-md opacity-20" size={40} />
+                <p className="text-[13px]">검색 결과가 없습니다.</p>
+              </div>
             )}
           </div>
         </div>
-
-        {bulkMode && (
-          <div className="bg-amber-50 border-b border-amber-200 px-lg py-sm flex items-center gap-sm">
-            <CheckSquare size={15} className="text-amber-600 flex-shrink-0" />
-            <span className="text-[12px] text-amber-700 font-medium">만료임박 락커를 클릭하여 선택하세요. 선택 후 일괄 해제 버튼을 누르면 배정 정보가 초기화됩니다.</span>
-          </div>
-        )}
-
-        <div className="p-lg space-y-lg">
-          {/* 검색 */}
-          <div className="relative max-w-sm">
-            <Search className="absolute left-md top-1/2 -translate-y-1/2 text-content-secondary" size={15} />
-            <input
-              className="w-full h-9 pl-[36px] pr-md rounded-lg bg-surface-secondary border border-line text-[13px] focus:border-primary outline-none transition-all"
-              placeholder="락커 번호 또는 회원명 검색"
-              value={searchQuery}
-              onChange={e => setSearchQuery(e.target.value)}
-            />
-          </div>
-
-          {/* UI-054 락커 그리드 (4x8 = 32개) */}
-          <div className="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 gap-md">
-            {filteredLockers.map(locker => {
-              const styles = STATUS_STYLES[locker.status];
-              const dday = getDDay(locker.expiryDate);
-              const isSelected = selectedBulkIds.has(locker.id);
-              const isBroken = locker.status === "broken";
-
-              return (
-                <div
-                  key={locker.id}
-                  className={cn(
-                    "relative aspect-square rounded-xl border-2 flex flex-col items-center justify-center cursor-pointer transition-all hover:scale-[1.05] active:scale-[0.97] select-none",
-                    styles.cell,
-                    selectedLockerId === locker.id && !bulkMode ? "ring-2 ring-primary ring-offset-2" : "",
-                    isSelected ? "ring-2 ring-state-error ring-offset-2 scale-[1.02]" : "",
-                    bulkMode && locker.status !== "expiring" ? "opacity-40 cursor-not-allowed hover:scale-100" : "",
-                    isBroken ? "opacity-70" : ""
-                  )}
-                  onClick={() => handleLockerClick(locker)}
-                >
-                  {/* 고장: 사선 표시 */}
-                  {isBroken && (
-                    <div className="absolute inset-0 rounded-xl overflow-hidden pointer-events-none">
-                      <div className="absolute top-0 left-0 w-full h-full">
-                        <div className="absolute top-0 left-0 w-[141%] h-[1px] bg-state-error/40 origin-top-left rotate-45 translate-y-[45px]" />
-                      </div>
-                    </div>
-                  )}
-
-                  {/* 일괄 선택 체크 */}
-                  {isSelected && (
-                    <div className="absolute top-1 right-1 w-4 h-4 bg-state-error rounded-full flex items-center justify-center">
-                      <CheckSquare size={9} className="text-white" />
-                    </div>
-                  )}
-
-                  <span className="text-[13px] font-bold mb-[2px]">{locker.number}</span>
-                  {locker.memberName ? (
-                    <div className="flex flex-col items-center">
-                      <span className="text-[9px] font-medium truncate max-w-[60px]">{locker.memberName}</span>
-                      {locker.expiryDate && (
-                        <span className={cn(
-                          "text-[8px] mt-[1px] font-semibold",
-                          dday !== null && dday <= 0 ? "text-state-error" :
-                          dday !== null && dday <= 7 ? "text-amber-600" : "opacity-60"
-                        )}>
-                          {getDDayLabel(locker.expiryDate)}
-                        </span>
-                      )}
-                    </div>
-                  ) : (
-                    <span className="text-[9px] opacity-60">{STATUS_LABELS[locker.status]}</span>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-
-          {/* UI-055 범례 */}
-          <div className="pt-md border-t border-line">
-            <div className="flex items-center gap-lg flex-wrap">
-              <span className="text-[12px] font-semibold text-content-secondary">상태 범례</span>
-              <div className="flex items-center gap-xs">
-                <div className="w-4 h-4 rounded border-2 bg-state-info/10 border-state-info" />
-                <span className="text-[12px] text-content-secondary">사용중</span>
-              </div>
-              <div className="flex items-center gap-xs">
-                <div className="w-4 h-4 rounded border-2 bg-surface-tertiary border-line" />
-                <span className="text-[12px] text-content-secondary">빈 락커</span>
-              </div>
-              <div className="flex items-center gap-xs">
-                <div className="w-4 h-4 rounded border-2 bg-amber-50 border-amber-400" />
-                <span className="text-[12px] text-content-secondary">만료임박</span>
-              </div>
-              <div className="flex items-center gap-xs">
-                <div className="w-4 h-4 rounded border-2 bg-state-error/5 border-state-error" />
-                <span className="text-[12px] text-content-secondary">고장</span>
-              </div>
-            </div>
-          </div>
-
-          {filteredLockers.length === 0 && (
-            <div className="py-xxl flex flex-col items-center justify-center text-content-secondary">
-              <Search className="mb-md opacity-20" size={40} />
-              <p className="text-[13px]">검색 결과가 없습니다.</p>
-            </div>
-          )}
-        </div>
-      </div>
+      )}
 
       {/* UI-056 락커 상세 모달 */}
       {selectedLockerId && selectedLocker && !bulkMode && (

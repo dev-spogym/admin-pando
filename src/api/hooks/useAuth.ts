@@ -10,9 +10,11 @@ export const useLogin = () => {
   return useMutation({
     mutationFn: (data: LoginRequest) => login(data),
     onSuccess: (response) => {
-      // 토큰 저장
-      localStorage.setItem('accessToken', response.data.accessToken);
-      localStorage.setItem('refreshToken', response.data.refreshToken);
+      // 로그인 실패 시 data가 null일 수 있음
+      if (response.success && response.data) {
+        localStorage.setItem('accessToken', response.data.accessToken);
+        localStorage.setItem('refreshToken', response.data.refreshToken);
+      }
     },
   });
 };

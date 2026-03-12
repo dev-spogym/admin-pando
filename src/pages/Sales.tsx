@@ -1,4 +1,5 @@
-import React, { useState, useMemo, useCallback, useRef } from 'react';
+import React, { useState, useMemo, useCallback, useRef, useEffect } from 'react';
+import { toast } from 'sonner';
 import {
   Download,
   DollarSign,
@@ -16,162 +17,72 @@ import TabNav from '@/components/TabNav';
 import DataTable from '@/components/DataTable';
 import StatusBadge from '@/components/StatusBadge';
 import AppLayout from '@/components/AppLayout';
+import { supabase } from '@/lib/supabase';
+import { exportToExcel } from '@/lib/exportExcel';
 
-// --- Mock 매출 데이터 (10건 이상) ---
-const MOCK_SALES_DATA = [
-  {
-    id: 1, no: 12, purchaseDate: '2026-03-11 09:10:00',
-    type: '이용권', productName: '헬스 12개월권', manager: '홍길동',
-    buyer: '김태희', buyerId: 101, round: '신규', quantity: 1,
-    originalPrice: 720000, salePrice: 660000, discountPrice: 60000,
-    paymentMethod: '단말기연동', paymentType: '일시불', paymentTool: '카드',
-    cash: 0, card: 660000, mileage: 0,
-    cardCompany: '신한카드', cardNumber: '4518-****-****-1234', approvalNo: '98237412',
-    unpaid: 0, serviceDays: 0, serviceCount: 0, servicePoints: 500,
-    status: '완료', category: '신규', memo: '오픈 이벤트 적용'
-  },
-  {
-    id: 2, no: 11, purchaseDate: '2026-03-10 14:30:00',
-    type: 'PT', productName: '1:1 PT 20회', manager: '이영희',
-    buyer: '박지민', buyerId: 102, round: '재등록(2회차)', quantity: 1,
-    originalPrice: 1500000, salePrice: 1300000, discountPrice: 200000,
-    paymentMethod: '수기등록', paymentType: '3개월 할부', paymentTool: '카드',
-    cash: 0, card: 1300000, mileage: 0,
-    cardCompany: '국민카드', cardNumber: '5243-****-****-5678', approvalNo: '12458796',
-    unpaid: 0, serviceDays: 0, serviceCount: 2, servicePoints: 0,
-    status: '완료', category: '재등록', memo: '지인 추천 할인'
-  },
-  {
-    id: 3, no: 10, purchaseDate: '2026-03-10 11:05:00',
-    type: '상품', productName: '개인 락커 6개월', manager: '김민수',
-    buyer: '최유리', buyerId: 103, round: '신규', quantity: 1,
-    originalPrice: 60000, salePrice: 50000, discountPrice: 10000,
-    paymentMethod: '단말기연동', paymentType: '일시불', paymentTool: '현금',
-    cash: 50000, card: 0, mileage: 0,
-    cardCompany: '-', cardNumber: '-', approvalNo: '-',
-    unpaid: 0, serviceDays: 7, serviceCount: 0, servicePoints: 0,
-    status: '완료', category: '신규', memo: ''
-  },
-  {
-    id: 4, no: 9, purchaseDate: '2026-03-09 17:20:00',
-    type: '이용권', productName: '모닝 특별권 3개월', manager: '홍길동',
-    buyer: '정현우', buyerId: 104, round: '미수금환수', quantity: 1,
-    originalPrice: 300000, salePrice: 300000, discountPrice: 0,
-    paymentMethod: '수기등록', paymentType: '일시불', paymentTool: '카드',
-    cash: 0, card: 300000, mileage: 0,
-    cardCompany: '삼성카드', cardNumber: '3779-****-****-9012', approvalNo: '77412589',
-    unpaid: 100000, serviceDays: 0, serviceCount: 0, servicePoints: 0,
-    status: '미납', category: '재등록', memo: '미수금 발생 주의'
-  },
-  {
-    id: 5, no: 8, purchaseDate: '2026-03-09 10:00:00',
-    type: '상품', productName: '단백질 쉐이크(초코)', manager: '관리자',
-    buyer: '이철수', buyerId: 105, round: '신규', quantity: 2,
-    originalPrice: 10000, salePrice: 9000, discountPrice: 1000,
-    paymentMethod: '수기등록', paymentType: '일시불', paymentTool: '마일리지',
-    cash: 0, card: 0, mileage: 9000,
-    cardCompany: '-', cardNumber: '-', approvalNo: '-',
-    unpaid: 0, serviceDays: 0, serviceCount: 0, servicePoints: 500,
-    status: '완료', category: '신규', memo: '마일리지 전액 결제'
-  },
-  {
-    id: 6, no: 7, purchaseDate: '2026-03-08 15:45:00',
-    type: 'PT', productName: '1:1 PT 10회', manager: '이영희',
-    buyer: '홍길동', buyerId: 106, round: '신규', quantity: 1,
-    originalPrice: 880000, salePrice: 800000, discountPrice: 80000,
-    paymentMethod: '단말기연동', paymentType: '일시불', paymentTool: '카드',
-    cash: 0, card: 800000, mileage: 0,
-    cardCompany: '하나카드', cardNumber: '9811-****-****-3344', approvalNo: '55218844',
-    unpaid: 0, serviceDays: 0, serviceCount: 0, servicePoints: 800,
-    status: '완료', category: '신규', memo: ''
-  },
-  {
-    id: 7, no: 6, purchaseDate: '2026-03-08 09:30:00',
-    type: '기타', productName: '스포츠 타올 세트', manager: '관리자',
-    buyer: '이지수', buyerId: 107, round: '신규', quantity: 3,
-    originalPrice: 15000, salePrice: 13500, discountPrice: 1500,
-    paymentMethod: '수기등록', paymentType: '일시불', paymentTool: '현금',
-    cash: 13500, card: 0, mileage: 0,
-    cardCompany: '-', cardNumber: '-', approvalNo: '-',
-    unpaid: 0, serviceDays: 0, serviceCount: 0, servicePoints: 0,
-    status: '완료', category: '신규', memo: ''
-  },
-  {
-    id: 8, no: 5, purchaseDate: '2026-03-07 13:00:00',
-    type: '이용권', productName: '헬스 3개월권', manager: '홍길동',
-    buyer: '박성호', buyerId: 108, round: '재등록', quantity: 1,
-    originalPrice: 330000, salePrice: 297000, discountPrice: 33000,
-    paymentMethod: '단말기연동', paymentType: '일시불', paymentTool: '카드',
-    cash: 0, card: 297000, mileage: 0,
-    cardCompany: '우리카드', cardNumber: '7723-****-****-9901', approvalNo: '33219987',
-    unpaid: 0, serviceDays: 30, serviceCount: 0, servicePoints: 297,
-    status: '완료', category: '재등록', memo: '재등록 5% 할인 적용'
-  },
-  {
-    id: 9, no: 4, purchaseDate: '2026-03-06 16:20:00',
-    type: '이용권', productName: '프리미엄 12개월권', manager: '김민수',
-    buyer: '서지원', buyerId: 109, round: '신규', quantity: 1,
-    originalPrice: 1200000, salePrice: 1000000, discountPrice: 200000,
-    paymentMethod: '단말기연동', paymentType: '일시불', paymentTool: '카드',
-    cash: 0, card: 1000000, mileage: 0,
-    cardCompany: '신한카드', cardNumber: '4518-****-****-7788', approvalNo: '88771234',
-    unpaid: 0, serviceDays: 0, serviceCount: 0, servicePoints: 1000,
-    status: '환불', category: '신규', memo: '단순 변심 환불'
-  },
-  {
-    id: 10, no: 3, purchaseDate: '2026-03-05 11:15:00',
-    type: 'PT', productName: '그룹 필라테스 20회', manager: '이영희',
-    buyer: '최민정', buyerId: 110, round: '신규', quantity: 1,
-    originalPrice: 440000, salePrice: 396000, discountPrice: 44000,
-    paymentMethod: '수기등록', paymentType: '일시불', paymentTool: '현금',
-    cash: 396000, card: 0, mileage: 0,
-    cardCompany: '-', cardNumber: '-', approvalNo: '-',
-    unpaid: 0, serviceDays: 0, serviceCount: 0, servicePoints: 396,
-    status: '완료', category: '신규', memo: ''
-  },
-  {
-    id: 11, no: 2, purchaseDate: '2026-03-04 14:00:00',
-    type: '상품', productName: '운동복 대여 1개월', manager: '관리자',
-    buyer: '김태희', buyerId: 101, round: '재등록', quantity: 1,
-    originalPrice: 5500, salePrice: 5000, discountPrice: 500,
-    paymentMethod: '단말기연동', paymentType: '일시불', paymentTool: '마일리지',
-    cash: 0, card: 0, mileage: 5000,
-    cardCompany: '-', cardNumber: '-', approvalNo: '-',
-    unpaid: 0, serviceDays: 0, serviceCount: 0, servicePoints: 0,
-    status: '완료', category: '재등록', memo: '마일리지 사용'
-  },
-  {
-    id: 12, no: 1, purchaseDate: '2026-03-03 10:30:00',
-    type: '기타', productName: '프로틴 쉐이크(바닐라)', manager: '관리자',
-    buyer: '박지민', buyerId: 102, round: '신규', quantity: 2,
-    originalPrice: 9000, salePrice: 8000, discountPrice: 1000,
-    paymentMethod: '수기등록', paymentType: '일시불', paymentTool: '현금',
-    cash: 8000, card: 0, mileage: 0,
-    cardCompany: '-', cardNumber: '-', approvalNo: '-',
-    unpaid: 0, serviceDays: 0, serviceCount: 0, servicePoints: 0,
-    status: '완료', category: '신규', memo: ''
-  },
-];
+type SaleItem = {
+  id: number;
+  no: number;
+  purchaseDate: string;
+  type: string;
+  productName: string;
+  manager: string;
+  buyer: string;
+  buyerId: number;
+  round: string;
+  quantity: number;
+  originalPrice: number;
+  salePrice: number;
+  discountPrice: number;
+  paymentMethod: string;
+  paymentType: string;
+  paymentTool: string;
+  cash: number;
+  card: number;
+  mileage: number;
+  cardCompany: string;
+  cardNumber: string;
+  approvalNo: string;
+  unpaid: number;
+  serviceDays: number;
+  serviceCount: number;
+  servicePoints: number;
+  status: string;
+  category: string;
+  memo: string;
+};
+
+// 로컬 날짜 포맷 (timezone 이슈 방지)
+const fmtLocal = (d: Date) => {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+};
+
+const getBranchId = (): number => {
+  const stored = localStorage.getItem('branchId');
+  return stored ? Number(stored) : 1;
+};
 
 // 기간 프리셋 계산 유틸
 const getPresetRange = (preset: string): { start: string; end: string } => {
-  const today = new Date('2026-03-11');
-  const fmt = (d: Date) => d.toISOString().split('T')[0];
-  if (preset === '오늘') return { start: fmt(today), end: fmt(today) };
+  const today = new Date();
+  if (preset === '오늘') return { start: fmtLocal(today), end: fmtLocal(today) };
   if (preset === '이번주') {
     const day = today.getDay();
     const mon = new Date(today);
     mon.setDate(today.getDate() - (day === 0 ? 6 : day - 1));
     const sun = new Date(mon);
     sun.setDate(mon.getDate() + 6);
-    return { start: fmt(mon), end: fmt(sun) };
+    return { start: fmtLocal(mon), end: fmtLocal(sun) };
   }
   if (preset === '이번달') {
     const start = new Date(today.getFullYear(), today.getMonth(), 1);
     const end = new Date(today.getFullYear(), today.getMonth() + 1, 0);
-    return { start: fmt(start), end: fmt(end) };
+    return { start: fmtLocal(start), end: fmtLocal(end) };
   }
-  return { start: fmt(today), end: fmt(today) };
+  return { start: fmtLocal(today), end: fmtLocal(today) };
 };
 
 // 상태별 배지 variant
@@ -183,17 +94,95 @@ const statusVariant = (status: string) => {
 };
 
 export default function Sales() {
+  const [salesData, setSalesData] = useState<SaleItem[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('TAB-001');
   const [searchValue, setSearchValue] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [activePreset, setActivePreset] = useState<string | null>('이번달');
-  const [filterValues, setFilterValues] = useState<Record<string, any>>({
-    dateRangeStart: '2026-03-01',
-    dateRangeEnd: '2026-03-31',
-    type: [],
-    status: [],
+  const [filterValues, setFilterValues] = useState<Record<string, any>>(() => {
+    const { start, end } = getPresetRange('이번달');
+    return { dateRangeStart: start, dateRangeEnd: end, type: [], status: [] };
   });
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // DB 영문 상태값 → 한글 레이블
+  const STATUS_KO: Record<string, string> = {
+    COMPLETED: '완료',
+    UNPAID: '미납',
+    REFUNDED: '환불',
+    PENDING: '대기',
+  };
+
+  // DB 결제수단 영문 → 한글 레이블
+  const PAYMENT_KO: Record<string, string> = {
+    CARD: '카드',
+    CASH: '현금',
+    TRANSFER: '계좌이체',
+    MILEAGE: '마일리지',
+  };
+
+  useEffect(() => {
+    const fetchSales = async () => {
+      setIsLoading(true);
+      const { data, error } = await supabase
+        .from('sales')
+        .select('id, memberId, memberName, productId, productName, saleDate, type, round, quantity, originalPrice, salePrice, discountPrice, amount, paymentMethod, paymentType, cash, card, mileageUsed, cardCompany, cardNumber, approvalNo, status, unpaid, staffId, staffName, memo, branchId')
+        .eq('branchId', getBranchId())
+        .order('saleDate', { ascending: false });
+      setIsLoading(false);
+      if (error) {
+        console.error("매출 데이터 로드 실패:", error);
+        toast.error("매출 데이터를 불러오지 못했습니다.");
+        return;
+      }
+      if (data) {
+        setSalesData(
+          data.map((row: Record<string, unknown>, idx: number) => {
+            const statusEn = (row.status as string) ?? '';
+            const payMethodEn = (row.paymentMethod as string) ?? '';
+            const cardAmt = Number(row.card) || 0;
+            const cashAmt = Number(row.cash) || 0;
+            const mileageAmt = Number(row.mileageUsed) || 0;
+            // paymentTool: 결제수단 한글 레이블 (복합결제 고려)
+            const payTool = PAYMENT_KO[payMethodEn] ?? payMethodEn;
+            return {
+              id: row.id as number,
+              no: data.length - idx,
+              purchaseDate: (row.saleDate as string)?.slice(0, 10) ?? '',
+              type: (row.type as string) ?? '',
+              productName: (row.productName as string) ?? '',
+              manager: (row.staffName as string) ?? '',
+              buyer: (row.memberName as string) ?? '',
+              buyerId: (row.memberId as number) ?? 0,
+              round: String(row.round ?? ''),
+              quantity: (row.quantity as number) ?? 1,
+              originalPrice: Number(row.originalPrice) || Number(row.amount) || 0,
+              salePrice: Number(row.salePrice) || Number(row.amount) || 0,
+              discountPrice: Number(row.discountPrice) || 0,
+              paymentMethod: payMethodEn,
+              paymentType: (row.paymentType as string) ?? '',
+              paymentTool: payTool,
+              cash: cashAmt,
+              card: cardAmt,
+              mileage: mileageAmt,
+              cardCompany: (row.cardCompany as string) ?? '',
+              cardNumber: (row.cardNumber as string) ?? '',
+              approvalNo: (row.approvalNo as string) ?? '',
+              unpaid: Number(row.unpaid) || 0,
+              serviceDays: 0,
+              serviceCount: 0,
+              servicePoints: 0,
+              status: STATUS_KO[statusEn] ?? statusEn,
+              category: '',
+              memo: (row.memo as string) ?? '',
+            };
+          })
+        );
+      }
+    };
+    fetchSales();
+  }, []);
 
   // debounce 검색
   const handleSearchChange = useCallback((val: string) => {
@@ -210,18 +199,24 @@ export default function Sales() {
 
   // 필터링
   const filteredData = useMemo(() => {
-    return MOCK_SALES_DATA.filter(item => {
+    return salesData.filter(item => {
       const matchSearch =
         item.buyer.includes(debouncedSearch) || item.productName.includes(debouncedSearch);
       const matchType =
         !filterValues.type?.length || filterValues.type.includes(item.type);
       const matchStatus =
         !filterValues.status?.length || filterValues.status.includes(item.status);
+      // 날짜 범위 필터 (purchaseDate는 이미 YYYY-MM-DD 형식)
+      const dateStart = filterValues.dateRangeStart as string | undefined;
+      const dateEnd = filterValues.dateRangeEnd as string | undefined;
+      const matchDate =
+        (!dateStart || item.purchaseDate >= dateStart) &&
+        (!dateEnd || item.purchaseDate <= dateEnd);
       if (activeTab === 'TAB-006' && item.status !== '환불') return false;
       if (activeTab === 'TAB-007' && item.unpaid <= 0) return false;
-      return matchSearch && matchType && matchStatus;
+      return matchSearch && matchType && matchStatus && matchDate;
     });
-  }, [debouncedSearch, filterValues, activeTab]);
+  }, [salesData, debouncedSearch, filterValues, activeTab]);
 
   // 요약 합계
   const summary = useMemo(() => {
@@ -256,10 +251,10 @@ export default function Sales() {
       )
     },
     { key: 'buyer', header: '구매자', width: 100,
-      render: (val: string) => (
+      render: (val: string, row: SaleItem) => (
         <button
           className="text-primary hover:underline font-medium transition-colors"
-          onClick={() => moveToPage(985)}
+          onClick={() => moveToPage(985, { id: row.buyerId })}
         >{val}</button>
       )
     },
@@ -317,12 +312,21 @@ export default function Sales() {
     { key: 'TAB-003', label: '상품별 내역' },
     { key: 'TAB-004', label: '결제수단별' },
     { key: 'TAB-005', label: '담당자별' },
-    { key: 'TAB-006', label: '환불 내역', count: MOCK_SALES_DATA.filter(i => i.status === '환불').length },
-    { key: 'TAB-007', label: '미납 내역', count: MOCK_SALES_DATA.filter(i => i.unpaid > 0).length },
+    { key: 'TAB-006', label: '환불 내역', count: salesData.filter(i => i.status === '환불').length },
+    { key: 'TAB-007', label: '미납 내역', count: salesData.filter(i => i.unpaid > 0).length },
   ];
 
   const handleDownloadExcel = () => {
-    alert(`매출 내역 ${filteredData.length}건을 엑셀 다운로드합니다.`);
+    const exportColumns = [
+      { key: 'purchaseDate', header: '날짜' },
+      { key: 'buyer', header: '회원명' },
+      { key: 'productName', header: '상품명' },
+      { key: 'paymentTool', header: '결제방법' },
+      { key: 'salePrice', header: '금액' },
+      { key: 'status', header: '상태' },
+    ];
+    exportToExcel(filteredData as Record<string, unknown>[], exportColumns, { filename: '매출내역' });
+    toast.success(`${filteredData.length}건 엑셀 다운로드 완료`);
   };
 
   const PRESETS = ['오늘', '이번주', '이번달'];
@@ -359,7 +363,6 @@ export default function Sales() {
           value={`₩${netTotal.toLocaleString()}`}
           variant="peach"
           icon={<DollarSign />}
-          change={{ value: 12.5, label: '전월 대비' }}
         />
         <StatCard label="카드 결제" value={`₩${summary.card.toLocaleString()}`} icon={<CreditCard />} />
         <StatCard label="현금 결제" value={`₩${summary.cash.toLocaleString()}`} icon={<Wallet />} />
@@ -403,7 +406,8 @@ export default function Sales() {
             setSearchValue('');
             setDebouncedSearch('');
             setActivePreset('이번달');
-            setFilterValues({ dateRangeStart: '2026-03-01', dateRangeEnd: '2026-03-31', type: [], status: [] });
+            const { start, end } = getPresetRange('이번달');
+            setFilterValues({ dateRangeStart: start, dateRangeEnd: end, type: [], status: [] });
           }}
         />
       </div>

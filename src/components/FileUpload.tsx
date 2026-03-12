@@ -1,5 +1,5 @@
 import React, { useRef, useState, useId } from "react";
-import { Upload, X, File } from "lucide-react";
+import { Upload, X, File, Loader2, CheckCircle2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export interface FileUploadProps {
@@ -9,6 +9,8 @@ export interface FileUploadProps {
   maxSize?: number;
   /** 파일 선택 핸들러 */
   onFileSelect: (file: File | null) => void;
+  /** Supabase Storage 업로드 핸들러. 제공 시 파일 선택 후 자동 업로드. 업로드된 URL 반환, 실패 시 null */
+  onUpload?: (file: File) => Promise<string | null>;
   /** 이미지 미리보기 여부 (accept에 image 포함 시 자동 활성화) */
   preview?: boolean;
   /** 레이블 텍스트 */
@@ -21,6 +23,7 @@ export default function FileUpload({
   accept,
   maxSize,
   onFileSelect,
+  onUpload,
   preview,
   label,
   className,
@@ -32,6 +35,8 @@ export default function FileUpload({
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const [uploadedUrl, setUploadedUrl] = useState<string | null>(null);
 
   // accept에 image가 포함되어 있으면 미리보기 활성화
   const showPreview = preview ?? (accept?.includes("image") ?? false);
@@ -44,8 +49,9 @@ export default function FileUpload({
         .join(", ")
     : "모든 파일";
 
-  const processFile = (file: File) => {
+  const processFile = async (file: File) => {
     setError(null);
+    setUploadedUrl(null);
 
     // 파일 크기 검증
     if (maxSize !== undefined && file.size > maxSize * 1024 * 1024) {
@@ -62,6 +68,23 @@ export default function FileUpload({
       setPreviewUrl(url);
     } else {
       setPreviewUrl(null);
+    }
+
+    // Supabase Storage 업로드 (onUpload 제공 시)
+    if (onUpload) {
+      setUploading(true);
+      try {
+        const url = await onUpload(file);
+        if (url) {
+          setUploadedUrl(url);
+        } else {
+          setError('업로드에 실패했습니다. 다시 시도해주세요.');
+        }
+      } catch {
+        setError('업로드 중 오류가 발생했습니다.');
+      } finally {
+        setUploading(false);
+      }
     }
   };
 
@@ -90,6 +113,8 @@ export default function FileUpload({
     setSelectedFile(null);
     setPreviewUrl(null);
     setError(null);
+    setUploadedUrl(null);
+    setUploading(false);
     onFileSelect(null);
     if (previewUrl) URL.revokeObjectURL(previewUrl);
   };
@@ -168,6 +193,13 @@ export default function FileUpload({
                 {(selectedFile.size / 1024).toFixed(1)} KB
               </p>
             </div>
+            {/* 업로드 상태 표시 */}
+            {uploading && (
+              <Loader2 size={16} className="flex-shrink-0 text-primary animate-spin" aria-label="업로드 중" />
+            )}
+            {!uploading && uploadedUrl && (
+              <CheckCircle2 size={16} className="flex-shrink-0 text-state-success" aria-label="업로드 완료" />
+            )}
             {/* 제거 버튼 */}
             <button
               type="button"
@@ -178,6 +210,10 @@ export default function FileUpload({
               <X size={16} />
             </button>
           </div>
+          {/* 업로드 완료 메시지 */}
+          {!uploading && uploadedUrl && (
+            <p className="mt-xs text-[11px] text-state-success font-medium">업로드 완료</p>
+          )}
         </div>
       )}
 

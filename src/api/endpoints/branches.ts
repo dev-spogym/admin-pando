@@ -1,15 +1,16 @@
 /**
- * 지점 관련 API 함수
+ * 지점 관련 API 함수 (Supabase 연동)
  */
-import apiClient from '../client';
+import { supabase } from '../../lib/supabase';
 import type { ApiResponse, PaginatedResponse, PaginationParams } from '../types';
 
-/** 지점 정보 */
-export interface Branch {
+/** 지점 상세 정보 (관리자용) */
+export interface BranchDetail {
   id: number;
   name: string;
   address: string;
   phone: string;
+  status?: string;
   managerId?: number;
   managerName?: string;
   isActive: boolean;
@@ -21,63 +22,133 @@ export interface BranchRequest {
   name: string;
   address: string;
   phone: string;
+  status?: string;
   managerId?: number;
+  managerName?: string;
 }
 
-/** 지점 목록 조회 */
-export const getBranches = async (
-  params?: PaginationParams
-): Promise<ApiResponse<PaginatedResponse<Branch>>> => {
-  // const response = await apiClient.get<ApiResponse<PaginatedResponse<Branch>>>('/branches', { params });
-  // return response.data;
+/** DB row → BranchDetail 변환 */
+function rowToBranchDetail(row: Record<string, unknown>): BranchDetail {
+  return {
+    id: row.id as number,
+    name: row.name as string,
+    address: row.address as string,
+    phone: row.phone as string,
+    status: row.status as string | undefined,
+    managerId: row.managerId as number | undefined,
+    managerName: row.managerName as string | undefined,
+    isActive: row.isActive as boolean,
+    createdAt: row.createdAt as string,
+  };
+}
 
-  void apiClient; void params;
-  const mockList: Branch[] = [
-    { id: 1, name: '판도 강남점', address: '서울시 강남구 테헤란로 123', phone: '02-1234-5678', managerId: 2, managerName: '이매니저', isActive: true, createdAt: '2023-01-01' },
-    { id: 2, name: '판도 홍대점', address: '서울시 마포구 홍익로 456', phone: '02-8765-4321', isActive: true, createdAt: '2023-06-01' },
-  ];
+/** 지점 목록 조회 (페이지네이션) */
+export const getBranchesPaginated = async (
+  params?: PaginationParams
+): Promise<ApiResponse<PaginatedResponse<BranchDetail>>> => {
+  const page = params?.page ?? 1;
+  const size = params?.size ?? 10;
+  const from = (page - 1) * size;
+  const to = from + size - 1;
+
+  const { data, error, count } = await supabase
+    .from('branches')
+    .select('*', { count: 'exact' })
+    .order('id', { ascending: true })
+    .range(from, to);
+
+  if (error) {
+    return { success: false, data: null as unknown as PaginatedResponse<BranchDetail>, message: error.message };
+  }
+
+  const total = count ?? 0;
+
   return {
     success: true,
     data: {
-      data: mockList,
-      pagination: { page: 1, size: 10, total: 2, totalPages: 1 },
+      data: (data ?? []).map((row) => rowToBranchDetail(row as Record<string, unknown>)),
+      pagination: {
+        page,
+        size,
+        total,
+        totalPages: Math.ceil(total / size),
+      },
     },
   };
 };
 
-/** 지점 생성 */
-export const createBranch = async (data: BranchRequest): Promise<ApiResponse<Branch>> => {
-  // const response = await apiClient.post<ApiResponse<Branch>>('/branches', data);
-  // return response.data;
+/** 지점 상세 조회 */
+export const getBranch = async (id: number): Promise<ApiResponse<BranchDetail>> => {
+  const { data, error } = await supabase
+    .from('branches')
+    .select('*')
+    .eq('id', id)
+    .single();
+
+  if (error) {
+    return { success: false, data: null as unknown as BranchDetail, message: error.message };
+  }
 
   return {
     success: true,
-    data: {
-      id: Date.now(),
-      ...data,
+    data: rowToBranchDetail(data as Record<string, unknown>),
+  };
+};
+
+/** 지점 생성 */
+export const createBranch = async (data: BranchRequest): Promise<ApiResponse<BranchDetail>> => {
+  const { data: inserted, error } = await supabase
+    .from('branches')
+    .insert({
+      name: data.name,
+      address: data.address,
+      phone: data.phone,
+      status: data.status ?? null,
+      managerId: data.managerId ?? null,
+      managerName: data.managerName ?? null,
       isActive: true,
-      createdAt: new Date().toISOString(),
-    },
+    })
+    .select()
+    .single();
+
+  if (error) {
+    return { success: false, data: null as unknown as BranchDetail, message: error.message };
+  }
+
+  return {
+    success: true,
+    data: rowToBranchDetail(inserted as Record<string, unknown>),
     message: '지점이 등록되었습니다.',
   };
 };
 
 /** 지점 수정 */
-export const updateBranch = async (id: number, data: Partial<BranchRequest>): Promise<ApiResponse<Branch>> => {
-  // const response = await apiClient.put<ApiResponse<Branch>>(`/branches/${id}`, data);
-  // return response.data;
+export const updateBranch = async (
+  id: number,
+  data: Partial<BranchRequest>
+): Promise<ApiResponse<BranchDetail>> => {
+  const updatePayload: Record<string, unknown> = {};
+  if (data.name !== undefined) updatePayload.name = data.name;
+  if (data.address !== undefined) updatePayload.address = data.address;
+  if (data.phone !== undefined) updatePayload.phone = data.phone;
+  if (data.status !== undefined) updatePayload.status = data.status;
+  if (data.managerId !== undefined) updatePayload.managerId = data.managerId;
+  if (data.managerName !== undefined) updatePayload.managerName = data.managerName;
+
+  const { data: updated, error } = await supabase
+    .from('branches')
+    .update(updatePayload)
+    .eq('id', id)
+    .select()
+    .single();
+
+  if (error) {
+    return { success: false, data: null as unknown as BranchDetail, message: error.message };
+  }
 
   return {
     success: true,
-    data: {
-      id,
-      name: data.name ?? '지점',
-      address: data.address ?? '',
-      phone: data.phone ?? '',
-      managerId: data.managerId,
-      isActive: true,
-      createdAt: new Date().toISOString(),
-    },
+    data: rowToBranchDetail(updated as Record<string, unknown>),
     message: '지점 정보가 수정되었습니다.',
   };
 };

@@ -17,9 +17,27 @@ import {
   FileText,
   Search,
   AlertCircle,
+  Loader2,
 } from "lucide-react";
+import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { moveToPage } from "@/internal";
+import { useCreateMember } from "@/api/hooks/useMembers";
+import { supabase } from "@/lib/supabase";
+import { checkDuplicateMember } from "@/lib/businessLogic";
+import { uploadFile } from "@/lib/uploadFile";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import {
+  memberFormSchema,
+  type MemberFormData,
+  formatPhone,
+} from "@/lib/validations";
+
+const getBranchId = (): number => {
+  const stored = localStorage.getItem('branchId');
+  return stored ? Number(stored) : 1;
+};
 
 import AppLayout from "@/components/AppLayout";
 import PageHeader from "@/components/PageHeader";
@@ -28,55 +46,16 @@ import FormSection from "@/components/FormSection";
 import ConfirmDialog from "@/components/ConfirmDialog";
 
 // ────────────────────────────────────────────────────────────
-// Mock 데이터
+// 주소 Mock (DB에 없으므로 하드코딩 유지)
 // ────────────────────────────────────────────────────────────
 
-const MOCK_FC_LIST = [
-  { value: "", label: "선택 안함" },
-  { value: "정미라 FC", label: "정미라 FC" },
-  { value: "최윤석 FC", label: "최윤석 FC" },
-  { value: "이수빈 FC", label: "이수빈 FC" },
-];
-
-const MOCK_TRAINER_LIST = [
-  { value: "", label: "선택 안함" },
-  { value: "이현우 트레이너", label: "이현우 트레이너" },
-  { value: "김지수 트레이너", label: "김지수 트레이너" },
-  { value: "박성준 트레이너", label: "박성준 트레이너" },
-];
-
-const MOCK_ADDRESSES = [
+const SAMPLE_ADDRESSES = [
   { postcode: "04524", address: "서울시 중구 세종대로 110" },
   { postcode: "06236", address: "서울시 강남구 테헤란로 123" },
   { postcode: "03181", address: "서울시 종로구 종로 1" },
   { postcode: "07328", address: "서울시 영등포구 여의대로 108" },
   { postcode: "04539", address: "서울시 중구 남대문로 81" },
 ];
-
-// ────────────────────────────────────────────────────────────
-// 유효성 검사 헬퍼
-// ────────────────────────────────────────────────────────────
-
-// 한글 2~20자
-const isValidName = (v: string) => /^[가-힣]{2,20}$/.test(v.trim());
-
-// 010-xxxx-xxxx 자동 포맷
-const formatPhone = (v: string) => {
-  const digits = v.replace(/\D/g, "").slice(0, 11);
-  if (digits.length <= 3) return digits;
-  if (digits.length <= 7) return `${digits.slice(0, 3)}-${digits.slice(3)}`;
-  return `${digits.slice(0, 3)}-${digits.slice(3, 7)}-${digits.slice(7)}`;
-};
-
-const isValidPhone = (v: string) => /^010-\d{4}-\d{4}$/.test(v);
-
-const isValidEmail = (v: string) => !v || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v);
-
-const isValidBirthDate = (v: string) => {
-  if (!v) return true; // 선택
-  const d = new Date(v);
-  return !isNaN(d.getTime()) && d < new Date();
-};
 
 // ────────────────────────────────────────────────────────────
 // 서브 컴포넌트
@@ -117,183 +96,175 @@ function Field({
 // 메인 컴포넌트
 // ────────────────────────────────────────────────────────────
 
+interface StaffOption {
+  value: string;
+  label: string;
+}
+
 export default function MemberForm() {
+  const createMember = useCreateMember();
   const [currentStep, setCurrentStep] = useState<"step1" | "step2">("step1");
   const [isEditMode, setIsEditMode] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showCancelDialog, setShowCancelDialog] = useState(false);
-  const [isDirty, setIsDirty] = useState(false);
-
-  const [formData, setFormData] = useState({
-    profileImage: null as string | null,
-    name: "",                       // UI-028 이름
-    gender: "" as "male" | "female" | "", // UI-029 성별
-    birthDate: "",                  // UI-030 생년월일
-    phone: "",                      // UI-031 연락처
-    email: "",                      // UI-032 이메일
-    address: "",                    // UI-033 주소
-    addressDetail: "",
-    notes: "",                      // UI-034 메모
-    fc: "",                         // UI-035 담당자(FC)
-    trainer: "",
-    memberType: "일반",
-    visitPath: "",
-    exerciseGoal: "",
-    nickname: "",
-    company: "",
-    marketingConsent: false,
-    attendanceNumber: "",
-  });
-
-  const [errors, setErrors] = useState<Record<string, string>>({});
-  const [touched, setTouched] = useState<Record<string, boolean>>({});
+  const [showResetDialog, setShowResetDialog] = useState(false);
+  const [fcList, setFcList] = useState<StaffOption[]>([{ value: "", label: "선택 안함" }]);
+  const [trainerList, setTrainerList] = useState<StaffOption[]>([{ value: "", label: "선택 안함" }]);
   const [phoneChecked, setPhoneChecked] = useState(false);
+  const [isUploadingImage, setIsUploadingImage] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // 주소 검색 모달
   const [isAddressModalOpen, setIsAddressModalOpen] = useState(false);
   const [addressQuery, setAddressQuery] = useState("");
   const [addressResults, setAddressResults] = useState<{ postcode: string; address: string }[]>([]);
 
-  // ── 초기화 (수정 모드 시뮬레이션) ──
+  // ── react-hook-form 설정 ──
+  const {
+    register,
+    handleSubmit,
+    setValue,
+    watch,
+    trigger,
+    reset,
+    formState: { errors, isDirty },
+  } = useForm<MemberFormData>({
+    resolver: zodResolver(memberFormSchema) as import('react-hook-form').Resolver<MemberFormData>,
+    defaultValues: {
+      profileImage: null,
+      name: "",
+      gender: undefined,
+      birthDate: "",
+      height: "",
+      phone: "",
+      email: "",
+      address: "",
+      addressDetail: "",
+      notes: "",
+      fc: "",
+      trainer: "",
+      memberType: "일반",
+      visitPath: "",
+      exerciseGoal: "",
+      nickname: "",
+      company: "",
+      marketingConsent: false,
+      attendanceNumber: "",
+    },
+    mode: "onBlur",
+  });
+
+  const watchedValues = watch();
+  const notesLength = watchedValues.notes?.length ?? 0;
+
+  // staff 목록 로드
   useEffect(() => {
-    if (window.location.pathname.includes("/edit")) {
-      setIsEditMode(true);
-      setFormData(prev => ({
-        ...prev,
-        name: "김태희",
-        gender: "female",
-        phone: "010-1111-2222",
-        memberType: "일반",
-        birthDate: "1990-05-20",
-        trainer: "이현우 트레이너",
-        visitPath: "SNS",
-        attendanceNumber: "8822",
-      }));
-      setPhoneChecked(true);
-    }
+    const fetchStaff = async () => {
+      const { data, error } = await supabase
+        .from('staff')
+        .select('id, name, role')
+        .eq('branchId', getBranchId());
+      if (!error && data) {
+        const fcs = data
+          .filter((s: Record<string, unknown>) => s.role === 'FC')
+          .map((s: Record<string, unknown>) => ({ value: String(s.name), label: String(s.name) }));
+        const trainers = data
+          .filter((s: Record<string, unknown>) => s.role === '트레이너')
+          .map((s: Record<string, unknown>) => ({ value: String(s.name), label: String(s.name) }));
+        setFcList([{ value: "", label: "선택 안함" }, ...fcs]);
+        setTrainerList([{ value: "", label: "선택 안함" }, ...trainers]);
+      }
+    };
+    fetchStaff();
   }, []);
 
+  // ── 수정 모드: URL에서 memberId 추출 후 실제 DB 데이터 로드 ──
+  const urlMemberId = new URLSearchParams(window.location.search).get('id');
+  useEffect(() => {
+    if (!window.location.pathname.includes("/edit") || !urlMemberId) return;
+    setIsEditMode(true);
+    const fetchMember = async () => {
+      const { data, error } = await supabase
+        .from('members')
+        .select('*')
+        .eq('id', urlMemberId)
+        .single();
+      if (error || !data) {
+        toast.error("회원 정보를 불러올 수 없습니다.");
+        return;
+      }
+      reset({
+        name: data.name ?? "",
+        gender: data.gender === 'M' ? 'male' : data.gender === 'F' ? 'female' : undefined,
+        phone: data.phone ?? "",
+        memberType: data.membershipType ?? "일반",
+        birthDate: data.birthDate ? data.birthDate.slice(0, 10) : "",
+        height: data.height ? String(data.height) : "",
+        email: data.email ?? "",
+        notes: data.memo ?? "",
+        profileImage: null,
+        address: "",
+        addressDetail: "",
+        fc: "",
+        trainer: "",
+        visitPath: "",
+        exerciseGoal: "",
+        nickname: "",
+        company: "",
+        marketingConsent: false,
+        attendanceNumber: "",
+      });
+      setPhoneChecked(true);
+    };
+    fetchMember();
+  }, [urlMemberId, reset]);
+
   // ── 핸들러 ──
-  const markDirty = () => setIsDirty(true);
-
-  const handleChange = (
-    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>
-  ) => {
-    const { name, value, type } = e.target;
-    const val = type === "checkbox" ? (e.target as HTMLInputElement).checked : value;
-
-    if (name === "phone") {
-      const formatted = formatPhone(value);
-      setFormData(prev => ({ ...prev, phone: formatted }));
-      if (phoneChecked) setPhoneChecked(false);
-      if (touched.phone) validateField("phone", formatted as string);
-      markDirty();
-      return;
-    }
-
-    setFormData(prev => ({ ...prev, [name]: val }));
-    if (touched[name]) validateField(name, val as string);
-    markDirty();
-  };
 
   const handleGender = (g: "male" | "female") => {
-    setFormData(prev => ({ ...prev, gender: g }));
-    setTouched(prev => ({ ...prev, gender: true }));
-    validateField("gender", g);
-    markDirty();
+    setValue("gender", g, { shouldDirty: true });
+    trigger("gender");
   };
 
-  const handleBlur = (name: string) => {
-    setTouched(prev => ({ ...prev, [name]: true }));
-    validateField(name, formData[name as keyof typeof formData] as string);
-  };
+  const handlePhoneCheck = async () => {
+    const phone = watchedValues.phone;
+    const isPhoneValid = await trigger("phone");
+    if (!isPhoneValid) return;
 
-  // 단일 필드 즉시 검증
-  const validateField = (name: string, value: string | boolean) => {
-    let msg = "";
-    if (name === "name") {
-      if (!String(value).trim()) msg = "이름을 입력하세요";
-      else if (!isValidName(String(value))) msg = "한글 2~20자로 입력하세요";
+    // 실제 Supabase 중복 조회
+    let query = supabase
+      .from('members')
+      .select('id')
+      .eq('phone', phone)
+      .is('deletedAt', null);
+    // 수정 모드일 때 자기 자신 제외
+    if (isEditMode && urlMemberId) {
+      query = query.neq('id', urlMemberId);
     }
-    if (name === "gender" && !value) msg = "성별을 선택하세요";
-    if (name === "birthDate") {
-      if (value && !isValidBirthDate(String(value))) msg = "올바른 날짜를 입력하세요";
-    }
-    if (name === "phone") {
-      if (!String(value)) msg = "연락처를 입력하세요";
-      else if (!isValidPhone(String(value))) msg = "올바른 연락처를 입력하세요 (010-xxxx-xxxx)";
-    }
-    if (name === "email" && value && !isValidEmail(String(value))) {
-      msg = "올바른 이메일을 입력하세요";
-    }
-    if (name === "address" && value && String(value).length < 5) {
-      msg = "주소를 5자 이상 입력하세요";
-    }
-    if (name === "notes" && String(value).length > 500) {
-      msg = "500자 이내로 입력하세요";
-    }
-
-    setErrors(prev => {
-      if (msg) return { ...prev, [name]: msg };
-      const next = { ...prev };
-      delete next[name];
-      return next;
-    });
-
-    return !msg;
-  };
-
-  // Step1 전체 검증
-  const validateStep1 = () => {
-    const fields = ["name", "gender", "phone"] as const;
-    let valid = true;
-    const newTouched: Record<string, boolean> = {};
-    fields.forEach(f => {
-      newTouched[f] = true;
-      if (!validateField(f, formData[f] as string)) valid = false;
-    });
-    if (!isEditMode && !phoneChecked) {
-      setErrors(prev => ({ ...prev, phone: "중복확인이 필요합니다" }));
-      valid = false;
-    }
-    if (!formData.memberType) {
-      setErrors(prev => ({ ...prev, memberType: "회원구분을 선택하세요" }));
-      valid = false;
-    }
-    setTouched(prev => ({ ...prev, ...newTouched }));
-    return valid;
-  };
-
-  // Step2 전체 검증
-  const validateStep2 = () => {
-    let valid = true;
-    if (!validateField("email", formData.email)) valid = false;
-    if (formData.address && !validateField("address", formData.address)) valid = false;
-    if (!validateField("notes", formData.notes)) valid = false;
-    return valid;
-  };
-
-  const handlePhoneCheck = () => {
-    setTouched(prev => ({ ...prev, phone: true }));
-    if (!isValidPhone(formData.phone)) {
-      setErrors(prev => ({ ...prev, phone: "올바른 연락처를 입력하세요 (010-xxxx-xxxx)" }));
+    const { data, error } = await query;
+    if (error) {
+      toast.error("중복확인 중 오류가 발생했습니다.");
       return;
     }
-    // Mock: 01012345678 = 중복
-    if (formData.phone === "010-1234-5678") {
-      setErrors(prev => ({ ...prev, phone: "이미 등록된 전화번호입니다" }));
+    if (data && data.length > 0) {
+      // 필드 에러를 수동으로 표시하기 위해 trigger 후 에러 상태는 phoneChecked로 관리
+      toast.error("이미 등록된 전화번호입니다.");
     } else {
       setPhoneChecked(true);
-      setErrors(prev => { const n = { ...prev }; delete n.phone; return n; });
-      alert("사용 가능한 번호입니다.");
+      toast.success("사용 가능한 번호입니다.");
     }
   };
 
-  const handleNext = () => {
-    if (validateStep1()) {
-      setCurrentStep("step2");
-      window.scrollTo(0, 0);
+  const handleNext = async () => {
+    const step1Fields: (keyof MemberFormData)[] = ["name", "gender", "phone", "memberType", "birthDate", "height"];
+    const valid = await trigger(step1Fields);
+    if (!valid) return;
+    if (!isEditMode && !phoneChecked) {
+      toast.error("전화번호 중복확인이 필요합니다.");
+      return;
     }
+    setCurrentStep("step2");
+    window.scrollTo(0, 0);
   };
 
   const handlePrev = () => {
@@ -301,31 +272,97 @@ export default function MemberForm() {
     window.scrollTo(0, 0);
   };
 
-  const handleSave = () => {
-    if (!validateStep2()) return;
+  const handleSave = handleSubmit(async (data) => {
     setIsSubmitting(true);
-    setTimeout(() => {
+
+    // 전화번호 중복 확인
+    const dupCheck = await checkDuplicateMember(data.phone, isEditMode && urlMemberId ? Number(urlMemberId) : undefined);
+    if (dupCheck.isDuplicate) {
+      toast.error(`이미 등록된 전화번호입니다. (${dupCheck.existingName})`);
       setIsSubmitting(false);
-      setIsDirty(false);
-      alert(isEditMode ? "회원 정보가 수정되었습니다." : "신규 회원이 등록되었습니다.");
-      moveToPage(985);
-    }, 1200);
+      return;
+    }
+
+    const memberPayload = {
+      name: data.name,
+      phone: data.phone,
+      email: data.email || null,
+      gender: data.gender === "male" ? "M" : "F",
+      birthDate: data.birthDate || null,
+      membershipType: data.memberType,
+      height: data.height ? parseFloat(data.height) : null,
+      memo: data.notes || null,
+    };
+
+    try {
+      if (isEditMode && urlMemberId) {
+        const { error } = await supabase
+          .from('members')
+          .update(memberPayload)
+          .eq('id', urlMemberId);
+        if (error) throw new Error(error.message);
+        toast.success("회원 정보가 수정되었습니다.");
+        moveToPage(985, { id: urlMemberId });
+      } else {
+        createMember.mutate(
+          {
+            name: memberPayload.name,
+            phone: memberPayload.phone,
+            email: memberPayload.email || undefined,
+            gender: memberPayload.gender as "M" | "F",
+            birthDate: memberPayload.birthDate || undefined,
+            membershipType: memberPayload.membershipType,
+            memo: memberPayload.memo || undefined,
+            height: memberPayload.height ?? undefined,
+            status: "ACTIVE",
+          },
+          {
+            onSuccess: (res) => {
+              if (res.success) {
+                const newId = res.data?.id;
+                toast.success("신규 회원이 등록되었습니다.", {
+                  action: {
+                    label: "바로 결제",
+                    onClick: () => moveToPage(972, { memberId: newId }),
+                  },
+                  duration: 5000,
+                });
+                moveToPage(985, { id: newId });
+              } else {
+                toast.error(res.message ?? "저장에 실패했습니다.");
+              }
+            },
+            onError: (err: unknown) => {
+              const msg = err instanceof Error ? err.message : "저장 중 오류가 발생했습니다.";
+              toast.error(msg);
+            },
+          }
+        );
+      }
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "저장 중 오류가 발생했습니다.";
+      toast.error(msg);
+    } finally {
+      setIsSubmitting(false);
+    }
+  });
+
+  const handleResetClick = () => {
+    if (!isDirty && !phoneChecked) return;
+    setShowResetDialog(true);
   };
 
-  const handleReset = () => {
-    if (confirm("입력한 내용을 모두 초기화하시겠습니까?")) {
-      setFormData({
-        profileImage: null, name: "", gender: "", phone: "", memberType: "일반",
-        birthDate: "", trainer: "", fc: "", visitPath: "", exerciseGoal: "",
-        nickname: "", email: "", address: "", addressDetail: "", company: "",
-        marketingConsent: false, notes: "", attendanceNumber: "",
-      });
-      setErrors({});
-      setTouched({});
-      setPhoneChecked(false);
-      setCurrentStep("step1");
-      setIsDirty(false);
-    }
+  const handleResetConfirm = () => {
+    reset({
+      profileImage: null, name: "", gender: undefined, phone: "", memberType: "일반",
+      birthDate: "", height: "", trainer: "", fc: "", visitPath: "", exerciseGoal: "",
+      nickname: "", email: "", address: "", addressDetail: "", company: "",
+      marketingConsent: false, notes: "", attendanceNumber: "",
+    });
+    setPhoneChecked(false);
+    setCurrentStep("step1");
+    setShowResetDialog(false);
+    toast.success("입력 내용이 초기화되었습니다.");
   };
 
   const handleCancelClick = () => {
@@ -333,45 +370,82 @@ export default function MemberForm() {
     else moveToPage(967);
   };
 
+  // 프로필 이미지 업로드
+  const handleProfileImageChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // 파일 타입 검증
+    if (!file.type.startsWith('image/')) {
+      toast.error('이미지 파일만 업로드 가능합니다.');
+      return;
+    }
+
+    // 파일 크기 검증 (5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error('파일 크기는 5MB 이하여야 합니다.');
+      return;
+    }
+
+    const branchId = getBranchId();
+    const timestamp = Date.now();
+    const path = `members/${branchId}/${timestamp}_${file.name}`;
+
+    setIsUploadingImage(true);
+    const result = await uploadFile('profiles', path, file);
+    setIsUploadingImage(false);
+
+    if ('error' in result) {
+      toast.error(`이미지 업로드 실패: ${result.error}`);
+    } else {
+      setValue('profileImage', result.url, { shouldDirty: true });
+      toast.success('프로필 이미지가 등록되었습니다.');
+    }
+
+    // input 초기화 (같은 파일 재선택 허용)
+    e.target.value = '';
+  };
+
   // 주소 검색
   const handleAddressSearch = () => {
     if (!addressQuery.trim()) return;
     const q = addressQuery.toLowerCase();
-    const res = MOCK_ADDRESSES.filter(a => a.address.toLowerCase().includes(q));
+    const res = SAMPLE_ADDRESSES.filter(a => a.address.toLowerCase().includes(q));
     setAddressResults(res.length > 0 ? res : [{ postcode: "00000", address: "검색 결과가 없습니다." }]);
   };
 
   const handleAddressSelect = (item: { postcode: string; address: string }) => {
     if (item.postcode === "00000") return;
-    setFormData(prev => ({ ...prev, address: `[${item.postcode}] ${item.address}` }));
-    markDirty();
+    setValue("address", `[${item.postcode}] ${item.address}`, { shouldDirty: true });
     setIsAddressModalOpen(false);
     setAddressQuery("");
     setAddressResults([]);
   };
 
   // ── 저장 버튼 활성화 조건 ──
-  // Step1: 이름·성별·연락처 + 중복확인 완료
   const step1CanNext =
-    isValidName(formData.name) &&
-    !!formData.gender &&
-    isValidPhone(formData.phone) &&
-    (isEditMode || phoneChecked) &&
-    !!formData.memberType;
+    !errors.name &&
+    !errors.gender &&
+    !errors.phone &&
+    !errors.memberType &&
+    watchedValues.name &&
+    watchedValues.gender &&
+    watchedValues.phone &&
+    watchedValues.memberType &&
+    (isEditMode || phoneChecked);
 
-  // Step2: 선택 필드 — 이메일 형식만 OK이면 언제나 활성
-  const step2CanSave = isValidEmail(formData.email) && formData.notes.length <= 500;
+  const step2CanSave = !errors.email && !errors.notes && notesLength <= 500;
 
   // 글자수 카운터 색상
-  const notesColor = formData.notes.length > 450
-    ? formData.notes.length > 500 ? "text-state-error" : "text-state-warning"
+  const notesColor = notesLength > 450
+    ? notesLength > 500 ? "text-state-error" : "text-state-warning"
     : "text-content-secondary";
 
   // ── 공통 입력 클래스 ──
-  const inputCls = (field: string) =>
+  const inputCls = (hasError: boolean) =>
     cn(
       "w-full rounded-input border px-md py-sm text-[13px] text-content outline-none focus:ring-2 transition-all",
-      touched[field] && errors[field]
+      hasError
         ? "border-state-error bg-red-50 focus:ring-state-error/20"
         : "border-line bg-surface-secondary focus:ring-primary/20"
     );
@@ -386,7 +460,7 @@ export default function MemberForm() {
           actions={
             <div className="flex gap-sm">
               <button
-                onClick={handleReset}
+                onClick={handleResetClick}
                 className="flex items-center gap-xs px-md py-sm rounded-button text-content-secondary hover:bg-surface-secondary border border-line transition-colors text-[13px]"
               >
                 <RotateCcw size={15} />
@@ -412,8 +486,13 @@ export default function MemberForm() {
               { key: "step2", label: "Step 2. 추가 정보", icon: FileText },
             ]}
             activeTab={currentStep}
-            onTabChange={key => {
-              if (key === "step2" && !validateStep1()) return;
+            onTabChange={async (key) => {
+              if (key === "step2") {
+                const step1Fields: (keyof MemberFormData)[] = ["name", "gender", "phone", "memberType", "birthDate", "height"];
+                const valid = await trigger(step1Fields);
+                if (!valid) return;
+                if (!isEditMode && !phoneChecked) return;
+              }
               setCurrentStep(key as "step1" | "step2");
             }}
           />
@@ -426,9 +505,21 @@ export default function MemberForm() {
               {/* 프로필 이미지 */}
               <div className="flex justify-center mb-xl">
                 <div className="relative">
-                  <div className="w-[120px] h-[120px] rounded-full bg-surface-secondary border-2 border-dashed border-line flex flex-col items-center justify-center overflow-hidden group cursor-pointer hover:border-primary transition-colors">
-                    {formData.profileImage ? (
-                      <img className="w-full h-full object-cover" src={formData.profileImage} alt="프로필" />
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={handleProfileImageChange}
+                  />
+                  <div
+                    className="w-[120px] h-[120px] rounded-full bg-surface-secondary border-2 border-dashed border-line flex flex-col items-center justify-center overflow-hidden group cursor-pointer hover:border-primary transition-colors"
+                    onClick={() => !isUploadingImage && fileInputRef.current?.click()}
+                  >
+                    {isUploadingImage ? (
+                      <Loader2 className="text-primary animate-spin" size={30} />
+                    ) : watchedValues.profileImage ? (
+                      <img className="w-full h-full object-cover" src={watchedValues.profileImage} alt="프로필" />
                     ) : (
                       <>
                         <Camera className="text-content-tertiary group-hover:text-primary transition-colors" size={30} />
@@ -436,7 +527,12 @@ export default function MemberForm() {
                       </>
                     )}
                   </div>
-                  <button className="absolute bottom-0 right-0 p-sm bg-surface rounded-full shadow-card border border-line text-content-secondary hover:text-primary transition-colors">
+                  <button
+                    type="button"
+                    className="absolute bottom-0 right-0 p-sm bg-surface rounded-full shadow-card border border-line text-content-secondary hover:text-primary transition-colors"
+                    onClick={() => !isUploadingImage && fileInputRef.current?.click()}
+                    disabled={isUploadingImage}
+                  >
                     <Camera size={14} />
                   </button>
                 </div>
@@ -445,21 +541,18 @@ export default function MemberForm() {
               {/* UI-028~031: 기본 인적사항 */}
               <FormSection title="기본 인적 사항" columns={2}>
                 {/* UI-028 이름 */}
-                <Field label="이름" required error={touched.name ? errors.name : undefined} hint="한글 2~20자">
+                <Field label="이름" required error={errors.name?.message} hint="한글/영문/한자 2~20자">
                   <input
-                    className={inputCls("name")}
+                    className={inputCls(!!errors.name)}
                     type="text"
-                    name="name"
-                    value={formData.name}
-                    onChange={handleChange}
-                    onBlur={() => handleBlur("name")}
                     placeholder="이름을 입력하세요"
                     maxLength={20}
+                    {...register("name")}
                   />
                 </Field>
 
                 {/* UI-029 성별 */}
-                <Field label="성별" required error={touched.gender ? errors.gender : undefined}>
+                <Field label="성별" required error={errors.gender?.message}>
                   <div className="flex gap-sm">
                     {[
                       { value: "male", label: "남성" },
@@ -470,7 +563,7 @@ export default function MemberForm() {
                         type="button"
                         className={cn(
                           "flex-1 py-sm rounded-button border text-[13px] font-medium transition-all",
-                          formData.gender === opt.value
+                          watchedValues.gender === opt.value
                             ? "bg-primary text-white border-primary"
                             : "border-line text-content-secondary hover:bg-surface-secondary"
                         )}
@@ -483,17 +576,20 @@ export default function MemberForm() {
                 </Field>
 
                 {/* UI-031 연락처 */}
-                <Field label="연락처" required error={touched.phone ? errors.phone : undefined} hint="010-xxxx-xxxx 형식">
+                <Field label="연락처" required error={errors.phone?.message} hint="010-xxxx-xxxx 형식">
                   <div className="flex gap-sm">
                     <input
-                      className={cn(inputCls("phone"), "flex-1")}
+                      className={cn(inputCls(!!errors.phone), "flex-1")}
                       type="tel"
-                      name="phone"
-                      value={formData.phone}
-                      onChange={handleChange}
-                      onBlur={() => handleBlur("phone")}
                       placeholder="010-0000-0000"
                       maxLength={13}
+                      {...register("phone", {
+                        onChange: (e) => {
+                          const formatted = formatPhone(e.target.value);
+                          setValue("phone", formatted, { shouldDirty: true });
+                          if (phoneChecked) setPhoneChecked(false);
+                        },
+                      })}
                     />
                     <button
                       type="button"
@@ -512,13 +608,10 @@ export default function MemberForm() {
                 </Field>
 
                 {/* 회원구분 */}
-                <Field label="회원구분" required error={touched.memberType ? errors.memberType : undefined}>
+                <Field label="회원구분" required error={errors.memberType?.message}>
                   <select
-                    className={inputCls("memberType")}
-                    name="memberType"
-                    value={formData.memberType}
-                    onChange={handleChange}
-                    onBlur={() => handleBlur("memberType")}
+                    className={inputCls(!!errors.memberType)}
+                    {...register("memberType")}
                   >
                     <option value="일반">일반</option>
                     <option value="기명법인">기명법인</option>
@@ -529,20 +622,33 @@ export default function MemberForm() {
                 {/* UI-030 생년월일 */}
                 <Field
                   label="생년월일"
-                  error={touched.birthDate ? errors.birthDate : undefined}
+                  error={errors.birthDate?.message}
                   hint="미래 날짜 입력 불가"
                 >
                   <div className="relative">
                     <input
-                      className={inputCls("birthDate")}
+                      className={inputCls(!!errors.birthDate)}
                       type="date"
-                      name="birthDate"
-                      value={formData.birthDate}
-                      onChange={handleChange}
-                      onBlur={() => handleBlur("birthDate")}
                       max={new Date().toISOString().split("T")[0]}
+                      {...register("birthDate")}
                     />
                     <Calendar className="absolute right-md top-1/2 -translate-y-1/2 text-content-tertiary pointer-events-none" size={16} />
+                  </div>
+                </Field>
+
+                {/* 키 (cm) */}
+                <Field label="키" error={errors.height?.message} hint="100~250cm">
+                  <div className="relative">
+                    <input
+                      className={inputCls(!!errors.height)}
+                      type="number"
+                      placeholder="예: 175"
+                      min={100}
+                      max={250}
+                      step={0.1}
+                      {...register("height")}
+                    />
+                    <span className="absolute right-md top-1/2 -translate-y-1/2 text-content-tertiary text-[13px] pointer-events-none">cm</span>
                   </div>
                 </Field>
               </FormSection>
@@ -552,12 +658,10 @@ export default function MemberForm() {
                 {/* UI-035 담당자(FC) */}
                 <Field label="담당 FC">
                   <select
-                    className={inputCls("fc")}
-                    name="fc"
-                    value={formData.fc}
-                    onChange={handleChange}
+                    className={inputCls(false)}
+                    {...register("fc")}
                   >
-                    {MOCK_FC_LIST.map(f => (
+                    {fcList.map(f => (
                       <option key={f.value} value={f.value}>{f.label}</option>
                     ))}
                   </select>
@@ -565,19 +669,17 @@ export default function MemberForm() {
 
                 <Field label="담당 트레이너">
                   <select
-                    className={inputCls("trainer")}
-                    name="trainer"
-                    value={formData.trainer}
-                    onChange={handleChange}
+                    className={inputCls(false)}
+                    {...register("trainer")}
                   >
-                    {MOCK_TRAINER_LIST.map(t => (
+                    {trainerList.map(t => (
                       <option key={t.value} value={t.value}>{t.label}</option>
                     ))}
                   </select>
                 </Field>
 
                 <Field label="방문 경로">
-                  <select className={inputCls("visitPath")} name="visitPath" value={formData.visitPath} onChange={handleChange}>
+                  <select className={inputCls(false)} {...register("visitPath")}>
                     <option value="">선택 안함</option>
                     <option value="지인추천">지인추천</option>
                     <option value="SNS">SNS (인스타그램/페이스북)</option>
@@ -588,7 +690,7 @@ export default function MemberForm() {
                 </Field>
 
                 <Field label="운동 목적">
-                  <select className={inputCls("exerciseGoal")} name="exerciseGoal" value={formData.exerciseGoal} onChange={handleChange}>
+                  <select className={inputCls(false)} {...register("exerciseGoal")}>
                     <option value="">선택 안함</option>
                     <option value="다이어트">다이어트</option>
                     <option value="근력증진">근력 증진</option>
@@ -605,31 +707,26 @@ export default function MemberForm() {
               <FormSection title="추가 연락 정보" columns={2}>
                 <Field label="별칭 / 닉네임">
                   <input
-                    className={inputCls("nickname")}
+                    className={inputCls(false)}
                     type="text"
-                    name="nickname"
-                    value={formData.nickname}
-                    onChange={handleChange}
                     placeholder="회원 별칭 (선택)"
+                    {...register("nickname")}
                   />
                 </Field>
 
                 {/* UI-032 이메일 */}
                 <Field
                   label="이메일"
-                  error={touched.email ? errors.email : undefined}
+                  error={errors.email?.message}
                   hint="선택 입력"
                 >
                   <div className="relative">
                     <Mail className="absolute left-md top-1/2 -translate-y-1/2 text-content-tertiary" size={15} />
                     <input
-                      className={cn(inputCls("email"), "pl-[36px]")}
+                      className={cn(inputCls(!!errors.email), "pl-[36px]")}
                       type="email"
-                      name="email"
-                      value={formData.email}
-                      onChange={handleChange}
-                      onBlur={() => handleBlur("email")}
                       placeholder="example@email.com"
+                      {...register("email")}
                     />
                   </div>
                 </Field>
@@ -638,19 +735,17 @@ export default function MemberForm() {
                 <div className="md:col-span-2">
                   <Field
                     label="주소"
-                    error={touched.address ? errors.address : undefined}
+                    error={errors.address?.message}
                     hint="선택 입력 (최소 5자)"
                   >
                     <div className="flex flex-col gap-sm">
                       <div className="flex gap-sm">
                         <input
-                          className={cn(inputCls("address"), "flex-1")}
+                          className={cn(inputCls(!!errors.address), "flex-1")}
                           type="text"
-                          name="address"
-                          value={formData.address}
                           readOnly
                           placeholder="주소 검색 버튼을 클릭하세요"
-                          onBlur={() => handleBlur("address")}
+                          {...register("address")}
                         />
                         <button
                           type="button"
@@ -662,12 +757,10 @@ export default function MemberForm() {
                         </button>
                       </div>
                       <input
-                        className={inputCls("addressDetail")}
+                        className={inputCls(false)}
                         type="text"
-                        name="addressDetail"
-                        value={formData.addressDetail}
-                        onChange={handleChange}
                         placeholder="상세 주소를 입력하세요"
+                        {...register("addressDetail")}
                       />
                     </div>
                   </Field>
@@ -677,12 +770,10 @@ export default function MemberForm() {
                   <div className="relative">
                     <Building className="absolute left-md top-1/2 -translate-y-1/2 text-content-tertiary" size={15} />
                     <input
-                      className={cn(inputCls("company"), "pl-[36px]")}
+                      className={cn(inputCls(false), "pl-[36px]")}
                       type="text"
-                      name="company"
-                      value={formData.company}
-                      onChange={handleChange}
                       placeholder="소속 회사 이름"
+                      {...register("company")}
                     />
                   </div>
                 </Field>
@@ -691,12 +782,10 @@ export default function MemberForm() {
                   <div className="relative">
                     <Hash className="absolute left-md top-1/2 -translate-y-1/2 text-content-tertiary" size={15} />
                     <input
-                      className={cn(inputCls("attendanceNumber"), "pl-[36px]")}
+                      className={cn(inputCls(false), "pl-[36px]")}
                       type="text"
-                      name="attendanceNumber"
-                      value={formData.attendanceNumber}
-                      onChange={handleChange}
                       placeholder="미입력 시 자동 생성"
+                      {...register("attendanceNumber")}
                     />
                   </div>
                 </Field>
@@ -709,9 +798,7 @@ export default function MemberForm() {
                     className="w-4 h-4 rounded border-line accent-primary"
                     type="checkbox"
                     id="marketingConsent"
-                    name="marketingConsent"
-                    checked={formData.marketingConsent}
-                    onChange={handleChange}
+                    {...register("marketingConsent")}
                   />
                   <label className="text-[13px] text-content cursor-pointer select-none" htmlFor="marketingConsent">
                     광고성 정보 수신 동의 (SMS/알림톡 발송용)
@@ -720,27 +807,24 @@ export default function MemberForm() {
 
                 {/* UI-034 메모 (최대 500자 + 카운터) */}
                 <Field
-                  label="특이사항 및 메모"
-                  error={touched.notes ? errors.notes : undefined}
+                  label="메모"
+                  error={errors.notes?.message}
                 >
                   <div className="relative">
                     <textarea
                       className={cn(
                         "w-full rounded-input border px-md py-sm text-[13px] text-content outline-none focus:ring-2 transition-all resize-none",
-                        touched.notes && errors.notes
+                        errors.notes
                           ? "border-state-error bg-red-50 focus:ring-state-error/20"
                           : "border-line bg-surface-secondary focus:ring-primary/20"
                       )}
-                      name="notes"
-                      value={formData.notes}
-                      onChange={handleChange}
-                      onBlur={() => handleBlur("notes")}
                       rows={4}
-                      placeholder="회원의 건강 상태, 특이사항 등을 기록하세요 (최대 500자)"
+                      placeholder="회원의 건강 상태, 메모 등을 기록하세요 (최대 500자)"
                       maxLength={520}
+                      {...register("notes")}
                     />
                     <div className={cn("absolute bottom-sm right-md text-[11px]", notesColor)}>
-                      {formData.notes.length} / 500
+                      {notesLength} / 500
                     </div>
                   </div>
                 </Field>
@@ -813,6 +897,18 @@ export default function MemberForm() {
         variant="danger"
         onConfirm={() => moveToPage(967)}
         onCancel={() => setShowCancelDialog(false)}
+      />
+
+      {/* 초기화 확인 다이얼로그 */}
+      <ConfirmDialog
+        open={showResetDialog}
+        title="입력 초기화"
+        description="입력한 내용을 모두 초기화하시겠습니까? 이 작업은 되돌릴 수 없습니다."
+        confirmLabel="초기화"
+        cancelLabel="취소"
+        variant="danger"
+        onConfirm={handleResetConfirm}
+        onCancel={() => setShowResetDialog(false)}
       />
 
       {/* 주소 검색 모달 */}

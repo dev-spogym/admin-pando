@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import {
   Calendar as CalendarIcon,
   Search,
@@ -26,6 +26,10 @@ import StatCard from "@/components/StatCard";
 import DataTable from "@/components/DataTable";
 import StatusBadge from "@/components/StatusBadge";
 import { SearchFilter } from "@/components/SearchFilter";
+import { supabase } from "@/lib/supabase";
+import { toast } from "sonner";
+import { exportToExcel } from "@/lib/exportExcel";
+import { deductSession } from "@/lib/businessLogic";
 
 /**
  * SCR-020: 출석 관리 (Attendance)
@@ -40,55 +44,43 @@ const ATTENDANCE_TYPE_MAP: Record<string, { bg: string; text: string; border: st
   수동: { bg: "bg-surface-tertiary", text: "text-content-secondary", border: "border-line", variant: "default" },
 };
 
-// --- Mock 출석 데이터 (10건+) ---
-const MOCK_ATTENDANCE: Array<{
-  id: number; date: string; time: string; memberName: string;
+// 주간/월간 데이터 타입
+interface WeekDayData {
+  day: string;
+  date: string;
+  count: number;
+  success: number;
+  fail: number;
+}
+
+// DB 영문 → 한글 매핑
+const TYPE_KO: Record<string, string> = {
+  REGULAR: '일반', PT: 'PT', GX: 'GX', MANUAL: '수동',
+  '일반': '일반', '수동': '수동',
+};
+const METHOD_KO: Record<string, string> = {
+  APP: '앱', KIOSK: '키오스크', MANUAL: '수동',
+  '앱': '앱', '키오스크': '키오스크',
+};
+
+interface AttendanceRecord {
+  id: number;
+  date: string;
+  time: string;
+  memberName: string;
   attendanceType: "일반" | "PT" | "GX" | "수동";
   checkInMethod: "키오스크" | "앱";
-  isOtherBranch: boolean; status: "성공" | "실패";
-  memberId: number; tel: string; presence: "재실" | "부재";
-}> = [
-  { id: 1,  date: "2026-03-11", time: "07:12", memberName: "김철수", attendanceType: "일반", checkInMethod: "키오스크", isOtherBranch: false, status: "성공", memberId: 101, tel: "010-1234-5678", presence: "재실" },
-  { id: 2,  date: "2026-03-11", time: "07:30", memberName: "이영희", attendanceType: "PT",   checkInMethod: "앱",       isOtherBranch: false, status: "성공", memberId: 102, tel: "010-2345-6789", presence: "재실" },
-  { id: 3,  date: "2026-03-11", time: "08:05", memberName: "박지민", attendanceType: "GX",   checkInMethod: "키오스크", isOtherBranch: true,  status: "성공", memberId: 103, tel: "010-3456-7890", presence: "재실" },
-  { id: 4,  date: "2026-03-11", time: "08:45", memberName: "최강호", attendanceType: "PT",   checkInMethod: "앱",       isOtherBranch: false, status: "성공", memberId: 104, tel: "010-4567-8901", presence: "부재" },
-  { id: 5,  date: "2026-03-11", time: "09:00", memberName: "한소희", attendanceType: "일반", checkInMethod: "키오스크", isOtherBranch: false, status: "성공", memberId: 105, tel: "010-5678-9012", presence: "재실" },
-  { id: 6,  date: "2026-03-11", time: "09:15", memberName: "정민준", attendanceType: "GX",   checkInMethod: "앱",       isOtherBranch: false, status: "실패", memberId: 106, tel: "010-6789-0123", presence: "부재" },
-  { id: 7,  date: "2026-03-11", time: "10:00", memberName: "유지훈", attendanceType: "일반", checkInMethod: "키오스크", isOtherBranch: true,  status: "성공", memberId: 107, tel: "010-7890-1234", presence: "재실" },
-  { id: 8,  date: "2026-03-11", time: "10:30", memberName: "김나연", attendanceType: "PT",   checkInMethod: "앱",       isOtherBranch: false, status: "성공", memberId: 108, tel: "010-8901-2345", presence: "재실" },
-  { id: 9,  date: "2026-03-11", time: "11:00", memberName: "박서준", attendanceType: "수동", checkInMethod: "키오스크", isOtherBranch: false, status: "성공", memberId: 109, tel: "010-9012-3456", presence: "재실" },
-  { id: 10, date: "2026-03-11", time: "11:20", memberName: "이수빈", attendanceType: "GX",   checkInMethod: "앱",       isOtherBranch: false, status: "성공", memberId: 110, tel: "010-0123-4567", presence: "부재" },
-  { id: 11, date: "2026-03-11", time: "13:00", memberName: "조현우", attendanceType: "PT",   checkInMethod: "키오스크", isOtherBranch: false, status: "성공", memberId: 111, tel: "010-1122-3344", presence: "재실" },
-  { id: 12, date: "2026-03-11", time: "14:10", memberName: "강민서", attendanceType: "일반", checkInMethod: "앱",       isOtherBranch: true,  status: "실패", memberId: 112, tel: "010-2233-4455", presence: "부재" },
-];
+  isOtherBranch: boolean;
+  status: "성공" | "실패";
+  memberId: number;
+  tel: string;
+  presence: "재실" | "부재";
+}
 
-const MOCK_MEMBERS = [
-  { id: 101, name: "김철수" },
-  { id: 102, name: "이영희" },
-  { id: 103, name: "박지민" },
-  { id: 105, name: "한소희" },
-  { id: 109, name: "박서준" },
-];
-
-// --- 주간 통계 ---
-const MOCK_WEEKLY = [
-  { day: "월", date: "03/11", count: 128, success: 122, fail: 6 },
-  { day: "화", date: "03/12", count: 145, success: 140, fail: 5 },
-  { day: "수", date: "03/13", count: 112, success: 108, fail: 4 },
-  { day: "목", date: "03/14", count: 98,  success: 95,  fail: 3 },
-  { day: "금", date: "03/15", count: 167, success: 160, fail: 7 },
-  { day: "토", date: "03/16", count: 89,  success: 85,  fail: 4 },
-  { day: "일", date: "03/17", count: 54,  success: 52,  fail: 2 },
-];
-
-// --- 월간 통계 (히트맵) ---
-const MOCK_MONTHLY: Record<number, number> = {
-  1: 120, 2: 134, 3: 98,  4: 145, 5: 167, 6: 112,
-  7: 89,  8: 143, 9: 128, 10: 156, 11: 98, 12: 134,
-  13: 120, 14: 89, 15: 145, 16: 112, 17: 134, 18: 167,
-  19: 98, 20: 120, 21: 134, 22: 89, 23: 112, 24: 145,
-  25: 98, 26: 120, 27: 134, 28: 89,
-};
+interface MemberOption {
+  id: number;
+  name: string;
+}
 
 // --- 출석 유형 배지 ---
 const AttendanceTypeBadge = ({ type }: { type: string }) => {
@@ -104,16 +96,19 @@ const AttendanceTypeBadge = ({ type }: { type: string }) => {
 const ManualAttendanceModal = ({
   onClose,
   onSubmit,
+  members,
 }: {
   onClose: () => void;
-  onSubmit: (data: { memberId: number; memberName: string; type: string; time: string }) => void;
+  onSubmit: (data: { memberId: number; memberName: string; type: string; time: string }) => void | Promise<void>;
+  members: MemberOption[];
 }) => {
   const [memberSearch, setMemberSearch] = useState("");
   const [selectedMember, setSelectedMember] = useState<{ id: number; name: string } | null>(null);
   const [attendanceType, setAttendanceType] = useState("일반");
   const [time, setTime] = useState(new Date().toTimeString().slice(0, 5));
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const filtered = MOCK_MEMBERS.filter(m =>
+  const filtered = members.filter(m =>
     m.name.includes(memberSearch) || String(m.id).includes(memberSearch)
   );
 
@@ -212,13 +207,15 @@ const ManualAttendanceModal = ({
           >취소</button>
           <button
             className="px-xl py-sm rounded-lg bg-primary text-white text-[13px] font-bold shadow-sm hover:opacity-90 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
-            disabled={!selectedMember}
-            onClick={() => {
-              if (!selectedMember) return;
-              onSubmit({ memberId: selectedMember.id, memberName: selectedMember.name, type: attendanceType, time });
+            disabled={!selectedMember || isSubmitting}
+            onClick={async () => {
+              if (!selectedMember || isSubmitting) return;
+              setIsSubmitting(true);
+              await onSubmit({ memberId: selectedMember.id, memberName: selectedMember.name, type: attendanceType, time });
+              setIsSubmitting(false);
               onClose();
             }}
-          >등록</button>
+          >{isSubmitting ? '등록 중...' : '등록'}</button>
         </div>
       </div>
     </div>
@@ -226,16 +223,16 @@ const ManualAttendanceModal = ({
 };
 
 // --- 주간 뷰 ---
-const WeeklyView = () => {
-  const max = Math.max(...MOCK_WEEKLY.map(d => d.count));
+const WeeklyView = ({ data, weekLabel }: { data: WeekDayData[]; weekLabel: string }) => {
+  const max = Math.max(...data.map(d => d.count), 1);
   return (
     <div className="bg-surface rounded-xl border border-line shadow-sm overflow-hidden">
       <div className="px-lg py-md border-b border-line">
-        <h3 className="text-[14px] font-bold text-content">주간 출석 현황 (2026.03.11 ~ 03.17)</h3>
+        <h3 className="text-[14px] font-bold text-content">주간 출석 현황 ({weekLabel})</h3>
       </div>
       <div className="p-lg">
         <div className="grid grid-cols-7 gap-md">
-          {MOCK_WEEKLY.map(stat => (
+          {data.map(stat => (
             <div key={stat.day} className="flex flex-col items-center gap-sm">
               <span className="text-[11px] text-content-secondary">{stat.date}</span>
               <div className="w-full bg-surface-tertiary rounded-xl h-[140px] flex flex-col justify-end overflow-hidden">
@@ -254,33 +251,40 @@ const WeeklyView = () => {
             </div>
           ))}
         </div>
-        <div className="flex items-center gap-lg mt-md pt-md border-t border-line">
-          <div className="flex items-center gap-xs">
-            <div className="w-3 h-3 rounded-sm bg-primary/70" />
-            <span className="text-[11px] text-content-secondary">총 출석</span>
+        {data.some(d => d.count > 0) ? (
+          <div className="flex items-center gap-lg mt-md pt-md border-t border-line">
+            <div className="flex items-center gap-xs">
+              <div className="w-3 h-3 rounded-sm bg-primary/70" />
+              <span className="text-[11px] text-content-secondary">총 출석</span>
+            </div>
+            <div className="flex items-center gap-xs">
+              <div className="w-3 h-3 rounded-sm bg-state-success" />
+              <span className="text-[11px] text-content-secondary">성공</span>
+            </div>
+            <div className="flex items-center gap-xs">
+              <div className="w-3 h-3 rounded-sm bg-state-error" />
+              <span className="text-[11px] text-content-secondary">실패</span>
+            </div>
           </div>
-          <div className="flex items-center gap-xs">
-            <div className="w-3 h-3 rounded-sm bg-state-success" />
-            <span className="text-[11px] text-content-secondary">성공</span>
+        ) : (
+          <div className="mt-md pt-md border-t border-line text-center text-[12px] text-content-tertiary">
+            이번 주 출석 데이터가 없습니다.
           </div>
-          <div className="flex items-center gap-xs">
-            <div className="w-3 h-3 rounded-sm bg-state-error" />
-            <span className="text-[11px] text-content-secondary">실패</span>
-          </div>
-        </div>
+        )}
       </div>
     </div>
   );
 };
 
 // --- 월간 뷰 ---
-const MonthlyView = () => {
-  const daysInMonth = 28;
-  const max = Math.max(...Object.values(MOCK_MONTHLY));
+const MonthlyView = ({ data, year, month, todayDay }: { data: Record<number, number>; year: number; month: number; todayDay: number }) => {
+  const daysInMonth = new Date(year, month, 0).getDate();
+  const firstDayOfWeek = new Date(year, month - 1, 1).getDay(); // 0=일, 1=월, ...
+  const max = Math.max(...Object.values(data), 1);
   return (
     <div className="bg-surface rounded-xl border border-line shadow-sm overflow-hidden">
       <div className="px-lg py-md border-b border-line">
-        <h3 className="text-[14px] font-bold text-content">월간 출석 현황 (2026년 3월)</h3>
+        <h3 className="text-[14px] font-bold text-content">월간 출석 현황 ({year}년 {month}월)</h3>
       </div>
       <div className="p-lg">
         <div className="grid grid-cols-7 gap-xs mb-sm">
@@ -289,10 +293,14 @@ const MonthlyView = () => {
           ))}
         </div>
         <div className="grid grid-cols-7 gap-xs">
+          {/* 빈 칸 (월 시작 요일까지) */}
+          {Array.from({ length: firstDayOfWeek }, (_, i) => (
+            <div key={`empty-${i}`} className="min-h-[52px]" />
+          ))}
           {Array.from({ length: daysInMonth }, (_, i) => i + 1).map(day => {
-            const count = MOCK_MONTHLY[day] ?? 0;
+            const count = data[day] ?? 0;
             const intensity = count / max;
-            const isToday = day === 11;
+            const isToday = day === todayDay;
             return (
               <div
                 key={day}
@@ -323,12 +331,73 @@ const MonthlyView = () => {
 };
 
 export default function Attendance() {
-  const [records, setRecords] = useState(MOCK_ATTENDANCE);
+  const [records, setRecords] = useState<AttendanceRecord[]>([]);
+  const [members, setMembers] = useState<MemberOption[]>([]);
+  const [loading, setLoading] = useState(true);
   const [selectedDate, setSelectedDate] = useState("2026-03-11");
   const [viewMode, setViewMode] = useState<"day" | "week" | "month">("day");
   const [isRealtimeEnabled, setIsRealtimeEnabled] = useState(true);
   const [popups, setPopups] = useState<Array<{ id: number; name: string; status: string; pass: string }>>([]);
   const [isManualModalOpen, setIsManualModalOpen] = useState(false);
+
+  const branchId = Number(localStorage.getItem("branchId") ?? 1);
+
+  useEffect(() => {
+    const fetchData = async () => {
+      setLoading(true);
+      try {
+        // 출석 데이터 (attendance 테이블)
+        // 출석 + 회원 전화번호 함께 조회
+        const { data: attendanceData } = await supabase
+          .from("attendance")
+          .select("id, memberId, memberName, checkInAt, checkOutAt, type, checkInMethod, branchId, members!inner(phone)")
+          .eq("branchId", branchId)
+          .order("checkInAt", { ascending: false });
+
+        if (attendanceData) {
+          const mapped: AttendanceRecord[] = attendanceData.map((a: any) => {
+            const checkInAt: string = a.checkInAt ?? "";
+            const datePart = checkInAt.split("T")[0] ?? "";
+            const timePart = checkInAt.split("T")[1]?.substring(0, 5) ?? "";
+            const typeKo = TYPE_KO[a.type] ?? a.type ?? "일반";
+            const methodKo = METHOD_KO[a.checkInMethod] ?? a.checkInMethod ?? "키오스크";
+            const phone = a.members?.phone ?? "-";
+            return {
+              id: a.id,
+              date: datePart,
+              time: timePart,
+              memberName: a.memberName ?? "",
+              attendanceType: typeKo as "일반" | "PT" | "GX" | "수동",
+              checkInMethod: methodKo as "키오스크" | "앱",
+              isOtherBranch: false,
+              status: "성공" as const,
+              memberId: a.memberId ?? 0,
+              tel: phone,
+              presence: a.checkOutAt ? "부재" as const : "재실" as const,
+            };
+          });
+          setRecords(mapped);
+        }
+
+        // 회원 목록 (members 테이블, 수동 출석 검색용)
+        const { data: memberData } = await supabase
+          .from("members")
+          .select("id, name")
+          .eq("branchId", branchId);
+
+        if (memberData) {
+          setMembers(memberData.map((m: any) => ({ id: m.id, name: m.name ?? "" })));
+        }
+      } catch (err) {
+        console.error("Attendance 데이터 로드 실패:", err);
+        toast.error("출석 데이터를 불러오지 못했습니다.");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchData();
+  }, [branchId]);
 
   const addMockPopup = () => {
     if (!isRealtimeEnabled) return;
@@ -337,24 +406,148 @@ export default function Attendance() {
     setTimeout(() => setPopups(prev => prev.filter(p => p.id !== newPopup.id)), 5000);
   };
 
-  const handleManualSubmit = (data: { memberId: number; memberName: string; type: string; time: string }) => {
-    const newRecord = {
+  const handleManualSubmit = async (data: { memberId: number; memberName: string; type: string; time: string }) => {
+    // DB에 출석 기록 저장
+    const { error } = await supabase.from('attendance').insert({
+      memberId: data.memberId,
+      memberName: data.memberName,
+      checkInAt: `${selectedDate}T${data.time}:00`,
+      type: data.type === '일반' ? 'REGULAR' : data.type === '수동' ? 'MANUAL' : data.type,
+      checkInMethod: 'MANUAL',
+      isOtherBranch: false,
+      branchId,
+    });
+
+    if (error) {
+      toast.error('출석 등록에 실패했습니다.');
+      return;
+    }
+
+    // PT/GX 출석 시 잔여횟수 차감
+    const dbType = data.type === '일반' ? 'REGULAR' : data.type;
+    if (dbType === 'PT' || dbType === 'GX') {
+      const result = await deductSession(data.memberId, dbType as 'PT' | 'GX');
+      if (result.success && result.remaining !== undefined) {
+        toast.info(result.message);
+      }
+    }
+
+    const newRecord: AttendanceRecord = {
       id: Date.now(), date: selectedDate, time: data.time,
       memberName: data.memberName,
       attendanceType: data.type as "일반" | "PT" | "GX" | "수동",
-      checkInMethod: "키오스크" as const,
-      isOtherBranch: false, status: "성공" as const,
-      memberId: data.memberId, tel: "-", presence: "재실" as const,
+      checkInMethod: "키오스크",
+      isOtherBranch: false, status: "성공",
+      memberId: data.memberId, tel: "-", presence: "재실",
     };
     setRecords(prev => [newRecord, ...prev]);
+    toast.success(`${data.memberName}님 출석이 등록되었습니다.`);
   };
+
+  // --- 주간/월간 데이터 계산 (실 데이터 기반) ---
+  const now = new Date();
+  const currentYear = now.getFullYear();
+  const currentMonth = now.getMonth() + 1;
+  const todayDayOfMonth = now.getDate();
+
+  // 이번 주 월~일 날짜 범위 계산
+  const weekData = useMemo((): WeekDayData[] => {
+    const today = new Date();
+    const dayOfWeek = today.getDay(); // 0=일, 1=월, ...
+    const monday = new Date(today);
+    monday.setDate(today.getDate() - (dayOfWeek === 0 ? 6 : dayOfWeek - 1));
+
+    const days = ["월", "화", "수", "목", "금", "토", "일"];
+    return days.map((dayName, i) => {
+      const d = new Date(monday);
+      d.setDate(monday.getDate() + i);
+      const dateStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+      const dayRecords = records.filter(r => r.date === dateStr);
+      const successCount = dayRecords.filter(r => r.status === "성공").length;
+      const failCount = dayRecords.filter(r => r.status === "실패").length;
+      return {
+        day: dayName,
+        date: `${String(d.getMonth() + 1).padStart(2, '0')}/${String(d.getDate()).padStart(2, '0')}`,
+        count: dayRecords.length,
+        success: successCount,
+        fail: failCount,
+      };
+    });
+  }, [records]);
+
+  const weekLabel = useMemo(() => {
+    const today = new Date();
+    const dayOfWeek = today.getDay();
+    const monday = new Date(today);
+    monday.setDate(today.getDate() - (dayOfWeek === 0 ? 6 : dayOfWeek - 1));
+    const sunday = new Date(monday);
+    sunday.setDate(monday.getDate() + 6);
+    const fmt = (d: Date) => `${d.getFullYear()}.${String(d.getMonth() + 1).padStart(2, '0')}.${String(d.getDate()).padStart(2, '0')}`;
+    return `${fmt(monday)} ~ ${fmt(sunday)}`;
+  }, []);
+
+  // 월간 일별 출석 집계
+  const monthlyData = useMemo((): Record<number, number> => {
+    const result: Record<number, number> = {};
+    const monthPrefix = `${currentYear}-${String(currentMonth).padStart(2, '0')}-`;
+    records.forEach(r => {
+      if (r.date.startsWith(monthPrefix)) {
+        const day = parseInt(r.date.split('-')[2], 10);
+        result[day] = (result[day] ?? 0) + 1;
+      }
+    });
+    return result;
+  }, [records, currentYear, currentMonth]);
+
+  // 주간/월간 통계 합계
+  const weekTotal = weekData.reduce((s, d) => s + d.count, 0);
+  const weekPT = useMemo(() => {
+    const today = new Date();
+    const dayOfWeek = today.getDay();
+    const monday = new Date(today);
+    monday.setDate(today.getDate() - (dayOfWeek === 0 ? 6 : dayOfWeek - 1));
+    const sunday = new Date(monday);
+    sunday.setDate(monday.getDate() + 6);
+    const fmtD = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    return records.filter(r => r.date >= fmtD(monday) && r.date <= fmtD(sunday) && r.attendanceType === "PT").length;
+  }, [records]);
+  const weekGX = useMemo(() => {
+    const today = new Date();
+    const dayOfWeek = today.getDay();
+    const monday = new Date(today);
+    monday.setDate(today.getDate() - (dayOfWeek === 0 ? 6 : dayOfWeek - 1));
+    const sunday = new Date(monday);
+    sunday.setDate(monday.getDate() + 6);
+    const fmtD = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    return records.filter(r => r.date >= fmtD(monday) && r.date <= fmtD(sunday) && r.attendanceType === "GX").length;
+  }, [records]);
+
+  const monthTotal = Object.values(monthlyData).reduce((s, v) => s + v, 0);
+  const monthPT = useMemo(() => {
+    const monthPrefix = `${currentYear}-${String(currentMonth).padStart(2, '0')}-`;
+    return records.filter(r => r.date.startsWith(monthPrefix) && r.attendanceType === "PT").length;
+  }, [records, currentYear, currentMonth]);
+  const monthNew = useMemo(() => {
+    const monthPrefix = `${currentYear}-${String(currentMonth).padStart(2, '0')}-`;
+    const prevPrefix = currentMonth > 1
+      ? `${currentYear}-${String(currentMonth - 1).padStart(2, '0')}-`
+      : `${currentYear - 1}-12-`;
+    const thisMonthIds = new Set(records.filter(r => r.date.startsWith(monthPrefix)).map(r => r.memberId));
+    const prevIds = new Set(records.filter(r => r.date < monthPrefix).map(r => r.memberId));
+    return [...thisMonthIds].filter(id => !prevIds.has(id)).length;
+  }, [records, currentYear, currentMonth]);
 
   // 오늘 통계 계산
   const todayRecords = records.filter(r => r.date === selectedDate);
   const todayTotal     = todayRecords.filter(r => r.status === "성공").length;
   const todayPT        = todayRecords.filter(r => r.attendanceType === "PT").length;
   const todayGX        = todayRecords.filter(r => r.attendanceType === "GX").length;
-  const todayNew       = 3; // Mock
+  // 신규 방문: 해당 날짜에 처음 출석한 회원 수 (같은 memberId가 이전 기록에 없는 경우)
+  const todayNew = (() => {
+    const todayIds = new Set(todayRecords.map(r => r.memberId));
+    const prevIds = new Set(records.filter(r => r.date < selectedDate).map(r => r.memberId));
+    return [...todayIds].filter(id => !prevIds.has(id)).length;
+  })();
 
   // 테이블 컬럼 (SCR-020 UI-124)
   const columns = [
@@ -376,8 +569,8 @@ export default function Attendance() {
       key: "memberName",
       header: "회원명",
       width: 120,
-      render: (val: string) => (
-        <button className="font-semibold text-primary hover:underline text-left text-[13px]" onClick={() => moveToPage(985)}>
+      render: (val: string, row: AttendanceRecord) => (
+        <button className="font-semibold text-primary hover:underline text-left text-[13px]" onClick={() => moveToPage(985, { id: row.memberId })}>
           {val}
         </button>
       )
@@ -427,7 +620,10 @@ export default function Attendance() {
   const navigate = (dir: 1 | -1) => {
     const d = new Date(selectedDate);
     d.setDate(d.getDate() + dir);
-    setSelectedDate(d.toISOString().split("T")[0]);
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    setSelectedDate(`${y}-${m}-${day}`);
   };
 
   return (
@@ -509,8 +705,14 @@ export default function Attendance() {
           }
         />
 
+        {loading && (
+          <div className="flex items-center justify-center py-xl text-[13px] text-content-secondary">
+            데이터를 불러오는 중...
+          </div>
+        )}
+
         {/* 일별 뷰 */}
-        {viewMode === "day" && (
+        {!loading && viewMode === "day" && (
           <>
             {/* 상단 통계 카드 4개 — SCR-020 */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-lg">
@@ -563,30 +765,43 @@ export default function Attendance() {
               title="출석 이력 목록"
               pagination={{ page: 1, pageSize: 10, total: records.length }}
               selectable
-              onDownloadExcel={() => alert("Excel 다운로드")}
+              onDownloadExcel={() => {
+                const exportColumns = [
+                  { key: 'date', header: '날짜' },
+                  { key: 'time', header: '시간' },
+                  { key: 'memberName', header: '회원명' },
+                  { key: 'attendanceType', header: '출석유형' },
+                  { key: 'checkInMethod', header: '체크인방식' },
+                  { key: 'status', header: '출석여부' },
+                  { key: 'presence', header: '재실여부' },
+                  { key: 'tel', header: '연락처' },
+                ];
+                exportToExcel(records as unknown as Record<string, unknown>[], exportColumns, { filename: '출석내역' });
+                toast.success(`${records.length}건 엑셀 다운로드 완료`);
+              }}
             />
           </>
         )}
 
-        {viewMode === "week" && (
+        {!loading && viewMode === "week" && (
           <>
             <div className="grid grid-cols-2 md:grid-cols-3 gap-lg">
-              <StatCard label="주간 총 출석" value="793건" icon={<Users />} change={{ value: 6.4, label: "전주 대비" }} />
-              <StatCard label="주간 PT 수업" value="218건" variant="mint" icon={<CheckCircle2 />} />
-              <StatCard label="주간 GX 수업" value="147건" variant="peach" icon={<MapPin />} />
+              <StatCard label="주간 총 출석" value={`${weekTotal.toLocaleString()}건`} icon={<Users />} description="이번 주 출석" />
+              <StatCard label="주간 PT 수업" value={`${weekPT}건`} variant="mint" icon={<CheckCircle2 />} description="이번 주 PT" />
+              <StatCard label="주간 GX 수업" value={`${weekGX}건`} variant="peach" icon={<MapPin />} description="이번 주 GX" />
             </div>
-            <WeeklyView />
+            <WeeklyView data={weekData} weekLabel={weekLabel} />
           </>
         )}
 
-        {viewMode === "month" && (
+        {!loading && viewMode === "month" && (
           <>
             <div className="grid grid-cols-2 md:grid-cols-3 gap-lg">
-              <StatCard label="월간 총 출석" value="3,421건" icon={<Users />} change={{ value: 6.6, label: "전월 대비" }} />
-              <StatCard label="월간 PT 수업" value="892건" variant="mint" icon={<CheckCircle2 />} />
-              <StatCard label="월간 신규 방문" value="78명" variant="peach" icon={<User />} />
+              <StatCard label="월간 총 출석" value={`${monthTotal.toLocaleString()}건`} icon={<Users />} description={`${currentMonth}월 출석`} />
+              <StatCard label="월간 PT 수업" value={`${monthPT}건`} variant="mint" icon={<CheckCircle2 />} description={`${currentMonth}월 PT`} />
+              <StatCard label="월간 신규 방문" value={`${monthNew}명`} variant="peach" icon={<User />} description="첫 방문 회원" />
             </div>
-            <MonthlyView />
+            <MonthlyView data={monthlyData} year={currentYear} month={currentMonth} todayDay={todayDayOfMonth} />
           </>
         )}
 
@@ -627,6 +842,7 @@ export default function Attendance() {
         <ManualAttendanceModal
           onClose={() => setIsManualModalOpen(false)}
           onSubmit={handleManualSubmit}
+          members={members}
         />
       )}
     </AppLayout>
