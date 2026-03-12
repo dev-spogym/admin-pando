@@ -2,6 +2,7 @@
  * 매출 관련 API 함수 - Supabase 연동
  */
 import { supabase } from '../../lib/supabase';
+import { createAuditLog, AUDIT_ACTIONS } from './auditLog';
 import type { ApiResponse, PaginatedResponse, PaginationParams } from '../types';
 
 /** branchId 가져오기 */
@@ -140,6 +141,7 @@ export const createSale = async (payload: SaleRequest): Promise<ApiResponse<Sale
     .single();
 
   if (error) throw new Error(error.message);
+  createAuditLog({ action: AUDIT_ACTIONS.CREATE, targetType: 'sale', targetId: data.id, afterValue: { memberName: payload.memberName, amount: payload.amount } });
   return { success: true, data: data as Sale, message: '매출이 등록되었습니다.' };
 };
 
@@ -153,6 +155,7 @@ export const updateSale = async (id: number, payload: Partial<SaleRequest>): Pro
     .single();
 
   if (error) throw new Error(error.message);
+  createAuditLog({ action: AUDIT_ACTIONS.UPDATE, targetType: 'sale', targetId: id });
   return { success: true, data: data as Sale, message: '매출이 수정되었습니다.' };
 };
 
@@ -160,6 +163,7 @@ export const updateSale = async (id: number, payload: Partial<SaleRequest>): Pro
 export const deleteSale = async (id: number): Promise<ApiResponse<null>> => {
   const { error } = await supabase.from('sales').delete().eq('id', id);
   if (error) throw new Error(error.message);
+  createAuditLog({ action: AUDIT_ACTIONS.DELETE, targetType: 'sale', targetId: id });
   return { success: true, data: null, message: '매출이 삭제되었습니다.' };
 };
 
