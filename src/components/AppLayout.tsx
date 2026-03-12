@@ -3,6 +3,7 @@ import AppHeader from "@/components/AppHeader";
 import AppSidebar from "@/components/AppSidebar";
 import { cn } from "@/lib/utils";
 import { moveToPage } from "@/internal";
+import { useAuthStore } from "@/stores/authStore";
 
 interface AppLayoutProps {
   children: React.ReactNode;
@@ -10,7 +11,8 @@ interface AppLayoutProps {
 
 const AppLayout = ({ children }: AppLayoutProps) => {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
-  const [activePath, setActivePath] = useState("/");
+  const [activePath, setActivePath] = useState(() => window.location.pathname);
+  const authUser = useAuthStore((s) => s.user);
 
   const handleNavigate = (path: string, viewId?: number) => {
     setActivePath(path);
@@ -70,9 +72,9 @@ const AppLayout = ({ children }: AppLayoutProps) => {
         {/* 헤더 */}
         <AppHeader
           onToggleSidebar={() => setSidebarCollapsed(!sidebarCollapsed)}
-          notificationCount={5}
-          userName="운영관리자"
-          branchName="스포짐 종각점"
+          notificationCount={0}
+          userName={authUser?.name ?? '사용자'}
+          branchName={authUser?.branchName || '스포짐'}
         />
 
         {/* 콘텐츠 */}

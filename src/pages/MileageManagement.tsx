@@ -20,6 +20,8 @@ import {
   AlertTriangle
 } from 'lucide-react';
 import { moveToPage } from '@/internal';
+import { toast } from 'sonner';
+import { exportToExcel } from '@/lib/exportExcel';
 import AppLayout from '@/components/AppLayout';
 import PageHeader from '@/components/PageHeader';
 import StatCard from '@/components/StatCard';
@@ -30,6 +32,12 @@ import StatusBadge from '@/components/StatusBadge';
 import FormSection from '@/components/FormSection';
 import ConfirmDialog from '@/components/ConfirmDialog';
 import { cn } from '@/lib/utils';
+import { supabase } from '@/lib/supabase';
+
+const getBranchId = (): number => {
+  const stored = localStorage.getItem('branchId');
+  return stored ? Number(stored) : 1;
+};
 
 // --- 날짜 유틸 ---
 const TODAY = '2026-03-11';
@@ -46,30 +54,13 @@ function addMonths(dateStr: string, months: number): string {
   return d.toISOString().split('T')[0];
 }
 
-// --- Mock Data ---
-
-const MOCK_SUMMARY = {
-  totalIssued: 12584000,
-  totalUsed: 8420000,
-  currentBalance: 4164000,
-  monthlyEarned: 1250000,
+// --- 요약 초기값 ---
+const INITIAL_SUMMARY = {
+  totalIssued: 0,
+  totalUsed: 0,
+  currentBalance: 0,
+  monthlyEarned: 0,
 };
-
-const MOCK_MEMBERS = [
-  { id: 1, name: '김민준', contact: '010-1234-5678', earned: 500000, used: 450000, balance: 50000, lastEarnedAt: '2026-02-18', expiryDate: '2027-02-18' },
-  { id: 2, name: '이서연', contact: '010-2345-6789', earned: 300000, used: 100000, balance: 200000, lastEarnedAt: '2026-02-15', expiryDate: '2027-02-15' },
-  { id: 3, name: '박지훈', contact: '010-3456-7890', earned: 150000, used: 0, balance: 150000, lastEarnedAt: '2026-02-10', expiryDate: '2026-03-20' },
-  { id: 4, name: '최지우', contact: '010-4567-8901', earned: 800000, used: 750000, balance: 50000, lastEarnedAt: '2026-02-19', expiryDate: '2026-04-05' },
-  { id: 5, name: '정하늘', contact: '010-5678-9012', earned: 200000, used: 50000, balance: 150000, lastEarnedAt: '2026-02-12', expiryDate: '2027-02-12' },
-];
-
-const MOCK_HISTORY = [
-  { id: 101, createdAt: '2026-02-19 14:30', name: '최지우', type: '적립', amount: 5000, balance: 50000, reason: '결제 적립', admin: '자동', expiryDate: '2027-02-19' },
-  { id: 102, createdAt: '2026-02-19 11:20', name: '김철수', type: '사용', amount: -10000, balance: 12000, reason: '수업 결제', admin: '시스템', expiryDate: '2027-02-19' },
-  { id: 103, createdAt: '2026-02-18 16:45', name: '김민준', type: '적립', amount: 2000, balance: 50000, reason: '이벤트 보상', admin: '관리자', expiryDate: '2027-02-18' },
-  { id: 104, createdAt: '2026-02-18 09:15', name: '이영희', type: '차감', amount: -5000, balance: 15000, reason: '오류 수정', admin: '관리자', expiryDate: '2026-03-15' },
-  { id: 105, createdAt: '2026-02-17 18:00', name: '박지훈', type: '적립', amount: 10000, balance: 150000, reason: '결제 적립', admin: '자동', expiryDate: '2026-03-20' },
-];
 
 // --- 기본 정책 초기값 ---
 const DEFAULT_POLICY = {
@@ -96,6 +87,7 @@ const ManualAdjustmentModal = ({
   const [amount, setAmount] = useState<string>('');
   const [reason, setReason] = useState<string>('이벤트 보상');
   const [memo, setMemo] = useState<string>('');
+  const [isProcessing, setIsProcessing] = useState(false);
 
   if (!isOpen) return null;
 
@@ -184,10 +176,18 @@ const ManualAdjustmentModal = ({
           </button>
           <button
             className="flex-1 py-md rounded-button bg-primary text-white hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
-            onClick={() => onConfirm({ type, amount: Number(amount), reason, memo })}
-            disabled={!amount}
+            onClick={() => {
+              if (isProcessing) return;
+              setIsProcessing(true);
+              try {
+                onConfirm({ type, amount: Number(amount), reason, memo });
+              } finally {
+                setIsProcessing(false);
+              }
+            }}
+            disabled={!amount || isProcessing}
           >
-            처리 확인
+            {isProcessing ? "처리 중..." : "처리 확인"}
           </button>
         </div>
       </div>
@@ -226,6 +226,38 @@ export default function MileageManagement() {
   const [historySearch, setHistorySearch] = useState('');
   const [historyFilters, setHistoryFilters] = useState({ type: '전체', dateRange: null });
 
+  // Supabase 데이터 상태
+  const [members, setMembers] = useState<any[]>([]);
+  const [summary, setSummary] = useState(INITIAL_SUMMARY);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchMembers = async () => {
+      setIsLoading(true);
+      const { data, error } = await supabase
+        .from('members')
+        .select('id, name, phone, mileage')
+        .eq('branchId', getBranchId());
+      if (!error && data) {
+        const mapped = data.map((m: any) => ({
+          id: m.id,
+          name: m.name,
+          contact: m.phone,
+          earned: m.mileage ?? 0,
+          used: 0,
+          balance: m.mileage ?? 0,
+          lastEarnedAt: '-',
+          expiryDate: '-',
+        }));
+        setMembers(mapped);
+        const totalBalance = mapped.reduce((sum: number, m: any) => sum + m.balance, 0);
+        setSummary(prev => ({ ...prev, currentBalance: totalBalance }));
+      }
+      setIsLoading(false);
+    };
+    fetchMembers();
+  }, []);
+
   // Modal states
   const [isManualModalOpen, setIsManualModalOpen] = useState(false);
   const [selectedMember, setSelectedMember] = useState<any>(null);
@@ -250,7 +282,7 @@ export default function MileageManagement() {
       render: (val: string, row: any) => (
         <div
           className="flex items-center gap-xs cursor-pointer group"
-          onClick={() => moveToPage(985)}
+          onClick={() => moveToPage(985, { id: row.id })}
         >
           <div className="w-8 h-8 rounded-full bg-primary-light flex items-center justify-center text-primary group-hover:bg-primary group-hover:text-white transition-colors">
             <User size={14} />
@@ -346,16 +378,15 @@ export default function MileageManagement() {
   ], []);
 
   const handleManualAdjustment = (data: any) => {
-    console.log('Adjustment processing:', data, 'for member:', selectedMember);
     setIsManualModalOpen(false);
     setSelectedMember(null);
-    alert(`${data.type} 처리가 완료되었습니다.`);
+    toast.success(`${data.type} 처리가 완료되었습니다.`);
   };
 
   const handlePolicySave = () => {
     setSavedPolicy(policy);
     setIsPolicySaveDialogOpen(false);
-    alert('정책이 성공적으로 저장되었습니다.');
+    toast.success('정책이 성공적으로 저장되었습니다.');
   };
 
   return (
@@ -369,7 +400,23 @@ export default function MileageManagement() {
             <div className="flex gap-sm">
               <button
                 className="flex items-center gap-xs px-md py-sm bg-surface border-[1px] border-line text-content-secondary rounded-button hover:bg-surface-secondary transition-colors"
-                onClick={() => alert('엑셀 다운로드가 시작됩니다.')}
+                onClick={() => {
+                  if (activeTab === 'status') {
+                    const exportColumns = [
+                      { key: 'name', header: '회원명' },
+                      { key: 'contact', header: '연락처' },
+                      { key: 'earned', header: '적립 마일리지' },
+                      { key: 'used', header: '사용 마일리지' },
+                      { key: 'balance', header: '잔액' },
+                      { key: 'lastEarnedAt', header: '최근 적립일' },
+                      { key: 'expiryDate', header: '만료일' },
+                    ];
+                    exportToExcel(members as Record<string, unknown>[], exportColumns, { filename: '마일리지현황' });
+                    toast.success(`${members.length}건 엑셀 다운로드 완료`);
+                  } else {
+                    toast.info('이력 데이터 엑셀 다운로드는 준비 중입니다.');
+                  }
+                }}
               >
                 <Download size={18} />
                 <span>엑셀 다운로드</span>
@@ -380,10 +427,10 @@ export default function MileageManagement() {
 
         {/* Summary Cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-md">
-          <StatCard label="전체 발행 마일리지" value={MOCK_SUMMARY.totalIssued.toLocaleString()} icon={<Coins className="text-primary" />} variant="peach" description="현재까지 누적 발행된 총액" />
-          <StatCard label="전체 사용 마일리지" value={MOCK_SUMMARY.totalUsed.toLocaleString()} icon={<ArrowDownRight className="text-accent" />} variant="mint" description="현재까지 사용 완료된 총액" />
-          <StatCard label="잔여 마일리지" value={MOCK_SUMMARY.currentBalance.toLocaleString()} icon={<ArrowUpRight className="text-information" />} description="현재 회원들이 보유 중인 총액" />
-          <StatCard label="이번 달 적립" value={MOCK_SUMMARY.monthlyEarned.toLocaleString()} icon={<CheckCircle2 className="text-state-success" />} change={{ value: 12.5, label: "전월 대비" }} description="당월 신규 적립된 마일리지" />
+          <StatCard label="전체 발행 마일리지" value={summary.totalIssued.toLocaleString()} icon={<Coins className="text-primary" />} variant="peach" description="현재까지 누적 발행된 총액" />
+          <StatCard label="전체 사용 마일리지" value={summary.totalUsed.toLocaleString()} icon={<ArrowDownRight className="text-accent" />} variant="mint" description="현재까지 사용 완료된 총액" />
+          <StatCard label="잔여 마일리지" value={summary.currentBalance.toLocaleString()} icon={<ArrowUpRight className="text-information" />} description="현재 회원들이 보유 중인 총액" />
+          <StatCard label="이번 달 적립" value={summary.monthlyEarned.toLocaleString()} icon={<CheckCircle2 className="text-state-success" />} description="당월 신규 적립된 마일리지" />
         </div>
 
         {/* Tab Navigation */}
@@ -425,8 +472,8 @@ export default function MileageManagement() {
                 />
                 <DataTable
                   columns={statusColumns}
-                  data={MOCK_MEMBERS}
-                  pagination={{ page: 1, pageSize: 20, total: 50 }}
+                  data={members}
+                  pagination={{ page: 1, pageSize: 20, total: members.length }}
                   title="회원별 마일리지 현황"
                 />
               </div>
@@ -461,9 +508,10 @@ export default function MileageManagement() {
                 />
                 <DataTable
                   columns={historyColumns}
-                  data={MOCK_HISTORY}
-                  pagination={{ page: 1, pageSize: 20, total: 100 }}
+                  data={[]}
+                  pagination={{ page: 1, pageSize: 20, total: 0 }}
                   title="전체 마일리지 이력"
+                  emptyMessage="이력 데이터 없음"
                 />
               </div>
             )}

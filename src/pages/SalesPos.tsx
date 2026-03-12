@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import {
   Plus,
   Trash2,
@@ -15,8 +15,12 @@ import TabNav from '@/components/TabNav';
 import StatusBadge from '@/components/StatusBadge';
 import { cn } from '@/lib/utils';
 import { moveToPage } from '@/internal';
+import { supabase } from '@/lib/supabase';
 
-// --- Mock 데이터 ---
+const getBranchId = (): number => {
+  const stored = localStorage.getItem('branchId');
+  return stored ? Number(stored) : 1;
+};
 
 interface Product {
   id: number;
@@ -30,18 +34,12 @@ interface Product {
   stock: number | null;
 }
 
-const MOCK_PRODUCTS: Product[] = [
-  { id: 1, name: '헬스 12개월 (연간 회원권)', category: '이용권', cashPrice: 660000, cardPrice: 726000, period: '12개월', count: '무제한', kiosk: true, stock: null },
-  { id: 2, name: '헬스 3개월권', category: '이용권', cashPrice: 297000, cardPrice: 326700, period: '3개월', count: '무제한', kiosk: true, stock: null },
-  { id: 3, name: '1:1 PT 20회 패키지', category: 'PT', cashPrice: 1200000, cardPrice: 1320000, period: '90일', count: '20회', kiosk: false, stock: 3 },
-  { id: 4, name: '1:1 PT 10회 패키지', category: 'PT', cashPrice: 700000, cardPrice: 770000, period: '60일', count: '10회', kiosk: false, stock: 5 },
-  { id: 5, name: '그룹 필라테스 20회', category: 'GX', cashPrice: 396000, cardPrice: 435600, period: '3개월', count: '20회', kiosk: true, stock: null },
-  { id: 6, name: '요가 10회', category: 'GX', cashPrice: 180000, cardPrice: 198000, period: '2개월', count: '10회', kiosk: true, stock: null },
-  { id: 7, name: '개인 락커 1개월', category: '기타', cashPrice: 10000, cardPrice: 11000, period: '1개월', count: '-', kiosk: true, stock: 8 },
-  { id: 8, name: '운동복 대여 1개월', category: '기타', cashPrice: 5000, cardPrice: 5500, period: '1개월', count: '무제한', kiosk: true, stock: 15 },
-  { id: 9, name: '프로틴 쉐이크 (초코)', category: '기타', cashPrice: 4000, cardPrice: 4400, period: '-', count: '-', kiosk: false, stock: 42 },
-  { id: 10, name: '스포츠 타올', category: '기타', cashPrice: 5000, cardPrice: 5500, period: '-', count: '-', kiosk: false, stock: 30 },
-];
+// DB 카테고리 영문 → 한글 매핑
+const CATEGORY_KO: Record<string, string> = {
+  MEMBERSHIP: '이용권', PT: 'PT', GX: 'GX', ETC: '기타',
+  '이용권': '이용권', '기타': '기타',
+};
+const toCategoryKo = (cat: string) => CATEGORY_KO[cat] ?? cat;
 
 const CATEGORY_TABS = [
   { key: '이용권', label: '이용권' },
@@ -136,15 +134,43 @@ export default function SalesPos() {
   const [activeTab, setActiveTab] = useState('이용권');
   const [searchQuery, setSearchQuery] = useState('');
   const [cart, setCart] = useState<CartItem[]>([]);
+  const [products, setProducts] = useState<Product[]>([]);
+
+  // 상품 목록 로드
+  useEffect(() => {
+    const fetchProducts = async () => {
+      const { data, error } = await supabase
+        .from('products')
+        .select('*')
+        .eq('branchId', getBranchId())
+        .eq('isActive', true);
+      if (!error && data) {
+        setProducts(
+          data.map((p: Record<string, unknown>) => ({
+            id: p.id as number,
+            name: p.name as string,
+            category: toCategoryKo(p.category as string),
+            cashPrice: Number(p.price ?? 0),
+            cardPrice: Number(p.price ?? 0),
+            period: p.duration ? String(p.duration) : '-',
+            count: p.sessions ? String(p.sessions) : '-',
+            kiosk: false,
+            stock: null,
+          }))
+        );
+      }
+    };
+    fetchProducts();
+  }, []);
 
   // 상품 필터링
   const filteredProducts = useMemo(() => {
-    return MOCK_PRODUCTS.filter(p => {
+    return products.filter(p => {
       const matchTab = p.category === activeTab;
       const matchSearch = p.name.toLowerCase().includes(searchQuery.toLowerCase());
       return matchTab && matchSearch;
     });
-  }, [activeTab, searchQuery]);
+  }, [products, activeTab, searchQuery]);
 
   // 장바구니 합계
   const totalAmount = useMemo(() => {
@@ -202,7 +228,7 @@ export default function SalesPos() {
   // 탭별 상품 수
   const tabsWithCount = CATEGORY_TABS.map(tab => ({
     ...tab,
-    count: MOCK_PRODUCTS.filter(p => p.category === tab.key).length,
+    count: products.filter(p => p.category === tab.key).length,
   }));
 
   return (
@@ -212,7 +238,7 @@ export default function SalesPos() {
         description="카테고리별 상품을 선택하고 장바구니에 담아 결제로 이동합니다."
         actions={
           <button
-            onClick={() => moveToPage(987)}
+            onClick={() => moveToPage(997)}
             className="flex items-center gap-xs px-md py-sm bg-surface border border-line text-content-secondary rounded-button text-[13px] font-semibold hover:bg-surface-tertiary transition-colors"
           >
             <Plus size={15} />
@@ -375,7 +401,18 @@ export default function SalesPos() {
               </div>
               <button
                 disabled={cart.length === 0}
-                onClick={() => moveToPage(982)}
+                onClick={() => {
+                  // 장바구니 데이터를 sessionStorage에 저장 후 결제 페이지로 이동
+                  const cartData = cart.map(item => ({
+                    id: item.id,
+                    name: item.name,
+                    category: item.category,
+                    price: item.priceType === 'cash' ? item.cashPrice : item.cardPrice,
+                    quantity: item.quantity,
+                  }));
+                  sessionStorage.setItem('posCart', JSON.stringify(cartData));
+                  moveToPage(982);
+                }}
                 className={cn(
                   'w-full py-md rounded-button text-[15px] font-bold transition-all flex items-center justify-center gap-sm shadow-md',
                   cart.length > 0

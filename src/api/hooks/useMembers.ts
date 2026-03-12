@@ -10,14 +10,13 @@ import {
   deleteMember,
   getMemberStats,
 } from '../endpoints/members';
-import type { MemberRequest } from '../endpoints/members';
-import type { PaginationParams } from '../types';
+import type { MemberRequest, MemberListParams } from '../endpoints/members';
 
 /** 쿼리 키 상수 */
 export const MEMBER_KEYS = {
   all: ['members'] as const,
   lists: () => [...MEMBER_KEYS.all, 'list'] as const,
-  list: (params?: PaginationParams & { search?: string; status?: string }) =>
+  list: (params?: MemberListParams) =>
     [...MEMBER_KEYS.lists(), params] as const,
   details: () => [...MEMBER_KEYS.all, 'detail'] as const,
   detail: (id: number) => [...MEMBER_KEYS.details(), id] as const,
@@ -25,7 +24,7 @@ export const MEMBER_KEYS = {
 };
 
 /** 회원 목록 조회 훅 */
-export const useMembers = (params?: PaginationParams & { search?: string; status?: string }) => {
+export const useMembers = (params?: MemberListParams) => {
   return useQuery({
     queryKey: MEMBER_KEYS.list(params),
     queryFn: () => getMembers(params),

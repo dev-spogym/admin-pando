@@ -1,0 +1,678 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ============================================================
+// Enums
+// ============================================================
+
+enum Role {
+  ADMIN
+  MANAGER
+  TRAINER
+  STAFF
+  RECEPTIONIST
+}
+
+enum Gender {
+  M
+  F
+}
+
+enum MemberStatus {
+  ACTIVE
+  INACTIVE
+  EXPIRED
+  HOLDING
+  SUSPENDED
+  WITHDRAWN    // 탈퇴
+  DORMANT      // 휴면
+  TRANSFERRED  // 타지점 이관
+}
+
+enum StaffStatus {
+  ACTIVE      // 재직
+  RESIGNED    // 퇴사
+  TRANSFERRED // 이직/타지점 이관
+  ON_LEAVE    // 휴직
+  LOCKED      // 계정 잠금
+}
+
+enum BranchStatus {
+  ACTIVE   // 운영중
+  CLOSING  // 폐점 진행중
+  INACTIVE // 폐점
+  PAUSED   // 일시 중단
+}
+
+enum TransferType {
+  KEEP_TICKET   // 이용권 유지 이관
+  REFUND_NEW    // 환불 후 재등록
+  EXHAUST_THEN  // 소진 후 이관
+}
+
+enum SettlementStatus {
+  PENDING  // 대기
+  APPROVED // 승인
+  PAID     // 지급 완료
+}
+
+enum ProductCategory {
+  PT
+  MEMBERSHIP
+  GX
+  PRODUCT
+  SERVICE
+}
+
+enum PaymentMethod {
+  CARD
+  CASH
+  TRANSFER
+  MILEAGE
+}
+
+enum SaleStatus {
+  COMPLETED
+  UNPAID
+  REFUNDED
+  PENDING
+}
+
+enum AttendanceType {
+  REGULAR
+  PT
+  GX
+  MANUAL
+}
+
+enum CheckInMethod {
+  KIOSK
+  APP
+  MANUAL
+}
+
+enum LockerStatus {
+  AVAILABLE
+  IN_USE
+  MAINTENANCE
+}
+
+enum MessageType {
+  SMS
+  KAKAO
+  PUSH
+}
+
+enum MessageStatus {
+  SENT
+  FAILED
+  PENDING
+  SCHEDULED
+}
+
+enum PayrollStatus {
+  PENDING
+  PAID
+}
+
+// ============================================================
+// Models
+// ============================================================
+
+/// 테넌트 (헬스장 브랜드 단위)
+model Tenant {
+  id            Int       @id @default(autoincrement())
+  name          String    // 헬스장 브랜드명
+  plan          String    @default("BASIC") // BASIC, STANDARD, PREMIUM
+  maxBranches   Int       @default(1)
+  ownerUserId   Int?
+  planExpiresAt DateTime?
+  paymentMethod String?   // CARD, BANK_TRANSFER
+  overdueDays   Int       @default(0)
+  taxInvoiceType String   @default("HQ") // HQ: 본사발행, BRANCH: 지점별 발행
+  isActive      Boolean   @default(true)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @default(now()) @updatedAt
+
+  branches Branch[]
+  users    User[]
+
+  @@map("tenants")
+}
+
+/// 지점
+model Branch {
+  id           Int          @id @default(autoincrement())
+  name         String
+  address      String?
+  phone        String?
+  status       String       @default("운영중") // 운영중, 임시휴업
+  managerId    Int?
+  managerName  String?
+  isActive     Boolean      @default(true)
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @default(now()) @updatedAt
+
+  // 멀티테넌트 확장 필드
+  tenantId     Int          @default(1)          // FK → Tenant
+  isHq         Boolean      @default(false)       // 본사 여부
+  branchCode   String       @default("")          // 지점 코드 (테넌트 내 고유)
+  branchStatus BranchStatus @default(ACTIVE)      // 상세 운영 상태
+  maxMembers   Int?                               // 최대 회원 수 제한
+  maxStaff     Int?                               // 최대 직원 수 제한
+  maxLockers   Int?                               // 최대 락커 수 제한
+  pausedAt     DateTime?                          // 일시 중단 일시
+  resumeAt     DateTime?                          // 재개 예정 일시
+
+  tenant     Tenant       @relation(fields: [tenantId], references: [id])
+  members    Member[]
+  staff      Staff[]
+  products   Product[]
+  sales      Sale[]
+  attendance Attendance[]
+  lockers    Locker[]
+  messages   Message[]
+  settings   Settings?
+  classes    Class[]
+  coupons    Coupon[]
+  users      User[]
+
+  @@map("branches")
+}
+
+/// 사용자 (로그인 계정)
+model User {
+  id        Int      @id @default(autoincrement())
+  username  String   @unique
+  password  String
+  name      String
+  email     String?
+  role      Role     @default(STAFF)
+  branchId  Int?     // 슈퍼관리자는 NULL 가능
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
+
+  // 멀티테넌트 확장 필드
+  tenantId            Int       @default(1)         // FK → Tenant
+  isSuperAdmin        Boolean   @default(false)      // 슈퍼관리자 여부
+  currentBranchId     Int?                           // 슈퍼관리자 현재 선택 지점
+  passwordChangedAt   DateTime?                      // 마지막 비밀번호 변경 일시
+  forcePasswordChange Boolean   @default(true)       // 최초 로그인 시 비밀번호 변경 강제
+  loginFailCount      Int       @default(0)          // 로그인 실패 횟수
+  lockedUntil         DateTime?                      // 계정 잠금 해제 일시
+  lastLoginAt         DateTime?                      // 마지막 로그인 일시
+
+  branch Branch? @relation(fields: [branchId], references: [id])
+  tenant Tenant  @relation(fields: [tenantId], references: [id])
+
+  @@map("users")
+}
+
+/// 회원
+model Member {
+  id               Int          @id @default(autoincrement())
+  name             String
+  phone            String
+  email            String?
+  gender           Gender?
+  birthDate        DateTime?
+  profileImage     String?
+  registeredAt     DateTime     @default(now())
+  membershipType   String?      // PT, MEMBERSHIP, GX
+  membershipStart  DateTime?
+  membershipExpiry DateTime?
+  status           MemberStatus @default(ACTIVE)
+  mileage          Int          @default(0)
+  memo             String?
+  height           Float?       // 키 (cm)
+  deletedAt        DateTime?    // soft delete
+  staffId          Int?         // 담당 FC
+  branchId         Int
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @default(now()) @updatedAt
+
+  // 멀티테넌트 확장 필드
+  homeBranchId     Int?         // 다지점 이용 시 주 지점
+  withdrawnAt      DateTime?    // 탈퇴 일시
+  withdrawReason   String?      // 탈퇴 사유
+  privacyMaskedAt  DateTime?    // 개인정보 마스킹 처리 일시
+  previousMemberId Int?         // 재가입 시 이전 회원 ID
+
+  branch     Branch       @relation(fields: [branchId], references: [id])
+  staff      Staff?       @relation("MemberStaff", fields: [staffId], references: [id])
+  sales      Sale[]
+  attendance Attendance[]
+  locker     Locker?
+  bodyComps  BodyComposition[]
+  contracts  Contract[]
+  memos      MemberMemo[]
+  goals      MemberGoal[]
+
+  @@map("members")
+}
+
+/// 체성분 기록
+model BodyComposition {
+  id        Int      @id @default(autoincrement())
+  memberId  Int
+  date      DateTime @default(now())
+  weight    Float?
+  muscle    Float?
+  fat       Float?
+  fatRate   Float?
+  bmi       Float?
+  memo      String?
+  createdAt DateTime @default(now())
+
+  member Member @relation(fields: [memberId], references: [id])
+
+  @@map("body_compositions")
+}
+
+/// 회원 메모
+model MemberMemo {
+  id        Int      @id @default(autoincrement())
+  memberId  Int
+  content   String
+  category  String?  // 상담, 불만, 일반, 건강
+  author    String?  // 작성자명
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
+
+  member Member @relation(fields: [memberId], references: [id])
+
+  @@map("member_memos")
+}
+
+/// 회원 목표
+model MemberGoal {
+  id         Int      @id @default(autoincrement())
+  memberId   Int      @unique
+  goalWeight Float?   // 목표 체중 (kg)
+  goalPbf    Float?   // 목표 체지방률 (%)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @default(now()) @updatedAt
+
+  member Member @relation(fields: [memberId], references: [id])
+
+  @@map("member_goals")
+}
+
+/// 직원
+model Staff {
+  id        Int      @id @default(autoincrement())
+  name      String
+  phone     String?
+  email     String?
+  role      String   // 트레이너, 지점장, 프론트
+  position  String?
+  hireDate  DateTime?
+  salary    Decimal?
+  color     String?  // 캘린더 표시 색상
+  isActive  Boolean  @default(true)
+  branchId  Int
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
+
+  // 멀티테넌트 확장 필드
+  staffStatus          StaffStatus @default(ACTIVE)  // 상세 재직 상태
+  resignedAt           DateTime?                     // 실제 퇴사 일시
+  resignReason         String?                       // 퇴사 사유
+  resignScheduledAt    DateTime?                     // 예정 퇴사 일시
+  previousEmployeeId   Int?                          // 재입사 시 이전 직원 ID
+  leaveStartAt         DateTime?                     // 휴직 시작 일시
+  leaveEndAt           DateTime?                     // 휴직 종료 예정 일시
+  leaveReason          String?                       // 휴직 사유
+  loginFailCount       Int         @default(0)       // 로그인 실패 횟수
+  lockedUntil          DateTime?                     // 계정 잠금 해제 일시
+  lastLoginAt          DateTime?                     // 마지막 로그인 일시
+  transferredFromBranchId Int?                       // 이관 전 지점 ID
+  transferredAt        DateTime?                     // 이관 처리 일시
+
+  branch  Branch    @relation(fields: [branchId], references: [id])
+  sales   Sale[]
+  payroll Payroll[]
+  classes Class[]
+  members Member[]  @relation("MemberStaff")
+
+  @@map("staff")
+}
+
+/// 상품/이용권
+model Product {
+  id          Int             @id @default(autoincrement())
+  name        String
+  category    ProductCategory
+  price       Decimal
+  duration    Int?            // 일수
+  sessions    Int?            // PT 횟수
+  description String?
+  isActive    Boolean         @default(true)
+  branchId    Int
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @default(now()) @updatedAt
+
+  branch Branch @relation(fields: [branchId], references: [id])
+  sales  Sale[]
+
+  @@map("products")
+}
+
+/// 매출/거래
+model Sale {
+  id            Int           @id @default(autoincrement())
+  memberId      Int
+  memberName    String        // 비정규화
+  productId     Int?
+  productName   String?       // 비정규화
+  saleDate      DateTime      @default(now())
+  type          String        // 이용권, PT, 상품, 기타
+  round         String?       // 신규, 재등록, 미수금환수
+  quantity      Int           @default(1)
+  originalPrice Decimal       @default(0)
+  salePrice     Decimal       @default(0)
+  discountPrice Decimal       @default(0)
+  amount        Decimal
+  paymentMethod PaymentMethod @default(CARD)
+  paymentType   String?       // 일시불, 할부
+  cash          Decimal       @default(0)
+  card          Decimal       @default(0)
+  mileageUsed   Decimal       @default(0)
+  cardCompany   String?
+  cardNumber    String?       // 마스킹
+  approvalNo    String?
+  status        SaleStatus    @default(COMPLETED)
+  unpaid        Decimal       @default(0)
+  staffId       Int?
+  staffName     String?       // 비정규화
+  memo          String?
+  branchId      Int
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @default(now()) @updatedAt
+
+  // 멀티테넌트 확장 필드
+  assignedFcId  Int?          // 담당 FC (판매자와 별도)
+
+  member  Member   @relation(fields: [memberId], references: [id])
+  product Product? @relation(fields: [productId], references: [id])
+  staff   Staff?   @relation(fields: [staffId], references: [id])
+  branch  Branch   @relation(fields: [branchId], references: [id])
+
+  @@map("sales")
+}
+
+/// 출석
+model Attendance {
+  id            Int            @id @default(autoincrement())
+  memberId      Int
+  memberName    String         // 비정규화
+  checkInAt     DateTime       @default(now())
+  checkOutAt    DateTime?
+  type          AttendanceType @default(REGULAR)
+  checkInMethod CheckInMethod  @default(KIOSK)
+  isOtherBranch Boolean        @default(false)
+  phone         String?
+  branchId      Int
+  createdAt     DateTime       @default(now())
+
+  member Member @relation(fields: [memberId], references: [id])
+  branch Branch @relation(fields: [branchId], references: [id])
+
+  @@map("attendance")
+}
+
+/// 급여
+model Payroll {
+  id        Int           @id @default(autoincrement())
+  staffId   Int
+  staffName String        // 비정규화
+  year      Int
+  month     Int
+  baseSalary Decimal
+  bonus     Decimal       @default(0)
+  deduction Decimal       @default(0)
+  netSalary Decimal
+  paidAt    DateTime?
+  status    PayrollStatus @default(PENDING)
+  details   Json?         // [{label, amount, type}]
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @default(now()) @updatedAt
+
+  staff Staff @relation(fields: [staffId], references: [id])
+
+  @@unique([staffId, year, month])
+  @@map("payroll")
+}
+
+/// 락커
+model Locker {
+  id         Int          @id @default(autoincrement())
+  number     String
+  status     LockerStatus @default(AVAILABLE)
+  memberId   Int?         @unique
+  memberName String?      // 비정규화
+  assignedAt DateTime?
+  expiresAt  DateTime?
+  branchId   Int
+  createdAt  DateTime     @default(now())
+  updatedAt  DateTime     @default(now()) @updatedAt
+
+  member Member? @relation(fields: [memberId], references: [id])
+  branch Branch  @relation(fields: [branchId], references: [id])
+
+  @@map("lockers")
+}
+
+/// 수업/스케줄
+model Class {
+  id          Int      @id @default(autoincrement())
+  title       String
+  type        String   // GX, PT
+  staffId     Int
+  staffName   String   // 비정규화
+  room        String?
+  startTime   DateTime
+  endTime     DateTime
+  capacity    Int      @default(14)
+  booked      Int      @default(0)
+  isRecurring Boolean  @default(false)
+  branchId    Int
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @default(now()) @updatedAt
+
+  staff  Staff  @relation(fields: [staffId], references: [id])
+  branch Branch @relation(fields: [branchId], references: [id])
+
+  @@map("classes")
+}
+
+/// 메시지
+model Message {
+  id          Int           @id @default(autoincrement())
+  type        MessageType
+  title       String?
+  content     String
+  recipients  Json          // 수신자 목록
+  sentAt      DateTime?
+  scheduledAt DateTime?
+  status      MessageStatus @default(PENDING)
+  branchId    Int
+  createdAt   DateTime      @default(now())
+
+  branch Branch @relation(fields: [branchId], references: [id])
+
+  @@map("messages")
+}
+
+/// 쿠폰
+model Coupon {
+  id          Int      @id @default(autoincrement())
+  name        String
+  type        String   // 할인율, 정액할인, 무료이용
+  value       Decimal
+  validFrom   DateTime
+  validUntil  DateTime
+  totalIssued Int      @default(0)
+  totalUsed   Int      @default(0)
+  isActive    Boolean  @default(true)
+  branchId    Int
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @default(now()) @updatedAt
+
+  branch Branch @relation(fields: [branchId], references: [id])
+
+  @@map("coupons")
+}
+
+/// 전자계약
+model Contract {
+  id          Int      @id @default(autoincrement())
+  memberId    Int
+  memberName  String
+  productName String?
+  amount      Decimal?
+  startDate   DateTime?
+  endDate     DateTime?
+  status      String   @default("대기") // 대기, 서명완료, 만료
+  signedAt    DateTime?
+  branchId    Int
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @default(now()) @updatedAt
+
+  member Member @relation(fields: [memberId], references: [id])
+
+  @@map("contracts")
+}
+
+/// 설정
+model Settings {
+  id                  Int      @id @default(autoincrement())
+  branchId            Int      @unique
+  centerName          String?
+  businessHoursOpen   String?  @default("06:00")
+  businessHoursClose  String?  @default("22:00")
+  holidays            Json?    // ["SUNDAY"]
+  smsEnabled          Boolean  @default(true)
+  kakaoEnabled        Boolean  @default(false)
+  pushEnabled         Boolean  @default(true)
+  autoExpireNotify    Boolean  @default(true)
+  expireNoticeDays    Int      @default(7)
+  theme               String   @default("light")
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @default(now()) @updatedAt
+
+  branch Branch @relation(fields: [branchId], references: [id])
+
+  @@map("settings")
+}
+
+// ============================================================
+// 멀티테넌트 확장 모델
+// ============================================================
+
+/// 감사 로그 (로그인/로그아웃/CRUD/지점전환 등 모든 행위 기록)
+model AuditLog {
+  id           Int      @id @default(autoincrement())
+  tenantId     Int
+  userId       Int
+  action       String   // LOGIN, LOGOUT, CREATE, UPDATE, DELETE, BRANCH_SWITCH 등
+  targetType   String?  // member, staff, sale, branch, settings 등
+  targetId     Int?
+  fromBranchId Int?
+  toBranchId   Int?
+  beforeValue  Json?    // 변경 전 값
+  afterValue   Json?    // 변경 후 값
+  detail       Json?    // 기타 상세 정보
+  ipAddress    String?
+  userAgent    String?
+  createdAt    DateTime @default(now())
+
+  @@index([tenantId])
+  @@index([userId])
+  @@index([action])
+  @@index([createdAt])
+  @@map("audit_log")
+}
+
+/// 회원 지점 이관 이력
+model MemberTransferLog {
+  id           Int          @id @default(autoincrement())
+  tenantId     Int
+  memberId     Int
+  fromBranchId Int
+  toBranchId   Int
+  transferType TransferType
+  approvedBy   Int          // 승인한 사용자 ID
+  reason       String?      // 이관 사유
+  createdAt    DateTime     @default(now())
+
+  @@index([tenantId])
+  @@index([memberId])
+  @@map("member_transfer_log")
+}
+
+/// 직원 지점 이관/인사 이동 이력
+model StaffTransferLog {
+  id            Int      @id @default(autoincrement())
+  tenantId      Int
+  staffId       Int
+  fromBranchId  Int
+  toBranchId    Int
+  fromRole      String   // 이관 전 역할
+  toRole        String   // 이관 후 역할
+  approvedBy    Int      // 승인한 사용자 ID
+  effectiveDate DateTime // 발령 효력 일자
+  createdAt     DateTime @default(now())
+
+  @@index([tenantId])
+  @@index([staffId])
+  @@map("staff_transfer_log")
+}
+
+/// 퇴사 직원 정산 내역
+model StaffSettlement {
+  id               Int              @id @default(autoincrement())
+  tenantId         Int
+  staffId          Int
+  branchId         Int
+  unpaidSalary     Decimal          @default(0) // 미지급 급여
+  unpaidCommission Decimal          @default(0) // 미지급 인센티브
+  severancePay     Decimal          @default(0) // 퇴직금
+  unusedLeavePay   Decimal          @default(0) // 미사용 연차 수당
+  advanceDeduction Decimal          @default(0) // 선지급 공제
+  totalAmount      Decimal          @default(0) // 최종 정산 금액
+  status           SettlementStatus @default(PENDING)
+  approvedBy       Int?             // 승인한 사용자 ID
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @default(now()) @updatedAt
+
+  @@index([tenantId])
+  @@index([staffId])
+  @@map("staff_settlements")
+}
+
+/// 지점 폐점 처리 이력
+model BranchClosureLog {
+  id                 Int      @id @default(autoincrement())
+  tenantId           Int
+  branchId           Int
+  announcedAt        DateTime // 폐점 공지 일시
+  closingDate        DateTime // 폐점 예정일
+  totalMembers       Int      @default(0) // 대상 회원 수
+  transferredMembers Int      @default(0) // 이관 완료 회원 수
+  refundedMembers    Int      @default(0) // 환불 처리 회원 수
+  totalStaff         Int      @default(0) // 대상 직원 수
+  status             String   @default("IN_PROGRESS") // IN_PROGRESS, COMPLETED, CANCELLED
+  createdBy          Int      // 처리 담당 사용자 ID
+  createdAt          DateTime @default(now())
+
+  @@index([tenantId])
+  @@map("branch_closure_log")
+}

@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import {
   Plus,
   MessageSquare,
@@ -23,40 +23,89 @@ import SearchFilter from "@/components/SearchFilter";
 import ConfirmDialog from "@/components/ConfirmDialog";
 import { moveToPage } from "@/internal";
 import { cn } from "@/lib/utils";
+import { supabase } from "@/lib/supabase";
+import { toast } from "sonner";
+import { exportToExcel } from "@/lib/exportExcel";
+
+const getBranchId = (): number => {
+  const stored = localStorage.getItem('branchId');
+  return stored ? Number(stored) : 1;
+};
 
 // --- 역할 설정 ---
+// DB role 컬럼은 한글("트레이너", "프론트", "센터장" 등) 또는 영문 키 모두 지원
 type RoleKey = "primary" | "owner" | "manager" | "fc" | "trainer" | "staff";
 
-const ROLE_CONFIG: Record<RoleKey, { label: string; badgeClass: string }> = {
+const ROLE_CONFIG: Record<string, { label: string; badgeClass: string }> = {
+  // 영문 키
   primary: { label: "최고관리자", badgeClass: "bg-[#FFEEEE] text-error border border-error/30" },
   owner:   { label: "센터장",     badgeClass: "bg-[#FFF3E5] text-[#E07820] border border-[#E07820]/30" },
   manager: { label: "매니저",     badgeClass: "bg-accent-light text-accent border border-accent/30" },
   fc:      { label: "FC",         badgeClass: "bg-[#EEF4FF] text-[#3B7CF4] border border-[#3B7CF4]/30" },
   trainer: { label: "트레이너",   badgeClass: "bg-[#F0FFF4] text-state-success border border-state-success/30" },
   staff:   { label: "스태프",     badgeClass: "bg-surface-secondary text-content-secondary border border-line" },
+  // 한글 키 (DB에서 직접 한글로 저장된 경우)
+  최고관리자: { label: "최고관리자", badgeClass: "bg-[#FFEEEE] text-error border border-error/30" },
+  센터장:     { label: "센터장",     badgeClass: "bg-[#FFF3E5] text-[#E07820] border border-[#E07820]/30" },
+  매니저:     { label: "매니저",     badgeClass: "bg-accent-light text-accent border border-accent/30" },
+  FC:         { label: "FC",         badgeClass: "bg-[#EEF4FF] text-[#3B7CF4] border border-[#3B7CF4]/30" },
+  트레이너:   { label: "트레이너",   badgeClass: "bg-[#F0FFF4] text-state-success border border-state-success/30" },
+  스태프:     { label: "스태프",     badgeClass: "bg-surface-secondary text-content-secondary border border-line" },
+  프론트:     { label: "프론트",     badgeClass: "bg-[#EEF4FF] text-[#3B7CF4] border border-[#3B7CF4]/30" },
 };
 
-// --- Mock 직원 데이터 ---
-const MOCK_STAFF = [
-  { id: 1, name: "김철수",  role: "trainer" as RoleKey, contact: "010-1234-5678", joinDate: "2024-01-02", status: "active",   memo: "재활 전문 PT" },
-  { id: 2, name: "이영희",  role: "fc"      as RoleKey, contact: "010-2345-6789", joinDate: "2024-02-15", status: "active",   memo: "CS 우수" },
-  { id: 3, name: "박지민",  role: "owner"   as RoleKey, contact: "010-3456-7890", joinDate: "2023-10-10", status: "active",   memo: "" },
-  { id: 4, name: "최성호",  role: "trainer" as RoleKey, contact: "010-4567-8901", joinDate: "2024-03-01", status: "resigned", memo: "요가/필라테스" },
-  { id: 5, name: "정수진",  role: "trainer" as RoleKey, contact: "010-5678-9012", joinDate: "2024-05-20", status: "active",   memo: "여성 다이어트" },
-  { id: 6, name: "한미래",  role: "manager" as RoleKey, contact: "010-6789-0123", joinDate: "2024-06-01", status: "leave",    memo: "육아휴직 중" },
-  { id: 7, name: "오준혁",  role: "staff"   as RoleKey, contact: "010-7890-1234", joinDate: "2024-07-15", status: "active",   memo: "" },
-];
+interface StaffRow {
+  id: number;
+  name: string;
+  role: RoleKey;
+  contact: string;
+  joinDate: string;
+  status: string;
+  memo: string;
+}
 
 type SortKey = "name" | "role" | "joinDate" | "status";
 type SortDir = "asc" | "desc" | null;
 
 export default function StaffList() {
+  const [staffData, setStaffData] = useState<StaffRow[]>([]);
+  const [isLoadingData, setIsLoadingData] = useState(true);
   const [selectedRows, setSelectedRows] = useState(new Set<number>());
   const [isRetireDialogOpen, setIsRetireDialogOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [filterValues, setFilterValues] = useState({ role: "", status: "" });
   const [sortKey, setSortKey] = useState<SortKey | null>(null);
   const [sortDir, setSortDir] = useState<SortDir>(null);
+
+  // 직원 목록 fetch (퇴사 처리 후 재호출 가능)
+  const fetchStaff = async () => {
+    setIsLoadingData(true);
+    const { data, error } = await supabase
+      .from("staff")
+      .select("id, name, phone, email, role, position, hireDate, salary, color, isActive, branchId")
+      .eq("branchId", getBranchId());
+
+    if (error) {
+      console.error("직원 데이터 로드 실패:", error);
+      toast.error("직원 데이터를 불러오지 못했습니다.");
+    } else if (data) {
+      const mapped: StaffRow[] = data.map((s: any) => ({
+        id: s.id,
+        name: s.name,
+        role: s.role as RoleKey,
+        contact: s.phone ?? "",
+        joinDate: s.hireDate ?? "",
+        status: s.isActive === false ? "resigned" : "active",
+        memo: "",
+      }));
+      setStaffData(mapped);
+    }
+    setIsLoadingData(false);
+  };
+
+  useEffect(() => {
+    fetchStaff();
+  }, []);
 
   const handleFilterChange = (key: string, value: string) => {
     setFilterValues(prev => ({ ...prev, [key]: value }));
@@ -95,7 +144,7 @@ export default function StaffList() {
   );
 
   const filtered = useMemo(() => {
-    let data = MOCK_STAFF.filter(s => {
+    let data = staffData.filter(s => {
       const matchSearch = !searchQuery || s.name.includes(searchQuery) || s.contact.includes(searchQuery);
       const matchRole   = !filterValues.role   || s.role   === filterValues.role;
       const matchStatus = !filterValues.status || s.status === filterValues.status;
@@ -111,13 +160,13 @@ export default function StaffList() {
       });
     }
     return data;
-  }, [searchQuery, filterValues, sortKey, sortDir]);
+  }, [staffData, searchQuery, filterValues, sortKey, sortDir]);
 
   // 통계
-  const total    = MOCK_STAFF.length;
-  const active   = MOCK_STAFF.filter(s => s.status === "active").length;
-  const onLeave  = MOCK_STAFF.filter(s => s.status === "leave").length;
-  const resigned = MOCK_STAFF.filter(s => s.status === "resigned").length;
+  const total    = staffData.length;
+  const active   = staffData.filter(s => s.status === "active").length;
+  const onLeave  = staffData.filter(s => s.status === "leave").length;
+  const resigned = staffData.filter(s => s.status === "resigned").length;
 
   const statusLabel: Record<string, string> = {
     active: "재직", leave: "휴직", resigned: "퇴사"
@@ -131,10 +180,10 @@ export default function StaffList() {
     {
       key: "name",
       header: <SortHeader col="name" label="직원명" />,
-      render: (val: string) => (
+      render: (val: string, row: any) => (
         <button
           className="text-primary font-semibold hover:underline"
-          onClick={() => moveToPage(988)}
+          onClick={() => moveToPage(998, { id: row.id })}
         >
           {val}
         </button>
@@ -144,7 +193,7 @@ export default function StaffList() {
       key: "role",
       header: <SortHeader col="role" label="역할" />,
       width: 120,
-      render: (val: RoleKey) => {
+      render: (val: string) => {
         const cfg = ROLE_CONFIG[val] || ROLE_CONFIG.staff;
         return (
           <span className={cn("inline-flex items-center px-sm py-[2px] rounded-full text-[11px] font-semibold", cfg.badgeClass)}>
@@ -157,7 +206,8 @@ export default function StaffList() {
     {
       key: "joinDate",
       header: <SortHeader col="joinDate" label="입사일" />,
-      width: 120
+      width: 120,
+      render: (val: string) => val ? val.slice(0, 10) : '-',
     },
     {
       key: "status",
@@ -193,7 +243,7 @@ export default function StaffList() {
           actions={
             <button
               className="flex items-center gap-xs px-md py-sm bg-primary text-white rounded-button text-Label font-semibold hover:opacity-90 transition-all"
-              onClick={() => moveToPage(988)}
+              onClick={() => moveToPage(998)}
             >
               <Plus size={16} /> 직원 등록
             </button>
@@ -280,7 +330,20 @@ export default function StaffList() {
             selectedRows={selectedRows}
             onSelectRows={setSelectedRows}
             pagination={{ page: 1, pageSize: 10, total: filtered.length }}
-            onDownloadExcel={() => alert("엑셀 다운로드")}
+            onDownloadExcel={() => {
+              const exportColumns = [
+                { key: 'id', header: 'No' },
+                { key: 'name', header: '직원명' },
+                { key: 'role', header: '역할' },
+                { key: 'contact', header: '연락처' },
+                { key: 'joinDate', header: '입사일' },
+                { key: 'status', header: '상태' },
+                { key: 'memo', header: '메모' },
+              ];
+              exportToExcel(filtered as unknown as Record<string, unknown>[], exportColumns, { filename: '직원목록' });
+              toast.success(`${filtered.length}건 엑셀 다운로드 완료`);
+            }}
+            emptyMessage={isLoadingData ? "데이터를 불러오는 중..." : "직원 데이터가 없습니다."}
           />
         </div>
 
@@ -291,9 +354,22 @@ export default function StaffList() {
           confirmLabel="퇴사 처리"
           variant="danger"
           confirmationText="퇴사처리"
-          onConfirm={() => {
-            alert("퇴사 처리가 완료되었습니다.");
+          onConfirm={async () => {
+            // 선택된 직원 ID 목록으로 isActive: false 업데이트
+            const ids = Array.from(selectedRows);
+            const { error } = await supabase
+              .from("staff")
+              .update({ isActive: false })
+              .in("id", ids);
+            if (error) {
+              toast.error("퇴사 처리에 실패했습니다.");
+              return;
+            }
+            toast.success(`${ids.length}명의 퇴사 처리가 완료되었습니다.`);
             setIsRetireDialogOpen(false);
+            setSelectedRows(new Set());
+            // 목록 새로고침
+            fetchStaff();
           }}
           onCancel={() => setIsRetireDialogOpen(false)}
         />

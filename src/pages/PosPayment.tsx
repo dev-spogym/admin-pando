@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import {
   Search,
   ShoppingCart,
@@ -12,25 +12,19 @@ import {
   ChevronRight,
   RotateCcw,
 } from 'lucide-react';
+import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import AppLayout from '@/components/AppLayout';
 import PageHeader from '@/components/PageHeader';
 import StatusBadge from '@/components/StatusBadge';
 import { moveToPage } from '@/internal';
+import { supabase } from '@/lib/supabase';
+import { checkDuplicatePayment, deductPoints, accruePoints } from '@/lib/businessLogic';
 
-// --- Mock 데이터 ---
-
-const MOCK_CART_ITEMS = [
-  { id: 1, name: '헬스 12개월권', category: '이용권', price: 660000, quantity: 1 },
-  { id: 2, name: '1:1 PT 10회', category: 'PT', price: 700000, quantity: 1 },
-];
-
-const MOCK_MEMBERS = [
-  { id: 1, name: '홍길동', phone: '010-1234-5678', mileage: 12500 },
-  { id: 2, name: '김철수', phone: '010-8765-4321', mileage: 3400 },
-  { id: 3, name: '이영희', phone: '010-5555-6666', mileage: 0 },
-  { id: 4, name: '박지민', phone: '010-9876-5432', mileage: 8000 },
-];
+const getBranchId = (): number => {
+  const stored = localStorage.getItem('branchId');
+  return stored ? Number(stored) : 1;
+};
 
 type PaymentMethod = 'card' | 'cash' | 'mileage' | 'mixed';
 
@@ -40,13 +34,42 @@ interface MixedAmount {
   mileage: number;
 }
 
+interface CartItem {
+  id: number;
+  name: string;
+  category: string;
+  price: number;
+  quantity: number;
+}
+
+interface Member {
+  id: number;
+  name: string;
+  phone: string;
+  mileage: number;
+}
+
 export default function PosPayment() {
-  // 장바구니 (POS에서 넘어온 것으로 가정, mock으로 초기화)
-  const [cartItems] = useState(MOCK_CART_ITEMS);
+  // 장바구니 (sessionStorage에서 복원)
+  const [cartItems, setCartItems] = useState<CartItem[]>([]);
+
+  useEffect(() => {
+    const stored = sessionStorage.getItem('posCart');
+    if (stored) {
+      try {
+        const parsed = JSON.parse(stored) as CartItem[];
+        setCartItems(parsed);
+        sessionStorage.removeItem('posCart');
+      } catch {
+        // 파싱 실패 시 무시
+      }
+    }
+  }, []);
 
   // 회원 검색
   const [memberSearch, setMemberSearch] = useState('');
-  const [selectedMember, setSelectedMember] = useState<typeof MOCK_MEMBERS[0] | null>(null);
+  const [selectedMember, setSelectedMember] = useState<Member | null>(null);
+  const [memberResults, setMemberResults] = useState<Member[]>([]);
 
   // 결제수단
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('card');
@@ -57,14 +80,32 @@ export default function PosPayment() {
   // 확인 모달 / 완료 상태
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [isComplete, setIsComplete] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
 
-  // 회원 검색 결과
-  const memberResults = useMemo(() => {
-    if (!memberSearch) return [];
-    return MOCK_MEMBERS.filter(
-      m => m.name.includes(memberSearch) || m.phone.includes(memberSearch)
-    );
-  }, [memberSearch]);
+  // 회원 검색 (supabase)
+  const handleMemberSearch = async (query: string) => {
+    setMemberSearch(query);
+    if (!query.trim()) {
+      setMemberResults([]);
+      return;
+    }
+    const { data, error } = await supabase
+      .from('members')
+      .select('id, name, phone, mileage')
+      .eq('branchId', getBranchId())
+      .or(`name.ilike.%${query}%,phone.ilike.%${query}%`)
+      .limit(10);
+    if (!error && data) {
+      setMemberResults(
+        data.map((m: Record<string, unknown>) => ({
+          id: m.id as number,
+          name: m.name as string,
+          phone: m.phone as string,
+          mileage: (m.mileage as number) ?? 0,
+        }))
+      );
+    }
+  };
 
   // 금액 계산
   const subtotal = cartItems.reduce((sum, item) => sum + item.price * item.quantity, 0);
@@ -84,9 +125,76 @@ export default function PosPayment() {
     return true;
   }, [cartItems, paymentMethod, selectedMember, mixedAmount, subtotal]);
 
-  const handlePaymentConfirm = () => {
+  const handlePaymentConfirm = async () => {
+    // 중복 결제 방지
+    if (isProcessing) return;
+    setIsProcessing(true);
+
+    try {
+    // 결제수단 → DB enum 매핑 (CARD, CASH, TRANSFER, MILEAGE)
+    const paymentMethodMap: Record<PaymentMethod, string> = {
+      card: 'CARD',
+      cash: 'CASH',
+      mileage: 'MILEAGE',
+      mixed: 'CARD', // 복합결제는 CARD로 저장 (memo에 상세 기록)
+    };
+
+    // 복합결제 메모 생성
+    const mixedMemo =
+      paymentMethod === 'mixed'
+        ? `복합결제 - 카드: ${mixedAmount.card.toLocaleString()}원, 현금: ${mixedAmount.cash.toLocaleString()}원, 마일리지: ${mixedAmount.mileage.toLocaleString()}P`
+        : null;
+
+    // 중복 결제 확인
+    if (selectedMember) {
+      const dupCheck = await checkDuplicatePayment(selectedMember.id, subtotal);
+      if (dupCheck.isDuplicate) {
+        const proceed = window.confirm(dupCheck.message + '\n계속 진행하시겠습니까?');
+        if (!proceed) return;
+      }
+    }
+
+    // 마일리지 결제 시 차감
+    if (selectedMember && (paymentMethod === 'mileage' || (paymentMethod === 'mixed' && mixedAmount.mileage > 0))) {
+      const mileageToDeduct = paymentMethod === 'mileage' ? subtotal : mixedAmount.mileage;
+      const deductResult = await deductPoints(selectedMember.id, mileageToDeduct);
+      if (!deductResult.success) {
+        toast.error(deductResult.message ?? '마일리지 차감에 실패했습니다.');
+        return;
+      }
+    }
+
+    const { error } = await supabase.from('sales').insert({
+      branchId: getBranchId(),
+      memberId: selectedMember?.id ?? null,
+      memberName: selectedMember?.name ?? '비회원',
+      type: 'POS',
+      amount: subtotal,
+      paymentMethod: paymentMethodMap[paymentMethod],
+      description: cartItems.map(i => i.name).join(', '),
+      saleDate: new Date().toISOString(),
+      status: 'COMPLETED',
+      memo: mixedMemo,
+    });
+
+    if (error) {
+      toast.error('결제 저장에 실패했습니다.');
+      return;
+    }
+
+    // 마일리지 자동 적립 (마일리지 결제 제외, 결제금액의 1%)
+    if (selectedMember && paymentMethod !== 'mileage') {
+      const pointResult = await accruePoints(selectedMember.id, subtotal);
+      if (pointResult.success && pointResult.accrued > 0) {
+        toast.info(`${pointResult.accrued}P 마일리지가 적립되었습니다.`);
+      }
+    }
+
     setShowConfirmModal(false);
     setIsComplete(true);
+    } finally {
+      setIsProcessing(false);
+    }
   };
 
   const handleReset = () => {
@@ -121,14 +229,14 @@ export default function PosPayment() {
 
           <div className="grid grid-cols-2 gap-md w-full max-w-sm mb-xl">
             <button
-              onClick={() => alert('영수증 출력을 시작합니다.')}
+              onClick={() => toast.info('영수증 출력을 시작합니다.')}
               className="flex flex-col items-center justify-center p-lg rounded-xl border border-line bg-surface hover:bg-surface-tertiary transition-all gap-sm"
             >
               <Printer className="text-primary" size={28} strokeWidth={1.5} />
               <span className="text-[13px] font-semibold text-content-secondary">영수증 출력</span>
             </button>
             <button
-              onClick={() => alert('문자 영수증을 발송합니다.')}
+              onClick={() => toast.info('문자 영수증을 발송합니다.')}
               className="flex flex-col items-center justify-center p-lg rounded-xl border border-line bg-surface hover:bg-surface-tertiary transition-all gap-sm"
             >
               <ChevronRight className="text-accent" size={28} strokeWidth={1.5} />
@@ -241,7 +349,7 @@ export default function PosPayment() {
                   type="text"
                   placeholder="이름 또는 전화번호 검색..."
                   value={memberSearch}
-                  onChange={e => setMemberSearch(e.target.value)}
+                  onChange={e => handleMemberSearch(e.target.value)}
                   className="w-full pl-9 pr-4 py-3 bg-surface-secondary border border-line rounded-button text-[13px] text-content placeholder:text-content-tertiary focus:border-primary focus:outline-none transition-colors"
                 />
                 {memberResults.length > 0 && (
@@ -447,9 +555,10 @@ export default function PosPayment() {
               </button>
               <button
                 onClick={handlePaymentConfirm}
-                className="flex-[2] py-sm rounded-button bg-primary text-surface text-[14px] font-bold hover:bg-primary-dark transition-colors shadow-md"
+                disabled={isProcessing}
+                className="flex-[2] py-sm rounded-button bg-primary text-surface text-[14px] font-bold hover:bg-primary-dark transition-colors shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                결제 완료
+                {isProcessing ? "처리 중..." : "결제 완료"}
               </button>
             </div>
           </div>

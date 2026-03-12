@@ -1,7 +1,7 @@
 /**
- * 급여 관련 API 함수
+ * 급여 관련 API 함수 (Supabase 연동)
  */
-import apiClient from '../client';
+import { supabase } from '../../lib/supabase';
 import type { ApiResponse, PaginatedResponse, PaginationParams } from '../types';
 
 /** 급여 항목 */
@@ -17,66 +17,160 @@ export interface Payroll {
   netSalary: number;
   paidAt?: string;
   status: 'PENDING' | 'PAID';
+  details?: PayrollDetail[];
+}
+
+/** 급여 명세 항목 */
+export interface PayrollDetail {
+  label: string;
+  amount: number;
+  type: 'INCOME' | 'DEDUCTION';
 }
 
 /** 급여 명세서 */
 export interface PayrollStatement {
   payroll: Payroll;
-  details: {
-    label: string;
-    amount: number;
-    type: 'INCOME' | 'DEDUCTION';
-  }[];
+  details: PayrollDetail[];
+}
+
+/** 급여 생성 요청 */
+export interface PayrollRequest {
+  staffId: number;
+  staffName: string;
+  year: number;
+  month: number;
+  baseSalary: number;
+  bonus?: number;
+  deduction?: number;
+  details?: PayrollDetail[];
 }
 
 /** 급여 목록 조회 */
 export const getPayroll = async (
   params?: PaginationParams & { year?: number; month?: number; staffId?: number }
 ): Promise<ApiResponse<PaginatedResponse<Payroll>>> => {
-  // const response = await apiClient.get<ApiResponse<PaginatedResponse<Payroll>>>('/payroll', { params });
-  // return response.data;
+  try {
+    const page = params?.page ?? 1;
+    const size = params?.size ?? 20;
+    const from = (page - 1) * size;
+    const to = from + size - 1;
 
-  void apiClient; void params;
-  const mockList: Payroll[] = [
-    { id: 1, staffId: 1, staffName: '김트레이너', year: 2024, month: 3, baseSalary: 3000000, bonus: 200000, deduction: 150000, netSalary: 3050000, status: 'PAID' },
-    { id: 2, staffId: 2, staffName: '이매니저', year: 2024, month: 3, baseSalary: 4000000, deduction: 200000, netSalary: 3800000, status: 'PENDING' },
-  ];
-  return {
-    success: true,
-    data: {
-      data: mockList,
-      pagination: { page: 1, size: 10, total: 2, totalPages: 1 },
-    },
-  };
+    let query = supabase
+      .from('payroll')
+      .select('*', { count: 'exact' })
+      .order('year', { ascending: false })
+      .order('month', { ascending: false })
+      .range(from, to);
+
+    if (params?.year) {
+      query = query.eq('year', params.year);
+    }
+
+    if (params?.month) {
+      query = query.eq('month', params.month);
+    }
+
+    if (params?.staffId) {
+      query = query.eq('staffId', params.staffId);
+    }
+
+    const { data, error, count } = await query;
+
+    if (error) throw error;
+
+    const total = count ?? 0;
+    return {
+      success: true,
+      data: {
+        data: (data ?? []) as Payroll[],
+        pagination: {
+          page,
+          size,
+          total,
+          totalPages: Math.ceil(total / size),
+        },
+      },
+    };
+  } catch (err) {
+    const message = err instanceof Error ? err.message : '급여 목록 조회에 실패했습니다.';
+    return { success: false, data: { data: [], pagination: { page: 1, size: 20, total: 0, totalPages: 0 } }, message };
+  }
 };
 
 /** 급여 명세서 조회 */
 export const getPayrollStatement = async (payrollId: number): Promise<ApiResponse<PayrollStatement>> => {
-  // const response = await apiClient.get<ApiResponse<PayrollStatement>>(`/payroll/${payrollId}/statement`);
-  // return response.data;
+  try {
+    const { data, error } = await supabase
+      .from('payroll')
+      .select('*')
+      .eq('id', payrollId)
+      .single();
 
-  void payrollId;
-  return {
-    success: true,
-    data: {
-      payroll: {
-        id: payrollId,
-        staffId: 1,
-        staffName: '김트레이너',
-        year: 2024,
-        month: 3,
-        baseSalary: 3000000,
-        bonus: 200000,
-        deduction: 150000,
-        netSalary: 3050000,
+    if (error) throw error;
+
+    const payroll = data as Payroll;
+    const details: PayrollDetail[] = Array.isArray(payroll.details) ? payroll.details : [];
+
+    return {
+      success: true,
+      data: { payroll, details },
+    };
+  } catch (err) {
+    const message = err instanceof Error ? err.message : '급여 명세서 조회에 실패했습니다.';
+    return { success: false, data: null as unknown as PayrollStatement, message };
+  }
+};
+
+/** 급여 생성 */
+export const createPayroll = async (data: PayrollRequest): Promise<ApiResponse<Payroll>> => {
+  try {
+    const netSalary = data.baseSalary + (data.bonus ?? 0) - (data.deduction ?? 0);
+
+    const { data: inserted, error } = await supabase
+      .from('payroll')
+      .insert({
+        ...data,
+        netSalary,
+        status: 'PENDING',
+      })
+      .select()
+      .single();
+
+    if (error) throw error;
+
+    return {
+      success: true,
+      data: inserted as Payroll,
+      message: '급여가 등록되었습니다.',
+    };
+  } catch (err) {
+    const message = err instanceof Error ? err.message : '급여 등록에 실패했습니다.';
+    return { success: false, data: null as unknown as Payroll, message };
+  }
+};
+
+/** 급여 지급 처리 */
+export const processPayroll = async (payrollId: number): Promise<ApiResponse<Payroll>> => {
+  try {
+    const { data: updated, error } = await supabase
+      .from('payroll')
+      .update({
         status: 'PAID',
-      },
-      details: [
-        { label: '기본급', amount: 3000000, type: 'INCOME' },
-        { label: '성과급', amount: 200000, type: 'INCOME' },
-        { label: '국민연금', amount: 90000, type: 'DEDUCTION' },
-        { label: '건강보험', amount: 60000, type: 'DEDUCTION' },
-      ],
-    },
-  };
+        paidAt: new Date().toISOString(),
+      })
+      .eq('id', payrollId)
+      .select()
+      .single();
+
+    if (error) throw error;
+
+    return {
+      success: true,
+      data: updated as Payroll,
+      message: '급여가 지급 처리되었습니다.',
+    };
+  } catch (err) {
+    const message = err instanceof Error ? err.message : '급여 지급 처리에 실패했습니다.';
+    return { success: false, data: null as unknown as Payroll, message };
+  }
 };

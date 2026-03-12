@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   Plus,
   History,
@@ -21,7 +21,10 @@ import DataTable from "@/components/DataTable";
 import TabNav from "@/components/TabNav";
 import ConfirmDialog from "@/components/ConfirmDialog";
 import { moveToPage } from "@/internal";
+import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { supabase } from "@/lib/supabase";
+import { useSearchParams } from "react-router-dom";
 
 // ────────────────────────────────────────────────────────────
 // 타입 정의
@@ -38,18 +41,7 @@ type Measurement = {
   bmr: number;
 };
 
-// ────────────────────────────────────────────────────────────
-// Mock 데이터 (최근 6회)
-// ────────────────────────────────────────────────────────────
-
-const INITIAL_MEASUREMENTS: Measurement[] = [
-  { id: 1, date: "2026-02-15", weight: 54.5, muscle: 23.2, fat: 12.8, bmi: 20.0, pbf: 23.5, bmr: 1320 },
-  { id: 2, date: "2026-01-12", weight: 55.8, muscle: 22.8, fat: 14.1, bmi: 20.5, pbf: 25.3, bmr: 1305 },
-  { id: 3, date: "2025-12-10", weight: 57.2, muscle: 22.5, fat: 15.6, bmi: 21.0, pbf: 27.2, bmr: 1290 },
-  { id: 4, date: "2025-11-05", weight: 58.5, muscle: 22.0, fat: 17.2, bmi: 21.5, pbf: 29.4, bmr: 1280 },
-  { id: 5, date: "2025-10-01", weight: 59.8, muscle: 21.5, fat: 18.9, bmi: 21.9, pbf: 31.6, bmr: 1268 },
-  { id: 6, date: "2025-09-01", weight: 61.0, muscle: 21.0, fat: 20.3, bmi: 22.4, pbf: 33.3, bmr: 1255 },
-];
+// INITIAL_MEASUREMENTS 제거 - Supabase body_compositions 테이블에서 로드
 
 const RANGES = {
   weight: { min: 20, max: 300, label: "체중", unit: "kg" },
@@ -57,20 +49,18 @@ const RANGES = {
   pbf:    { min: 3, max: 60, label: "체지방률", unit: "%" },
 };
 
-// Mock 회원 정보
-const MEMBER = { id: "M10042", name: "김태희", age: 28, gender: "여성", height: 165 };
-
 // ────────────────────────────────────────────────────────────
-// 헬퍼
+// 헬퍼 (height, age는 컴포넌트에서 주입)
 // ────────────────────────────────────────────────────────────
 
-const calcBMI = (weight: number) => {
-  const hm = MEMBER.height / 100;
+const calcBMI = (weight: number, height: number) => {
+  if (!height || height <= 0) return 0;
+  const hm = height / 100;
   return +(weight / (hm * hm)).toFixed(1);
 };
 
-const calcBMR = (weight: number) =>
-  Math.round(10 * weight + 6.25 * MEMBER.height - 5 * MEMBER.age - 161);
+const calcBMR = (weight: number, height: number, age: number) =>
+  Math.round(10 * weight + 6.25 * height - 5 * age - 161);
 
 // ────────────────────────────────────────────────────────────
 // SVG 라인 차트 컴포넌트 (UI-122)
@@ -343,8 +333,59 @@ function AnalysisRow({
 // ────────────────────────────────────────────────────────────
 
 export default function BodyComposition() {
+  const [searchParams] = useSearchParams();
+  const memberId = searchParams.get("memberId") ?? "1";
+
   const [activeTab, setActiveTab] = useState("list");
-  const [measurements, setMeasurements] = useState<Measurement[]>(INITIAL_MEASUREMENTS);
+  const [measurements, setMeasurements] = useState<Measurement[]>([]);
+  const [memberInfo, setMemberInfo] = useState({ id: memberId, name: "회원", age: 0, gender: "미상", height: 0 });
+
+  useEffect(() => {
+    const fetchData = async () => {
+      // 회원 정보 로드 (height, birthDate 포함)
+      const { data: memberData } = await supabase
+        .from('members')
+        .select('id, name, height, birthDate, gender')
+        .eq('id', memberId)
+        .single();
+      if (memberData) {
+        const age = memberData.birthDate
+          ? Math.floor((Date.now() - new Date(memberData.birthDate).getTime()) / (365.25 * 24 * 60 * 60 * 1000))
+          : 0;
+        setMemberInfo(prev => ({
+          ...prev,
+          name: memberData.name,
+          height: memberData.height ?? 0,
+          age,
+          gender: memberData.gender === 'M' ? '남' : memberData.gender === 'F' ? '여' : '미상',
+        }));
+      }
+
+      // 체성분 데이터 로드
+      const mHeight = memberData?.height ?? 0;
+      const mAge = memberData?.birthDate
+        ? Math.floor((Date.now() - new Date(memberData.birthDate).getTime()) / (365.25 * 24 * 60 * 60 * 1000))
+        : 0;
+      const { data, error } = await supabase
+        .from('body_compositions')
+        .select('id, memberId, date, weight, muscle, fat, fatRate, bmi, memo')
+        .eq('memberId', memberId)
+        .order('date', { ascending: false });
+      if (!error && data) {
+        setMeasurements(data.map((r: any) => ({
+          id: r.id,
+          date: r.date,
+          weight: r.weight ?? 0,
+          muscle: r.muscle ?? 0,
+          fat: r.fat ?? 0,
+          bmi: mHeight ? calcBMI(r.weight ?? 0, mHeight) : (r.bmi ?? 0),
+          pbf: r.fatRate ?? 0,
+          bmr: calcBMR(r.weight ?? 0, mHeight, mAge),
+        })));
+      }
+    };
+    fetchData();
+  }, [memberId]);
 
   // UI-121 측정값 입력 모달
   const [showAddModal, setShowAddModal] = useState(false);
@@ -357,11 +398,29 @@ export default function BodyComposition() {
 
   // 목표 관리
   const [showGoalModal, setShowGoalModal] = useState(false);
-  const [goals, setGoals] = useState({ weight: 52, pbf: 20 });
-  const [goalDraft, setGoalDraft] = useState({ weight: "52", pbf: "20" });
+  const [goals, setGoals] = useState({ weight: 0, pbf: 0 });
+  const [goalDraft, setGoalDraft] = useState({ weight: "0", pbf: "0" });
 
-  const latest = measurements[0];
-  const prev = measurements[1];
+  // 목표값 DB에서 로드
+  useEffect(() => {
+    const fetchGoals = async () => {
+      const { data } = await supabase
+        .from('member_goals')
+        .select('goalWeight, goalPbf')
+        .eq('memberId', memberId)
+        .single();
+      if (data) {
+        const w = data.goalWeight ?? 0;
+        const p = data.goalPbf ?? 0;
+        setGoals({ weight: w, pbf: p });
+        setGoalDraft({ weight: String(w), pbf: String(p) });
+      }
+    };
+    fetchGoals();
+  }, [memberId]);
+
+  const latest = measurements[0] ?? { id: 0, date: '-', weight: 0, muscle: 0, fat: 0, bmi: 0, pbf: 0, bmr: 0 };
+  const prev = measurements[1] ?? latest;
 
   const getChange = (curr: number, previous: number) => {
     const diff = +(curr - previous).toFixed(1);
@@ -377,7 +436,7 @@ export default function BodyComposition() {
   const weightProgress = calcProgress(latest.weight, goals.weight);
   const pbfProgress    = calcProgress(latest.pbf, goals.pbf);
 
-  const previewBMI = formData.weight ? calcBMI(parseFloat(formData.weight) || 0) : null;
+  const previewBMI = formData.weight ? calcBMI(parseFloat(formData.weight) || 0, memberInfo.height) : null;
 
   // ── 폼 검증 ──
   const validateAddForm = () => {
@@ -407,8 +466,8 @@ export default function BodyComposition() {
       muscle: m,
       pbf: p,
       fat: +(w * (p / 100)).toFixed(1),
-      bmi: calcBMI(w),
-      bmr: calcBMR(w),
+      bmi: calcBMI(w, memberInfo.height),
+      bmr: calcBMR(w, memberInfo.height, memberInfo.age),
     };
     const existing = measurements.find(m => m.date === formData.date);
     if (existing) {
@@ -419,10 +478,42 @@ export default function BodyComposition() {
     }
   };
 
-  const commitEntry = (entry: Omit<Measurement, "id">) => {
+  const commitEntry = async (entry: Omit<Measurement, "id">) => {
+    // Supabase에 체성분 데이터 저장 (같은 날짜면 upsert)
+    const existing = measurements.find(m => m.date === entry.date);
+    const payload = {
+      memberId: Number(memberId),
+      date: entry.date,
+      weight: entry.weight,
+      muscle: entry.muscle,
+      fat: entry.fat,
+      fatRate: entry.pbf,
+      bmi: entry.bmi,
+    };
+
+    let result;
+    if (existing) {
+      result = await supabase
+        .from('body_compositions')
+        .update(payload)
+        .eq('id', existing.id);
+    } else {
+      result = await supabase
+        .from('body_compositions')
+        .insert(payload)
+        .select()
+        .single();
+    }
+
+    if (result.error) {
+      toast.error(`저장 실패: ${result.error.message}`);
+      return;
+    }
+
+    // 성공 시 로컬 state 업데이트
+    const newId = existing ? existing.id : (result.data?.id ?? Date.now());
     setMeasurements(prev => {
       const filtered = prev.filter(m => m.date !== entry.date);
-      const newId = Math.max(0, ...prev.map(m => m.id)) + 1;
       return [{ ...entry, id: newId }, ...filtered].sort((a, b) => b.date.localeCompare(a.date));
     });
     setShowAddModal(false);
@@ -430,6 +521,7 @@ export default function BodyComposition() {
     setPendingEntry(null);
     setFormData({ date: new Date().toISOString().split("T")[0], weight: "", muscle: "", pbf: "" });
     setFormErrors({});
+    toast.success("체성분 데이터가 저장되었습니다.");
   };
 
   const openAddModal = () => {
@@ -446,7 +538,7 @@ export default function BodyComposition() {
 
   // 테이블 컬럼 정의
   const columns = [
-    { key: "date", header: "측정일", align: "center" as const },
+    { key: "date", header: "측정일", align: "center" as const, render: (v: string) => <span className="tabular-nums">{v?.slice(0, 10) ?? '-'}</span> },
     {
       key: "weight", header: "체중 (kg)", align: "right" as const,
       render: (v: number) => <span className="font-bold text-content">{v}</span>,
@@ -459,7 +551,7 @@ export default function BodyComposition() {
       key: "fat", header: "체지방량 (kg)", align: "right" as const,
       render: (v: number) => <span className="text-primary font-medium">{v}</span>,
     },
-    { key: "bmi", header: "BMI", align: "right" as const },
+    { key: "bmi", header: "BMI", align: "right" as const, render: (v: number) => <span>{!v || !isFinite(v) ? '-' : v}</span> },
     {
       key: "pbf", header: "체지방률 (%)", align: "right" as const,
       render: (v: number) => <span className="text-state-warning font-medium">{v}</span>,
@@ -487,7 +579,7 @@ export default function BodyComposition() {
         {/* 뒤로가기 */}
         <button
           className="flex items-center gap-xs text-content-secondary hover:text-content mb-md transition-colors text-[13px]"
-          onClick={() => moveToPage(985)}
+          onClick={() => moveToPage(985, { id: memberId })}
         >
           <ChevronLeft size={18} />
           회원 상세로 돌아가기
@@ -495,8 +587,8 @@ export default function BodyComposition() {
 
         {/* 페이지 헤더 */}
         <PageHeader
-          title={`${MEMBER.name} 회원의 체성분 정보`}
-          description={`최근 측정일: ${latest.date} | 목표 체중: ${goals.weight}kg | 목표 체지방률: ${goals.pbf}%`}
+          title={`${memberInfo.name} 회원의 체성분 정보`}
+          description={`최근 측정일: ${latest?.date?.slice(0, 10) ?? '-'} | 목표 체중: ${goals.weight}kg | 목표 체지방률: ${goals.pbf}%`}
           actions={
             <div className="flex gap-sm">
               <button className="flex items-center gap-xs px-md py-sm bg-surface border border-line text-content rounded-button text-[13px] hover:bg-surface-secondary transition-all">
@@ -641,7 +733,7 @@ export default function BodyComposition() {
               비만 분석
             </h3>
             <div className="space-y-lg">
-              <AnalysisRow label="BMI (Body Mass Index)" value={latest.bmi} unit="kg/m²" min={18.5} max={23} color="mint" />
+              <AnalysisRow label="BMI (Body Mass Index)" value={isFinite(latest.bmi) ? latest.bmi : 0} unit="kg/m²" min={18.5} max={23} color="mint" />
               <AnalysisRow label="체지방률 (Percent Body Fat)" value={latest.pbf} unit="%" min={18} max={28} color="coral" />
             </div>
           </div>
@@ -860,12 +952,26 @@ export default function BodyComposition() {
               </button>
               <button
                 className="px-lg py-sm rounded-button bg-primary text-white font-bold text-[13px] hover:bg-primary-dark transition-all shadow-sm"
-                onClick={() => {
-                  setGoals({
+                onClick={async () => {
+                  const newGoals = {
                     weight: parseFloat(goalDraft.weight) || 0,
                     pbf:    parseFloat(goalDraft.pbf) || 0,
-                  });
+                  };
+                  const { error } = await supabase
+                    .from('member_goals')
+                    .upsert({
+                      memberId: Number(memberId),
+                      goalWeight: newGoals.weight,
+                      goalPbf: newGoals.pbf,
+                      updatedAt: new Date().toISOString(),
+                    }, { onConflict: 'memberId' });
+                  if (error) {
+                    toast.error(`목표 저장 실패: ${error.message}`);
+                    return;
+                  }
+                  setGoals(newGoals);
                   setShowGoalModal(false);
+                  toast.success("목표가 저장되었습니다.");
                 }}
               >
                 저장

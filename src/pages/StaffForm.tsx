@@ -1,11 +1,27 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
+import { useSearchParams } from "react-router-dom";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
 import { Save, User, Phone, Mail, Calendar, FileText, Check, ShieldCheck } from "lucide-react";
+import { toast } from "sonner";
 import AppLayout from "@/components/AppLayout";
 import PageHeader from "@/components/PageHeader";
 import FormSection from "@/components/FormSection";
 import ConfirmDialog from "@/components/ConfirmDialog";
 import { cn } from "@/lib/utils";
 import { moveToPage } from "@/internal";
+import { supabase } from "@/lib/supabase";
+import { staffFormSchema, formatPhone } from "@/lib/validations";
+
+// 폼 내부에서 사용하는 타입 - optional 필드를 string으로 확정
+type StaffFormData = {
+  name: string;
+  role: string;
+  contact: string;
+  joinDate: string;
+  email: string;
+  memo: string;
+};
 
 // 역할별 권한 미리보기
 const ROLE_PERMISSIONS: Record<string, { label: string; desc: string; perms: string[] }> = {
@@ -16,71 +32,111 @@ const ROLE_PERMISSIONS: Record<string, { label: string; desc: string; perms: str
   staff:   { label: "스태프",   desc: "기본 회원 조회 및 출석 확인",             perms: ["회원 조회", "출석 확인"] },
 };
 
+// DB role 한글 → 폼 영문 키 매핑
+const ROLE_DB_TO_KEY: Record<string, string> = {
+  센터장: "owner", 매니저: "manager", FC: "fc", 트레이너: "trainer", 스태프: "staff",
+};
+
 export default function StaffForm() {
-  const [formData, setFormData] = useState({
-    name: "",
-    role: "trainer",
-    contact: "",
-    joinDate: new Date().toISOString().split("T")[0],
-    email: "",
-    memo: "",
+  // URL 쿼리 파라미터로 수정 모드 감지
+  const [searchParams] = useSearchParams();
+  const editId = searchParams.get("id");
+  const isEditMode = !!editId;
+
+  const [showCancelDialog, setShowCancelDialog] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+
+  const {
+    register,
+    handleSubmit,
+    setValue,
+    watch,
+    reset,
+    trigger,
+    formState: { errors },
+  } = useForm<StaffFormData>({
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    resolver: zodResolver(staffFormSchema) as any,
+    defaultValues: {
+      name: "",
+      role: "trainer",
+      contact: "",
+      joinDate: new Date().toISOString().split("T")[0],
+      email: "",
+      memo: "",
+    },
+    mode: "onBlur",
   });
 
-  const [errors, setErrors] = useState<Record<string, string>>({});
-  const [showCancelDialog, setShowCancelDialog] = useState(false);
+  const watchedRole = watch("role");
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
-    const { name, value } = e.target;
-
-    // 연락처 자동 하이픈 포맷
-    if (name === "contact") {
-      const digits = value.replace(/\D/g, "");
-      let formatted = digits;
-      if (digits.length <= 3) {
-        formatted = digits;
-      } else if (digits.length <= 7) {
-        formatted = `${digits.slice(0, 3)}-${digits.slice(3)}`;
-      } else {
-        formatted = `${digits.slice(0, 3)}-${digits.slice(3, 7)}-${digits.slice(7, 11)}`;
+  // 수정 모드: 기존 직원 데이터 로드
+  useEffect(() => {
+    if (!editId) return;
+    const fetchStaff = async () => {
+      const { data, error } = await supabase
+        .from("staff")
+        .select("*")
+        .eq("id", editId)
+        .single();
+      if (error || !data) {
+        toast.error("직원 정보를 불러오지 못했습니다.");
+        return;
       }
-      setFormData(prev => ({ ...prev, contact: formatted }));
-      if (errors.contact) setErrors(prev => ({ ...prev, contact: "" }));
-      return;
-    }
+      reset({
+        name: data.name ?? "",
+        role: ROLE_DB_TO_KEY[data.role] ?? data.role ?? "staff",
+        contact: data.phone ?? "",
+        joinDate: data.hireDate ? data.hireDate.slice(0, 10) : new Date().toISOString().split("T")[0],
+        email: data.email ?? "",
+        memo: "",
+      });
+    };
+    fetchStaff();
+  }, [editId, reset]);
 
-    setFormData(prev => ({ ...prev, [name]: value }));
-    if (errors[name]) setErrors(prev => ({ ...prev, [name]: "" }));
-  };
+  const onSubmit = async (formData: StaffFormData) => {
+    setIsSaving(true);
+    const branchId = Number(localStorage.getItem("branchId")) || 1;
+    // 폼 영문 키 → DB 한글 역할명 매핑
+    const ROLE_MAP: Record<string, string> = {
+      owner: "센터장", manager: "매니저", fc: "FC", trainer: "트레이너", staff: "스태프",
+    };
+    const staffData = {
+      name: formData.name,
+      phone: formData.contact,
+      email: formData.email || null,
+      role: ROLE_MAP[formData.role] || formData.role,
+      hireDate: formData.joinDate ? new Date(formData.joinDate).toISOString() : null,
+      branchId,
+    };
 
-  const validate = () => {
-    const newErrors: Record<string, string> = {};
-    if (!formData.name.trim())    newErrors.name    = "이름을 입력하세요";
-    if (!formData.role)           newErrors.role    = "역할을 선택하세요";
-    if (!formData.joinDate)       newErrors.joinDate = "입사일을 입력하세요";
-    if (formData.contact && !/^010-\d{4}-\d{4}$/.test(formData.contact)) {
-      newErrors.contact = "올바른 연락처를 입력하세요";
+    if (isEditMode) {
+      // 수정 모드: 기존 레코드 업데이트
+      const { error } = await supabase
+        .from("staff")
+        .update(staffData)
+        .eq("id", editId);
+      setIsSaving(false);
+      if (error) { toast.error("수정 실패: " + error.message); return; }
+      toast.success("직원 정보가 수정되었습니다.");
+    } else {
+      // 등록 모드: 새 레코드 삽입
+      const { error } = await supabase.from("staff").insert(staffData);
+      setIsSaving(false);
+      if (error) { toast.error("저장 실패: " + error.message); return; }
+      toast.success("직원이 성공적으로 등록되었습니다.");
     }
-    if (!formData.contact.trim()) newErrors.contact = "연락처를 입력하세요";
-    return newErrors;
-  };
-
-  const handleSave = () => {
-    const newErrors = validate();
-    if (Object.keys(newErrors).length > 0) {
-      setErrors(newErrors);
-      return;
-    }
-    alert("직원이 성공적으로 등록되었습니다.");
     moveToPage(974);
   };
 
-  const roleInfo = ROLE_PERMISSIONS[formData.role] || ROLE_PERMISSIONS.staff;
+  const roleInfo = ROLE_PERMISSIONS[watchedRole] || ROLE_PERMISSIONS.staff;
 
   return (
     <AppLayout>
       <PageHeader
-        title="직원 등록"
-        description="새로운 직원 정보를 입력하고 역할을 설정합니다."
+        title={isEditMode ? "직원 정보 수정" : "직원 등록"}
+        description={isEditMode ? "직원의 정보를 수정하고 저장합니다." : "새로운 직원 정보를 입력하고 역할을 설정합니다."}
         actions={
           <div className="flex gap-sm">
             <button
@@ -90,11 +146,12 @@ export default function StaffForm() {
               취소
             </button>
             <button
-              className="flex items-center gap-xs px-lg py-sm rounded-button bg-primary text-white hover:opacity-90 transition-all text-Label font-semibold shadow-sm"
-              onClick={handleSave}
+              className="flex items-center gap-xs px-lg py-sm rounded-button bg-primary text-white hover:opacity-90 transition-all text-Label font-semibold shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
+              onClick={handleSubmit(onSubmit)}
+              disabled={isSaving}
             >
               <Save size={16} />
-              저장하기
+              {isSaving ? "저장 중..." : isEditMode ? "수정 저장" : "저장하기"}
             </button>
           </div>
         }
@@ -111,9 +168,7 @@ export default function StaffForm() {
             <div className="relative">
               <User className="absolute left-md top-1/2 -translate-y-1/2 text-content-secondary" size={16} />
               <input
-                name="name"
-                value={formData.name}
-                onChange={handleChange}
+                {...register("name")}
                 placeholder="홍길동"
                 className={cn(
                   "w-full pl-[40px] pr-md py-md bg-surface-secondary border rounded-input text-Body-2 outline-none focus:ring-2 focus:ring-primary transition-all",
@@ -121,7 +176,7 @@ export default function StaffForm() {
                 )}
               />
             </div>
-            {errors.name && <p className="text-Label text-error">{errors.name}</p>}
+            {errors.name && <p className="text-Label text-error">{errors.name.message}</p>}
           </div>
 
           {/* 역할 선택 */}
@@ -130,9 +185,7 @@ export default function StaffForm() {
               역할 <span className="text-error">*</span>
             </label>
             <select
-              name="role"
-              value={formData.role}
-              onChange={handleChange}
+              {...register("role")}
               className={cn(
                 "w-full px-md py-md bg-surface-secondary border rounded-input text-Body-2 outline-none focus:ring-2 focus:ring-primary transition-all cursor-pointer",
                 errors.role ? "border-error" : "border-line"
@@ -145,9 +198,9 @@ export default function StaffForm() {
               <option value="trainer">트레이너</option>
               <option value="staff">스태프</option>
             </select>
-            {errors.role && <p className="text-Label text-error">{errors.role}</p>}
+            {errors.role && <p className="text-Label text-error">{errors.role.message}</p>}
             {/* 역할 권한 미리보기 */}
-            {formData.role && (
+            {watchedRole && (
               <div className="mt-sm p-md bg-primary-light border border-primary/20 rounded-input">
                 <div className="flex items-center gap-xs mb-xs">
                   <ShieldCheck size={14} className="text-primary" />
@@ -174,9 +227,13 @@ export default function StaffForm() {
             <div className="relative">
               <Phone className="absolute left-md top-1/2 -translate-y-1/2 text-content-secondary" size={16} />
               <input
-                name="contact"
-                value={formData.contact}
-                onChange={handleChange}
+                value={watch("contact")}
+                onChange={(e) => {
+                  const formatted = formatPhone(e.target.value);
+                  setValue("contact", formatted);
+                  trigger("contact");
+                }}
+                onBlur={() => trigger("contact")}
                 placeholder="010-0000-0000"
                 maxLength={13}
                 className={cn(
@@ -185,7 +242,7 @@ export default function StaffForm() {
                 )}
               />
             </div>
-            {errors.contact && <p className="text-Label text-error">{errors.contact}</p>}
+            {errors.contact && <p className="text-Label text-error">{errors.contact.message}</p>}
           </div>
 
           {/* 입사일 */}
@@ -196,17 +253,15 @@ export default function StaffForm() {
             <div className="relative">
               <Calendar className="absolute left-md top-1/2 -translate-y-1/2 text-content-secondary" size={16} />
               <input
-                name="joinDate"
+                {...register("joinDate")}
                 type="date"
-                value={formData.joinDate}
-                onChange={handleChange}
                 className={cn(
                   "w-full pl-[40px] pr-md py-md bg-surface-secondary border rounded-input text-Body-2 outline-none focus:ring-2 focus:ring-primary transition-all",
                   errors.joinDate ? "border-error focus:ring-error/30" : "border-line"
                 )}
               />
             </div>
-            {errors.joinDate && <p className="text-Label text-error">{errors.joinDate}</p>}
+            {errors.joinDate && <p className="text-Label text-error">{errors.joinDate.message}</p>}
           </div>
         </FormSection>
 
@@ -218,14 +273,16 @@ export default function StaffForm() {
             <div className="relative">
               <Mail className="absolute left-md top-1/2 -translate-y-1/2 text-content-secondary" size={16} />
               <input
-                name="email"
+                {...register("email")}
                 type="email"
-                value={formData.email}
-                onChange={handleChange}
                 placeholder="example@center.com"
-                className="w-full pl-[40px] pr-md py-md bg-surface-secondary border border-line rounded-input text-Body-2 outline-none focus:ring-2 focus:ring-primary transition-all"
+                className={cn(
+                  "w-full pl-[40px] pr-md py-md bg-surface-secondary border rounded-input text-Body-2 outline-none focus:ring-2 focus:ring-primary transition-all",
+                  errors.email ? "border-error focus:ring-error/30" : "border-line"
+                )}
               />
             </div>
+            {errors.email && <p className="text-Label text-error">{errors.email.message}</p>}
           </div>
 
           {/* 메모 */}
@@ -234,21 +291,20 @@ export default function StaffForm() {
             <div className="relative">
               <FileText className="absolute left-md top-[14px] text-content-secondary" size={16} />
               <textarea
-                name="memo"
-                value={formData.memo}
-                onChange={handleChange}
+                {...register("memo")}
                 placeholder="특이사항이나 참고 내용을 입력하세요"
                 rows={3}
                 className="w-full pl-[40px] pr-md py-md bg-surface-secondary border border-line rounded-input text-Body-2 outline-none focus:ring-2 focus:ring-primary transition-all resize-none"
               />
             </div>
+            {errors.memo && <p className="text-Label text-error">{errors.memo.message}</p>}
           </div>
         </FormSection>
       </div>
 
       <ConfirmDialog
         open={showCancelDialog}
-        title="등록 취소"
+        title={isEditMode ? "수정 취소" : "등록 취소"}
         description="입력 중인 내용이 저장되지 않습니다. 정말 취소하시겠습니까?"
         confirmLabel="네, 취소합니다"
         cancelLabel="계속 작성하기"

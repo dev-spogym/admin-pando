@@ -1,4 +1,6 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
+import { toast } from "sonner";
+import { exportToExcel } from "@/lib/exportExcel";
 import {
   Send,
   History,
@@ -24,6 +26,13 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { moveToPage } from "@/internal";
+import { supabase } from "@/lib/supabase";
+
+const getBranchId = (): number => {
+  const stored = localStorage.getItem('branchId');
+  return stored ? Number(stored) : 1;
+};
+
 import AppLayout from "@/components/AppLayout";
 import PageHeader from "@/components/PageHeader";
 import TabNav from "@/components/TabNav";
@@ -39,24 +48,6 @@ const CHANNEL_CONFIG = {
   push:  { label: "앱 푸시", maxLen: 500,  costPerMsg: 0 },
 };
 
-// --- Mock 회원 ---
-const MOCK_MEMBERS = [
-  { id: 1, name: "김민준", phone: "010-1234-5678", group: "헬스 회원" },
-  { id: 2, name: "이서연", phone: "010-2345-6789", group: "PT 회원" },
-  { id: 3, name: "박지훈", phone: "010-3456-7890", group: "헬스 회원" },
-  { id: 4, name: "최지우", phone: "010-4567-8901", group: "VIP 회원" },
-  { id: 5, name: "정하늘", phone: "010-5678-9012", group: "헬스 회원" },
-  { id: 6, name: "홍길동", phone: "010-6789-0123", group: "PT 회원" },
-];
-
-// --- Mock 발송 이력 5건 ---
-const MOCK_HISTORY = [
-  { id: 1, sendDate: "2026-02-19 14:30", type: "알림톡", recipientCount: 245, successRate: "98.4%", status: "완료" },
-  { id: 2, sendDate: "2026-02-18 10:15", type: "SMS",    recipientCount: 120, successRate: "95.0%", status: "완료" },
-  { id: 3, sendDate: "2026-02-17 16:00", type: "LMS",    recipientCount:  58, successRate: "100%",  status: "완료" },
-  { id: 4, sendDate: "2026-02-16 09:30", type: "앱 푸시", recipientCount: 512, successRate: "87.5%", status: "완료" },
-  { id: 5, sendDate: "2026-02-15 13:45", type: "알림톡", recipientCount:  35, successRate: "0%",    status: "실패" },
-];
 
 type Recipient = { id: number; name: string; phone: string; group: string };
 
@@ -72,12 +63,31 @@ function RecipientModal({
 }) {
   const [query, setQuery]   = useState("");
   const [temp, setTemp]     = useState<Recipient[]>(selected);
+  const [members, setMembers] = useState<Recipient[]>([]);
+
+  useEffect(() => {
+    const fetchMembers = async () => {
+      const { data, error } = await supabase
+        .from('members')
+        .select('id, name, phone, membershipType')
+        .eq('branchId', getBranchId());
+      if (!error && data) {
+        setMembers(data.map((m: Record<string, unknown>) => ({
+          id: m.id as number,
+          name: m.name as string,
+          phone: m.phone as string,
+          group: (m.membershipType as string) ?? '',
+        })));
+      }
+    };
+    fetchMembers();
+  }, []);
 
   const filtered = useMemo(() => {
-    if (!query) return MOCK_MEMBERS;
+    if (!query) return members;
     const q = query.toLowerCase();
-    return MOCK_MEMBERS.filter(m => m.name.includes(q) || m.phone.includes(q));
-  }, [query]);
+    return members.filter(m => m.name.includes(q) || m.phone.includes(q));
+  }, [query, members]);
 
   const isAllSelected = filtered.length > 0 && filtered.every(m => temp.some(s => s.id === m.id));
 
@@ -229,8 +239,32 @@ function PreviewModal({
   );
 }
 
+type MessageHistory = {
+  id: number;
+  sentAt: string | null;
+  type: string;
+  recipients: unknown[];
+  status: string;
+  scheduledAt: string | null;
+};
+
+// 발송 이력 fetch 함수 (컴포넌트 외부에서 재사용)
+const fetchMessageHistory = async (branchId: number): Promise<MessageHistory[]> => {
+  const { data } = await supabase
+    .from('messages')
+    .select('id, sentAt, type, recipients, status, scheduledAt')
+    .eq('branchId', branchId)
+    .order('createdAt', { ascending: false });
+  return (data as MessageHistory[]) ?? [];
+};
+
 export default function MessageSend() {
   const [activeTab, setActiveTab] = useState("send");
+  const [history, setHistory] = useState<MessageHistory[]>([]);
+
+  useEffect(() => {
+    fetchMessageHistory(getBranchId()).then(setHistory);
+  }, []);
 
   // --- 발송 폼 상태 ---
   const [sendForm, setSendForm] = useState({
@@ -244,6 +278,7 @@ export default function MessageSend() {
 
   const [isRecipientModalOpen, setIsRecipientModalOpen] = useState(false);
   const [isPreviewModalOpen,   setIsPreviewModalOpen]   = useState(false);
+  const [isSending, setIsSending] = useState(false);
 
   // --- 자동 알림 상태 ---
   const [autoAlarms, setAutoAlarms] = useState({
@@ -275,30 +310,87 @@ export default function MessageSend() {
   };
 
   const handleSend = () => {
-    if (!sendForm.content.trim()) { alert("메시지 내용을 입력하세요."); return; }
+    if (!sendForm.content.trim()) { toast.warning("메시지 내용을 입력하세요."); return; }
     setIsPreviewModalOpen(true);
   };
 
-  const confirmSend = () => {
+  const confirmSend = async () => {
+    // 중복 발송 방지
+    if (isSending) return;
+    setIsSending(true);
+
     setIsPreviewModalOpen(false);
-    alert("메시지가 발송되었습니다.");
-    setSendForm(prev => ({ ...prev, content: "", recipients: [], useAllMembers: false }));
+
+    try {
+    // 채널 → MessageType enum 매핑
+    const typeMap: Record<string, string> = {
+      kakao: 'KAKAO',
+      sms: 'SMS',
+      push: 'PUSH',
+    };
+
+    // 수신자 목록 구성 (전체 선택 시 빈 배열로 표시)
+    const recipientList = sendForm.useAllMembers
+      ? []
+      : sendForm.recipients.map(r => ({ id: r.id, name: r.name, phone: r.phone }));
+
+    const record = {
+      branchId: getBranchId(),
+      type: typeMap[sendForm.channel] ?? 'SMS',
+      title: null,
+      content: sendForm.content,
+      recipients: recipientList,
+      status: sendForm.isReserved ? 'SCHEDULED' : 'SENT',
+      sentAt: sendForm.isReserved ? null : new Date().toISOString(),
+      scheduledAt: sendForm.isReserved && sendForm.reserveDate
+        ? new Date(sendForm.reserveDate).toISOString()
+        : null,
+    };
+
+    const { error } = await supabase.from('messages').insert(record);
+    if (error) {
+      toast.error(`발송 이력 저장 실패: ${error.message}`);
+      return;
+    }
+
+    toast.success(sendForm.isReserved ? "메시지 예약이 완료되었습니다." : "메시지가 발송되었습니다.");
+    setSendForm(prev => ({ ...prev, content: "", recipients: [], useAllMembers: false, isReserved: false, reserveDate: "" }));
+
+    // 발송 이력 갱신
+    fetchMessageHistory(getBranchId()).then(setHistory);
+    } finally {
+      setIsSending(false);
+    }
   };
 
-  // 발송 이력 컬럼
+  // 발송 이력 컬럼 (실제 messages 테이블 스키마 기준)
   const historyColumns = [
-    { key: "sendDate",      header: "발송일시",   width: 160 },
+    {
+      key: "sentAt",
+      header: "발송일시",
+      width: 160,
+      render: (val: string | null) => val ? val.slice(0, 16).replace('T', ' ') : "-",
+    },
     {
       key: "type",
       header: "유형",
       width: 100,
       align: "center" as const,
-      render: (val: string) => <StatusBadge variant="info">{val}</StatusBadge>
+      render: (val: string) => <StatusBadge variant="info">{val}</StatusBadge>,
     },
-    { key: "recipientCount", header: "수신자 수", width: 100, align: "right" as const,
-      render: (val: number) => `${val.toLocaleString()}명`
+    {
+      key: "recipients",
+      header: "수신자 수",
+      width: 100,
+      align: "right" as const,
+      render: (val: unknown[]) => `${Array.isArray(val) ? val.length : 0}명`,
     },
-    { key: "successRate",   header: "성공률",     width: 100, align: "center" as const },
+    {
+      key: "scheduledAt",
+      header: "예약일시",
+      width: 140,
+      render: (val: string | null) => val ? val.slice(0, 16).replace('T', ' ') : "-",
+    },
     {
       key: "status",
       header: "상태",
@@ -306,12 +398,14 @@ export default function MessageSend() {
       align: "center" as const,
       render: (val: string) => (
         <div className="flex items-center justify-center gap-xs">
-          {val === "완료"
+          {val === "SENT"
             ? <><CheckCircle2 size={14} className="text-state-success" /><span className="text-state-success text-Label">완료</span></>
-            : <><XCircle     size={14} className="text-error"         /><span className="text-error text-Label">실패</span></>
+            : val === "SCHEDULED"
+            ? <><AlertCircle size={14} className="text-accent" /><span className="text-accent text-Label">예약</span></>
+            : <><XCircle size={14} className="text-error" /><span className="text-error text-Label">실패</span></>
           }
         </div>
-      )
+      ),
     },
   ];
 
@@ -396,7 +490,7 @@ export default function MessageSend() {
                               if (g === "전체") {
                                 setSendForm(prev => ({ ...prev, useAllMembers: !prev.useAllMembers, recipients: [] }));
                               } else {
-                                alert(`"${g}" 그룹 선택`);
+                                toast.info(`"${g}" 그룹 선택`);
                               }
                             }}
                           >
@@ -562,10 +656,10 @@ export default function MessageSend() {
                       </div>
                       <button
                         className="bg-primary text-white px-xl py-md rounded-button font-bold text-Body-1 shadow-md shadow-primary/20 hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center gap-sm disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
-                        disabled={isOverLimit || (!sendForm.useAllMembers && sendForm.recipients.length === 0)}
+                        disabled={isSending || isOverLimit || (!sendForm.useAllMembers && sendForm.recipients.length === 0)}
                         onClick={handleSend}
                       >
-                        <Send size={16} />메시지 발송
+                        <Send size={16} />{isSending ? "발송 중..." : "메시지 발송"}
                       </button>
                     </div>
                   </div>
@@ -646,8 +740,8 @@ export default function MessageSend() {
               <DataTable
                 title="최근 발송 이력"
                 columns={historyColumns}
-                data={MOCK_HISTORY}
-                pagination={{ page: 1, pageSize: 5, total: MOCK_HISTORY.length }}
+                data={history}
+                pagination={{ page: 1, pageSize: 5, total: history.length }}
               />
             </div>
           )}
@@ -658,10 +752,19 @@ export default function MessageSend() {
               <DataTable
                 title="전체 발송 이력"
                 columns={historyColumns}
-                data={MOCK_HISTORY}
+                data={history}
                 selectable={true}
-                pagination={{ page: 1, pageSize: 10, total: MOCK_HISTORY.length }}
-                onDownloadExcel={() => alert("엑셀 다운로드")}
+                pagination={{ page: 1, pageSize: 10, total: history.length }}
+                onDownloadExcel={() => {
+                  const exportColumns = [
+                    { key: 'sentAt',         header: '발송일시' },
+                    { key: 'type',           header: '유형' },
+                    { key: 'status',         header: '상태' },
+                    { key: 'scheduledAt',    header: '예약일시' },
+                  ];
+                  exportToExcel(history as unknown as Record<string, unknown>[], exportColumns, { filename: '발송이력' });
+                  toast.success(`${history.length}건 엑셀 다운로드 완료`);
+                }}
               />
             </div>
           )}

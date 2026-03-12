@@ -9,3 +9,5 @@ dist/
 # fry cache
 .fry/parse-cache.json
 .fry/parse-cache/
+
+/generated/prisma

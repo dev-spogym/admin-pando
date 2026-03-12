@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import {
   Search,
   CheckCircle2,
@@ -17,6 +17,14 @@ import PageHeader from "@/components/PageHeader";
 import StatCard from "@/components/StatCard";
 import StatusBadge from "@/components/StatusBadge";
 import ConfirmDialog from "@/components/ConfirmDialog";
+import { supabase } from "@/lib/supabase";
+import { exportToExcel } from "@/lib/exportExcel";
+import { toast } from "sonner";
+
+const getBranchId = (): number => {
+  const stored = localStorage.getItem('branchId');
+  return stored ? Number(stored) : 1;
+};
 
 /**
  * SCR-051: 락커 배정 관리
@@ -46,40 +54,29 @@ interface Member {
   memberNo: string;
 }
 
-// --- Mock 회원 데이터 ---
-const MOCK_MEMBERS: Member[] = [
-  { id: "m1", name: "홍길동",  contact: "010-1111-2222", memberNo: "M-10234" },
-  { id: "m2", name: "김철수",  contact: "010-2222-3333", memberNo: "M-10235" },
-  { id: "m3", name: "이영희",  contact: "010-3333-4444", memberNo: "M-10236" },
-  { id: "m4", name: "박지성",  contact: "010-4444-5555", memberNo: "M-10237" },
-  { id: "m5", name: "손흥민",  contact: "010-5555-6666", memberNo: "M-10238" },
-  { id: "m6", name: "최유나",  contact: "010-6666-7777", memberNo: "M-10239" },
-  { id: "m7", name: "정재욱",  contact: "010-7777-8888", memberNo: "M-10240" },
-  { id: "m8", name: "강수진",  contact: "010-8888-9999", memberNo: "M-10241" },
-];
 
-// --- Mock 락커 생성 ---
-const buildLockers = (type: LockerType, count: number, startNum: number): Locker[] =>
-  Array.from({ length: count }, (_, i) => {
-    const num = (startNum + i).toString().padStart(3, "0");
-    const statuses: LockerStatus[] = ["available", "in_use", "overtime", "abnormal", "disabled"];
-    const status = statuses[i % 5];
-    const isOccupied = status === "in_use" || status === "overtime";
-    const names = ["홍길동", "김철수", "이영희", "박지성", "손흥민"];
-    return {
-      id: `${type}-${num}`,
-      number: num,
-      type,
-      status,
-      userName: isOccupied ? names[i % names.length] : null,
-      expiryDate: isOccupied ? (status === "overtime" ? "2026-02-10" : "2026-03-15") : null,
-      gender: type === "daily" ? (startNum + i <= 88 ? "M" : "F") : undefined,
-    };
-  });
+/** DB 락커 상태 → UI 상태 매핑 */
+const mapLockerStatus = (dbStatus: string, expiresAt: string | null): LockerStatus => {
+  if (dbStatus === "MAINTENANCE") return "disabled";
+  if (dbStatus === "AVAILABLE") return "available";
+  if (dbStatus === "IN_USE") {
+    if (expiresAt && new Date(expiresAt) < new Date()) return "overtime";
+    return "in_use";
+  }
+  return "available";
+};
 
-const INITIAL_DAILY     = [...buildLockers("daily",    88, 1), ...buildLockers("daily", 116, 101)];
-const INITIAL_PERSONAL  = buildLockers("personal", 100, 1);
-const INITIAL_GOLF      = buildLockers("golf",     233, 1);
+/** Supabase lockers → UI Locker 배열 변환 */
+const mapDbLockers = (data: any[], type: LockerType): Locker[] =>
+  data.map((r: any) => ({
+    id: `${type}-${r.id}`,
+    number: r.number,
+    type,
+    status: mapLockerStatus(r.status, r.expiresAt),
+    userName: r.memberName ?? r.member?.name ?? null,
+    expiryDate: r.expiresAt ? r.expiresAt.slice(0, 10) : null,
+    gender: undefined,
+  }));
 
 // --- 상태별 셀 스타일 ---
 const LOCKER_CELL_STYLES: Record<LockerStatus, string> = {
@@ -92,9 +89,58 @@ const LOCKER_CELL_STYLES: Record<LockerStatus, string> = {
 
 export default function LockerManagement() {
   const [activeTab, setActiveTab] = useState<LockerType>("daily");
-  const [dailyLockers,    setDailyLockers]    = useState<Locker[]>(INITIAL_DAILY);
-  const [personalLockers, setPersonalLockers] = useState<Locker[]>(INITIAL_PERSONAL);
-  const [golfLockers,     setGolfLockers]     = useState<Locker[]>(INITIAL_GOLF);
+  const [dailyLockers,    setDailyLockers]    = useState<Locker[]>([]);
+  const [personalLockers, setPersonalLockers] = useState<Locker[]>([]);
+  const [golfLockers,     setGolfLockers]     = useState<Locker[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  // Supabase 회원 목록
+  const [dbMembers, setDbMembers] = useState<Member[]>([]);
+
+  /** 락커 데이터 Supabase에서 조회 */
+  const fetchLockers = async () => {
+    setIsLoading(true);
+    const { data, error } = await supabase
+      .from('lockers')
+      .select('*, member:members(name, phone)')
+      .eq('branchId', getBranchId())
+      .order('number');
+
+    if (error) {
+      console.error("락커 데이터 로드 실패:", error);
+      toast.error("락커 데이터를 불러오지 못했습니다.");
+    } else if (data) {
+      // number 기반으로 type 분류 (DB에 type 필드가 없으면 number 범위로 구분)
+      // 일괄 매핑: 모든 락커를 daily 탭에 표시 (실제 운영 시 type 필드 추가 권장)
+      setDailyLockers(mapDbLockers(data, "daily"));
+      // personal, golf는 별도 type 필드가 있을 때 분류
+      setPersonalLockers([]);
+      setGolfLockers([]);
+    }
+    setIsLoading(false);
+  };
+
+  useEffect(() => {
+    fetchLockers();
+  }, []);
+
+  useEffect(() => {
+    const fetchMembers = async () => {
+      const { data, error } = await supabase
+        .from('members')
+        .select('id, name, phone')
+        .eq('branchId', getBranchId());
+      if (!error && data) {
+        setDbMembers(data.map((m: any, i: number) => ({
+          id: String(m.id),
+          name: m.name,
+          contact: m.phone,
+          memberNo: `M-${10234 + i}`,
+        })));
+      }
+    };
+    fetchMembers();
+  }, []);
 
   // UI-089: 회원 검색 AutoComplete
   const [memberSearch,    setMemberSearch]    = useState("");
@@ -140,6 +186,14 @@ export default function LockerManagement() {
     [currentLockers]
   );
 
+  // FN-050: 추천 락커 — 번호가 가장 작은 AVAILABLE 락커
+  const recommendedLocker = useMemo(() => {
+    if (availableLockers.length === 0) return null;
+    return availableLockers.reduce((min, l) =>
+      Number(l.number) < Number(min.number) ? l : min
+    );
+  }, [availableLockers]);
+
   // 만료(overtime) 락커
   const overtimeLockers = useMemo(() =>
     currentLockers.filter(l => l.status === "overtime"),
@@ -149,12 +203,12 @@ export default function LockerManagement() {
   // UI-089: AutoComplete 필터
   const filteredMembers = useMemo(() => {
     if (!memberSearch.trim()) return [];
-    return MOCK_MEMBERS.filter(m =>
+    return dbMembers.filter(m =>
       m.name.includes(memberSearch) ||
       m.contact.includes(memberSearch) ||
       m.memberNo.includes(memberSearch)
     );
-  }, [memberSearch]);
+  }, [memberSearch, dbMembers]);
 
   const handleMemberSelect = (member: Member) => {
     setSelectedMember(member);
@@ -190,10 +244,43 @@ export default function LockerManagement() {
   };
 
   const tabDefs = [
-    { key: "daily",    label: "일일 사물함",  count: INITIAL_DAILY.length    },
-    { key: "personal", label: "개인 사물함",  count: INITIAL_PERSONAL.length },
-    { key: "golf",     label: "골프 사물함",  count: INITIAL_GOLF.length     },
+    { key: "daily",    label: "일일 사물함",  count: dailyLockers.length    },
+    { key: "personal", label: "개인 사물함",  count: personalLockers.length },
+    { key: "golf",     label: "골프 사물함",  count: golfLockers.length     },
   ];
+
+  /** 상태 동기화: Supabase에서 최신 데이터 refetch */
+  const handleSync = () => {
+    fetchLockers();
+    toast.success("락커 상태를 동기화했습니다.");
+  };
+
+  /** 엑셀 다운로드 */
+  const handleExcelDownload = () => {
+    const exportColumns = [
+      { key: "number", header: "번호" },
+      { key: "type", header: "구분" },
+      { key: "status", header: "상태" },
+      { key: "userName", header: "회원명" },
+      { key: "expiryDate", header: "만료일" },
+    ];
+    const statusLabel: Record<LockerStatus, string> = {
+      available: "사용가능", in_use: "사용중", overtime: "시간초과",
+      abnormal: "비정상", disabled: "사용불가",
+    };
+    const typeLabel: Record<LockerType, string> = {
+      daily: "일일", personal: "개인", golf: "골프",
+    };
+    const exportData = currentLockers.map(l => ({
+      number: l.number,
+      type: typeLabel[l.type],
+      status: statusLabel[l.status],
+      userName: l.userName ?? "",
+      expiryDate: l.expiryDate ?? "",
+    }));
+    exportToExcel(exportData as Record<string, unknown>[], exportColumns, { filename: "사물함_현황" });
+    toast.success("엑셀 다운로드가 완료되었습니다.");
+  };
 
   const renderLockerSection = (lockers: Locker[], title?: string, filterGender?: "M" | "F") => {
     const list = filterGender ? lockers.filter(l => l.gender === filterGender) : lockers;
@@ -210,14 +297,14 @@ export default function LockerManagement() {
               )}
               onClick={() => {
                 if (locker.status !== "available" && locker.status !== "in_use" && locker.status !== "overtime") return;
-                moveToPage(985);
+                moveToPage(985, { id: locker.id });
               }}
             >
               <span className="text-[12px] font-bold mb-[2px]">{locker.number}</span>
               {locker.userName ? (
                 <span
                   className="text-[9px] font-medium truncate w-full text-center hover:underline"
-                  onClick={e => { e.stopPropagation(); moveToPage(985); }}
+                  onClick={e => { e.stopPropagation(); moveToPage(985, { id: locker.id }); }}
                 >
                   {locker.userName}
                 </span>
@@ -254,10 +341,16 @@ export default function LockerManagement() {
             >
               <MoveRight size={15} /> 밴드/카드 관리
             </button>
-            <button className="flex items-center gap-xs px-md py-sm rounded-lg border border-line bg-surface text-content-secondary hover:text-primary transition-colors text-[13px] font-semibold">
+            <button
+              className="flex items-center gap-xs px-md py-sm rounded-lg border border-line bg-surface text-content-secondary hover:text-primary transition-colors text-[13px] font-semibold"
+              onClick={handleSync}
+            >
               <RefreshCw size={15} /> 상태 동기화
             </button>
-            <button className="flex items-center gap-xs px-md py-sm rounded-lg bg-state-info/10 border border-state-info/20 text-state-info hover:opacity-90 transition-opacity text-[13px] font-semibold">
+            <button
+              className="flex items-center gap-xs px-md py-sm rounded-lg bg-state-info/10 border border-state-info/20 text-state-info hover:opacity-90 transition-opacity text-[13px] font-semibold"
+              onClick={handleExcelDownload}
+            >
               <Download size={15} /> 엑셀 다운로드
             </button>
           </div>
@@ -300,7 +393,7 @@ export default function LockerManagement() {
             ))}
           </div>
           <div className="text-[12px] text-content-secondary pb-sm">
-            최종 갱신: 2026-03-11 14:30:05
+            {isLoading ? "동기화 중..." : `최종 갱신: ${new Date().toLocaleString("ko-KR")}`}
           </div>
         </div>
 
@@ -308,7 +401,7 @@ export default function LockerManagement() {
           {/* === UI-089 회원 검색 AutoComplete === */}
           <div className="bg-surface-secondary/50 rounded-xl p-lg border border-line">
             <h3 className="text-[14px] font-bold text-content mb-md">락커 배정</h3>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-lg">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-lg">
               {/* 회원 검색 */}
               <div className="md:col-span-1">
                 <label className="block text-[12px] font-semibold text-content-secondary mb-sm">
@@ -362,6 +455,27 @@ export default function LockerManagement() {
                     >
                       <XCircle size={14} />
                     </button>
+                  </div>
+                )}
+              </div>
+
+              {/* FN-050: 추천 락커 */}
+              <div className="md:col-span-1">
+                <label className="block text-[12px] font-semibold text-content-secondary mb-sm">
+                  추천 락커
+                </label>
+                {recommendedLocker ? (
+                  <button
+                    className="w-full h-10 rounded-lg border border-state-success/40 bg-state-success/5 flex items-center justify-between px-md text-[13px] text-state-success font-semibold hover:bg-state-success/10 transition-colors"
+                    onClick={() => setSelectedLockerId(recommendedLocker.id)}
+                    type="button"
+                  >
+                    <span>{recommendedLocker.number}번 락커 (최소 번호)</span>
+                    <span className="text-[11px] font-normal opacity-70">클릭하여 선택</span>
+                  </button>
+                ) : (
+                  <div className="h-10 rounded-lg border border-line bg-surface flex items-center px-md text-[13px] text-content-tertiary">
+                    사용 가능한 락커 없음
                   </div>
                 )}
               </div>
@@ -538,7 +652,7 @@ function renderLockerSection(lockers: Locker[], title?: string, filterGender?: "
                 : "cursor-not-allowed"
             )}
             onClick={() => {
-              if (locker.status === "in_use" || locker.status === "overtime") moveToPage(985);
+              if (locker.status === "in_use" || locker.status === "overtime") moveToPage(985, { id: locker.id });
             }}
           >
             <span className="text-[10px] font-bold">{locker.number}</span>
