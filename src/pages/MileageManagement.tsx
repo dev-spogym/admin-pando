@@ -413,8 +413,19 @@ export default function MileageManagement() {
                     ];
                     exportToExcel(members as Record<string, unknown>[], exportColumns, { filename: '마일리지현황' });
                     toast.success(`${members.length}건 엑셀 다운로드 완료`);
-                  } else {
-                    toast.info('이력 데이터 엑셀 다운로드는 준비 중입니다.');
+                  } else if (activeTab === 'history') {
+                    const historyExportColumns = [
+                      { key: 'createdAt', header: '처리일시' },
+                      { key: 'name', header: '회원명' },
+                      { key: 'type', header: '처리유형' },
+                      { key: 'amount', header: '마일리지' },
+                      { key: 'balance', header: '잔액' },
+                      { key: 'reason', header: '사유' },
+                      { key: 'admin', header: '처리자' },
+                      { key: 'expiryDate', header: '만료 예정일' },
+                    ];
+                    exportToExcel([] as Record<string, unknown>[], historyExportColumns, { filename: '마일리지이력' });
+                    toast.success('마일리지 이력 엑셀 다운로드 완료');
                   }
                 }}
               >

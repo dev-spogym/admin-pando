@@ -414,7 +414,7 @@ const AppHeader = ({
                   className="w-full text-center text-[12px] text-content-tertiary hover:text-content transition-colors"
                   onClick={() => {
                     setOpenDropdown(null);
-                    toast.info('알림 전체 목록 페이지 준비 중입니다.');
+                    moveToPage(966); // 대시보드로 이동 (알림 목록 별도 페이지 없음)
                   }}
                 >
                   전체 알림 보기
@@ -468,7 +468,7 @@ const AppHeader = ({
                     className="flex w-full items-center gap-sm px-md py-[9px] text-[13px] text-content hover:bg-surface-secondary transition-colors"
                     onClick={() => {
                       setOpenDropdown(null);
-                      toast.info('내 정보 페이지 준비 중입니다.');
+                      toast.info(`${displayUserName} (${authUser?.role || '사용자'}) | 지점: ${displayBranchName}`);
                     }}
                   >
                     <User size={15} className="text-content-tertiary" />
