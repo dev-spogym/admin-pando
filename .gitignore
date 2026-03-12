@@ -2,6 +2,17 @@ node_modules/
 dist/
 .env
 .env.local
+.env.production
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
 
 # omc
 .omc/
@@ -10,4 +21,12 @@ dist/
 .fry/parse-cache.json
 .fry/parse-cache/
 
+# Prisma generated
 /generated/prisma
+
+# Test
+test-results/
+playwright-report/
+
+# Output
+output/
