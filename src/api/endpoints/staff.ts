@@ -3,6 +3,7 @@
  */
 import { supabase } from '../../lib/supabase';
 import type { ApiResponse, PaginatedResponse, PaginationParams } from '../types';
+import { createAuditLog, AUDIT_ACTIONS } from './auditLog';
 
 const getBranchId = (): number => {
   const stored = localStorage.getItem('branchId');
@@ -139,6 +140,7 @@ export const createStaff = async (data: StaffRequest): Promise<ApiResponse<Staff
 
     if (error) throw error;
 
+    createAuditLog({ action: AUDIT_ACTIONS.CREATE, targetType: 'staff', targetId: inserted.id, afterValue: { name: inserted.name, role: inserted.role } });
     return {
       success: true,
       data: inserted as Staff,
@@ -162,6 +164,7 @@ export const updateStaff = async (id: number, data: Partial<StaffRequest>): Prom
 
     if (error) throw error;
 
+    createAuditLog({ action: AUDIT_ACTIONS.UPDATE, targetType: 'staff', targetId: id });
     return {
       success: true,
       data: updated as Staff,
@@ -183,6 +186,7 @@ export const deleteStaff = async (id: number): Promise<ApiResponse<null>> => {
 
     if (error) throw error;
 
+    createAuditLog({ action: AUDIT_ACTIONS.DELETE, targetType: 'staff', targetId: id });
     return { success: true, data: null, message: '직원이 삭제되었습니다.' };
   } catch (err) {
     const message = err instanceof Error ? err.message : '직원 삭제에 실패했습니다.';

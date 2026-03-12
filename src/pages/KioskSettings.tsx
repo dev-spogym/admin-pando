@@ -76,7 +76,7 @@ const INITIAL_DATA: SettingsData = {
   autoLogout: 5,
   adminPin: "1234",
   bgImage: "https://images.unsplash.com/photo-1534438327276-14e5300c3a48?auto=format&fit=crop&q=80&w=1920",
-  logoImage: "https://via.placeholder.com/200x60?text=LOGO",
+  logoImage: "",
   themeColor: "#3B82F6",
   welcomeMessage: "오늘도 건강한 하루 되세요!",
   showNotice: true,
@@ -397,7 +397,11 @@ export default function KioskSettings() {
         <div className="space-y-sm">
           <label className="text-Label text-content-secondary">센터 로고</label>
           <div className="aspect-[3/1] rounded-xl border-2 border-dashed border-line bg-surface-secondary flex flex-col items-center justify-center relative overflow-hidden group cursor-pointer hover:border-accent transition-colors">
-            <img className="max-h-10 object-contain" src={settings.logoImage} alt="logo" />
+            {settings.logoImage ? (
+              <img className="max-h-10 object-contain" src={settings.logoImage} alt="logo" />
+            ) : (
+              <span className="text-[13px] text-content-tertiary">로고 이미지를 업로드하세요</span>
+            )}
             <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-xs">
               <Upload className="text-white" size={20} />
               <span className="text-white text-[11px] font-medium">로고 변경</span>

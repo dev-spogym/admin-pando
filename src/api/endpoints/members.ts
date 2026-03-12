@@ -3,6 +3,7 @@
  */
 import { supabase } from '@/lib/supabase';
 import type { ApiResponse, PaginatedResponse, PaginationParams } from '../types';
+import { createAuditLog, AUDIT_ACTIONS } from './auditLog';
 
 /** 회원 정보 */
 export interface Member {
@@ -213,6 +214,7 @@ export const createMember = async (req: MemberRequest): Promise<ApiResponse<Memb
     return { success: false, data: null as unknown as Member, message: error?.message ?? '회원 등록에 실패했습니다.' };
   }
 
+  createAuditLog({ action: AUDIT_ACTIONS.CREATE, targetType: 'member', targetId: data.id, afterValue: { name: req.name, phone: req.phone } });
   return { success: true, data: rowToMember(data), message: '회원이 등록되었습니다.' };
 };
 
@@ -246,6 +248,7 @@ export const updateMember = async (id: number, req: Partial<MemberRequest>): Pro
     return { success: false, data: null as unknown as Member, message: error?.message ?? '회원 수정에 실패했습니다.' };
   }
 
+  createAuditLog({ action: AUDIT_ACTIONS.UPDATE, targetType: 'member', targetId: id, afterValue: payload });
   return { success: true, data: rowToMember(data), message: '회원 정보가 수정되었습니다.' };
 };
 
@@ -260,6 +263,7 @@ export const deleteMember = async (id: number): Promise<ApiResponse<null>> => {
     return { success: false, data: null, message: error.message };
   }
 
+  createAuditLog({ action: AUDIT_ACTIONS.DELETE, targetType: 'member', targetId: id });
   return { success: true, data: null, message: '회원이 삭제되었습니다.' };
 };
 

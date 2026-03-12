@@ -3,6 +3,7 @@
  */
 import { supabase } from '@/lib/supabase';
 import type { ApiResponse } from '../types';
+import { createAuditLog, AUDIT_ACTIONS } from './auditLog';
 
 /** 로그인 요청 */
 export interface LoginRequest {
@@ -151,6 +152,7 @@ export const login = async (data: LoginRequest): Promise<ApiResponse<LoginRespon
       message: '로그인 성공',
     };
   } catch {
+    createAuditLog({ action: AUDIT_ACTIONS.LOGIN_FAILED, detail: { username: data.username } });
     return {
       success: false,
       data: null as unknown as LoginResponse,
@@ -161,6 +163,8 @@ export const login = async (data: LoginRequest): Promise<ApiResponse<LoginRespon
 
 /** 로그아웃 */
 export const logout = async (): Promise<ApiResponse<null>> => {
+  // 감사 로그 기록 (세션 종료 전에 기록)
+  createAuditLog({ action: AUDIT_ACTIONS.LOGOUT });
   // Supabase Auth 세션 종료
   await supabase.auth.signOut();
   localStorage.removeItem('accessToken');
