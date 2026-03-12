@@ -183,8 +183,49 @@ export const refreshToken = async (data: RefreshTokenRequest): Promise<ApiRespon
 
 /** 비밀번호 변경 */
 export const changePassword = async (data: ChangePasswordRequest): Promise<ApiResponse<null>> => {
-  void data;
-  return { success: true, data: null, message: '비밀번호가 변경되었습니다.' };
+  try {
+    // 1단계: 현재 비밀번호 확인 (Supabase Auth 세션 기반)
+    const { data: sessionData } = await supabase.auth.getSession();
+
+    if (sessionData.session) {
+      // Supabase Auth 사용자: updateUser API로 비밀번호 변경
+      const { error } = await supabase.auth.updateUser({
+        password: data.newPassword,
+      });
+
+      if (error) {
+        return { success: false, data: null, message: error.message || '비밀번호 변경에 실패했습니다.' };
+      }
+
+      return { success: true, data: null, message: '비밀번호가 변경되었습니다.' };
+    }
+
+    // 2단계: Fallback (평문 비밀번호 방식 — 마이그레이션 기간)
+    // 현재 비밀번호 확인
+    const { data: userRows, error: verifyError } = await supabase
+      .from('users')
+      .select('id')
+      .eq('password', data.currentPassword)
+      .eq('isActive', true);
+
+    if (verifyError || !userRows || userRows.length === 0) {
+      return { success: false, data: null, message: '현재 비밀번호가 올바르지 않습니다.' };
+    }
+
+    // 비밀번호 업데이트
+    const { error: updateError } = await supabase
+      .from('users')
+      .update({ password: data.newPassword })
+      .eq('id', userRows[0].id);
+
+    if (updateError) {
+      return { success: false, data: null, message: '비밀번호 변경에 실패했습니다.' };
+    }
+
+    return { success: true, data: null, message: '비밀번호가 변경되었습니다.' };
+  } catch {
+    return { success: false, data: null, message: '비밀번호 변경 중 오류가 발생했습니다.' };
+  }
 };
 
 /** 로그인 화면용 지점 정보 */

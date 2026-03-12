@@ -10,11 +10,15 @@ import {
   Lock,
   LogOut,
   X,
+  Eye,
+  EyeOff,
+  Loader2,
 } from "lucide-react";
 import { toast } from "sonner";
 import { moveToPage } from "@/internal";
 import { useAuthStore } from "@/stores/authStore";
 import { supabase } from "@/lib/supabase";
+import { changePassword } from "@/api/endpoints/auth";
 
 // ─── 타입 정의 ─────────────────────────────────────────────────────────────────
 
@@ -95,6 +99,13 @@ const AppHeader = ({
   const [showSearchDrop, setShowSearchDrop] = useState(false);
   const searchRef = useRef<HTMLDivElement>(null);
   const debounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // ── 비밀번호 변경 모달 ──
+  const [showPasswordModal, setShowPasswordModal] = useState(false);
+  const [pwForm, setPwForm] = useState({ current: '', new: '', confirm: '' });
+  const [pwLoading, setPwLoading] = useState(false);
+  const [showPwCurrent, setShowPwCurrent] = useState(false);
+  const [showPwNew, setShowPwNew] = useState(false);
 
   // ── 지점 목록 ──
   const [branches, setBranches] = useState<Branch[]>([]);
@@ -469,7 +480,8 @@ const AppHeader = ({
                     className="flex w-full items-center gap-sm px-md py-[9px] text-[13px] text-content hover:bg-surface-secondary transition-colors"
                     onClick={() => {
                       setOpenDropdown(null);
-                      toast.info('비밀번호 변경 기능 준비 중입니다.');
+                      setPwForm({ current: '', new: '', confirm: '' });
+                      setShowPasswordModal(true);
                     }}
                   >
                     <Lock size={15} className="text-content-tertiary" />
@@ -501,6 +513,101 @@ const AppHeader = ({
           <span>회원등록</span>
         </button>
       </div>
+
+      {/* 비밀번호 변경 모달 */}
+      {showPasswordModal && (
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/40" onClick={() => setShowPasswordModal(false)}>
+          <div className="bg-surface rounded-xl shadow-lg border border-line w-full max-w-[400px] mx-md" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between px-lg py-md border-b border-line">
+              <h3 className="text-[15px] font-bold text-content">비밀번호 변경</h3>
+              <button className="text-content-tertiary hover:text-content transition-colors" onClick={() => setShowPasswordModal(false)}>
+                <X size={18} />
+              </button>
+            </div>
+            <form
+              className="p-lg space-y-md"
+              onSubmit={async (e) => {
+                e.preventDefault();
+                if (pwForm.new.length < 6) { toast.error('새 비밀번호는 6자 이상이어야 합니다.'); return; }
+                if (pwForm.new !== pwForm.confirm) { toast.error('새 비밀번호가 일치하지 않습니다.'); return; }
+                setPwLoading(true);
+                try {
+                  const res = await changePassword({ currentPassword: pwForm.current, newPassword: pwForm.new });
+                  if (res.success) {
+                    toast.success('비밀번호가 변경되었습니다.');
+                    setShowPasswordModal(false);
+                  } else {
+                    toast.error(res.message || '비밀번호 변경에 실패했습니다.');
+                  }
+                } catch {
+                  toast.error('비밀번호 변경 중 오류가 발생했습니다.');
+                } finally {
+                  setPwLoading(false);
+                }
+              }}
+            >
+              <div>
+                <label className="text-[12px] font-medium text-content-secondary mb-[4px] block">현재 비밀번호</label>
+                <div className="relative">
+                  <input
+                    type={showPwCurrent ? 'text' : 'password'}
+                    className="w-full h-[40px] px-md pr-10 bg-surface-secondary rounded-lg text-[13px] text-content border border-line focus:border-primary focus:ring-1 focus:ring-primary/20 outline-none"
+                    value={pwForm.current}
+                    onChange={(e) => setPwForm({ ...pwForm, current: e.target.value })}
+                    required
+                  />
+                  <button type="button" className="absolute right-3 top-1/2 -translate-y-1/2 text-content-tertiary" onClick={() => setShowPwCurrent(!showPwCurrent)}>
+                    {showPwCurrent ? <EyeOff size={15} /> : <Eye size={15} />}
+                  </button>
+                </div>
+              </div>
+              <div>
+                <label className="text-[12px] font-medium text-content-secondary mb-[4px] block">새 비밀번호</label>
+                <div className="relative">
+                  <input
+                    type={showPwNew ? 'text' : 'password'}
+                    className="w-full h-[40px] px-md pr-10 bg-surface-secondary rounded-lg text-[13px] text-content border border-line focus:border-primary focus:ring-1 focus:ring-primary/20 outline-none"
+                    value={pwForm.new}
+                    onChange={(e) => setPwForm({ ...pwForm, new: e.target.value })}
+                    required
+                    minLength={6}
+                  />
+                  <button type="button" className="absolute right-3 top-1/2 -translate-y-1/2 text-content-tertiary" onClick={() => setShowPwNew(!showPwNew)}>
+                    {showPwNew ? <EyeOff size={15} /> : <Eye size={15} />}
+                  </button>
+                </div>
+                <p className="text-[11px] text-content-tertiary mt-[2px]">6자 이상 입력하세요</p>
+              </div>
+              <div>
+                <label className="text-[12px] font-medium text-content-secondary mb-[4px] block">새 비밀번호 확인</label>
+                <input
+                  type="password"
+                  className="w-full h-[40px] px-md bg-surface-secondary rounded-lg text-[13px] text-content border border-line focus:border-primary focus:ring-1 focus:ring-primary/20 outline-none"
+                  value={pwForm.confirm}
+                  onChange={(e) => setPwForm({ ...pwForm, confirm: e.target.value })}
+                  required
+                />
+              </div>
+              <div className="flex gap-sm pt-sm">
+                <button
+                  type="button"
+                  className="flex-1 h-[40px] rounded-lg border border-line text-[13px] font-medium text-content-secondary hover:bg-surface-secondary transition-colors"
+                  onClick={() => setShowPasswordModal(false)}
+                >
+                  취소
+                </button>
+                <button
+                  type="submit"
+                  disabled={pwLoading}
+                  className="flex-1 h-[40px] rounded-lg bg-primary text-[13px] font-semibold text-white hover:bg-primary-dark disabled:opacity-50 transition-colors flex items-center justify-center gap-xs"
+                >
+                  {pwLoading ? <><Loader2 size={15} className="animate-spin" /> 변경 중...</> : '비밀번호 변경'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </header>
   );
 };
