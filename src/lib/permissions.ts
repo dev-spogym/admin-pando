@@ -18,6 +18,20 @@ export const ROLE_LABELS: Record<UserRole, string> = {
   readonly: '조회전용',
 };
 
+// DB 역할(Prisma enum) → 권한 시스템 역할 매핑
+const DB_ROLE_MAP: Record<string, UserRole> = {
+  ADMIN: 'primary',
+  MANAGER: 'manager',
+  TRAINER: 'fc',
+  STAFF: 'staff',
+  RECEPTIONIST: 'staff',
+};
+
+/** DB 역할을 권한 시스템 역할로 변환 */
+export function normalizeRole(dbRole: string): UserRole {
+  return DB_ROLE_MAP[dbRole] ?? (dbRole as UserRole);
+}
+
 // 역할 계층 (높은 숫자 = 높은 권한)
 const ROLE_HIERARCHY: Record<UserRole, number> = {
   primary: 100,
@@ -117,7 +131,8 @@ export function hasPermission(userRole: string, route: string, _isSuperAdmin?: b
   const allowedRoles = ROUTE_PERMISSIONS[route];
   // 정의되지 않은 라우트는 기본 허용 (login, 404 등)
   if (!allowedRoles) return true;
-  return allowedRoles.includes(userRole as UserRole);
+  const normalized = normalizeRole(userRole);
+  return allowedRoles.includes(normalized);
 }
 
 /**
@@ -129,7 +144,8 @@ export function hasPermission(userRole: string, route: string, _isSuperAdmin?: b
 export function hasMenuPermission(userRole: string, menuLabel: string): boolean {
   const allowedRoles = MENU_PERMISSIONS[menuLabel];
   if (!allowedRoles) return true;
-  return allowedRoles.includes(userRole as UserRole);
+  const normalized = normalizeRole(userRole);
+  return allowedRoles.includes(normalized);
 }
 
 // 기능별 권한 (페이지 내 버튼/액션)
@@ -159,7 +175,8 @@ export const FEATURE_PERMISSIONS = {
  */
 export function hasFeature(userRole: string, feature: keyof typeof FEATURE_PERMISSIONS, _isSuperAdmin?: boolean): boolean {
   if (_isSuperAdmin) return true;
-  return (FEATURE_PERMISSIONS[feature] as readonly string[]).includes(userRole);
+  const normalized = normalizeRole(userRole);
+  return (FEATURE_PERMISSIONS[feature] as readonly string[]).includes(normalized);
 }
 
 /**

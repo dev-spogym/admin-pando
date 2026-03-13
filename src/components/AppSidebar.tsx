@@ -20,7 +20,7 @@ import {
 import { cn } from "@/lib/utils";
 import { useAuthStore } from "@/stores/authStore";
 import { moveToPage } from "@/internal";
-import { hasMenuPermission, hasPermission, ROLE_LABELS, type UserRole } from "@/lib/permissions";
+import { hasMenuPermission, hasPermission, normalizeRole, ROLE_LABELS, type UserRole } from "@/lib/permissions";
 import { getBranchesPaginated, type BranchDetail } from "@/api/endpoints/branches";
 
 interface MenuItem {
@@ -210,7 +210,7 @@ const AppSidebar: React.FC<AppSidebarProps> = ({
   // 사용자 역할 표시명
   const getUserRoleLabel = () => {
     if (isSuperAdmin) return '슈퍼관리자';
-    return ROLE_LABELS[userRole as UserRole] || '지점';
+    return ROLE_LABELS[normalizeRole(userRole)] || '지점';
   };
 
   return (
