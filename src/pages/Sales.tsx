@@ -218,6 +218,105 @@ export default function Sales() {
     });
   }, [salesData, debouncedSearch, filterValues, activeTab]);
 
+  // 기간별 집계 (TAB-002)
+  const [periodUnit, setPeriodUnit] = useState<'일' | '주' | '월'>('일');
+  const periodData = useMemo(() => {
+    const map = new Map<string, { period: string; count: number; total: number }>();
+    filteredData.forEach(item => {
+      let key: string;
+      const d = item.purchaseDate; // YYYY-MM-DD
+      if (periodUnit === '일') {
+        key = d;
+      } else if (periodUnit === '주') {
+        const dt = new Date(d);
+        const day = dt.getDay();
+        const mon = new Date(dt);
+        mon.setDate(dt.getDate() - (day === 0 ? 6 : day - 1));
+        key = fmtLocal(mon) + ' 주';
+      } else {
+        key = d.slice(0, 7); // YYYY-MM
+      }
+      const prev = map.get(key) ?? { period: key, count: 0, total: 0 };
+      prev.count += 1;
+      if (item.status !== '환불') prev.total += item.salePrice;
+      map.set(key, prev);
+    });
+    return Array.from(map.values()).sort((a, b) => b.period.localeCompare(a.period));
+  }, [filteredData, periodUnit]);
+
+  // 상품별 집계 (TAB-003)
+  const productData = useMemo(() => {
+    const map = new Map<string, { productName: string; count: number; total: number }>();
+    filteredData.forEach(item => {
+      const key = item.productName || '(미지정)';
+      const prev = map.get(key) ?? { productName: key, count: 0, total: 0 };
+      prev.count += 1;
+      if (item.status !== '환불') prev.total += item.salePrice;
+      map.set(key, prev);
+    });
+    return Array.from(map.values()).sort((a, b) => b.total - a.total);
+  }, [filteredData]);
+
+  // 결제수단별 집계 (TAB-004)
+  const paymentData = useMemo(() => {
+    const map = new Map<string, { paymentTool: string; count: number; total: number }>();
+    filteredData.forEach(item => {
+      const key = item.paymentTool || '(미지정)';
+      const prev = map.get(key) ?? { paymentTool: key, count: 0, total: 0 };
+      prev.count += 1;
+      if (item.status !== '환불') prev.total += item.salePrice;
+      map.set(key, prev);
+    });
+    return Array.from(map.values()).sort((a, b) => b.total - a.total);
+  }, [filteredData]);
+
+  // 담당자별 집계 (TAB-005)
+  const staffData = useMemo(() => {
+    const map = new Map<string, { manager: string; count: number; total: number }>();
+    filteredData.forEach(item => {
+      const key = item.manager || '(미지정)';
+      const prev = map.get(key) ?? { manager: key, count: 0, total: 0 };
+      prev.count += 1;
+      if (item.status !== '환불') prev.total += item.salePrice;
+      map.set(key, prev);
+    });
+    return Array.from(map.values()).sort((a, b) => b.total - a.total);
+  }, [filteredData]);
+
+  // 탭별 테이블 데이터/컬럼
+  const amtRender = (v: number) => <span className="font-semibold tabular-nums">₩{v.toLocaleString()}</span>;
+  const cntRender = (v: number) => <span className="tabular-nums">{v.toLocaleString()}건</span>;
+
+  const aggregateColumns: Record<string, { key: string; header: string; width?: number; align?: 'left' | 'center' | 'right'; render?: (v: unknown) => React.ReactNode }[]> = {
+    'TAB-002': [
+      { key: 'period', header: '기간', width: 180 },
+      { key: 'count', header: '건수', width: 100, align: 'center', render: cntRender as (v: unknown) => React.ReactNode },
+      { key: 'total', header: '매출 합계', width: 160, align: 'right', render: amtRender as (v: unknown) => React.ReactNode },
+    ],
+    'TAB-003': [
+      { key: 'productName', header: '상품명', width: 240 },
+      { key: 'count', header: '건수', width: 100, align: 'center', render: cntRender as (v: unknown) => React.ReactNode },
+      { key: 'total', header: '매출 합계', width: 160, align: 'right', render: amtRender as (v: unknown) => React.ReactNode },
+    ],
+    'TAB-004': [
+      { key: 'paymentTool', header: '결제수단', width: 140 },
+      { key: 'count', header: '건수', width: 100, align: 'center', render: cntRender as (v: unknown) => React.ReactNode },
+      { key: 'total', header: '매출 합계', width: 160, align: 'right', render: amtRender as (v: unknown) => React.ReactNode },
+    ],
+    'TAB-005': [
+      { key: 'manager', header: '담당자', width: 140 },
+      { key: 'count', header: '건수', width: 100, align: 'center', render: cntRender as (v: unknown) => React.ReactNode },
+      { key: 'total', header: '매출 합계', width: 160, align: 'right', render: amtRender as (v: unknown) => React.ReactNode },
+    ],
+  };
+
+  const aggregateData: Record<string, Record<string, unknown>[]> = {
+    'TAB-002': periodData as Record<string, unknown>[],
+    'TAB-003': productData as Record<string, unknown>[],
+    'TAB-004': paymentData as Record<string, unknown>[],
+    'TAB-005': staffData as Record<string, unknown>[],
+  };
+
   // 요약 합계
   const summary = useMemo(() => {
     return filteredData.reduce(
@@ -283,6 +382,11 @@ export default function Sales() {
     { key: 'memo', header: '메모', width: 180,
       render: (val: string) => <span className="text-content-tertiary text-[12px]">{val}</span> },
   ];
+
+  const isAggregateTab = ['TAB-002', 'TAB-003', 'TAB-004', 'TAB-005'].includes(activeTab);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const tableData: any[] = isAggregateTab ? aggregateData[activeTab] : filteredData;
+  const tableColumns = isAggregateTab ? aggregateColumns[activeTab] : columns;
 
   // 필터 옵션
   const filters: FilterOption[] = [
@@ -415,10 +519,26 @@ export default function Sales() {
       {/* 탭 + 테이블 */}
       <div className="bg-surface rounded-xl border border-line shadow-card overflow-hidden">
         <TabNav tabs={tabs} activeTab={activeTab} onTabChange={setActiveTab} />
+        {activeTab === 'TAB-002' && (
+          <div className="flex items-center gap-xs px-lg pt-md pb-xs">
+            {(['일', '주', '월'] as const).map(unit => (
+              <button
+                key={unit}
+                onClick={() => setPeriodUnit(unit)}
+                className={cn(
+                  'px-md py-xs rounded-button text-[13px] font-semibold border transition-all',
+                  periodUnit === unit
+                    ? 'bg-primary text-surface border-primary shadow-sm'
+                    : 'bg-surface text-content-secondary border-line hover:border-primary hover:text-primary'
+                )}
+              >{unit}별</button>
+            ))}
+          </div>
+        )}
         <DataTable
-          columns={columns}
-          data={filteredData}
-          pagination={{ page: 1, pageSize: 10, total: filteredData.length }}
+          columns={tableColumns}
+          data={tableData}
+          pagination={{ page: 1, pageSize: 20, total: tableData.length }}
         />
       </div>
 

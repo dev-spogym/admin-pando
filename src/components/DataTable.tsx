@@ -150,7 +150,7 @@ export default function DataTable<T extends Record<string, any>>({
           <thead className="bg-surface-secondary">
             <tr>
               {selectable && (
-                <th className="w-10 px-3 py-2.5 text-center">
+                <th className="w-10 px-3 py-2.5 text-center sticky left-0 z-20 bg-surface-secondary">
                   <input
                     className="w-3.5 h-3.5 rounded border-line text-primary focus:ring-0 cursor-pointer accent-primary"
                     type="checkbox"
@@ -159,32 +159,42 @@ export default function DataTable<T extends Record<string, any>>({
                   />
                 </th>
               )}
-              {columns.map((col) => (
-                <th
-                  key={col.key}
-                  className={cn(
-                    "px-3 py-2.5 text-[11px] font-semibold text-content-secondary uppercase tracking-wider whitespace-nowrap",
-                    col.sortable && "cursor-pointer hover:text-content focus:outline-none focus:ring-2 focus:ring-primary/30",
-                    col.align === "center" ? "text-center" : col.align === "right" ? "text-right" : "text-left"
-                  )}
-                  style={col.width ? { width: col.width } : undefined}
-                  onClick={() => col.sortable && handleSort(col.key)}
-                  role={col.sortable ? "button" : undefined}
-                  tabIndex={col.sortable ? 0 : undefined}
-                  aria-sort={col.sortable ? (sortConfig?.key === col.key ? (sortConfig.direction === "asc" ? "ascending" : "descending") : "none") : undefined}
-                  onKeyDown={col.sortable ? (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); handleSort(col.key); } } : undefined}
-                >
-                  <div className={cn("flex items-center gap-1", col.align === "center" ? "justify-center" : col.align === "right" ? "justify-end" : "justify-start")}>
-                    {col.header}
-                    {col.sortable && (
-                      <div className="flex flex-col -space-y-[3px]">
-                        <ChevronUp className={cn(sortConfig?.key === col.key && sortConfig.direction === "asc" ? "text-primary" : "text-line")} size={11} />
-                        <ChevronDown className={cn(sortConfig?.key === col.key && sortConfig.direction === "desc" ? "text-primary" : "text-line")} size={11} />
-                      </div>
+              {columns.map((col, colIdx) => {
+                const isFirstDataCol = colIdx === 0;
+                const stickyLeft = selectable ? "left-10" : "left-0";
+                return (
+                  <th
+                    key={col.key}
+                    className={cn(
+                      "px-3 py-2.5 text-[11px] font-semibold text-content-secondary uppercase tracking-wider whitespace-nowrap",
+                      col.sortable && "cursor-pointer hover:text-content focus:outline-none focus:ring-2 focus:ring-primary/30",
+                      col.align === "center" ? "text-center" : col.align === "right" ? "text-right" : "text-left",
+                      isFirstDataCol && [
+                        "sticky z-20 bg-surface-secondary",
+                        stickyLeft,
+                        "after:absolute after:inset-y-0 after:right-0 after:w-px after:bg-line",
+                        "md:static md:z-auto md:after:hidden",
+                      ]
                     )}
-                  </div>
-                </th>
-              ))}
+                    style={col.width ? { width: col.width } : undefined}
+                    onClick={() => col.sortable && handleSort(col.key)}
+                    role={col.sortable ? "button" : undefined}
+                    tabIndex={col.sortable ? 0 : undefined}
+                    aria-sort={col.sortable ? (sortConfig?.key === col.key ? (sortConfig.direction === "asc" ? "ascending" : "descending") : "none") : undefined}
+                    onKeyDown={col.sortable ? (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); handleSort(col.key); } } : undefined}
+                  >
+                    <div className={cn("flex items-center gap-1", col.align === "center" ? "justify-center" : col.align === "right" ? "justify-end" : "justify-start")}>
+                      {col.header}
+                      {col.sortable && (
+                        <div className="flex flex-col -space-y-[3px]">
+                          <ChevronUp className={cn(sortConfig?.key === col.key && sortConfig.direction === "asc" ? "text-primary" : "text-line")} size={11} />
+                          <ChevronDown className={cn(sortConfig?.key === col.key && sortConfig.direction === "desc" ? "text-primary" : "text-line")} size={11} />
+                        </div>
+                      )}
+                    </div>
+                  </th>
+                );
+              })}
             </tr>
           </thead>
           <tbody className="divide-y divide-line-light">
@@ -208,7 +218,7 @@ export default function DataTable<T extends Record<string, any>>({
                   )}
                 >
                   {selectable && (
-                    <td className="px-3 py-2.5 text-center">
+                    <td className="px-3 py-2.5 text-center sticky left-0 z-10 bg-[inherit]">
                       <input
                         className="w-3.5 h-3.5 rounded border-line text-primary focus:ring-0 cursor-pointer accent-primary"
                         type="checkbox"
@@ -217,17 +227,29 @@ export default function DataTable<T extends Record<string, any>>({
                       />
                     </td>
                   )}
-                  {columns.map((col) => (
-                    <td
-                      key={col.key}
-                      className={cn(
-                        "px-3 py-2.5 text-[13px] text-content tabular-nums",
-                        col.align === "center" ? "text-center" : col.align === "right" ? "text-right" : "text-left"
-                      )}
-                    >
-                      {col.render ? col.render(row[col.key], row, idx) : row[col.key]}
-                    </td>
-                  ))}
+                  {columns.map((col, colIdx) => {
+                    const isFirstDataCol = colIdx === 0;
+                    const stickyLeft = selectable ? "left-10" : "left-0";
+                    const rowBg = selectedRows.has(idx) ? "bg-primary-light/40" : "bg-surface";
+                    return (
+                      <td
+                        key={col.key}
+                        className={cn(
+                          "px-3 py-2.5 text-[13px] text-content tabular-nums",
+                          col.align === "center" ? "text-center" : col.align === "right" ? "text-right" : "text-left",
+                          isFirstDataCol && [
+                            "sticky z-10",
+                            stickyLeft,
+                            rowBg,
+                            "after:absolute after:inset-y-0 after:right-0 after:w-px after:bg-line",
+                            "md:static md:z-auto md:after:hidden",
+                          ]
+                        )}
+                      >
+                        {col.render ? col.render(row[col.key], row, idx) : row[col.key]}
+                      </td>
+                    );
+                  })}
                 </tr>
               ))
             )}

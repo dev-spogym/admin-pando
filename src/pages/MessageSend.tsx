@@ -40,6 +40,7 @@ import StatCard from "@/components/StatCard";
 import StatusBadge from "@/components/StatusBadge";
 import DataTable from "@/components/DataTable";
 import FormSection from "@/components/FormSection";
+import Toggle from "@/components/Toggle";
 
 // --- 채널 설정 ---
 const CHANNEL_CONFIG = {
@@ -177,21 +178,6 @@ function RecipientModal({
   );
 }
 
-// --- 자동 알림 토글 컴포넌트 ---
-const Toggle = ({ checked, onChange }: { checked: boolean; onChange: () => void }) => (
-  <button
-    className={cn(
-      "relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none",
-      checked ? "bg-accent" : "bg-line"
-    )}
-    onClick={onChange}
-  >
-    <span className={cn(
-      "inline-block h-4 w-4 transform rounded-full bg-white transition-transform",
-      checked ? "translate-x-6" : "translate-x-1"
-    )} />
-  </button>
-);
 
 // --- 미리보기 모달 ---
 function PreviewModal({
@@ -709,7 +695,7 @@ export default function MessageSend() {
                               </div>
                               <Toggle
                                 checked={autoAlarms[item.key as keyof typeof autoAlarms]}
-                                onChange={() => setAutoAlarms(prev => ({ ...prev, [item.key]: !prev[item.key as keyof typeof autoAlarms] }))}
+                                onChange={(val) => setAutoAlarms(prev => ({ ...prev, [item.key]: val }))}
                               />
                             </div>
                           ))}
@@ -734,7 +720,7 @@ export default function MessageSend() {
                               </div>
                               <Toggle
                                 checked={autoAlarms[item.key as keyof typeof autoAlarms]}
-                                onChange={() => setAutoAlarms(prev => ({ ...prev, [item.key]: !prev[item.key as keyof typeof autoAlarms] }))}
+                                onChange={(val) => setAutoAlarms(prev => ({ ...prev, [item.key]: val }))}
                               />
                             </div>
                           ))}

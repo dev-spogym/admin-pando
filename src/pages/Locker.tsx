@@ -17,6 +17,7 @@ import {
   MoreVertical,
 } from "lucide-react";
 import AppLayout from "@/components/AppLayout";
+import Modal from "@/components/Modal";
 import PageHeader from "@/components/PageHeader";
 import TabNav from "@/components/TabNav";
 import StatCard from "@/components/StatCard";
@@ -88,123 +89,123 @@ const STATUS_LABELS: Record<LockerStatus, string> = {
 
 // --- UI-056 락커 상세 모달 ---
 const LockerDetailModal = ({
+  isOpen,
   locker,
   onClose,
   onRelease,
 }: {
-  locker: LockerData;
+  isOpen: boolean;
+  locker: LockerData | null;
   onClose: () => void;
   onRelease: (id: string) => void;
 }) => {
+  if (!locker) return null;
   const dday = getDDay(locker.expiryDate);
   const ddayLabel = getDDayLabel(locker.expiryDate);
   const isOccupied = locker.status === "in_use" || locker.status === "expiring";
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-md">
-      <div className="bg-surface rounded-xl w-full max-w-[480px] shadow-2xl animate-in fade-in zoom-in duration-200">
-        <div className="px-xl py-lg border-b border-line flex items-center justify-between bg-surface-secondary/50">
-          <div className="flex items-center gap-sm">
-            <div className="w-10 h-10 bg-primary rounded-lg flex items-center justify-center text-white font-bold text-[16px]">
-              {locker.number}
-            </div>
-            <div>
-              <p className="text-[11px] text-content-secondary">{locker.zone}구역</p>
-              <StatusBadge
-                variant={STATUS_STYLES[locker.status].badge}
-                label={STATUS_LABELS[locker.status]}
-                dot
-              />
-            </div>
+    <Modal
+      isOpen={isOpen}
+      onClose={onClose}
+      size="lg"
+    >
+      <div className="space-y-lg">
+        {/* 락커 번호 + 상태 헤더 */}
+        <div className="flex items-center gap-sm pb-lg border-b border-line -mt-xs">
+          <div className="w-10 h-10 bg-primary rounded-lg flex items-center justify-center text-white font-bold text-[16px]">
+            {locker.number}
           </div>
-          <button className="p-sm hover:bg-surface-secondary rounded-full transition-colors" onClick={onClose}>
-            <XCircle className="text-content-secondary" size={20} />
-          </button>
+          <div>
+            <p className="text-[11px] text-content-secondary">{locker.zone}구역</p>
+            <StatusBadge
+              variant={STATUS_STYLES[locker.status].badge}
+              label={STATUS_LABELS[locker.status]}
+              dot
+            />
+          </div>
         </div>
-
-        <div className="p-xl space-y-lg">
-          {isOccupied ? (
-            <>
-              {/* 배정 회원명 */}
-              <div className="space-y-md">
-                <div className="flex items-center justify-between">
-                  <span className="text-[12px] text-content-secondary">배정 회원</span>
-                  <button
-                    className="text-[13px] font-bold text-primary hover:underline flex items-center gap-xs"
-                    onClick={() => locker.memberId && moveToPage(985, { id: locker.memberId })}
-                  >
-                    {locker.memberName}
-                    <ChevronRight size={13} />
-                  </button>
-                </div>
-                {/* 배정일 */}
-                <div className="flex items-center justify-between">
-                  <span className="text-[12px] text-content-secondary">배정일</span>
-                  <span className="text-[13px] font-medium text-content">{locker.assignedDate}</span>
-                </div>
-                {/* 만료일 */}
-                <div className="flex items-center justify-between">
-                  <span className="text-[12px] text-content-secondary">만료일</span>
-                  <div className="text-right">
+        {isOccupied ? (
+          <>
+            {/* 배정 회원명 */}
+            <div className="space-y-md">
+              <div className="flex items-center justify-between">
+                <span className="text-[12px] text-content-secondary">배정 회원</span>
+                <button
+                  className="text-[13px] font-bold text-primary hover:underline flex items-center gap-xs"
+                  onClick={() => locker.memberId && moveToPage(985, { id: locker.memberId })}
+                >
+                  {locker.memberName}
+                  <ChevronRight size={13} />
+                </button>
+              </div>
+              {/* 배정일 */}
+              <div className="flex items-center justify-between">
+                <span className="text-[12px] text-content-secondary">배정일</span>
+                <span className="text-[13px] font-medium text-content">{locker.assignedDate}</span>
+              </div>
+              {/* 만료일 */}
+              <div className="flex items-center justify-between">
+                <span className="text-[12px] text-content-secondary">만료일</span>
+                <div className="text-right">
+                  <span className={cn(
+                    "text-[13px] font-bold",
+                    dday !== null && dday <= 0 ? "text-state-error" :
+                    dday !== null && dday <= 7 ? "text-amber-600" : "text-content"
+                  )}>
+                    {locker.expiryDate}
+                  </span>
+                  {ddayLabel && (
                     <span className={cn(
-                      "text-[13px] font-bold",
-                      dday !== null && dday <= 0 ? "text-state-error" :
-                      dday !== null && dday <= 7 ? "text-amber-600" : "text-content"
+                      "ml-sm text-[11px] font-semibold px-xs py-[1px] rounded",
+                      dday !== null && dday <= 0 ? "bg-state-error/10 text-state-error" :
+                      dday !== null && dday <= 7 ? "bg-amber-50 text-amber-600" :
+                      "bg-surface-tertiary text-content-secondary"
                     )}>
-                      {locker.expiryDate}
+                      {ddayLabel}
                     </span>
-                    {ddayLabel && (
-                      <span className={cn(
-                        "ml-sm text-[11px] font-semibold px-xs py-[1px] rounded",
-                        dday !== null && dday <= 0 ? "bg-state-error/10 text-state-error" :
-                        dday !== null && dday <= 7 ? "bg-amber-50 text-amber-600" :
-                        "bg-surface-tertiary text-content-secondary"
-                      )}>
-                        {ddayLabel}
-                      </span>
-                    )}
-                  </div>
+                  )}
                 </div>
               </div>
-
-              {/* 이력 */}
-              {locker.history && locker.history.length > 0 && (
-                <div>
-                  <p className="text-[12px] font-semibold text-content-secondary mb-sm">이용 이력</p>
-                  <div className="border border-line rounded-lg overflow-hidden">
-                    {locker.history.map((h, i) => (
-                      <div key={i} className="flex items-center justify-between px-md py-sm border-b border-line last:border-b-0 bg-surface hover:bg-surface-secondary/30 transition-colors">
-                        <span className="text-[12px] text-content">{h.date}</span>
-                        <StatusBadge variant={h.action === "배정" ? "success" : "default"} label={h.action} />
-                        <span className="text-[12px] text-content-secondary">{h.member}</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              <button
-                className="w-full py-sm rounded-lg border border-state-error/20 text-state-error text-[13px] font-semibold hover:bg-state-error/5 transition-all"
-                onClick={() => { onRelease(locker.id); onClose(); }}
-              >
-                배정 해제
-              </button>
-            </>
-          ) : (
-            <div className="py-xl flex flex-col items-center justify-center">
-              <UserPlus className="text-content-tertiary mb-sm" size={32} />
-              <p className="text-[13px] text-content-secondary mb-md">현재 배정된 회원이 없습니다.</p>
-              <button
-                className="px-lg py-sm bg-primary text-white rounded-lg text-[13px] font-bold hover:opacity-90 transition-all"
-                onClick={onClose}
-              >
-                회원 배정하기
-              </button>
             </div>
-          )}
-        </div>
+
+            {/* 이력 */}
+            {locker.history && locker.history.length > 0 && (
+              <div>
+                <p className="text-[12px] font-semibold text-content-secondary mb-sm">이용 이력</p>
+                <div className="border border-line rounded-lg overflow-hidden">
+                  {locker.history.map((h, i) => (
+                    <div key={i} className="flex items-center justify-between px-md py-sm border-b border-line last:border-b-0 bg-surface hover:bg-surface-secondary/30 transition-colors">
+                      <span className="text-[12px] text-content">{h.date}</span>
+                      <StatusBadge variant={h.action === "배정" ? "success" : "default"} label={h.action} />
+                      <span className="text-[12px] text-content-secondary">{h.member}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            <button
+              className="w-full py-sm rounded-lg border border-state-error/20 text-state-error text-[13px] font-semibold hover:bg-state-error/5 transition-all"
+              onClick={() => { onRelease(locker.id); onClose(); }}
+            >
+              배정 해제
+            </button>
+          </>
+        ) : (
+          <div className="py-xl flex flex-col items-center justify-center">
+            <UserPlus className="text-content-tertiary mb-sm" size={32} />
+            <p className="text-[13px] text-content-secondary mb-md">현재 배정된 회원이 없습니다.</p>
+            <button
+              className="px-lg py-sm bg-primary text-white rounded-lg text-[13px] font-bold hover:opacity-90 transition-all"
+              onClick={onClose}
+            >
+              회원 배정하기
+            </button>
+          </div>
+        )}
       </div>
-    </div>
+    </Modal>
   );
 };
 
@@ -622,13 +623,12 @@ export default function Locker() {
       )}
 
       {/* UI-056 락커 상세 모달 */}
-      {selectedLockerId && selectedLocker && !bulkMode && (
-        <LockerDetailModal
-          locker={selectedLocker}
-          onClose={() => setSelectedLockerId(null)}
-          onRelease={handleRelease}
-        />
-      )}
+      <LockerDetailModal
+        isOpen={!!selectedLockerId && !bulkMode}
+        locker={selectedLocker ?? null}
+        onClose={() => setSelectedLockerId(null)}
+        onRelease={handleRelease}
+      />
 
       {/* 일괄 해제 확인 */}
       <ConfirmDialog

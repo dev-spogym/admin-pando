@@ -892,7 +892,12 @@ export default function ContractWizard() {
           description="회원 선택부터 상품 결제, 확인까지 5단계로 진행합니다."
           actions={
             <button
-              onClick={() => moveToPage(970)}
+              onClick={() => {
+                if (step > 1 || selectedMember || selectedProducts.length > 0) {
+                  if (!window.confirm('작성 중인 내용이 있습니다. 정말 취소하시겠습니까?')) return;
+                }
+                moveToPage(970);
+              }}
               className="px-lg py-md rounded-button border border-line text-content-secondary hover:bg-surface transition-all"
             >
               취소
@@ -901,8 +906,24 @@ export default function ContractWizard() {
         />
 
         {/* Step Indicator */}
-        <div className="mb-xxl overflow-x-auto py-md">
-          <div className="flex items-center justify-between min-w-[600px] px-lg">
+        {/* 모바일: 컴팩트 표시 */}
+        <div className="mb-xxl md:hidden flex items-center gap-sm px-lg py-md">
+          <div className="w-[36px] h-[36px] rounded-full flex items-center justify-center font-bold text-Body-1 bg-primary text-white shadow-lg shadow-primary/30">
+            {step}
+          </div>
+          <span className="text-Body-2 font-bold text-primary">
+            {step}/{STEPS.length} {STEPS[step - 1].name}
+          </span>
+          <div className="flex-1 h-[4px] bg-line rounded-full ml-sm">
+            <div
+              className="h-full bg-primary rounded-full transition-all duration-300"
+              style={{ width: `${((step - 1) / (STEPS.length - 1)) * 100}%` }}
+            />
+          </div>
+        </div>
+        {/* 데스크톱: 풀 step indicator */}
+        <div className="mb-xxl hidden md:block py-md">
+          <div className="flex items-center justify-between px-lg">
             {STEPS.map((s, idx) => (
               <React.Fragment key={s.id}>
                 <div className="flex flex-col items-center gap-sm relative z-10">

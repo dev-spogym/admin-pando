@@ -188,9 +188,12 @@ export default function MemberList() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [showStatusModal]);
 
-  /** 일괄 액션: 메시지 발송 페이지로 이동 */
+  /** 일괄 액션: 메시지 발송 페이지로 이동 (선택 회원 ID 전달) */
   const handleSendMessage = () => {
     if (selectedRows.size === 0) { toast.warning('회원을 먼저 선택해주세요.'); return; }
+    const selectedMembers = Array.from(selectedRows).map(idx => members[idx]).filter(Boolean);
+    const ids = selectedMembers.map(m => m.id).join(',');
+    sessionStorage.setItem('messageRecipients', JSON.stringify({ ids, names: selectedMembers.map(m => m.name) }));
     moveToPage(980);
   };
 
@@ -218,7 +221,7 @@ export default function MemberList() {
   /** 일괄 액션: 관심회원 토글 */
   const handleToggleVip = () => {
     if (selectedRows.size === 0) { toast.warning('회원을 먼저 선택해주세요.'); return; }
-    toast.info('관심회원 기능은 추후 지원 예정입니다. (isVip 필드 필요)');
+    toast.info('관심회원 기능은 준비 중입니다.');
   };
 
   /** 일괄 액션 분기 */

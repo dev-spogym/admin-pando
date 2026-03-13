@@ -225,7 +225,7 @@ export default function Payroll() {
         row.status !== "paid" ? (
           <button
             className="flex items-center gap-xs px-sm py-xs text-Label text-primary border border-primary rounded-button hover:bg-primary-light transition-colors"
-            onClick={() => toast.info(`${row.name} 급여 수정은 급여 명세서 페이지에서 가능합니다.`, { action: { label: '명세서 이동', onClick: () => moveToPage(989) } })}
+            onClick={() => moveToPage(989)}
           >
             <Edit2 size={12} />수정
           </button>
