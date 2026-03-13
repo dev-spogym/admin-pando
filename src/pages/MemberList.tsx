@@ -269,7 +269,8 @@ export default function MemberList() {
       <div className="bg-surface rounded-xl border border-line overflow-hidden">
         {/* 상태 필터 탭 */}
         <div className="px-lg pt-md border-b border-line">
-          <div className="flex gap-lg overflow-x-auto scrollbar-hide">
+          <div className="relative">
+          <div className="flex gap-lg overflow-x-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
             {STATUS_TABS.map((tab) => (
               <button
                 key={tab.key}
@@ -294,6 +295,9 @@ export default function MemberList() {
                 {activeStatusTab === tab.key && <div className="absolute bottom-0 left-0 right-0 h-[2px] bg-primary rounded-t-full" />}
               </button>
             ))}
+          </div>
+          {/* 오른쪽 끝에 더 탭이 있음을 시각적으로 알려주는 fade-out gradient */}
+          <div className="pointer-events-none absolute right-0 top-0 bottom-0 w-8 bg-gradient-to-l from-surface to-transparent" />
           </div>
         </div>
 

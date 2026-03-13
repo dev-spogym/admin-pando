@@ -355,6 +355,8 @@ export default function ProductForm() {
             </label>
             <select
               {...register('category')}
+              aria-required="true"
+              aria-invalid={!!errors.category}
               className={cn(
                 'w-full px-md py-sm rounded-input border border-line bg-surface-secondary text-[14px] focus:border-primary focus:outline-none transition-colors',
                 errors.category && 'border-state-error'
@@ -366,7 +368,7 @@ export default function ProductForm() {
               ))}
             </select>
             {errors.category && (
-              <p className="text-[12px] text-state-error flex items-center gap-xs">
+              <p role="alert" className="text-[12px] text-state-error flex items-center gap-xs">
                 <AlertCircle size={12} />{errors.category.message}
               </p>
             )}
@@ -382,13 +384,15 @@ export default function ProductForm() {
               {...register('name')}
               onChange={handleNameChange}
               placeholder="예: 헬스 12개월권"
+              aria-required="true"
+              aria-invalid={!!errors.name}
               className={cn(
                 'w-full px-md py-sm rounded-input border border-line bg-surface-secondary text-[14px] focus:border-primary focus:outline-none transition-colors',
                 errors.name && 'border-state-error'
               )}
             />
             {errors.name ? (
-              <p className="text-[12px] text-state-error flex items-center gap-xs">
+              <p role="alert" className="text-[12px] text-state-error flex items-center gap-xs">
                 <AlertCircle size={12} />{errors.name.message}
               </p>
             ) : watchedName && !checkDuplicate(watchedName, watchedCategory) && watchedCategory ? (
@@ -411,6 +415,8 @@ export default function ProductForm() {
                 value={watchedPriceCash}
                 onChange={e => handlePriceChange('priceCash', e.target.value)}
                 placeholder="0"
+                aria-required="true"
+                aria-invalid={!!errors.priceCash}
                 className={cn(
                   'w-full pl-10 pr-10 py-sm rounded-input border border-line bg-surface-secondary text-[14px] tabular-nums focus:border-primary focus:outline-none transition-colors',
                   errors.priceCash && 'border-state-error'
@@ -419,7 +425,7 @@ export default function ProductForm() {
               <span className="absolute right-md top-1/2 -translate-y-1/2 text-[13px] text-content-tertiary">원</span>
             </div>
             {errors.priceCash && (
-              <p className="text-[12px] text-state-error flex items-center gap-xs">
+              <p role="alert" className="text-[12px] text-state-error flex items-center gap-xs">
                 <AlertCircle size={12} />{errors.priceCash.message}
               </p>
             )}
@@ -438,6 +444,8 @@ export default function ProductForm() {
                 value={watchedPriceCard}
                 onChange={e => handlePriceChange('priceCard', e.target.value)}
                 placeholder="0"
+                aria-required="true"
+                aria-invalid={!!errors.priceCard}
                 className={cn(
                   'w-full pl-10 pr-10 py-sm rounded-input border border-line bg-surface-secondary text-[14px] tabular-nums focus:border-primary focus:outline-none transition-colors',
                   errors.priceCard && 'border-state-error'
@@ -446,7 +454,7 @@ export default function ProductForm() {
               <span className="absolute right-md top-1/2 -translate-y-1/2 text-[13px] text-content-tertiary">원</span>
             </div>
             {errors.priceCard && (
-              <p className="text-[12px] text-state-error flex items-center gap-xs">
+              <p role="alert" className="text-[12px] text-state-error flex items-center gap-xs">
                 <AlertCircle size={12} />{errors.priceCard.message}
               </p>
             )}
@@ -495,6 +503,8 @@ export default function ProductForm() {
                 min={1}
                 {...register('period')}
                 placeholder="예: 12"
+                aria-required="true"
+                aria-invalid={!!errors.period}
                 className={cn(
                   'flex-1 px-md py-sm rounded-input border border-line bg-surface-secondary text-[14px] focus:border-primary focus:outline-none transition-colors',
                   errors.period && 'border-state-error'
@@ -505,7 +515,7 @@ export default function ProductForm() {
               </span>
             </div>
             {errors.period && (
-              <p className="text-[12px] text-state-error flex items-center gap-xs">
+              <p role="alert" className="text-[12px] text-state-error flex items-center gap-xs">
                 <AlertCircle size={12} />{errors.period.message}
               </p>
             )}

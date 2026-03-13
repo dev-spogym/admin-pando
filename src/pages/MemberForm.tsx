@@ -83,7 +83,7 @@ function Field({
       {children}
       {hint && !error && <p className="text-[11px] text-content-secondary">{hint}</p>}
       {error && (
-        <p className="flex items-center gap-xs text-[11px] text-state-error">
+        <p role="alert" className="flex items-center gap-xs text-[11px] text-state-error">
           <AlertCircle size={11} />
           {error}
         </p>
@@ -547,6 +547,8 @@ export default function MemberForm() {
                     type="text"
                     placeholder="이름을 입력하세요"
                     maxLength={20}
+                    aria-required="true"
+                    aria-invalid={!!errors.name}
                     {...register("name")}
                   />
                 </Field>
@@ -583,6 +585,8 @@ export default function MemberForm() {
                       type="tel"
                       placeholder="010-0000-0000"
                       maxLength={13}
+                      aria-required="true"
+                      aria-invalid={!!errors.phone}
                       {...register("phone", {
                         onChange: (e) => {
                           const formatted = formatPhone(e.target.value);
@@ -611,6 +615,8 @@ export default function MemberForm() {
                 <Field label="회원구분" required error={errors.memberType?.message}>
                   <select
                     className={inputCls(!!errors.memberType)}
+                    aria-required="true"
+                    aria-invalid={!!errors.memberType}
                     {...register("memberType")}
                   >
                     <option value="일반">일반</option>
@@ -630,6 +636,7 @@ export default function MemberForm() {
                       className={inputCls(!!errors.birthDate)}
                       type="date"
                       max={new Date().toISOString().split("T")[0]}
+                      aria-invalid={!!errors.birthDate}
                       {...register("birthDate")}
                     />
                     <Calendar className="absolute right-md top-1/2 -translate-y-1/2 text-content-tertiary pointer-events-none" size={16} />
@@ -646,6 +653,7 @@ export default function MemberForm() {
                       min={100}
                       max={250}
                       step={0.1}
+                      aria-invalid={!!errors.height}
                       {...register("height")}
                     />
                     <span className="absolute right-md top-1/2 -translate-y-1/2 text-content-tertiary text-[13px] pointer-events-none">cm</span>
@@ -726,6 +734,7 @@ export default function MemberForm() {
                       className={cn(inputCls(!!errors.email), "pl-[36px]")}
                       type="email"
                       placeholder="example@email.com"
+                      aria-invalid={!!errors.email}
                       {...register("email")}
                     />
                   </div>
@@ -821,6 +830,7 @@ export default function MemberForm() {
                       rows={4}
                       placeholder="회원의 건강 상태, 메모 등을 기록하세요 (최대 500자)"
                       maxLength={500}
+                      aria-invalid={!!errors.notes}
                       {...register("notes")}
                     />
                     <div className={cn("absolute bottom-sm right-md text-[11px]", notesColor)}>
