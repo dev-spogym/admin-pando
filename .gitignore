@@ -15,8 +15,12 @@ Thumbs.db
 *.swp
 *.swo
 
-# omc
+# Claude Code
 .omc/
+.claude/
+
+# Excel 임시 스크립트
+excel/*.py
 
 # fry cache
 .fry/parse-cache.json
@@ -28,6 +32,11 @@ Thumbs.db
 # Test
 test-results/
 playwright-report/
+e2e/screenshots/
+
+# Python
+*.pyc
+__pycache__/
 
 # Output
 output/
