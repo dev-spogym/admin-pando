@@ -306,20 +306,44 @@ export default function Locker() {
     setSelectedLockerId(locker.id);
   };
 
-  const handleRelease = (id: string) => {
+  const handleRelease = async (id: string) => {
+    const { error } = await supabase
+      .from("lockers")
+      .update({ status: "available", memberId: null, memberName: null, assignedAt: null, expiresAt: null })
+      .eq("id", id);
+
+    if (error) {
+      toast.error("락커 해제에 실패했습니다.");
+      return;
+    }
+
     setLockers(prev => prev.map(l =>
       l.id === id
         ? { ...l, status: "available", memberName: undefined, memberId: undefined, assignedDate: undefined, expiryDate: undefined }
         : l
     ));
+    toast.success("락커 배정이 해제되었습니다.");
   };
 
-  const handleBulkRelease = () => {
+  const handleBulkRelease = async () => {
+    const ids = Array.from(selectedBulkIds);
+    const { error } = await supabase
+      .from("lockers")
+      .update({ status: "available", memberId: null, memberName: null, assignedAt: null, expiresAt: null })
+      .in("id", ids);
+
+    if (error) {
+      toast.error("일괄 해제에 실패했습니다.");
+      setIsBulkDialogOpen(false);
+      return;
+    }
+
     setLockers(prev => prev.map(l =>
       selectedBulkIds.has(l.id)
         ? { ...l, status: "available", memberName: undefined, memberId: undefined, assignedDate: undefined, expiryDate: undefined }
         : l
     ));
+    toast.success(`${ids.length}개 락커가 일괄 해제되었습니다.`);
     setSelectedBulkIds(new Set());
     setBulkMode(false);
     setIsBulkDialogOpen(false);
@@ -422,7 +446,10 @@ export default function Locker() {
             >
               <Download size={15} /> 엑셀 다운로드
             </button>
-            <button className="flex items-center gap-xs rounded-lg bg-primary px-md py-sm text-white shadow-sm hover:opacity-90 transition-opacity text-[13px] font-bold">
+            <button
+              className="flex items-center gap-xs rounded-lg bg-primary px-md py-sm text-white shadow-sm hover:opacity-90 transition-opacity text-[13px] font-bold"
+              onClick={() => toast.info("락커 추가 기능은 준비 중입니다.")}
+            >
               <Plus size={16} /> 락커 추가
             </button>
           </div>

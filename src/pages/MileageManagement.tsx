@@ -40,7 +40,7 @@ const getBranchId = (): number => {
 };
 
 // --- 날짜 유틸 ---
-const TODAY = '2026-03-11';
+const TODAY = new Date().toISOString().slice(0, 10);
 
 function getDaysUntil(dateStr: string): number {
   const today = new Date(TODAY);

@@ -63,7 +63,7 @@ export default function ConfirmDialog({
               계속하려면 아래에 <span className="text-state-error font-bold italic" >"{confirmationText}"</span>를 입력해 주세요.
             </p>
             <input
-              className="w-full rounded-input border-0 bg-surface-secondary px-md py-sm text-Body-Primary-KR focus:ring-2 focus:ring-0/20 focus:outline-none transition-all" type="text" value={inputValue} onChange={(e) => setInputValue(e.target.value)} placeholder={`"${confirmationText}" 입력`} onKeyDown={(e) => {
+              className="w-full rounded-input border-0 bg-surface-secondary px-md py-sm text-Body-Primary-KR focus:ring-2 focus:ring-primary/30 focus:outline-none transition-all" type="text" value={inputValue} onChange={(e) => setInputValue(e.target.value)} placeholder={`"${confirmationText}" 입력`} onKeyDown={(e) => {
                 if (e.key === "Enter" && !isConfirmDisabled) {
                   handleConfirm();
                 }

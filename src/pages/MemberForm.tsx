@@ -820,7 +820,7 @@ export default function MemberForm() {
                       )}
                       rows={4}
                       placeholder="회원의 건강 상태, 메모 등을 기록하세요 (최대 500자)"
-                      maxLength={520}
+                      maxLength={500}
                       {...register("notes")}
                     />
                     <div className={cn("absolute bottom-sm right-md text-[11px]", notesColor)}>

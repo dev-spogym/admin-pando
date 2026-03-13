@@ -731,7 +731,7 @@ export default function BranchManagement() {
 
               <div className="space-y-xs" >
                 <label className="text-Label text-content-secondary" >이동일 <span className="text-state-error" >*</span></label>
-                <input className="w-full p-sm bg-surface-secondary rounded-input border border-transparent focus:border-accent focus:outline-none" type="date" defaultValue="2026-02-19"/>
+                <input className="w-full p-sm bg-surface-secondary rounded-input border border-transparent focus:border-accent focus:outline-none" type="date" defaultValue={new Date().toISOString().slice(0, 10)}/>
               </div>
 
               <div className="space-y-xs" >
