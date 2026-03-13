@@ -443,8 +443,10 @@ export default function ContractWizard() {
           {(products[activeCategory] ?? []).map(p => {
             const already = selectedProducts.find(item => item.id === p.id);
             return (
-              <div
+              <button
                 key={p.id}
+                type="button"
+                disabled={!!already}
                 onClick={() => {
                   if (!already) {
                     setSelectedProducts([...selectedProducts, p]);
@@ -452,8 +454,8 @@ export default function ContractWizard() {
                   }
                 }}
                 className={cn(
-                  "p-lg border rounded-xl cursor-pointer group bg-surface shadow-card transition-all",
-                  already ? "border-accent bg-accent-light" : "border-line hover:border-accent"
+                  "w-full text-left p-lg border rounded-xl group bg-surface shadow-card transition-all",
+                  already ? "border-accent bg-accent-light cursor-default" : "border-line hover:border-accent cursor-pointer"
                 )}
               >
                 <div className="flex justify-between items-start mb-sm">
@@ -467,7 +469,7 @@ export default function ContractWizard() {
                   <span className="text-Body-2 text-content-secondary">{p.duration}일</span>
                   <span className="text-Heading-2 text-primary font-bold">{p.price.toLocaleString()}원</span>
                 </div>
-              </div>
+              </button>
             );
           })}
         </div>
@@ -535,14 +537,17 @@ export default function ContractWizard() {
           )}
         </div>
         <div className="space-y-xs">
-          <label className="text-Label text-content-secondary">종료일 (자동 계산)</label>
+          <label className="text-Label text-content-secondary">종료일</label>
           <input
             type="date"
             readOnly
             className="w-full p-md bg-surface-secondary rounded-input outline-none opacity-70 cursor-not-allowed"
             value={computedEndDate}
           />
-          <p className="text-[11px] text-content-secondary">선택 상품 기간 + 서비스 일수 합산</p>
+          <p className="text-[11px] text-content-secondary flex items-center gap-xs">
+            <Info size={11} className="shrink-0" />
+            시작일 + 상품기간 자동 계산 (직접 수정 불가)
+          </p>
         </div>
         <div className="space-y-xs">
           <label className="text-Label text-content-secondary">서비스 일수 추가</label>

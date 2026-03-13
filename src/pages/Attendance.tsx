@@ -16,6 +16,7 @@ import {
   UserCheck,
   Users,
   MapPin,
+  Loader2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { moveToPage } from "@/internal";
@@ -706,7 +707,8 @@ export default function Attendance() {
         />
 
         {loading && (
-          <div className="flex items-center justify-center py-xl text-[13px] text-content-secondary">
+          <div className="flex items-center justify-center gap-sm py-xl text-[13px] text-content-secondary">
+            <Loader2 size={18} className="animate-spin text-primary" />
             데이터를 불러오는 중...
           </div>
         )}

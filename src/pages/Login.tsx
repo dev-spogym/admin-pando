@@ -149,6 +149,8 @@ export default function Login() {
                 value={id}
                 onChange={(e) => { setId(e.target.value); setError(''); }}
                 disabled={isLoading}
+                aria-required="true"
+                aria-invalid={!!error}
               />
             </div>
           </div>
@@ -165,6 +167,8 @@ export default function Login() {
                 value={password}
                 onChange={(e) => { setPassword(e.target.value); setError(''); }}
                 disabled={isLoading}
+                aria-required="true"
+                aria-invalid={!!error}
               />
               <button
                 className="absolute right-[12px] top-1/2 -translate-y-1/2 text-content-tertiary hover:text-content transition-colors"
@@ -207,7 +211,7 @@ export default function Login() {
 
           {/* 에러 */}
           {error && (
-            <div className="bg-red-50 border border-red-200 text-state-error p-sm rounded-lg text-center text-[13px]">
+            <div role="alert" className="bg-red-50 border border-red-200 text-state-error p-sm rounded-lg text-center text-[13px]">
               {error}
             </div>
           )}

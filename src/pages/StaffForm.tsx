@@ -163,32 +163,36 @@ export default function StaffForm() {
           {/* 이름 */}
           <div className="space-y-xs">
             <label className="text-Label font-semibold text-content-secondary">
-              이름 <span className="text-error">*</span>
+              이름 <span className="text-state-error">*</span>
             </label>
             <div className="relative">
               <User className="absolute left-md top-1/2 -translate-y-1/2 text-content-secondary" size={16} />
               <input
                 {...register("name")}
                 placeholder="홍길동"
+                aria-required="true"
+                aria-invalid={!!errors.name}
                 className={cn(
                   "w-full pl-[40px] pr-md py-md bg-surface-secondary border rounded-input text-Body-2 outline-none focus:ring-2 focus:ring-primary transition-all",
-                  errors.name ? "border-error focus:ring-error/30" : "border-line"
+                  errors.name ? "border-state-error focus:ring-state-error/30" : "border-line"
                 )}
               />
             </div>
-            {errors.name && <p className="text-Label text-error">{errors.name.message}</p>}
+            {errors.name && <p role="alert" className="text-Label text-state-error">{errors.name.message}</p>}
           </div>
 
           {/* 역할 선택 */}
           <div className="space-y-xs">
             <label className="text-Label font-semibold text-content-secondary">
-              역할 <span className="text-error">*</span>
+              역할 <span className="text-state-error">*</span>
             </label>
             <select
               {...register("role")}
+              aria-required="true"
+              aria-invalid={!!errors.role}
               className={cn(
                 "w-full px-md py-md bg-surface-secondary border rounded-input text-Body-2 outline-none focus:ring-2 focus:ring-primary transition-all cursor-pointer",
-                errors.role ? "border-error" : "border-line"
+                errors.role ? "border-state-error" : "border-line"
               )}
             >
               <option value="">역할 선택</option>
@@ -198,7 +202,7 @@ export default function StaffForm() {
               <option value="trainer">트레이너</option>
               <option value="staff">스태프</option>
             </select>
-            {errors.role && <p className="text-Label text-error">{errors.role.message}</p>}
+            {errors.role && <p role="alert" className="text-Label text-state-error">{errors.role.message}</p>}
             {/* 역할 권한 미리보기 */}
             {watchedRole && (
               <div className="mt-sm p-md bg-primary-light border border-primary/20 rounded-input">
@@ -222,7 +226,7 @@ export default function StaffForm() {
           {/* 연락처 */}
           <div className="space-y-xs">
             <label className="text-Label font-semibold text-content-secondary">
-              연락처 <span className="text-error">*</span>
+              연락처 <span className="text-state-error">*</span>
             </label>
             <div className="relative">
               <Phone className="absolute left-md top-1/2 -translate-y-1/2 text-content-secondary" size={16} />
@@ -236,32 +240,36 @@ export default function StaffForm() {
                 onBlur={() => trigger("contact")}
                 placeholder="010-0000-0000"
                 maxLength={13}
+                aria-required="true"
+                aria-invalid={!!errors.contact}
                 className={cn(
                   "w-full pl-[40px] pr-md py-md bg-surface-secondary border rounded-input text-Body-2 outline-none focus:ring-2 focus:ring-primary transition-all",
-                  errors.contact ? "border-error focus:ring-error/30" : "border-line"
+                  errors.contact ? "border-state-error focus:ring-state-error/30" : "border-line"
                 )}
               />
             </div>
-            {errors.contact && <p className="text-Label text-error">{errors.contact.message}</p>}
+            {errors.contact && <p role="alert" className="text-Label text-state-error">{errors.contact.message}</p>}
           </div>
 
           {/* 입사일 */}
           <div className="space-y-xs">
             <label className="text-Label font-semibold text-content-secondary">
-              입사일 <span className="text-error">*</span>
+              입사일 <span className="text-state-error">*</span>
             </label>
             <div className="relative">
               <Calendar className="absolute left-md top-1/2 -translate-y-1/2 text-content-secondary" size={16} />
               <input
                 {...register("joinDate")}
                 type="date"
+                aria-required="true"
+                aria-invalid={!!errors.joinDate}
                 className={cn(
                   "w-full pl-[40px] pr-md py-md bg-surface-secondary border rounded-input text-Body-2 outline-none focus:ring-2 focus:ring-primary transition-all",
-                  errors.joinDate ? "border-error focus:ring-error/30" : "border-line"
+                  errors.joinDate ? "border-state-error focus:ring-state-error/30" : "border-line"
                 )}
               />
             </div>
-            {errors.joinDate && <p className="text-Label text-error">{errors.joinDate.message}</p>}
+            {errors.joinDate && <p role="alert" className="text-Label text-state-error">{errors.joinDate.message}</p>}
           </div>
         </FormSection>
 
@@ -276,13 +284,14 @@ export default function StaffForm() {
                 {...register("email")}
                 type="email"
                 placeholder="example@center.com"
+                aria-invalid={!!errors.email}
                 className={cn(
                   "w-full pl-[40px] pr-md py-md bg-surface-secondary border rounded-input text-Body-2 outline-none focus:ring-2 focus:ring-primary transition-all",
-                  errors.email ? "border-error focus:ring-error/30" : "border-line"
+                  errors.email ? "border-state-error focus:ring-state-error/30" : "border-line"
                 )}
               />
             </div>
-            {errors.email && <p className="text-Label text-error">{errors.email.message}</p>}
+            {errors.email && <p role="alert" className="text-Label text-state-error">{errors.email.message}</p>}
           </div>
 
           {/* 메모 */}
@@ -297,7 +306,7 @@ export default function StaffForm() {
                 className="w-full pl-[40px] pr-md py-md bg-surface-secondary border border-line rounded-input text-Body-2 outline-none focus:ring-2 focus:ring-primary transition-all resize-none"
               />
             </div>
-            {errors.memo && <p className="text-Label text-error">{errors.memo.message}</p>}
+            {errors.memo && <p className="text-Label text-state-error">{errors.memo.message}</p>}
           </div>
         </FormSection>
       </div>

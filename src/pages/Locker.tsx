@@ -541,6 +541,10 @@ export default function Locker() {
                 return (
                   <div
                     key={locker.id}
+                    role="button"
+                    tabIndex={bulkMode && locker.status !== "expiring" ? -1 : 0}
+                    aria-label={`${locker.zone}구역 ${locker.number}번 락커 ${STATUS_LABELS[locker.status]}${locker.memberName ? ` - ${locker.memberName}` : ""}`}
+                    aria-pressed={selectedBulkIds.has(locker.id) || selectedLockerId === locker.id}
                     className={cn(
                       "relative aspect-square rounded-xl border-2 flex flex-col items-center justify-center cursor-pointer transition-all hover:scale-[1.05] active:scale-[0.97] select-none",
                       styles.cell,
@@ -550,6 +554,7 @@ export default function Locker() {
                       isBroken ? "opacity-70" : ""
                     )}
                     onClick={() => handleLockerClick(locker)}
+                    onKeyDown={e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); handleLockerClick(locker); } }}
                   >
                     {/* 고장: 사선 표시 */}
                     {isBroken && (
@@ -570,10 +575,10 @@ export default function Locker() {
                     <span className="text-[13px] font-bold mb-[2px]">{locker.number}</span>
                     {locker.memberName ? (
                       <div className="flex flex-col items-center">
-                        <span className="text-[9px] font-medium truncate max-w-[60px]">{locker.memberName}</span>
+                        <span className="text-[11px] font-medium truncate max-w-[60px]">{locker.memberName}</span>
                         {locker.expiryDate && (
                           <span className={cn(
-                            "text-[8px] mt-[1px] font-semibold",
+                            "text-[10px] mt-[1px] font-semibold",
                             dday !== null && dday <= 0 ? "text-state-error" :
                             dday !== null && dday <= 7 ? "text-amber-600" : "opacity-60"
                           )}>
@@ -582,7 +587,7 @@ export default function Locker() {
                         )}
                       </div>
                     ) : (
-                      <span className="text-[9px] opacity-60">{STATUS_LABELS[locker.status]}</span>
+                      <span className="text-[10px] opacity-60">{STATUS_LABELS[locker.status]}</span>
                     )}
                   </div>
                 );
