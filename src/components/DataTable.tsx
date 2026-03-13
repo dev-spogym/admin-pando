@@ -164,11 +164,15 @@ export default function DataTable<T extends Record<string, any>>({
                   key={col.key}
                   className={cn(
                     "px-3 py-2.5 text-[11px] font-semibold text-content-secondary uppercase tracking-wider whitespace-nowrap",
-                    col.sortable && "cursor-pointer hover:text-content",
+                    col.sortable && "cursor-pointer hover:text-content focus:outline-none focus:ring-2 focus:ring-primary/30",
                     col.align === "center" ? "text-center" : col.align === "right" ? "text-right" : "text-left"
                   )}
                   style={col.width ? { width: col.width } : undefined}
                   onClick={() => col.sortable && handleSort(col.key)}
+                  role={col.sortable ? "button" : undefined}
+                  tabIndex={col.sortable ? 0 : undefined}
+                  aria-sort={col.sortable ? (sortConfig?.key === col.key ? (sortConfig.direction === "asc" ? "ascending" : "descending") : "none") : undefined}
+                  onKeyDown={col.sortable ? (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); handleSort(col.key); } } : undefined}
                 >
                   <div className={cn("flex items-center gap-1", col.align === "center" ? "justify-center" : col.align === "right" ? "justify-end" : "justify-start")}>
                     {col.header}

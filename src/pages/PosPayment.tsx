@@ -17,6 +17,7 @@ import { cn } from '@/lib/utils';
 import AppLayout from '@/components/AppLayout';
 import PageHeader from '@/components/PageHeader';
 import StatusBadge from '@/components/StatusBadge';
+import ConfirmDialog from '@/components/ConfirmDialog';
 import { moveToPage } from '@/internal';
 import { supabase } from '@/lib/supabase';
 import { checkDuplicatePayment, deductPoints, accruePoints } from '@/lib/businessLogic';
@@ -82,6 +83,10 @@ export default function PosPayment() {
   const [isComplete, setIsComplete] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
 
+  // 중복 결제 경고 다이얼로그
+  const [showDupConfirm, setShowDupConfirm] = useState(false);
+  const [dupMessage, setDupMessage] = useState('');
+
   // 회원 검색 (supabase)
   const handleMemberSearch = async (query: string) => {
     setMemberSearch(query);
@@ -125,76 +130,80 @@ export default function PosPayment() {
     return true;
   }, [cartItems, paymentMethod, selectedMember, mixedAmount, subtotal]);
 
-  const handlePaymentConfirm = async () => {
-    // 중복 결제 방지
+  // 중복 결제 확인 후 실제 결제 처리
+  const executePayment = async () => {
     if (isProcessing) return;
     setIsProcessing(true);
 
     try {
-    // 결제수단 → DB enum 매핑 (CARD, CASH, TRANSFER, MILEAGE)
-    const paymentMethodMap: Record<PaymentMethod, string> = {
-      card: 'CARD',
-      cash: 'CASH',
-      mileage: 'MILEAGE',
-      mixed: 'CARD', // 복합결제는 CARD로 저장 (memo에 상세 기록)
-    };
+      // 결제수단 → DB enum 매핑 (CARD, CASH, TRANSFER, MILEAGE)
+      const paymentMethodMap: Record<PaymentMethod, string> = {
+        card: 'CARD',
+        cash: 'CASH',
+        mileage: 'MILEAGE',
+        mixed: 'CARD', // 복합결제는 CARD로 저장 (memo에 상세 기록)
+      };
 
-    // 복합결제 메모 생성
-    const mixedMemo =
-      paymentMethod === 'mixed'
-        ? `복합결제 - 카드: ${mixedAmount.card.toLocaleString()}원, 현금: ${mixedAmount.cash.toLocaleString()}원, 마일리지: ${mixedAmount.mileage.toLocaleString()}P`
-        : null;
+      // 복합결제 메모 생성
+      const mixedMemo =
+        paymentMethod === 'mixed'
+          ? `복합결제 - 카드: ${mixedAmount.card.toLocaleString()}원, 현금: ${mixedAmount.cash.toLocaleString()}원, 마일리지: ${mixedAmount.mileage.toLocaleString()}P`
+          : null;
 
+      // 마일리지 결제 시 차감
+      if (selectedMember && (paymentMethod === 'mileage' || (paymentMethod === 'mixed' && mixedAmount.mileage > 0))) {
+        const mileageToDeduct = paymentMethod === 'mileage' ? subtotal : mixedAmount.mileage;
+        const deductResult = await deductPoints(selectedMember.id, mileageToDeduct);
+        if (!deductResult.success) {
+          toast.error(deductResult.message ?? '마일리지 차감에 실패했습니다.');
+          return;
+        }
+      }
+
+      const { error } = await supabase.from('sales').insert({
+        branchId: getBranchId(),
+        memberId: selectedMember?.id ?? null,
+        memberName: selectedMember?.name ?? '비회원',
+        type: 'POS',
+        amount: subtotal,
+        paymentMethod: paymentMethodMap[paymentMethod],
+        description: cartItems.map(i => i.name).join(', '),
+        saleDate: new Date().toISOString(),
+        status: 'COMPLETED',
+        memo: mixedMemo,
+      });
+
+      if (error) {
+        toast.error('결제 저장에 실패했습니다.');
+        return;
+      }
+
+      // 마일리지 자동 적립 (마일리지 결제 제외, 결제금액의 1%)
+      if (selectedMember && paymentMethod !== 'mileage') {
+        const pointResult = await accruePoints(selectedMember.id, subtotal);
+        if (pointResult.success && pointResult.accrued > 0) {
+          toast.info(`${pointResult.accrued}P 마일리지가 적립되었습니다.`);
+        }
+      }
+
+      setShowConfirmModal(false);
+      setIsComplete(true);
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const handlePaymentConfirm = async () => {
     // 중복 결제 확인
     if (selectedMember) {
       const dupCheck = await checkDuplicatePayment(selectedMember.id, subtotal);
       if (dupCheck.isDuplicate) {
-        const proceed = window.confirm(dupCheck.message + '\n계속 진행하시겠습니까?');
-        if (!proceed) return;
-      }
-    }
-
-    // 마일리지 결제 시 차감
-    if (selectedMember && (paymentMethod === 'mileage' || (paymentMethod === 'mixed' && mixedAmount.mileage > 0))) {
-      const mileageToDeduct = paymentMethod === 'mileage' ? subtotal : mixedAmount.mileage;
-      const deductResult = await deductPoints(selectedMember.id, mileageToDeduct);
-      if (!deductResult.success) {
-        toast.error(deductResult.message ?? '마일리지 차감에 실패했습니다.');
+        setDupMessage(dupCheck.message ?? '최근에 동일한 결제가 있습니다.');
+        setShowDupConfirm(true);
         return;
       }
     }
-
-    const { error } = await supabase.from('sales').insert({
-      branchId: getBranchId(),
-      memberId: selectedMember?.id ?? null,
-      memberName: selectedMember?.name ?? '비회원',
-      type: 'POS',
-      amount: subtotal,
-      paymentMethod: paymentMethodMap[paymentMethod],
-      description: cartItems.map(i => i.name).join(', '),
-      saleDate: new Date().toISOString(),
-      status: 'COMPLETED',
-      memo: mixedMemo,
-    });
-
-    if (error) {
-      toast.error('결제 저장에 실패했습니다.');
-      return;
-    }
-
-    // 마일리지 자동 적립 (마일리지 결제 제외, 결제금액의 1%)
-    if (selectedMember && paymentMethod !== 'mileage') {
-      const pointResult = await accruePoints(selectedMember.id, subtotal);
-      if (pointResult.success && pointResult.accrued > 0) {
-        toast.info(`${pointResult.accrued}P 마일리지가 적립되었습니다.`);
-      }
-    }
-
-    setShowConfirmModal(false);
-    setIsComplete(true);
-    } finally {
-      setIsProcessing(false);
-    }
+    await executePayment();
   };
 
   const handleReset = () => {
@@ -505,6 +514,21 @@ export default function PosPayment() {
           </div>
         </div>
       </div>
+
+      {/* 중복 결제 경고 다이얼로그 */}
+      <ConfirmDialog
+        open={showDupConfirm}
+        title="중복 결제 경고"
+        description={dupMessage + '\n\n계속 진행하시겠습니까?'}
+        confirmLabel="계속 진행"
+        cancelLabel="취소"
+        variant="danger"
+        onConfirm={() => {
+          setShowDupConfirm(false);
+          void executePayment();
+        }}
+        onCancel={() => setShowDupConfirm(false)}
+      />
 
       {/* UI-052 결제 확인 모달 */}
       {showConfirmModal && (

@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from "react";
+import React, { useState, useMemo, useEffect, useCallback } from "react";
 import {
   Calendar as CalendarIcon,
   FileText,
@@ -70,6 +70,8 @@ export default function Payroll() {
   const [filterValues, setFilterValues] = useState({ status: "" });
   const [sortKey, setSortKey] = useState<SortKey | null>(null);
   const [sortDir, setSortDir] = useState<SortDir>(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const PAGE_SIZE = 10;
 
   useEffect(() => {
     async function fetchPayroll() {
@@ -309,16 +311,17 @@ export default function Payroll() {
             }
           ]}
           filterValues={filterValues}
-          onFilterChange={(key, val) => setFilterValues(prev => ({ ...prev, [key]: val }))}
-          onReset={() => { setSearchValue(""); setFilterValues({ status: "" }); }}
+          onFilterChange={(key, val) => { setFilterValues(prev => ({ ...prev, [key]: val })); setCurrentPage(1); }}
+          onReset={() => { setSearchValue(""); setFilterValues({ status: "" }); setCurrentPage(1); }}
         />
 
         {/* UI-099 급여 테이블 */}
         <DataTable
           columns={columns}
-          data={filtered}
+          data={filtered.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE)}
           selectable={true}
-          pagination={{ page: 1, pageSize: 10, total: filtered.length }}
+          pagination={{ page: currentPage, pageSize: PAGE_SIZE, total: filtered.length }}
+          onPageChange={(p) => setCurrentPage(p)}
           onDownloadExcel={() => {
             const exportColumns = [
               { key: 'name', header: '직원명' },

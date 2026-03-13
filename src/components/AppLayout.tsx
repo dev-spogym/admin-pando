@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import AppHeader from "@/components/AppHeader";
 import AppSidebar from "@/components/AppSidebar";
 import { cn } from "@/lib/utils";
@@ -9,13 +9,41 @@ interface AppLayoutProps {
   children: React.ReactNode;
 }
 
+/** 모바일 breakpoint (md: 768px) */
+const MOBILE_BREAKPOINT = 768;
+
 const AppLayout = ({ children }: AppLayoutProps) => {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [mobileOpen, setMobileOpen] = useState(false);
+  const [isMobile, setIsMobile] = useState(() => window.innerWidth < MOBILE_BREAKPOINT);
   const [activePath, setActivePath] = useState(() => window.location.pathname);
   const authUser = useAuthStore((s) => s.user);
 
-  const handleNavigate = (path: string, viewId?: number) => {
+  // 화면 크기 감지
+  useEffect(() => {
+    const handleResize = () => {
+      const mobile = window.innerWidth < MOBILE_BREAKPOINT;
+      setIsMobile(mobile);
+      if (!mobile) setMobileOpen(false);
+    };
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  // 모바일 오버레이 ESC 닫기
+  useEffect(() => {
+    if (!mobileOpen) return;
+    const handleEsc = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setMobileOpen(false);
+    };
+    document.addEventListener('keydown', handleEsc);
+    return () => document.removeEventListener('keydown', handleEsc);
+  }, [mobileOpen]);
+
+  const handleNavigate = useCallback((path: string, viewId?: number) => {
     setActivePath(path);
+    // 모바일에서 네비게이션 시 사이드바 자동 닫기
+    if (isMobile) setMobileOpen(false);
     if (viewId) {
       moveToPage(viewId);
       return;
@@ -56,29 +84,55 @@ const AppLayout = ({ children }: AppLayoutProps) => {
     };
     const targetViewId = viewMap[path];
     if (targetViewId) moveToPage(targetViewId);
-  };
+  }, [isMobile]);
+
+  const handleToggleSidebar = useCallback(() => {
+    if (isMobile) {
+      setMobileOpen((prev) => !prev);
+    } else {
+      setSidebarCollapsed((prev) => !prev);
+    }
+  }, [isMobile]);
 
   return (
     <div className="flex h-screen w-full overflow-hidden font-sans bg-surface-secondary">
-      {/* 사이드바 */}
-      <AppSidebar
-        collapsed={sidebarCollapsed}
-        onNavigate={handleNavigate}
-        activePath={activePath}
-      />
+      {/* 모바일 오버레이 */}
+      {isMobile && mobileOpen && (
+        <div
+          className="fixed inset-0 z-40 bg-black/50 transition-opacity"
+          onClick={() => setMobileOpen(false)}
+        />
+      )}
+
+      {/* 사이드바 — 데스크톱: 정적, 모바일: 오버레이 드로어 */}
+      <div
+        className={cn(
+          isMobile
+            ? "fixed inset-y-0 left-0 z-50 transition-transform duration-200 ease-in-out"
+            : "relative shrink-0",
+          isMobile && !mobileOpen && "-translate-x-full",
+          isMobile && mobileOpen && "translate-x-0"
+        )}
+      >
+        <AppSidebar
+          collapsed={isMobile ? false : sidebarCollapsed}
+          onNavigate={handleNavigate}
+          activePath={activePath}
+        />
+      </div>
 
       {/* 메인 영역 */}
-      <div className="flex flex-1 flex-col overflow-hidden">
+      <div className="flex flex-1 flex-col overflow-hidden min-w-0">
         {/* 헤더 */}
         <AppHeader
-          onToggleSidebar={() => setSidebarCollapsed(!sidebarCollapsed)}
+          onToggleSidebar={handleToggleSidebar}
           notificationCount={0}
           userName={authUser?.name ?? '사용자'}
           branchName={authUser?.branchName || '스포짐'}
         />
 
-        {/* 콘텐츠 */}
-        <main className="flex-1 overflow-auto p-lg">
+        {/* 콘텐츠 — 모바일에서 패딩 축소 */}
+        <main className={cn("flex-1 overflow-auto", isMobile ? "p-sm" : "p-lg")}>
           <div className="mx-auto max-w-[1400px]">
             {children}
           </div>
