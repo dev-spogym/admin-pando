@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect, useRef } from 'react';
+import React, { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import {
   UserPlus,
   Settings,
@@ -71,6 +71,8 @@ export default function MemberList() {
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(20);
+  const [showStatusModal, setShowStatusModal] = useState(false);
+  const [pendingStatusValue, setPendingStatusValue] = useState<string>('ACTIVE');
 
   // API 훅 (필터/정렬 파라미터 모두 전달)
   const membersQuery = useMembers({
@@ -149,33 +151,41 @@ export default function MemberList() {
 
   const getBranchId = () => localStorage.getItem('branchId') || '1';
 
-  /** 일괄 액션: 상태 변경 */
-  const handleStatusChange = async () => {
+  /** 일괄 액션: 상태 변경 — 모달 열기 */
+  const handleStatusChange = () => {
     if (selectedRows.size === 0) { toast.warning('회원을 먼저 선택해주세요.'); return; }
-    // 간단한 상태 선택: prompt 사용 (추후 모달로 교체 가능)
-    const statusOptions = '활성(ACTIVE), 만료(EXPIRED), 홀딩(HOLDING), 정지(SUSPENDED), 미등록(INACTIVE)';
-    const input = window.prompt(`변경할 상태를 입력하세요.\n${statusOptions}`, 'ACTIVE');
-    if (!input) return;
-    const validStatuses = ['ACTIVE', 'EXPIRED', 'HOLDING', 'SUSPENDED', 'INACTIVE'];
-    const newStatus = input.toUpperCase();
-    if (!validStatuses.includes(newStatus)) {
-      toast.error('올바른 상태값을 입력해주세요: ' + validStatuses.join(', '));
-      return;
-    }
+    setPendingStatusValue('ACTIVE');
+    setShowStatusModal(true);
+  };
+
+  /** 모달 확인: 실제 DB 업데이트 */
+  const handleStatusConfirm = useCallback(async () => {
     const ids = Array.from(selectedRows).map(idx => members[idx]?.id).filter(Boolean);
+    setShowStatusModal(false);
     const { error } = await supabase
       .from('members')
-      .update({ status: newStatus })
+      .update({ status: pendingStatusValue })
       .in('id', ids);
     if (error) {
       toast.error('상태 변경에 실패했습니다.');
     } else {
-      toast.success(`${ids.length}명의 상태를 ${newStatus}로 변경했습니다.`);
+      const labelMap: Record<string, string> = {
+        ACTIVE: '활동', EXPIRED: '만료', HOLDING: '홀딩', INACTIVE: '비활동', WITHDRAWN: '탈퇴',
+      };
+      toast.success(`${ids.length}명의 상태를 '${labelMap[pendingStatusValue] ?? pendingStatusValue}'(으)로 변경했습니다.`);
       setSelectedRows(new Set());
       membersQuery.refetch();
       statsQuery.refetch();
     }
-  };
+  }, [selectedRows, members, pendingStatusValue, membersQuery, statsQuery]);
+
+  /** ESC 키로 모달 닫기 */
+  useEffect(() => {
+    if (!showStatusModal) return;
+    const handleKeyDown = (e: KeyboardEvent) => { if (e.key === 'Escape') setShowStatusModal(false); };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [showStatusModal]);
 
   /** 일괄 액션: 메시지 발송 페이지로 이동 */
   const handleSendMessage = () => {
@@ -336,6 +346,65 @@ export default function MemberList() {
           emptyMessage={membersQuery.isLoading ? "불러오는 중..." : debouncedSearch ? "검색 결과가 없습니다." : "등록된 회원이 없습니다."}
         />
       </div>
+      {/* 상태 변경 모달 */}
+      {showStatusModal && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
+          onClick={(e) => { if (e.target === e.currentTarget) setShowStatusModal(false); }}
+        >
+          <div className="bg-surface rounded-xl border border-line shadow-lg w-[320px] p-lg">
+            <h3 className="text-[15px] font-semibold text-content mb-[4px]">상태 일괄 변경</h3>
+            <p className="text-[12px] text-content-secondary mb-md">
+              선택한 <span className="font-semibold text-content">{selectedRows.size}명</span>의 상태를 변경합니다.
+            </p>
+            <div className="flex flex-col gap-[8px] mb-lg">
+              {[
+                { value: 'ACTIVE',    label: '활동',   desc: '정상 이용 중인 회원' },
+                { value: 'EXPIRED',   label: '만료',   desc: '이용권이 만료된 회원' },
+                { value: 'HOLDING',   label: '홀딩',   desc: '일시 정지 중인 회원' },
+                { value: 'INACTIVE',  label: '비활동', desc: '미등록 또는 비활동 회원' },
+                { value: 'WITHDRAWN', label: '탈퇴',   desc: '탈퇴 처리된 회원' },
+              ].map((opt) => (
+                <label
+                  key={opt.value}
+                  className={`flex items-center gap-[10px] p-[10px] rounded-lg border cursor-pointer transition-colors ${
+                    pendingStatusValue === opt.value
+                      ? 'border-primary bg-primary/5'
+                      : 'border-line hover:bg-surface-tertiary'
+                  }`}
+                >
+                  <input
+                    type="radio"
+                    name="status"
+                    value={opt.value}
+                    checked={pendingStatusValue === opt.value}
+                    onChange={() => setPendingStatusValue(opt.value)}
+                    className="accent-primary"
+                  />
+                  <div>
+                    <span className="text-[13px] font-medium text-content">{opt.label}</span>
+                    <span className="ml-[6px] text-[11px] text-content-secondary">{opt.desc}</span>
+                  </div>
+                </label>
+              ))}
+            </div>
+            <div className="flex gap-sm justify-end">
+              <button
+                className="px-md py-[7px] rounded-lg border border-line text-[13px] text-content-secondary hover:bg-surface-tertiary transition-colors"
+                onClick={() => setShowStatusModal(false)}
+              >
+                취소
+              </button>
+              <button
+                className="px-md py-[7px] rounded-lg bg-primary text-white text-[13px] font-medium hover:bg-primary-dark transition-colors"
+                onClick={handleStatusConfirm}
+              >
+                변경 확인
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </AppLayout>
   );
 }

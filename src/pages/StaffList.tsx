@@ -76,6 +76,8 @@ export default function StaffList() {
   const [filterValues, setFilterValues] = useState({ role: "", status: "" });
   const [sortKey, setSortKey] = useState<SortKey | null>(null);
   const [sortDir, setSortDir] = useState<SortDir>(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const PAGE_SIZE = 10;
 
   // 직원 목록 fetch (퇴사 처리 후 재호출 가능)
   const fetchStaff = async () => {
@@ -109,11 +111,13 @@ export default function StaffList() {
 
   const handleFilterChange = (key: string, value: string) => {
     setFilterValues(prev => ({ ...prev, [key]: value }));
+    setCurrentPage(1);
   };
 
   const handleResetFilters = () => {
     setFilterValues({ role: "", status: "" });
     setSearchQuery("");
+    setCurrentPage(1);
   };
 
   const handleSort = (key: SortKey) => {
@@ -325,11 +329,12 @@ export default function StaffList() {
         <div className="flex-1 overflow-auto pb-xxl">
           <DataTable
             columns={columns}
-            data={filtered}
+            data={filtered.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE)}
             selectable={true}
             selectedRows={selectedRows}
             onSelectRows={setSelectedRows}
-            pagination={{ page: 1, pageSize: 10, total: filtered.length }}
+            pagination={{ page: currentPage, pageSize: PAGE_SIZE, total: filtered.length }}
+            onPageChange={(p) => setCurrentPage(p)}
             onDownloadExcel={() => {
               const exportColumns = [
                 { key: 'id', header: 'No' },

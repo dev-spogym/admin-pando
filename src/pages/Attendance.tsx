@@ -761,9 +761,9 @@ export default function Attendance() {
             {/* 출석 테이블 — UI-124 */}
             <DataTable
               columns={columns}
-              data={records}
+              data={todayRecords}
               title="출석 이력 목록"
-              pagination={{ page: 1, pageSize: 10, total: records.length }}
+              pagination={{ page: 1, pageSize: 10, total: todayRecords.length }}
               selectable
               onDownloadExcel={() => {
                 const exportColumns = [
@@ -776,8 +776,8 @@ export default function Attendance() {
                   { key: 'presence', header: '재실여부' },
                   { key: 'tel', header: '연락처' },
                 ];
-                exportToExcel(records as unknown as Record<string, unknown>[], exportColumns, { filename: '출석내역' });
-                toast.success(`${records.length}건 엑셀 다운로드 완료`);
+                exportToExcel(todayRecords as unknown as Record<string, unknown>[], exportColumns, { filename: '출석내역' });
+                toast.success(`${todayRecords.length}건 엑셀 다운로드 완료`);
               }}
             />
           </>

@@ -1,8 +1,6 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import {
   Calendar as CalendarIcon,
-  ChevronLeft,
-  ChevronRight,
   Plus,
   Users,
   MapPin,
@@ -27,9 +25,20 @@ import { supabase } from "@/lib/supabase";
 import { toast } from "sonner";
 import { exportToExcel } from "@/lib/exportExcel";
 
+// --- FullCalendar ---
+import FullCalendar from "@fullcalendar/react";
+import dayGridPlugin from "@fullcalendar/daygrid";
+import timeGridPlugin from "@fullcalendar/timegrid";
+import interactionPlugin from "@fullcalendar/interaction";
+import listPlugin from "@fullcalendar/list";
+import koLocale from "@fullcalendar/core/locales/ko";
+import type { EventClickArg, EventDropArg, EventContentArg } from "@fullcalendar/core";
+import type { DateClickArg, EventResizeDoneArg } from "@fullcalendar/interaction";
+
 /**
  * SCR-021: 수업/캘린더
- * UI-125 캘린더 뷰 (월/주/일), UI-126 일정 상세 모달
+ * UI-125 캘린더 뷰 (월/주/일/리스트), UI-126 일정 상세 모달
+ * FullCalendar 기반으로 전환 — 드래그&드롭, 리사이즈, 클릭 생성/편집 지원
  */
 
 // --- 하드코딩 유지 (DB 테이블 없음) ---
@@ -53,9 +62,6 @@ const PENALTY_DATA = [
   { id: 1, memberName: "홍길동", className: "그룹 요가", date: "2026-02-18", type: "노쇼", status: "벌점부여", points: 5 },
   { id: 2, memberName: "김철수", className: "그룹 필라테스", date: "2026-02-17", type: "당일취소", status: "경고", points: 2 },
 ];
-
-// 요일 이름 배열
-const DAY_NAMES_KO = ["일", "월", "화", "수", "목", "금", "토"];
 
 type EventType = "PT" | "GX" | "개인레슨" | "기타";
 
@@ -97,7 +103,25 @@ interface ClassManagement {
   status: string;
 }
 
-// --- 수업 유형별 색상 (시맨틱 토큰) ---
+// --- 수업 유형별 CSS 색상 (FullCalendar 이벤트용 hex) ---
+const EVENT_TYPE_HEX: Record<EventType, { bg: string; border: string; text: string }> = {
+  PT:       { bg: "#eff6ff", border: "#3b82f6", text: "#1d4ed8" },
+  GX:       { bg: "#eff8ff", border: "#0ea5e9", text: "#0369a1" },
+  개인레슨: { bg: "#f0fdf4", border: "#22c55e", text: "#15803d" },
+  기타:     { bg: "#f5f5f5", border: "#a3a3a3", text: "#525252" },
+};
+
+// --- 트레이너별 CSS 색상 ---
+const TRAINER_HEX: Record<string, { bg: string; border: string; text: string }> = {
+  "1": { bg: "#fff1f2", border: "#fb7185", text: "#be123c" },
+  "2": { bg: "#f5f3ff", border: "#a78bfa", text: "#6d28d9" },
+  "3": { bg: "#f0f9ff", border: "#38bdf8", text: "#0369a1" },
+  "4": { bg: "#fffbeb", border: "#fbbf24", text: "#b45309" },
+  "5": { bg: "#ecfdf5", border: "#34d399", text: "#047857" },
+};
+const DEFAULT_HEX = { bg: "#f5f5f5", border: "#d4d4d4", text: "#525252" };
+
+// --- 수업 유형별 Tailwind 클래스 (모달용) ---
 const EVENT_TYPE_COLORS: Record<EventType, { bg: string; border: string; text: string; light: string }> = {
   PT:       { bg: "bg-primary/10",      border: "border-primary",      text: "text-primary",       light: "bg-primary/5" },
   GX:       { bg: "bg-state-info/10",   border: "border-state-info",   text: "text-state-info",    light: "bg-state-info/5" },
@@ -105,7 +129,7 @@ const EVENT_TYPE_COLORS: Record<EventType, { bg: string; border: string; text: s
   기타:     { bg: "bg-surface-tertiary",border: "border-line",         text: "text-content-secondary", light: "bg-surface-secondary" },
 };
 
-// --- 트레이너별 색상 ---
+// --- 트레이너별 Tailwind 클래스 (범례용) ---
 const TRAINER_COLORS: Record<string, { bg: string; border: string; text: string; light: string }> = {
   "1": { bg: "bg-rose-50",    border: "border-rose-400",   text: "text-rose-700",   light: "bg-rose-50" },
   "2": { bg: "bg-violet-50",  border: "border-violet-400", text: "text-violet-700", light: "bg-violet-50" },
@@ -132,285 +156,6 @@ function isEventEditable(startStr: string): { editable: boolean; reason: string 
   return { editable: true, reason: "" };
 }
 
-// --- 날짜를 YYYY-MM-DD 문자열로 변환 ---
-function toDateStr(date: Date): string {
-  const y = date.getFullYear();
-  const m = String(date.getMonth() + 1).padStart(2, "0");
-  const d = String(date.getDate()).padStart(2, "0");
-  return `${y}-${m}-${d}`;
-}
-
-// --- selectedDate 기준 해당 주의 일요일~토요일 배열 반환 ---
-function getWeekDays(date: Date): Date[] {
-  const day = date.getDay(); // 0=일, 6=토
-  const sunday = new Date(date);
-  sunday.setDate(date.getDate() - day);
-  return Array.from({ length: 7 }, (_, i) => {
-    const d = new Date(sunday);
-    d.setDate(sunday.getDate() + i);
-    return d;
-  });
-}
-
-// --- 상단 날짜 범위 텍스트 포맷 ---
-function formatDateRange(view: "month" | "week" | "day", date: Date): string {
-  const y = date.getFullYear();
-  const m = date.getMonth() + 1;
-  if (view === "month") {
-    return `${y}년 ${m}월`;
-  }
-  if (view === "week") {
-    const weekDays = getWeekDays(date);
-    const start = weekDays[0];
-    const end = weekDays[6];
-    return `${toDateStr(start)} ~ ${toDateStr(end)}`;
-  }
-  // 일 뷰
-  return `${toDateStr(date)} (${DAY_NAMES_KO[date.getDay()]})`;
-}
-
-// --- 월 뷰 캘린더 그리드 ---
-const MonthView = ({
-  events,
-  selectedDate,
-  onEventClick,
-}: {
-  events: ScheduleEvent[];
-  selectedDate: Date;
-  onEventClick: (e: ScheduleEvent) => void;
-}) => {
-  // selectedDate에서 년/월 동적 추출
-  const year = selectedDate.getFullYear();
-  const month = selectedDate.getMonth(); // 0-indexed
-
-  const today = new Date();
-  const firstDay = new Date(year, month, 1).getDay();
-  const daysInMonth = new Date(year, month + 1, 0).getDate();
-  const weeks: (number | null)[][] = [];
-  let week: (number | null)[] = Array(firstDay).fill(null);
-  for (let d = 1; d <= daysInMonth; d++) {
-    week.push(d);
-    if (week.length === 7) { weeks.push(week); week = []; }
-  }
-  if (week.length) weeks.push([...week, ...Array(7 - week.length).fill(null)]);
-
-  const getEventsForDay = (day: number | null) => {
-    if (!day) return [];
-    // 현재 뷰의 년/월/일 기준 날짜 문자열 생성
-    const dateStr = `${year}-${String(month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
-    return events.filter(e => e.start.startsWith(dateStr));
-  };
-
-  return (
-    <div className="bg-surface rounded-xl border border-line shadow-sm overflow-hidden">
-      {/* 요일 헤더 */}
-      <div className="grid grid-cols-7 border-b border-line bg-surface-secondary/50">
-        {["일", "월", "화", "수", "목", "금", "토"].map(d => (
-          <div key={d} className="py-sm text-center text-[12px] font-semibold text-content-secondary">{d}</div>
-        ))}
-      </div>
-      {/* 날짜 그리드 7xN */}
-      {weeks.map((week, wi) => (
-        <div key={wi} className="grid grid-cols-7 border-b border-line last:border-b-0">
-          {week.map((day, di) => {
-            const dayEvents = getEventsForDay(day);
-            // 오늘 여부: 년/월/일 모두 비교
-            const isToday =
-              day !== null &&
-              day === today.getDate() &&
-              month === today.getMonth() &&
-              year === today.getFullYear();
-            return (
-              <div
-                key={di}
-                className={cn(
-                  "min-h-[96px] p-xs border-r border-line last:border-r-0 hover:bg-surface-secondary/30 transition-colors",
-                  !day && "bg-surface-tertiary/30"
-                )}
-              >
-                {day && (
-                  <>
-                    <span className={cn(
-                      "text-[12px] font-bold inline-flex w-6 h-6 items-center justify-center rounded-full",
-                      isToday ? "bg-primary text-white" : "text-content"
-                    )}>{day}</span>
-                    <div className="mt-xs space-y-[2px]">
-                      {dayEvents.slice(0, 3).map(ev => {
-                        const colors = EVENT_TYPE_COLORS[ev.type] ?? EVENT_TYPE_COLORS["기타"];
-                        return (
-                          <button
-                            key={ev.id}
-                            className={cn(
-                              "w-full text-left px-xs py-[2px] rounded text-[10px] font-semibold truncate border-l-2 transition-opacity hover:opacity-80",
-                              colors.bg, colors.border, colors.text
-                            )}
-                            onClick={() => onEventClick(ev)}
-                          >
-                            {new Date(ev.start).toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit" })} {ev.title}
-                          </button>
-                        );
-                      })}
-                      {dayEvents.length > 3 && (
-                        <span className="text-[10px] text-content-secondary pl-xs">+{dayEvents.length - 3}개</span>
-                      )}
-                    </div>
-                  </>
-                )}
-              </div>
-            );
-          })}
-        </div>
-      ))}
-    </div>
-  );
-};
-
-// --- 주 뷰 ---
-const WeekView = ({
-  events,
-  selectedDate,
-  onEventClick,
-}: {
-  events: ScheduleEvent[];
-  selectedDate: Date;
-  onEventClick: (e: ScheduleEvent) => void;
-}) => {
-  const hours = Array.from({ length: 14 }, (_, i) => i + 7);
-  // selectedDate 기준 해당 주의 날짜 배열 (일~토)
-  const weekDays = getWeekDays(selectedDate);
-
-  return (
-    <div className="bg-surface rounded-xl border border-line shadow-sm overflow-hidden">
-      <div className="grid grid-cols-8 border-b border-line bg-surface-secondary/30">
-        <div className="p-sm border-r border-line text-center text-[11px] text-content-secondary font-semibold">시간</div>
-        {weekDays.map((dayDate, idx) => {
-          const today = new Date();
-          const isToday =
-            dayDate.getDate() === today.getDate() &&
-            dayDate.getMonth() === today.getMonth() &&
-            dayDate.getFullYear() === today.getFullYear();
-          return (
-            <div key={idx} className="p-sm border-r border-line last:border-r-0 text-center">
-              <div className="text-[11px] text-content-secondary">{DAY_NAMES_KO[dayDate.getDay()]}</div>
-              <div className={cn(
-                "text-[13px] font-bold",
-                isToday ? "text-primary" : "text-content"
-              )}>
-                {dayDate.getDate()}
-              </div>
-            </div>
-          );
-        })}
-      </div>
-      <div className="h-[560px] overflow-y-auto">
-        {hours.map(hour => (
-          <div key={hour} className="grid grid-cols-8 border-b border-line last:border-b-0">
-            <div className="p-xs border-r border-line text-center text-[10px] text-content-secondary font-medium">
-              {hour}:00
-            </div>
-            {weekDays.map((dayDate, dayIdx) => {
-              const dayDateStr = toDateStr(dayDate);
-              // 해당 날짜 + 해당 시간에 해당하는 이벤트 필터
-              const dayEvents = events.filter(e => {
-                const d = new Date(e.start);
-                return (
-                  e.start.startsWith(dayDateStr) &&
-                  d.getHours() === hour
-                );
-              });
-              return (
-                <div key={dayIdx} className="p-xs border-r border-line last:border-r-0 min-h-[52px] hover:bg-primary/5 transition-colors cursor-pointer">
-                  {dayEvents.map(ev => {
-                    const colors = TRAINER_COLORS[ev.instructorId] ?? DEFAULT_COLOR;
-                    return (
-                      <div
-                        key={ev.id}
-                        className={cn("p-xs rounded text-[10px] mb-xs shadow-xs border-l-[3px] cursor-pointer hover:opacity-80 transition-opacity", colors.bg, colors.border, colors.text)}
-                        onClick={() => onEventClick(ev)}
-                      >
-                        <div className="font-bold truncate">{ev.title}</div>
-                        <div className="flex items-center gap-xs mt-[2px] opacity-80">
-                          <Users size={8} />
-                          <span>{ev.currentCount}/{ev.capacity}</span>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              );
-            })}
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-};
-
-// --- 일 뷰 ---
-const DayView = ({
-  events,
-  selectedDate,
-  onEventClick,
-}: {
-  events: ScheduleEvent[];
-  selectedDate: Date;
-  onEventClick: (e: ScheduleEvent) => void;
-}) => {
-  const hours = Array.from({ length: 14 }, (_, i) => i + 7);
-  // selectedDate 기준 날짜 문자열로 필터
-  const dateStr = toDateStr(selectedDate);
-  const todayEvents = events.filter(e => e.start.startsWith(dateStr));
-
-  // 일 뷰 헤더 텍스트: "2026년 3월 11일 (수)" 형태
-  const dayLabel = selectedDate.toLocaleDateString("ko-KR", {
-    year: "numeric",
-    month: "long",
-    day: "numeric",
-  }) + ` (${DAY_NAMES_KO[selectedDate.getDay()]})`;
-
-  return (
-    <div className="bg-surface rounded-xl border border-line shadow-sm overflow-hidden">
-      <div className="px-lg py-md border-b border-line bg-surface-secondary/30">
-        <p className="text-[13px] font-bold text-content">{dayLabel}</p>
-      </div>
-      <div className="h-[560px] overflow-y-auto">
-        {hours.map(hour => {
-          const hourEvents = todayEvents.filter(e => new Date(e.start).getHours() === hour);
-          return (
-            <div key={hour} className="flex border-b border-line last:border-b-0 min-h-[52px]">
-              <div className="w-16 flex-shrink-0 p-sm text-center text-[11px] text-content-secondary border-r border-line">
-                {hour}:00
-              </div>
-              <div className="flex-1 p-xs flex gap-sm">
-                {hourEvents.map(ev => {
-                  const colors = EVENT_TYPE_COLORS[ev.type] ?? EVENT_TYPE_COLORS["기타"];
-                  return (
-                    <button
-                      key={ev.id}
-                      className={cn("flex-1 text-left p-sm rounded-lg border-l-[3px] cursor-pointer hover:opacity-80 transition-opacity", colors.bg, colors.border, colors.text)}
-                      onClick={() => onEventClick(ev)}
-                    >
-                      <p className="text-[12px] font-bold">{ev.title}</p>
-                      <p className="text-[11px] mt-[2px] opacity-70">
-                        {new Date(ev.start).toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit" })}~
-                        {new Date(ev.end).toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit" })}
-                      </p>
-                      <div className="flex items-center gap-xs mt-xs text-[11px] opacity-70">
-                        <Users size={10} /> {ev.currentCount}/{ev.capacity}명
-                        <MapPin size={10} className="ml-xs" /> {ev.room}
-                      </div>
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-          );
-        })}
-      </div>
-    </div>
-  );
-};
-
 // --- FN-037: 좌석 그리드 컴포넌트 ---
 const SeatGrid = ({
   rows,
@@ -426,7 +171,7 @@ const SeatGrid = ({
   const [selected, setSelected] = React.useState<number[]>([]);
 
   const handleClick = (idx: number) => {
-    if (reservedSeats.includes(idx)) return; // 이미 예약된 좌석은 토글 불가
+    if (reservedSeats.includes(idx)) return;
     setSelected(prev =>
       prev.includes(idx) ? prev.filter(i => i !== idx) : [...prev, idx]
     );
@@ -477,10 +222,12 @@ const EventDetailModal = ({
   event,
   onClose,
   onEdit,
+  onDelete,
 }: {
   event: ScheduleEvent;
   onClose: () => void;
   onEdit: () => void;
+  onDelete: () => void;
 }) => {
   const { editable, reason } = isEventEditable(event.start);
   const colors = EVENT_TYPE_COLORS[event.type] ?? EVENT_TYPE_COLORS["기타"];
@@ -610,6 +357,7 @@ const EventDetailModal = ({
           <button
             className="px-lg py-sm rounded-lg text-[12px] font-semibold text-state-error border border-state-error/20 hover:bg-state-error/5 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
             disabled={!editable}
+            onClick={onDelete}
           >
             <Trash2 size={13} className="inline mr-xs" />
             삭제
@@ -654,17 +402,101 @@ const EventTypeLegend = () => (
   </div>
 );
 
+// --- ScheduleEvent -> FullCalendar EventInput 변환 ---
+function toFullCalendarEvent(ev: ScheduleEvent) {
+  const typeColors = EVENT_TYPE_HEX[ev.type] ?? EVENT_TYPE_HEX["기타"];
+  const trainerColors = TRAINER_HEX[ev.instructorId] ?? DEFAULT_HEX;
+  const { editable: canEdit } = isEventEditable(ev.start);
+
+  return {
+    id: ev.id,
+    title: ev.title,
+    start: ev.start,
+    end: ev.end,
+    editable: canEdit,
+    backgroundColor: trainerColors.bg,
+    borderColor: trainerColors.border,
+    textColor: trainerColors.text,
+    extendedProps: {
+      instructor: ev.instructor,
+      instructorId: ev.instructorId,
+      room: ev.room,
+      capacity: ev.capacity,
+      currentCount: ev.currentCount,
+      status: ev.status,
+      type: ev.type,
+      maxCapacity: ev.maxCapacity,
+      currentReservations: ev.currentReservations,
+      reservationDeadline: ev.reservationDeadline,
+      seatRows: ev.seatRows,
+      seatCols: ev.seatCols,
+      reservedSeats: ev.reservedSeats,
+      typeColors,
+      trainerColors,
+    },
+  };
+}
+
+// --- FullCalendar 커스텀 이벤트 렌더 ---
+function renderEventContent(eventInfo: EventContentArg) {
+  const { event, view } = eventInfo;
+  const props = event.extendedProps;
+  const typeColors = props.typeColors as { bg: string; border: string; text: string } | undefined;
+
+  // 월 뷰: 컴팩트
+  if (view.type === "dayGridMonth") {
+    return (
+      <div className="flex items-center gap-[3px] px-[3px] py-[1px] overflow-hidden w-full">
+        <div
+          className="w-[6px] h-[6px] rounded-full flex-shrink-0"
+          style={{ backgroundColor: typeColors?.border ?? "#a3a3a3" }}
+        />
+        <span className="text-[10px] font-semibold truncate" style={{ color: typeColors?.text ?? "#525252" }}>
+          {event.start ? new Date(event.start).toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit" }) : ""}{" "}
+          {event.title}
+        </span>
+      </div>
+    );
+  }
+
+  // 리스트 뷰
+  if (view.type === "listWeek") {
+    return (
+      <div className="flex items-center gap-sm">
+        <span className="font-bold text-[13px]">{event.title}</span>
+        <span className="text-[11px] text-content-secondary">{props.instructor} / {props.room}</span>
+        <span className="text-[11px] text-content-secondary">{props.currentCount}/{props.capacity}명</span>
+      </div>
+    );
+  }
+
+  // 주/일 뷰: 상세
+  return (
+    <div className="flex flex-col gap-[1px] px-[4px] py-[2px] overflow-hidden w-full h-full">
+      <div className="text-[11px] font-bold truncate">{event.title}</div>
+      <div className="flex items-center gap-[4px] text-[9px] opacity-80">
+        <Users size={8} />
+        <span>{props.currentCount}/{props.capacity}</span>
+        <span className="mx-[2px]">|</span>
+        <span>{props.instructor}</span>
+      </div>
+      <div className="flex items-center gap-[4px] text-[9px] opacity-70">
+        <MapPin size={8} />
+        <span className="truncate">{props.room}</span>
+      </div>
+    </div>
+  );
+}
+
 export default function Calendar() {
+  const calendarRef = useRef<FullCalendar>(null);
+
   const [activeTab, setActiveTab] = useState("schedule");
-  const [calendarView, setCalendarView] = useState<"month" | "week" | "day">("month");
   const [selectedEvent, setSelectedEvent] = useState<ScheduleEvent | null>(null);
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedInstructor, setSelectedInstructor] = useState("");
-
-  // --- 선택된 날짜: 오늘로 초기화 ---
-  const [selectedDate, setSelectedDate] = useState<Date>(() => new Date());
 
   // --- 수업 등록 폼 상태 ---
   const [formTemplate, setFormTemplate] = useState("");
@@ -699,105 +531,217 @@ export default function Calendar() {
 
   const branchId = Number(localStorage.getItem("branchId") ?? 1);
 
-  useEffect(() => {
-    const fetchData = async () => {
-      setLoading(true);
-      try {
-        // 트레이너 목록 (staff 테이블, role = '트레이너')
-        const { data: staffData } = await supabase
-          .from("staff")
-          .select("id, name, type")
-          .eq("role", "트레이너")
-          .eq("branchId", branchId);
+  // --- Supabase 데이터 로드 ---
+  const fetchData = useCallback(async () => {
+    setLoading(true);
+    try {
+      // 트레이너 목록 (staff 테이블, role = '트레이너')
+      const { data: staffData } = await supabase
+        .from("staff")
+        .select("id, name, type")
+        .eq("role", "트레이너")
+        .eq("branchId", branchId);
 
-        if (staffData) {
-          setInstructors(staffData.map((s: any) => ({
-            id: String(s.id),
-            name: s.name,
-            type: s.type ?? "",
-          })));
-        }
-
-        // 수업 일정 (classes 테이블)
-        const { data: classData } = await supabase
-          .from("classes")
-          .select("id, title, type, staffId, staffName, room, startTime, endTime, capacity, booked, isRecurring, branchId, status")
-          .eq("branchId", branchId);
-
-        if (classData) {
-          const mapped: ScheduleEvent[] = classData.map((c: any) => ({
-            id: String(c.id),
-            title: c.title ?? "",
-            instructor: c.staffName ?? "",
-            instructorId: String(c.staffId ?? ""),
-            start: c.startTime ?? "",
-            end: c.endTime ?? "",
-            room: c.room ?? "",
-            capacity: c.capacity ?? 0,
-            currentCount: c.booked ?? 0,
-            status: (c.status as "예약" | "완료" | "취소") ?? "예약",
-            type: (c.type as EventType) ?? "기타",
-          }));
-          setEvents(mapped);
-          setClassManagement(classData.map((c: any) => ({
-            id: c.id,
-            name: c.title ?? "",
-            type: c.type ?? "",
-            instructor: c.staffName ?? "",
-            room: c.room ?? "",
-            schedule: c.startTime ? c.startTime.split("T")[0] : "",
-            status: c.status ?? "진행중",
-          })));
-        }
-      } catch (err) {
-        console.error("Calendar 데이터 로드 실패:", err);
-      } finally {
-        setLoading(false);
+      if (staffData) {
+        setInstructors(staffData.map((s: any) => ({
+          id: String(s.id),
+          name: s.name,
+          type: s.type ?? "",
+        })));
       }
-    };
 
-    fetchData();
+      // 수업 일정 (classes 테이블)
+      const { data: classData } = await supabase
+        .from("classes")
+        .select("id, title, type, staffId, staffName, room, startTime, endTime, capacity, booked, isRecurring, branchId, status")
+        .eq("branchId", branchId);
+
+      if (classData) {
+        const mapped: ScheduleEvent[] = classData.map((c: any) => ({
+          id: String(c.id),
+          title: c.title ?? "",
+          instructor: c.staffName ?? "",
+          instructorId: String(c.staffId ?? ""),
+          start: c.startTime ?? "",
+          end: c.endTime ?? "",
+          room: c.room ?? "",
+          capacity: c.capacity ?? 0,
+          currentCount: c.booked ?? 0,
+          status: (c.status as "예약" | "완료" | "취소") ?? "예약",
+          type: (c.type as EventType) ?? "기타",
+        }));
+        setEvents(mapped);
+        setClassManagement(classData.map((c: any) => ({
+          id: c.id,
+          name: c.title ?? "",
+          type: c.type ?? "",
+          instructor: c.staffName ?? "",
+          room: c.room ?? "",
+          schedule: c.startTime ? c.startTime.split("T")[0] : "",
+          status: c.status ?? "진행중",
+        })));
+      }
+    } catch (err) {
+      console.error("Calendar 데이터 로드 실패:", err);
+      toast.error("데이터를 불러오는 데 실패했습니다.");
+    } finally {
+      setLoading(false);
+    }
   }, [branchId]);
 
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
+
   // 선택된 트레이너 필터 + 로컬 추가 이벤트 합산
-  const allEvents = [...events, ...localEvents];
-  const filteredEvents = selectedInstructor
-    ? allEvents.filter(e => e.instructorId === selectedInstructor)
-    : allEvents;
+  const allEvents = useMemo(() => [...events, ...localEvents], [events, localEvents]);
+  const filteredEvents = useMemo(
+    () => selectedInstructor ? allEvents.filter(e => e.instructorId === selectedInstructor) : allEvents,
+    [allEvents, selectedInstructor]
+  );
 
-  const handleEventClick = (event: ScheduleEvent) => {
-    setSelectedEvent(event);
-    setIsDetailModalOpen(true);
-  };
+  // --- FullCalendar 이벤트 변환 (메모이즈) ---
+  const calendarEvents = useMemo(
+    () => filteredEvents.map(toFullCalendarEvent),
+    [filteredEvents]
+  );
 
-  // --- 이전/다음/오늘 버튼 핸들러 ---
-  const handlePrev = () => {
-    const d = new Date(selectedDate);
-    if (calendarView === "month") {
-      d.setMonth(d.getMonth() - 1);
-    } else if (calendarView === "week") {
-      d.setDate(d.getDate() - 7);
-    } else {
-      d.setDate(d.getDate() - 1);
+  // --- ScheduleEvent 조회 헬퍼 ---
+  const findScheduleEvent = useCallback(
+    (id: string): ScheduleEvent | undefined => allEvents.find(e => e.id === id),
+    [allEvents]
+  );
+
+  // --- 이벤트 클릭 → 상세 모달 열기 ---
+  const handleEventClick = useCallback((info: EventClickArg) => {
+    const ev = findScheduleEvent(info.event.id);
+    if (ev) {
+      setSelectedEvent(ev);
+      setIsDetailModalOpen(true);
     }
-    setSelectedDate(d);
-  };
+  }, [findScheduleEvent]);
 
-  const handleNext = () => {
-    const d = new Date(selectedDate);
-    if (calendarView === "month") {
-      d.setMonth(d.getMonth() + 1);
-    } else if (calendarView === "week") {
-      d.setDate(d.getDate() + 7);
-    } else {
-      d.setDate(d.getDate() + 1);
+  // --- 빈 날짜/시간 클릭 → 수업 등록 모달 (날짜/시간 사전 입력) ---
+  const handleDateClick = useCallback((info: DateClickArg) => {
+    setSelectedEvent(null);
+    resetForm();
+
+    const clickedDate = info.date;
+    const dateStr = clickedDate.getFullYear() +
+      "-" + String(clickedDate.getMonth() + 1).padStart(2, "0") +
+      "-" + String(clickedDate.getDate()).padStart(2, "0");
+    setFormDate(dateStr);
+
+    // 시간 뷰에서 클릭 시 시간도 사전 입력
+    if (info.view.type === "timeGridWeek" || info.view.type === "timeGridDay") {
+      const hours = String(clickedDate.getHours()).padStart(2, "0");
+      const minutes = String(clickedDate.getMinutes()).padStart(2, "0");
+      setFormStartTime(`${hours}:${minutes}`);
+      // 기본 1시간 후 종료
+      const endDate = new Date(clickedDate.getTime() + 60 * 60 * 1000);
+      const endHours = String(endDate.getHours()).padStart(2, "0");
+      const endMinutes = String(endDate.getMinutes()).padStart(2, "0");
+      setFormEndTime(`${endHours}:${endMinutes}`);
     }
-    setSelectedDate(d);
-  };
 
-  const handleToday = () => {
-    setSelectedDate(new Date());
-  };
+    setIsAddModalOpen(true);
+  }, []);
+
+  // --- 이벤트 드래그&드롭 → Supabase 업데이트 ---
+  const handleEventDrop = useCallback(async (info: EventDropArg) => {
+    const { event, revert } = info;
+    const ev = findScheduleEvent(event.id);
+    if (!ev) { revert(); return; }
+
+    const { editable } = isEventEditable(ev.start);
+    if (!editable) {
+      toast.error("과거 또는 시작 임박 수업은 이동할 수 없습니다.");
+      revert();
+      return;
+    }
+
+    const newStart = event.start?.toISOString() ?? ev.start;
+    const newEnd = event.end?.toISOString() ?? ev.end;
+
+    // 로컬 이벤트인 경우 로컬 상태만 업데이트
+    if (ev.id.startsWith("local-")) {
+      setLocalEvents(prev => prev.map(e =>
+        e.id === ev.id ? { ...e, start: newStart, end: newEnd } : e
+      ));
+      toast.success("수업 일정이 변경되었습니다.");
+      return;
+    }
+
+    // Supabase 업데이트
+    try {
+      const { error } = await supabase
+        .from("classes")
+        .update({ startTime: newStart, endTime: newEnd })
+        .eq("id", Number(ev.id));
+
+      if (error) {
+        toast.error("일정 변경에 실패했습니다.");
+        revert();
+        return;
+      }
+
+      setEvents(prev => prev.map(e =>
+        e.id === ev.id ? { ...e, start: newStart, end: newEnd } : e
+      ));
+      toast.success("수업 일정이 변경되었습니다.");
+    } catch {
+      toast.error("일정 변경 중 오류가 발생했습니다.");
+      revert();
+    }
+  }, [findScheduleEvent]);
+
+  // --- 이벤트 리사이즈 → Supabase 업데이트 ---
+  const handleEventResize = useCallback(async (info: EventResizeDoneArg) => {
+    const { event, revert } = info;
+    const ev = findScheduleEvent(event.id);
+    if (!ev) { revert(); return; }
+
+    const { editable } = isEventEditable(ev.start);
+    if (!editable) {
+      toast.error("과거 또는 시작 임박 수업은 변경할 수 없습니다.");
+      revert();
+      return;
+    }
+
+    const newStart = event.start?.toISOString() ?? ev.start;
+    const newEnd = event.end?.toISOString() ?? ev.end;
+
+    // 로컬 이벤트
+    if (ev.id.startsWith("local-")) {
+      setLocalEvents(prev => prev.map(e =>
+        e.id === ev.id ? { ...e, start: newStart, end: newEnd } : e
+      ));
+      toast.success("수업 시간이 변경되었습니다.");
+      return;
+    }
+
+    // Supabase 업데이트
+    try {
+      const { error } = await supabase
+        .from("classes")
+        .update({ startTime: newStart, endTime: newEnd })
+        .eq("id", Number(ev.id));
+
+      if (error) {
+        toast.error("시간 변경에 실패했습니다.");
+        revert();
+        return;
+      }
+
+      setEvents(prev => prev.map(e =>
+        e.id === ev.id ? { ...e, start: newStart, end: newEnd } : e
+      ));
+      toast.success("수업 시간이 변경되었습니다.");
+    } catch {
+      toast.error("시간 변경 중 오류가 발생했습니다.");
+      revert();
+    }
+  }, [findScheduleEvent]);
 
   // --- 반복 요일 토글 ---
   const toggleDay = (idx: number) => {
@@ -814,7 +758,7 @@ export default function Calendar() {
     setFormName("");
     setFormType("그룹 수업");
     setFormCapacity(14);
-    setFormInstructor(instructors[0]?.id ?? "");
+    setFormInstructor("");
     setFormDate("");
     setFormStartTime("");
     setFormEndTime("");
@@ -829,7 +773,6 @@ export default function Calendar() {
 
   // --- 수업 등록 제출 핸들러 ---
   const handleAddClass = () => {
-    // 중복 등록 방지
     if (isSaving) return;
 
     if (!formName.trim()) {
@@ -847,39 +790,77 @@ export default function Calendar() {
 
     setIsSaving(true);
     try {
-    // 로컬 이벤트 생성 (DB 테이블 없으므로 로컬 상태에만 추가)
-    const instructorInfo = instructors.find(i => i.id === formInstructor);
-    const newEvent: ScheduleEvent = {
-      id: `local-${Date.now()}`,
-      title: formName,
-      instructor: instructorInfo?.name ?? "",
-      instructorId: formInstructor,
-      start: `${formDate}T${formStartTime}:00`,
-      end: `${formDate}T${formEndTime}:00`,
-      room: formRoom,
-      capacity: formCapacity,
-      currentCount: 0,
-      status: "예약",
-      type: formType === "PT / OT" ? "PT" : formType === "개인 레슨" ? "개인레슨" : "GX",
-      // FN-034: 예약 오픈 설정
-      maxCapacity: formMaxCapacity > 0 ? formMaxCapacity : formCapacity,
-      currentReservations: 0,
-      reservationDeadline: formReservationDeadline || undefined,
-      // FN-037: 좌석 설정
-      seatRows: formSeatRows > 0 ? formSeatRows : undefined,
-      seatCols: formSeatCols > 0 ? formSeatCols : undefined,
-      reservedSeats: [],
-    };
+      const instructorInfo = instructors.find(i => i.id === formInstructor);
+      const newEvent: ScheduleEvent = {
+        id: `local-${Date.now()}`,
+        title: formName,
+        instructor: instructorInfo?.name ?? "",
+        instructorId: formInstructor,
+        start: `${formDate}T${formStartTime}:00`,
+        end: `${formDate}T${formEndTime}:00`,
+        room: formRoom,
+        capacity: formCapacity,
+        currentCount: 0,
+        status: "예약",
+        type: formType === "PT / OT" ? "PT" : formType === "개인 레슨" ? "개인레슨" : "GX",
+        maxCapacity: formMaxCapacity > 0 ? formMaxCapacity : formCapacity,
+        currentReservations: 0,
+        reservationDeadline: formReservationDeadline || undefined,
+        seatRows: formSeatRows > 0 ? formSeatRows : undefined,
+        seatCols: formSeatCols > 0 ? formSeatCols : undefined,
+        reservedSeats: [],
+      };
 
-    setLocalEvents(prev => [...prev, newEvent]);
-    toast.success("수업이 등록되었습니다.");
-    setIsAddModalOpen(false);
-    resetForm();
-    setSelectedEvent(null);
+      setLocalEvents(prev => [...prev, newEvent]);
+      toast.success("수업이 등록되었습니다.");
+      setIsAddModalOpen(false);
+      resetForm();
+      setSelectedEvent(null);
     } finally {
       setIsSaving(false);
     }
   };
+
+  // --- 수업 삭제 핸들러 ---
+  const handleDeleteClass = useCallback(async () => {
+    if (!selectedEvent) return;
+
+    const { editable } = isEventEditable(selectedEvent.start);
+    if (!editable) {
+      toast.error("해당 수업은 삭제할 수 없습니다.");
+      return;
+    }
+
+    // 로컬 이벤트
+    if (selectedEvent.id.startsWith("local-")) {
+      setLocalEvents(prev => prev.filter(e => e.id !== selectedEvent.id));
+      toast.success("수업이 삭제되었습니다.");
+      setIsDetailModalOpen(false);
+      setSelectedEvent(null);
+      return;
+    }
+
+    // Supabase 삭제
+    try {
+      const { error } = await supabase
+        .from("classes")
+        .delete()
+        .eq("id", Number(selectedEvent.id));
+
+      if (error) {
+        toast.error("수업 삭제에 실패했습니다.");
+        return;
+      }
+
+      setEvents(prev => prev.filter(e => e.id !== selectedEvent.id));
+      setClassManagement(prev => prev.filter(c => String(c.id) !== selectedEvent.id));
+      toast.success("수업이 삭제되었습니다.");
+      setIsDetailModalOpen(false);
+      setSelectedEvent(null);
+    } catch {
+      toast.error("수업 삭제 중 오류가 발생했습니다.");
+    }
+  }, [selectedEvent]);
 
   const tabs = [
     { key: "schedule", label: "일정표", icon: CalendarIcon },
@@ -887,12 +868,6 @@ export default function Calendar() {
     { key: "counts",   label: "횟수 관리" },
     { key: "penalty",  label: "페널티 관리", count: PENALTY_DATA.length },
     { key: "valid",    label: "유효 수업 목록" },
-  ];
-
-  const calendarViewButtons: { key: "month" | "week" | "day"; label: string }[] = [
-    { key: "month", label: "월" },
-    { key: "week",  label: "주" },
-    { key: "day",   label: "일" },
   ];
 
   // 요일 라벨 (반복 설정: 월~일 순)
@@ -936,54 +911,9 @@ export default function Calendar() {
         <div className="space-y-lg">
           {activeTab === "schedule" && (
             <>
-              {/* 컨트롤 바 */}
+              {/* 필터 바 */}
               <div className="flex flex-col md:flex-row md:items-center justify-between gap-md bg-surface p-md rounded-xl border border-line shadow-xs">
                 <div className="flex items-center gap-md">
-                  {/* 뷰 전환 — UI-125 */}
-                  <div className="flex items-center bg-surface-tertiary rounded-lg p-[3px] gap-[2px]">
-                    {calendarViewButtons.map(btn => (
-                      <button
-                        key={btn.key}
-                        className={cn(
-                          "px-md py-[6px] text-[13px] font-medium rounded-md transition-all",
-                          calendarView === btn.key ? "bg-surface text-content shadow-xs" : "text-content-secondary hover:text-content"
-                        )}
-                        onClick={() => setCalendarView(btn.key)}
-                      >
-                        {btn.label}
-                      </button>
-                    ))}
-                  </div>
-                  <div className="flex items-center gap-sm">
-                    {/* 이전 버튼: 뷰에 따라 월/주/일 이동 */}
-                    <button
-                      className="p-xs rounded-full hover:bg-surface-secondary text-content-secondary transition-colors"
-                      onClick={handlePrev}
-                    >
-                      <ChevronLeft size={18} />
-                    </button>
-                    {/* 날짜 범위 텍스트: selectedDate 기반 동적 포맷 */}
-                    <span className="text-[13px] font-bold text-content">
-                      {formatDateRange(calendarView, selectedDate)}
-                    </span>
-                    {/* 다음 버튼 */}
-                    <button
-                      className="p-xs rounded-full hover:bg-surface-secondary text-content-secondary transition-colors"
-                      onClick={handleNext}
-                    >
-                      <ChevronRight size={18} />
-                    </button>
-                    {/* 오늘 버튼: selectedDate를 오늘로 리셋 */}
-                    <button
-                      className="px-md py-xs border border-line rounded-lg text-[12px] font-semibold text-content-secondary hover:bg-surface-secondary transition-colors"
-                      onClick={handleToday}
-                    >
-                      오늘
-                    </button>
-                  </div>
-                </div>
-                {/* 트레이너 필터 Select */}
-                <div className="flex items-center gap-sm">
                   <select
                     className="h-9 rounded-lg bg-surface-secondary border border-line px-md text-[13px] text-content outline-none focus:border-primary transition-colors"
                     value={selectedInstructor}
@@ -995,45 +925,232 @@ export default function Calendar() {
                     ))}
                   </select>
                 </div>
-              </div>
-
-              {/* 범례 */}
-              <div className="bg-surface rounded-xl border border-line px-lg py-sm shadow-xs">
+                {/* 범례 */}
                 <div className="flex flex-col md:flex-row md:items-center gap-md">
                   <div className="flex items-center gap-md">
-                    <span className="text-[12px] font-semibold text-content-secondary flex-shrink-0">강사 범례</span>
+                    <span className="text-[12px] font-semibold text-content-secondary flex-shrink-0">강사</span>
                     <TrainerLegend instructors={instructors} />
                   </div>
                   <div className="hidden md:block w-px h-4 bg-line" />
                   <div className="flex items-center gap-md">
-                    <span className="text-[12px] font-semibold text-content-secondary flex-shrink-0">수업 유형</span>
+                    <span className="text-[12px] font-semibold text-content-secondary flex-shrink-0">유형</span>
                     <EventTypeLegend />
                   </div>
                 </div>
               </div>
 
-              {/* 캘린더 뷰 — UI-125 */}
-              {calendarView === "month" && (
-                <MonthView
-                  events={filteredEvents}
-                  selectedDate={selectedDate}
-                  onEventClick={handleEventClick}
+              {/* FullCalendar */}
+              <div className="bg-surface rounded-xl border border-line shadow-card p-md fc-theme-pando">
+                <style>{`
+                  /* FullCalendar 앱 테마 오버라이드 */
+                  .fc-theme-pando .fc {
+                    --fc-border-color: var(--color-line, #e5e7eb);
+                    --fc-page-bg-color: transparent;
+                    --fc-neutral-bg-color: var(--color-surface-secondary, #f9fafb);
+                    --fc-today-bg-color: rgba(59, 130, 246, 0.04);
+                    --fc-event-border-color: transparent;
+                    font-family: inherit;
+                  }
+                  .fc-theme-pando .fc .fc-toolbar-title {
+                    font-size: 15px;
+                    font-weight: 700;
+                    color: var(--color-content, #111827);
+                  }
+                  .fc-theme-pando .fc .fc-button {
+                    background: var(--color-surface-secondary, #f9fafb);
+                    border: 1px solid var(--color-line, #e5e7eb);
+                    color: var(--color-content-secondary, #6b7280);
+                    font-size: 12px;
+                    font-weight: 600;
+                    padding: 5px 12px;
+                    border-radius: 8px;
+                    text-transform: none;
+                    transition: all 0.15s;
+                    box-shadow: none;
+                  }
+                  .fc-theme-pando .fc .fc-button:hover {
+                    background: var(--color-surface-tertiary, #f3f4f6);
+                    color: var(--color-primary, #3b82f6);
+                    border-color: var(--color-primary, #3b82f6);
+                  }
+                  .fc-theme-pando .fc .fc-button-active,
+                  .fc-theme-pando .fc .fc-button.fc-button-active {
+                    background: var(--color-primary, #3b82f6) !important;
+                    color: white !important;
+                    border-color: var(--color-primary, #3b82f6) !important;
+                    box-shadow: 0 1px 3px rgba(59, 130, 246, 0.3);
+                  }
+                  .fc-theme-pando .fc .fc-button:focus {
+                    box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
+                  }
+                  .fc-theme-pando .fc .fc-button:disabled {
+                    opacity: 0.5;
+                    cursor: not-allowed;
+                  }
+                  .fc-theme-pando .fc .fc-col-header-cell {
+                    padding: 8px 0;
+                    font-size: 12px;
+                    font-weight: 600;
+                    color: var(--color-content-secondary, #6b7280);
+                    background: var(--color-surface-secondary, #f9fafb);
+                  }
+                  .fc-theme-pando .fc .fc-daygrid-day-number {
+                    font-size: 12px;
+                    font-weight: 700;
+                    padding: 6px 8px;
+                    color: var(--color-content, #111827);
+                  }
+                  .fc-theme-pando .fc .fc-day-today .fc-daygrid-day-number {
+                    background: var(--color-primary, #3b82f6);
+                    color: white;
+                    border-radius: 9999px;
+                    width: 24px;
+                    height: 24px;
+                    display: inline-flex;
+                    align-items: center;
+                    justify-content: center;
+                    padding: 0;
+                    margin: 4px;
+                  }
+                  .fc-theme-pando .fc .fc-daygrid-day {
+                    min-height: 96px;
+                    transition: background 0.15s;
+                  }
+                  .fc-theme-pando .fc .fc-daygrid-day:hover {
+                    background: rgba(0,0,0,0.015);
+                  }
+                  .fc-theme-pando .fc .fc-daygrid-day-frame {
+                    cursor: pointer;
+                  }
+                  .fc-theme-pando .fc .fc-event {
+                    border-radius: 4px;
+                    border-left-width: 3px;
+                    border-top: none;
+                    border-bottom: none;
+                    border-right: none;
+                    padding: 1px 2px;
+                    margin-bottom: 1px;
+                    font-size: 11px;
+                    cursor: pointer;
+                    transition: opacity 0.15s;
+                  }
+                  .fc-theme-pando .fc .fc-event:hover {
+                    opacity: 0.8;
+                  }
+                  .fc-theme-pando .fc .fc-timegrid-slot {
+                    height: 48px;
+                    font-size: 11px;
+                  }
+                  .fc-theme-pando .fc .fc-timegrid-slot-label-cushion {
+                    font-size: 11px;
+                    color: var(--color-content-secondary, #6b7280);
+                  }
+                  .fc-theme-pando .fc .fc-timegrid-event {
+                    border-radius: 6px;
+                    border-left-width: 3px;
+                    padding: 2px;
+                  }
+                  .fc-theme-pando .fc .fc-list-event {
+                    cursor: pointer;
+                  }
+                  .fc-theme-pando .fc .fc-list-day-cushion {
+                    font-size: 13px;
+                    font-weight: 700;
+                    background: var(--color-surface-secondary, #f9fafb);
+                  }
+                  .fc-theme-pando .fc .fc-more-link {
+                    font-size: 10px;
+                    color: var(--color-content-secondary, #6b7280);
+                    font-weight: 600;
+                  }
+                  .fc-theme-pando .fc .fc-non-business {
+                    background: var(--color-surface-tertiary, #f3f4f6);
+                    opacity: 0.3;
+                  }
+                  .fc-theme-pando .fc .fc-scrollgrid {
+                    border-radius: 12px;
+                    overflow: hidden;
+                  }
+                  .fc-theme-pando .fc .fc-toolbar {
+                    margin-bottom: 12px;
+                  }
+                  .fc-theme-pando .fc .fc-toolbar .fc-button-group {
+                    gap: 2px;
+                  }
+                  /* 이벤트 드래그 중 시각 피드백 */
+                  .fc-theme-pando .fc .fc-event-dragging {
+                    opacity: 0.7;
+                    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+                  }
+                  .fc-theme-pando .fc .fc-event-resizing {
+                    opacity: 0.7;
+                  }
+                  /* dayMaxEvents more 팝오버 */
+                  .fc-theme-pando .fc .fc-popover {
+                    border-radius: 12px;
+                    border: 1px solid var(--color-line, #e5e7eb);
+                    box-shadow: 0 4px 16px rgba(0,0,0,0.1);
+                  }
+                  .fc-theme-pando .fc .fc-popover-header {
+                    font-size: 12px;
+                    font-weight: 700;
+                    background: var(--color-surface-secondary, #f9fafb);
+                    padding: 8px 12px;
+                  }
+                `}</style>
+                <FullCalendar
+                  ref={calendarRef}
+                  plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin, listPlugin]}
+                  initialView="dayGridMonth"
+                  locale={koLocale}
+                  headerToolbar={{
+                    left: "prev,next today",
+                    center: "title",
+                    right: "dayGridMonth,timeGridWeek,timeGridDay,listWeek",
+                  }}
+                  buttonText={{
+                    today: "오늘",
+                    month: "월",
+                    week: "주",
+                    day: "일",
+                    list: "목록",
+                  }}
+                  events={calendarEvents}
+                  editable={true}
+                  droppable={true}
+                  eventDurationEditable={true}
+                  eventStartEditable={true}
+                  selectable={false}
+                  dateClick={handleDateClick}
+                  eventClick={handleEventClick}
+                  eventDrop={handleEventDrop}
+                  eventResize={handleEventResize}
+                  eventContent={renderEventContent}
+                  businessHours={{
+                    daysOfWeek: [0, 1, 2, 3, 4, 5, 6],
+                    startTime: "06:00",
+                    endTime: "22:00",
+                  }}
+                  slotMinTime="06:00:00"
+                  slotMaxTime="22:00:00"
+                  slotDuration="00:30:00"
+                  slotLabelInterval="01:00"
+                  allDaySlot={false}
+                  nowIndicator={true}
+                  dayMaxEvents={3}
+                  height="auto"
+                  contentHeight={650}
+                  expandRows={true}
+                  stickyHeaderDates={true}
+                  handleWindowResize={true}
+                  eventTimeFormat={{
+                    hour: "2-digit",
+                    minute: "2-digit",
+                    meridiem: false,
+                    hour12: false,
+                  }}
                 />
-              )}
-              {calendarView === "week" && (
-                <WeekView
-                  events={filteredEvents}
-                  selectedDate={selectedDate}
-                  onEventClick={handleEventClick}
-                />
-              )}
-              {calendarView === "day" && (
-                <DayView
-                  events={filteredEvents}
-                  selectedDate={selectedDate}
-                  onEventClick={handleEventClick}
-                />
-              )}
+              </div>
             </>
           )}
 
@@ -1162,6 +1279,7 @@ export default function Calendar() {
           event={selectedEvent}
           onClose={() => setIsDetailModalOpen(false)}
           onEdit={() => { setIsDetailModalOpen(false); setIsAddModalOpen(true); }}
+          onDelete={handleDeleteClass}
         />
       )}
 
@@ -1191,7 +1309,6 @@ export default function Calendar() {
                       value={formTemplate}
                       onChange={e => {
                         setFormTemplate(e.target.value);
-                        // 템플릿 선택 시 수업명 자동 채우기
                         const tpl = CLASS_TYPES.find(t => t.id === e.target.value);
                         if (tpl) {
                           setFormName(tpl.name);
@@ -1293,7 +1410,6 @@ export default function Calendar() {
                     <label className="block text-[12px] font-semibold text-content-secondary mb-sm">반복 설정</label>
                     <div className="p-md bg-surface-secondary rounded-xl space-y-md">
                       <div className="flex flex-wrap gap-xs">
-                        {/* 요일 버튼: 클릭 시 선택/해제 토글 */}
                         {REPEAT_DAYS.map((day, idx) => (
                           <button
                             key={day}
@@ -1395,7 +1511,6 @@ export default function Calendar() {
                 className="px-xl py-sm rounded-lg text-[13px] font-semibold text-content-secondary hover:bg-surface-secondary transition-all"
                 onClick={() => { setIsAddModalOpen(false); resetForm(); setSelectedEvent(null); }}
               >취소</button>
-              {/* 수업 등록 버튼: 폼 데이터 수집 후 로컬 상태에 추가 */}
               <button
                 className="px-xl py-sm rounded-lg bg-primary text-white text-[13px] font-bold shadow-sm hover:opacity-90 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                 onClick={handleAddClass}
