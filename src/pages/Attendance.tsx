@@ -334,7 +334,7 @@ export default function Attendance() {
   const [records, setRecords] = useState<AttendanceRecord[]>([]);
   const [members, setMembers] = useState<MemberOption[]>([]);
   const [loading, setLoading] = useState(true);
-  const [selectedDate, setSelectedDate] = useState("2026-03-11");
+  const [selectedDate, setSelectedDate] = useState(new Date().toISOString().slice(0, 10));
   const [viewMode, setViewMode] = useState<"day" | "week" | "month">("day");
   const [isRealtimeEnabled, setIsRealtimeEnabled] = useState(true);
   const [popups, setPopups] = useState<Array<{ id: number; name: string; status: string; pass: string }>>([]);

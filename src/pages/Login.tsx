@@ -186,7 +186,13 @@ export default function Login() {
                 )}
               >
                 {rememberMe && <Check className="text-white" size={11} strokeWidth={3} />}
-                <input className="hidden" type="checkbox" checked={rememberMe} onChange={() => setRememberMe(!rememberMe)} />
+                <input
+                  className="sr-only"
+                  type="checkbox"
+                  checked={rememberMe}
+                  onChange={() => setRememberMe(!rememberMe)}
+                  aria-label="로그인 유지"
+                />
               </div>
               <span className="text-[13px] text-content-secondary select-none">로그인 유지</span>
             </label>

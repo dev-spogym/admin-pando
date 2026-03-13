@@ -279,6 +279,15 @@ export default function MessageSend() {
   const [isRecipientModalOpen, setIsRecipientModalOpen] = useState(false);
   const [isPreviewModalOpen,   setIsPreviewModalOpen]   = useState(false);
   const [isSending, setIsSending] = useState(false);
+  const [totalMemberCount, setTotalMemberCount] = useState<number | null>(null);
+
+  useEffect(() => {
+    supabase
+      .from("members")
+      .select("id", { count: "exact", head: true })
+      .eq("branch_id", getBranchId())
+      .then(({ count }) => { if (count !== null) setTotalMemberCount(count); });
+  }, []);
 
   // --- 자동 알림 상태 ---
   const [autoAlarms, setAutoAlarms] = useState({
@@ -302,7 +311,7 @@ export default function MessageSend() {
     ? (contentLen > 90 ? 30 : 70)
     : channelCfg.costPerMsg;
   const smsTypeLabel    = sendForm.channel === "sms" ? (contentLen > 90 ? "LMS" : "SMS") : null;
-  const recipientCount  = sendForm.useAllMembers ? 1240 : sendForm.recipients.length;
+  const recipientCount  = sendForm.useAllMembers ? (totalMemberCount ?? 0) : sendForm.recipients.length;
   const totalCost       = recipientCount * effectiveCost;
 
   const removeRecipient = (id: number) => {
@@ -471,7 +480,7 @@ export default function MessageSend() {
                           수신자 선택 <span className="text-error">*</span>
                         </label>
                         <span className="text-Label text-content-secondary">
-                          {sendForm.useAllMembers ? "전체 1,240명" : `${sendForm.recipients.length}명 선택됨`}
+                          {sendForm.useAllMembers ? `전체 ${totalMemberCount !== null ? totalMemberCount.toLocaleString() : "..."}명` : `${sendForm.recipients.length}명 선택됨`}
                         </span>
                       </div>
 

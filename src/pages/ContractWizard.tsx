@@ -63,6 +63,11 @@ const STEPS = [
 export default function ContractWizard() {
   const [step, setStep] = useState(1);
   const [isSaving, setIsSaving] = useState(false);
+  const [dupConfirm, setDupConfirm] = useState<{ open: boolean; message: string; onConfirm: () => void }>({
+    open: false,
+    message: '',
+    onConfirm: () => {},
+  });
   const [selectedMember, setSelectedMember] = useState<any>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedProducts, setSelectedProducts] = useState<any[]>([]);
@@ -227,8 +232,30 @@ export default function ContractWizard() {
     setIsSaving(true);
     setSignatureError('');
 
-    try {
-    // 결제수단 → DB enum 매핑
+    // 중복 결제 확인 (INSERT 전에 먼저 체크)
+    const dupCheck = await checkDuplicatePayment(selectedMember.id, finalPrice);
+    if (dupCheck.isDuplicate) {
+      setIsSaving(false);
+      setDupConfirm({
+        open: true,
+        message: dupCheck.message ?? '',
+        onConfirm: () => {
+          setDupConfirm(prev => ({ ...prev, open: false }));
+          void doInsert();
+        },
+      });
+      return;
+    }
+
+    setIsSaving(false);
+    await doInsert();
+  };
+
+  // 실제 INSERT + 후처리 로직 (중복 확인 후 호출)
+  const doInsert = async () => {
+    if (!selectedMember) return;
+    setIsSaving(true);
+
     const paymentMethodMap: Record<string, string> = {
       card: 'CARD',
       cash: 'CASH',
@@ -237,17 +264,16 @@ export default function ContractWizard() {
     };
 
     const productName = selectedProducts.map((p: { name: string }) => p.name).join(', ');
-
-    // 임시 계약 ID 생성 (timestamp 기반)
     const tempContractId = Date.now();
 
     // 서명 이미지 Storage 업로드
     const [customerSigUrl, managerSigUrl] = await Promise.all([
-      uploadSignature(customerSignatureDataUrl, tempContractId, 'customer'),
-      uploadSignature(managerSignatureDataUrl, tempContractId, 'manager'),
+      uploadSignature(customerSignatureDataUrl ?? '', tempContractId, 'customer'),
+      uploadSignature(managerSignatureDataUrl ?? '', tempContractId, 'manager'),
     ]);
 
     if (!customerSigUrl || !managerSigUrl) {
+      setIsSaving(false);
       return;
     }
 
@@ -268,14 +294,8 @@ export default function ContractWizard() {
 
     if (error) {
       toast.error('계약 저장에 실패했습니다.');
+      setIsSaving(false);
       return;
-    }
-
-    // 중복 결제 확인
-    const dupCheck = await checkDuplicatePayment(selectedMember.id, finalPrice);
-    if (dupCheck.isDuplicate) {
-      const proceed = window.confirm(dupCheck.message + '\n계속 진행하시겠습니까?');
-      if (!proceed) return;
     }
 
     // 계약에 대응하는 매출 레코드도 함께 저장
@@ -316,9 +336,7 @@ export default function ContractWizard() {
 
     toast.success('계약이 완료되었습니다.');
     moveToPage(985, { id: selectedMember.id });
-    } finally {
-      setIsSaving(false);
-    }
+    setIsSaving(false);
   };
 
   const filteredMembers = useMemo(() => {
@@ -957,6 +975,15 @@ export default function ContractWizard() {
         </div>
       </div>
 
+      <ConfirmDialog
+        open={dupConfirm.open}
+        title="중복 결제 감지"
+        description={dupConfirm.message + '\n계속 진행하시겠습니까?'}
+        confirmLabel="진행"
+        cancelLabel="취소"
+        onConfirm={dupConfirm.onConfirm}
+        onCancel={() => setDupConfirm(prev => ({ ...prev, open: false }))}
+      />
     </AppLayout>
   );
 }

@@ -153,6 +153,14 @@ export default function LockerManagement() {
   // UI-092: 일괄 해제
   const [isBulkDialogOpen, setIsBulkDialogOpen] = useState(false);
 
+  // 만료일 입력 (기본값: 오늘 + 3개월)
+  const defaultExpiryDate = (() => {
+    const d = new Date();
+    d.setMonth(d.getMonth() + 3);
+    return d.toISOString().slice(0, 10);
+  })();
+  const [expiryDate, setExpiryDate] = useState(defaultExpiryDate);
+
   // 할당 완료 모달
   const [isAssignSuccess, setIsAssignSuccess] = useState(false);
 
@@ -223,7 +231,7 @@ export default function LockerManagement() {
     if (!canAssign || !selectedMember || !selectedLockerId) return;
     setCurrentLockers(prev => prev.map(l =>
       l.id === selectedLockerId
-        ? { ...l, status: "in_use", userName: selectedMember.name, expiryDate: "2026-06-11" }
+        ? { ...l, status: "in_use", userName: selectedMember.name, expiryDate }
         : l
     ));
     setSelectedMember(null);
@@ -496,6 +504,19 @@ export default function LockerManagement() {
                     : "아래 그리드에서 빈 락커를 선택하세요"
                   }
                 </div>
+              </div>
+
+              {/* 만료일 입력 */}
+              <div className="md:col-span-1">
+                <label className="block text-[12px] font-semibold text-content-secondary mb-sm">
+                  만료일 <span className="text-state-error">*</span>
+                </label>
+                <input
+                  type="date"
+                  className="w-full h-10 px-md rounded-lg bg-surface border border-line text-[13px] focus:border-primary outline-none transition-all"
+                  value={expiryDate}
+                  onChange={e => setExpiryDate(e.target.value)}
+                />
               </div>
 
               {/* UI-091 배정 버튼 */}

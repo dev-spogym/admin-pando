@@ -295,6 +295,8 @@ const AppSidebar: React.FC<AppSidebarProps> = ({
                     ? "bg-primary-light text-primary"
                     : "text-content-secondary hover:bg-surface-tertiary hover:text-content"
                 )}
+                aria-label={collapsed ? item.label : undefined}
+                title={collapsed ? item.label : undefined}
                 onClick={() => {
                   if (item.children) toggleMenu(item.label);
                   else if (item.path) handleNavigate(item.path, item.viewId);
@@ -307,7 +309,9 @@ const AppSidebar: React.FC<AppSidebarProps> = ({
                   )}
                   size={17}
                   strokeWidth={isMenuGroupActive(item) ? 2 : 1.5}
+                  aria-hidden="true"
                 />
+                {collapsed && <span className="sr-only">{item.label}</span>}
                 {!collapsed && (
                   <>
                     <span className="flex-1 text-left truncate">{item.label}</span>

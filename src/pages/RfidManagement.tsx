@@ -100,9 +100,9 @@ const HistoryModal = ({ card, onClose }: { card: RfidCard; onClose: () => void }
 
       <div className="flex-1 overflow-y-auto p-xl">
         <div className="mb-lg flex items-center gap-sm">
-          <input className="rounded-lg border border-line px-md py-xs text-[13px] bg-surface-secondary outline-none focus:border-primary" type="date" defaultValue="2026-02-01" />
+          <input className="rounded-lg border border-line px-md py-xs text-[13px] bg-surface-secondary outline-none focus:border-primary" type="date" defaultValue={new Date().toISOString().slice(0, 10)} />
           <span className="text-content-secondary">~</span>
-          <input className="rounded-lg border border-line px-md py-xs text-[13px] bg-surface-secondary outline-none focus:border-primary" type="date" defaultValue="2026-03-11" />
+          <input className="rounded-lg border border-line px-md py-xs text-[13px] bg-surface-secondary outline-none focus:border-primary" type="date" defaultValue={new Date().toISOString().slice(0, 10)} />
           <button className="flex items-center gap-xs px-md py-xs bg-surface-secondary border border-line text-content-secondary rounded-lg text-[12px] font-semibold hover:bg-surface-tertiary transition-colors">
             <RefreshCcw size={13} /> 조회
           </button>
