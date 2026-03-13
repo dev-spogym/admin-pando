@@ -21,6 +21,7 @@ import { cn } from "@/lib/utils";
 import { moveToPage } from "@/internal";
 
 import AppLayout from "@/components/AppLayout";
+import Modal from "@/components/Modal";
 import PageHeader from "@/components/PageHeader";
 import StatCard from "@/components/StatCard";
 import DataTable from "@/components/DataTable";
@@ -94,10 +95,12 @@ const AttendanceTypeBadge = ({ type }: { type: string }) => {
 
 // --- 수동 출석 등록 모달 ---
 const ManualAttendanceModal = ({
+  isOpen,
   onClose,
   onSubmit,
   members,
 }: {
+  isOpen: boolean;
   onClose: () => void;
   onSubmit: (data: { memberId: number; memberName: string; type: string; time: string }) => void | Promise<void>;
   members: MemberOption[];
@@ -113,94 +116,13 @@ const ManualAttendanceModal = ({
   );
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-md">
-      <div className="bg-surface rounded-xl w-full max-w-[480px] shadow-2xl animate-in fade-in zoom-in duration-200">
-        <div className="px-xl py-lg border-b border-line flex items-center justify-between">
-          <h2 className="text-[16px] font-bold text-content">수동 출석 등록</h2>
-          <button className="p-sm hover:bg-surface-secondary rounded-full transition-colors" onClick={onClose}>
-            <XCircle className="text-content-secondary" size={22} />
-          </button>
-        </div>
-
-        <div className="p-xl space-y-lg">
-          {/* 회원 검색 */}
-          <div>
-            <label className="block text-[12px] font-semibold text-content-secondary mb-sm">
-              회원 검색 <span className="text-state-error">*</span>
-            </label>
-            <div className="relative">
-              <Search className="absolute left-md top-1/2 -translate-y-1/2 text-content-secondary" size={16} />
-              <input
-                className="w-full h-11 rounded-lg bg-surface-secondary border border-line pl-[40px] pr-md text-[13px] focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all"
-                placeholder="회원명 또는 회원번호 검색"
-                value={memberSearch}
-                onChange={e => { setMemberSearch(e.target.value); setSelectedMember(null); }}
-              />
-            </div>
-            {memberSearch && !selectedMember && (
-              <div className="mt-xs bg-surface border border-line rounded-lg shadow-md overflow-hidden max-h-[160px] overflow-y-auto">
-                {filtered.length === 0 ? (
-                  <p className="p-md text-[12px] text-content-secondary text-center">검색 결과 없음</p>
-                ) : filtered.map(m => (
-                  <button
-                    key={m.id}
-                    className="w-full px-md py-sm text-left text-[13px] text-content hover:bg-surface-secondary transition-colors flex items-center justify-between"
-                    onClick={() => { setSelectedMember(m); setMemberSearch(m.name); }}
-                  >
-                    <span className="font-semibold">{m.name}</span>
-                    <span className="text-[11px] text-content-secondary">#{m.id}</span>
-                  </button>
-                ))}
-              </div>
-            )}
-            {selectedMember && (
-              <div className="mt-xs flex items-center gap-sm p-sm bg-state-success/5 rounded-lg border border-state-success/20">
-                <CheckCircle2 size={16} className="text-state-success" />
-                <span className="text-[12px] font-semibold text-state-success">{selectedMember.name} (#{selectedMember.id}) 선택됨</span>
-              </div>
-            )}
-          </div>
-
-          {/* 출석 유형 */}
-          <div>
-            <label className="block text-[12px] font-semibold text-content-secondary mb-sm">
-              출석 유형 <span className="text-state-error">*</span>
-            </label>
-            <div className="grid grid-cols-4 gap-sm">
-              {(["일반", "PT", "GX", "수동"] as const).map(type => {
-                const map = ATTENDANCE_TYPE_MAP[type];
-                const isSelected = attendanceType === type;
-                return (
-                  <button
-                    key={type}
-                    className={cn(
-                      "py-sm rounded-lg text-[12px] font-semibold border-2 transition-all",
-                      isSelected ? `${map.bg} ${map.text} ${map.border}` : "bg-surface-secondary text-content-secondary border-transparent hover:border-line"
-                    )}
-                    onClick={() => setAttendanceType(type)}
-                  >
-                    {type}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-
-          {/* 시간 입력 */}
-          <div>
-            <label className="block text-[12px] font-semibold text-content-secondary mb-sm">
-              출석 시간 <span className="text-state-error">*</span>
-            </label>
-            <input
-              className="w-full h-11 rounded-lg bg-surface-secondary border border-line px-md text-[13px] focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all"
-              type="time"
-              value={time}
-              onChange={e => setTime(e.target.value)}
-            />
-          </div>
-        </div>
-
-        <div className="px-xl py-lg border-t border-line flex items-center justify-end gap-md">
+    <Modal
+      isOpen={isOpen}
+      onClose={onClose}
+      title="수동 출석 등록"
+      size="lg"
+      footer={
+        <div className="flex items-center justify-end gap-md">
           <button
             className="px-xl py-sm rounded-lg text-[13px] font-semibold text-content-secondary hover:bg-surface-secondary transition-all"
             onClick={onClose}
@@ -217,8 +139,86 @@ const ManualAttendanceModal = ({
             }}
           >{isSubmitting ? '등록 중...' : '등록'}</button>
         </div>
+      }
+    >
+      <div className="space-y-lg">
+        {/* 회원 검색 */}
+        <div>
+          <label className="block text-[12px] font-semibold text-content-secondary mb-sm">
+            회원 검색 <span className="text-state-error">*</span>
+          </label>
+          <div className="relative">
+            <Search className="absolute left-md top-1/2 -translate-y-1/2 text-content-secondary" size={16} />
+            <input
+              className="w-full h-11 rounded-lg bg-surface-secondary border border-line pl-[40px] pr-md text-[13px] focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all"
+              placeholder="회원명 또는 회원번호 검색"
+              value={memberSearch}
+              onChange={e => { setMemberSearch(e.target.value); setSelectedMember(null); }}
+            />
+          </div>
+          {memberSearch && !selectedMember && (
+            <div className="mt-xs bg-surface border border-line rounded-lg shadow-md overflow-hidden max-h-[160px] overflow-y-auto">
+              {filtered.length === 0 ? (
+                <p className="p-md text-[12px] text-content-secondary text-center">검색 결과 없음</p>
+              ) : filtered.map(m => (
+                <button
+                  key={m.id}
+                  className="w-full px-md py-sm text-left text-[13px] text-content hover:bg-surface-secondary transition-colors flex items-center justify-between"
+                  onClick={() => { setSelectedMember(m); setMemberSearch(m.name); }}
+                >
+                  <span className="font-semibold">{m.name}</span>
+                  <span className="text-[11px] text-content-secondary">#{m.id}</span>
+                </button>
+              ))}
+            </div>
+          )}
+          {selectedMember && (
+            <div className="mt-xs flex items-center gap-sm p-sm bg-state-success/5 rounded-lg border border-state-success/20">
+              <CheckCircle2 size={16} className="text-state-success" />
+              <span className="text-[12px] font-semibold text-state-success">{selectedMember.name} (#{selectedMember.id}) 선택됨</span>
+            </div>
+          )}
+        </div>
+
+        {/* 출석 유형 */}
+        <div>
+          <label className="block text-[12px] font-semibold text-content-secondary mb-sm">
+            출석 유형 <span className="text-state-error">*</span>
+          </label>
+          <div className="grid grid-cols-4 gap-sm">
+            {(["일반", "PT", "GX", "수동"] as const).map(type => {
+              const map = ATTENDANCE_TYPE_MAP[type];
+              const isSelected = attendanceType === type;
+              return (
+                <button
+                  key={type}
+                  className={cn(
+                    "py-sm rounded-lg text-[12px] font-semibold border-2 transition-all",
+                    isSelected ? `${map.bg} ${map.text} ${map.border}` : "bg-surface-secondary text-content-secondary border-transparent hover:border-line"
+                  )}
+                  onClick={() => setAttendanceType(type)}
+                >
+                  {type}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* 시간 입력 */}
+        <div>
+          <label className="block text-[12px] font-semibold text-content-secondary mb-sm">
+            출석 시간 <span className="text-state-error">*</span>
+          </label>
+          <input
+            className="w-full h-11 rounded-lg bg-surface-secondary border border-line px-md text-[13px] focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all"
+            type="time"
+            value={time}
+            onChange={e => setTime(e.target.value)}
+          />
+        </div>
       </div>
-    </div>
+    </Modal>
   );
 };
 
@@ -838,13 +838,12 @@ export default function Attendance() {
         </div>
       </div>
 
-      {isManualModalOpen && (
-        <ManualAttendanceModal
-          onClose={() => setIsManualModalOpen(false)}
-          onSubmit={handleManualSubmit}
-          members={members}
-        />
-      )}
+      <ManualAttendanceModal
+        isOpen={isManualModalOpen}
+        onClose={() => setIsManualModalOpen(false)}
+        onSubmit={handleManualSubmit}
+        members={members}
+      />
     </AppLayout>
   );
 }

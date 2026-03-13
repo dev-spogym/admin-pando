@@ -58,10 +58,7 @@ const CLASS_TYPES = [
   { id: "T5", name: "그룹 기구필라테스", capacity: 6, room: "기구필라테스룸" },
 ];
 
-const PENALTY_DATA = [
-  { id: 1, memberName: "홍길동", className: "그룹 요가", date: "2026-02-18", type: "노쇼", status: "벌점부여", points: 5 },
-  { id: 2, memberName: "김철수", className: "그룹 필라테스", date: "2026-02-17", type: "당일취소", status: "경고", points: 2 },
-];
+// 페널티 데이터는 DB 테이블 미구현 — 빈 배열로 초기화 (추후 Supabase 연동 시 교체)
 
 type EventType = "PT" | "GX" | "개인레슨" | "기타";
 
@@ -497,6 +494,8 @@ export default function Calendar() {
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedInstructor, setSelectedInstructor] = useState("");
+  // 페널티 데이터 — DB 테이블 미구현, 빈 배열로 초기화 (추후 Supabase 연동 시 교체)
+  const [penaltyData] = useState<{ id: number; memberName: string; className: string; date: string; type: string; status: string; points: number }[]>([]);
 
   // --- 수업 등록 폼 상태 ---
   const [formTemplate, setFormTemplate] = useState("");
@@ -866,7 +865,7 @@ export default function Calendar() {
     { key: "schedule", label: "일정표", icon: CalendarIcon },
     { key: "classes",  label: "수업 관리", count: classManagement.length },
     { key: "counts",   label: "횟수 관리" },
-    { key: "penalty",  label: "페널티 관리", count: PENALTY_DATA.length },
+    { key: "penalty",  label: "페널티 관리", count: penaltyData.length },
     { key: "valid",    label: "유효 수업 목록" },
   ];
 
@@ -1245,7 +1244,7 @@ export default function Calendar() {
                     )
                   },
                 ]}
-                data={PENALTY_DATA}
+                data={penaltyData}
               />
             </div>
           )}
