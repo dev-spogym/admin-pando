@@ -57,16 +57,16 @@ async function main() {
   // ============================================================
   const newUsers = [
     // 슈퍼관리자
-    { username: 'superadmin', password: 'password123', name: '본사관리자', email: 'super@spogym.com', role: 'ADMIN', branchId: 1, tenantId: 1, isSuperAdmin: true },
+    { username: 'superadmin', password: 'qwer1234!!', name: '본사관리자', email: 'super@spogym.com', role: 'ADMIN', branchId: 1, tenantId: 1, isSuperAdmin: true },
     // 서초점 계정
-    { username: 'manager2', password: 'password123', name: '이매니저', email: 'manager2@spogym.com', role: 'MANAGER', branchId: 2, tenantId: 1, isSuperAdmin: false },
-    { username: 'trainer2', password: 'password123', name: '박트레이너', email: 'trainer2@spogym.com', role: 'TRAINER', branchId: 2, tenantId: 1, isSuperAdmin: false },
-    { username: 'staff2', password: 'password123', name: '최프론트', email: 'staff2@spogym.com', role: 'STAFF', branchId: 2, tenantId: 1, isSuperAdmin: false },
+    { username: 'manager2', password: 'qwer1234!!', name: '이매니저', email: 'manager2@spogym.com', role: 'MANAGER', branchId: 2, tenantId: 1, isSuperAdmin: false },
+    { username: 'trainer2', password: 'qwer1234!!', name: '박트레이너', email: 'trainer2@spogym.com', role: 'TRAINER', branchId: 2, tenantId: 1, isSuperAdmin: false },
+    { username: 'staff2', password: 'qwer1234!!', name: '최프론트', email: 'staff2@spogym.com', role: 'STAFF', branchId: 2, tenantId: 1, isSuperAdmin: false },
     // 송파점 계정
-    { username: 'manager3', password: 'password123', name: '박지점장', email: 'manager3@spogym.com', role: 'MANAGER', branchId: 3, tenantId: 1, isSuperAdmin: false },
-    { username: 'trainer3', password: 'password123', name: '정트레이너', email: 'trainer3@spogym.com', role: 'TRAINER', branchId: 3, tenantId: 1, isSuperAdmin: false },
+    { username: 'manager3', password: 'qwer1234!!', name: '박지점장', email: 'manager3@spogym.com', role: 'MANAGER', branchId: 3, tenantId: 1, isSuperAdmin: false },
+    { username: 'trainer3', password: 'qwer1234!!', name: '정트레이너', email: 'trainer3@spogym.com', role: 'TRAINER', branchId: 3, tenantId: 1, isSuperAdmin: false },
     // 강남점 추가
-    { username: 'staff1', password: 'password123', name: '한프론트', email: 'staff1@spogym.com', role: 'STAFF', branchId: 1, tenantId: 1, isSuperAdmin: false },
+    { username: 'staff1', password: 'qwer1234!!', name: '한프론트', email: 'staff1@spogym.com', role: 'STAFF', branchId: 1, tenantId: 1, isSuperAdmin: false },
   ];
 
   for (const u of newUsers) {

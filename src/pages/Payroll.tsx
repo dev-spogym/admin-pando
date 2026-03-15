@@ -79,8 +79,8 @@ export default function Payroll() {
       const [year, month] = selectedMonth.split("-").map(Number);
       const { data, error } = await supabase
         .from("payroll")
-        .select("id, staffId, staffName, year, month, baseSalary, bonus, deduction, netSalary, status, staff(role)")
-        .eq("branchId", getBranchId())
+        .select("id, staffId, staffName, year, month, baseSalary, bonus, deduction, netSalary, status, staff!inner(role, branchId)")
+        .eq("staff.branchId", getBranchId())
         .eq("year", year)
         .eq("month", month);
 

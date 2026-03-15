@@ -125,8 +125,8 @@ export default function PayrollStatement() {
       const [year, month] = selectedMonth.split("-").map(Number);
       const { data, error } = await supabase
         .from("payroll")
-        .select("id, staffId, staffName, year, month, baseSalary, netSalary, status, paymentDate, details, staff(position)")
-        .eq("branchId", getBranchId())
+        .select("id, staffId, staffName, year, month, baseSalary, netSalary, status, paidAt, details, staff!inner(position, branchId)")
+        .eq("staff.branchId", getBranchId())
         .eq("year", year)
         .eq("month", month);
       if (error) {
@@ -143,7 +143,7 @@ export default function PayrollStatement() {
           baseSalary: Number(r.baseSalary ?? 0),
           netSalary: Number(r.netSalary ?? 0),
           status: r.status ?? "pending",
-          paymentDate: r.paymentDate ?? "-",
+          paymentDate: r.paidAt ? new Date(r.paidAt).toLocaleDateString('ko-KR') : "-",
           details: r.details ?? null,
         }));
         setPayrollRecords(mapped);

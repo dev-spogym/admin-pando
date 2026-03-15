@@ -82,7 +82,7 @@ export const SearchFilter = ({
               <div className="relative">
                 <select
                   className="appearance-none pl-3 pr-8 py-[7px] bg-surface border border-line rounded-lg text-[13px] text-content-secondary font-medium focus:outline-none focus:border-primary cursor-pointer min-w-[110px] transition-colors"
-                  value={filter.type === "multiSelect" ? "" : (filterValues[filter.key] ?? "")}
+                  value={filter.type === "multiSelect" ? "" : String(filterValues[filter.key] ?? "")}
                   onChange={(e) => {
                     if (filter.type === "multiSelect") {
                       const currentValues = Array.isArray(filterValues[filter.key]) ? filterValues[filter.key] : [];

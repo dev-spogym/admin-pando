@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
+import { useSearchParams } from "react-router-dom";
 import {
   User,
   Phone,
@@ -102,9 +103,13 @@ interface StaffOption {
 }
 
 export default function MemberForm() {
+  const [searchParams] = useSearchParams();
+  const urlMemberId = searchParams.get('id');
+  const isEditRoute = window.location.pathname.includes("/edit");
+
   const createMember = useCreateMember();
   const [currentStep, setCurrentStep] = useState<"step1" | "step2">("step1");
-  const [isEditMode, setIsEditMode] = useState(false);
+  const [isEditMode, setIsEditMode] = useState(!!isEditRoute && !!urlMemberId);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showCancelDialog, setShowCancelDialog] = useState(false);
   const [showResetDialog, setShowResetDialog] = useState(false);
@@ -179,10 +184,8 @@ export default function MemberForm() {
   }, []);
 
   // ── 수정 모드: URL에서 memberId 추출 후 실제 DB 데이터 로드 ──
-  const urlMemberId = new URLSearchParams(window.location.search).get('id');
   useEffect(() => {
-    if (!window.location.pathname.includes("/edit") || !urlMemberId) return;
-    setIsEditMode(true);
+    if (!isEditRoute || !urlMemberId) return;
     const fetchMember = async () => {
       const { data, error } = await supabase
         .from('members')
@@ -217,7 +220,7 @@ export default function MemberForm() {
       setPhoneChecked(true);
     };
     fetchMember();
-  }, [urlMemberId, reset]);
+  }, [isEditRoute, urlMemberId, reset]);
 
   // ── 핸들러 ──
 

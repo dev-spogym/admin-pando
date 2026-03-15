@@ -65,11 +65,16 @@ export default function Login() {
           }
 
           const { user, accessToken } = res.data;
+          const isSuperAdmin = user.isSuperAdmin ?? false;
           const selectedBranch = branches.find((b) => String(b.id) === selectedBranchId);
 
-          // 선택한 지점 ID를 localStorage에 저장 (각 페이지에서 branchId 조회에 사용)
-          const branchIdToUse = selectedBranchId || String(user.branchId);
-          localStorage.setItem('branchId', branchIdToUse);
+          // 슈퍼관리자는 branchId가 null일 수 있음 — 선택한 지점 또는 빈 문자열 사용
+          const branchIdToUse = isSuperAdmin
+            ? (selectedBranchId || '')
+            : (selectedBranchId || String(user.branchId ?? 1));
+          if (branchIdToUse) {
+            localStorage.setItem('branchId', branchIdToUse);
+          }
 
           // authStore에 사용자 정보 저장
           authLogin(
@@ -79,10 +84,10 @@ export default function Login() {
               email: '',
               role: user.role,
               branchId: branchIdToUse,
-              branchName: selectedBranch?.name ?? '',
+              branchName: isSuperAdmin ? (selectedBranch?.name ?? '전체 지점') : (selectedBranch?.name ?? ''),
               // 멀티테넌트 신규 필드 (DB에 없으면 fallback)
               tenantId: String(user.tenantId ?? 1),
-              isSuperAdmin: user.isSuperAdmin ?? false,
+              isSuperAdmin,
               currentBranchId: user.currentBranchId ? String(user.currentBranchId) : null,
             },
             accessToken,

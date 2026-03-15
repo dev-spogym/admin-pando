@@ -392,7 +392,7 @@ export default function Sales() {
   const filters: FilterOption[] = [
     { key: 'dateRange', label: '날짜 범위', type: 'dateRange' },
     {
-      key: 'type', label: '유형', type: 'select',
+      key: 'type', label: '유형', type: 'multiSelect',
       options: [
         { value: '이용권', label: '이용권' },
         { value: 'PT', label: 'PT' },
@@ -401,7 +401,7 @@ export default function Sales() {
       ]
     },
     {
-      key: 'status', label: '상태', type: 'select',
+      key: 'status', label: '상태', type: 'multiSelect',
       options: [
         { value: '완료', label: '완료' },
         { value: '환불', label: '환불' },
