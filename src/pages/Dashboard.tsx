@@ -26,6 +26,7 @@ import { cn } from "@/lib/utils";
 import { supabase } from "@/lib/supabase";
 import { toast } from "sonner";
 import { runDailySync, getFavoriteVisitsToday } from "@/lib/businessLogic";
+import { useAuthStore } from "@/stores/authStore";
 
 function formatTime(date: Date): string {
   return date.toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit", hour12: false });
@@ -124,6 +125,9 @@ const AGE_COLORS: Record<string, string> = {
 };
 
 export default function Dashboard() {
+  const authUser = useAuthStore((s) => s.user);
+  const branchName = authUser?.branchName || '센터';
+
   const [showBanner, setShowBanner] = useState(true);
   const [lastRefreshed, setLastRefreshed] = useState<Date>(() => new Date());
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -548,7 +552,7 @@ export default function Dashboard() {
       {/* 페이지 헤더 */}
       <PageHeader
         title="대시보드"
-        description="스포짐 종각점의 실시간 센터 운영 현황입니다."
+        description={`${branchName}의 실시간 센터 운영 현황입니다.`}
         actions={
           <div className="flex items-center gap-sm">
             <div className="flex items-center gap-[6px] rounded-lg border border-line bg-surface px-md py-[6px]">
