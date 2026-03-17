@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from "react";
 import AppHeader from "@/components/AppHeader";
 import AppSidebar from "@/components/AppSidebar";
+import RightQuickPanel from "@/components/RightQuickPanel";
 import { cn } from "@/lib/utils";
 import { moveToPage } from "@/internal";
 import { useAuthStore } from "@/stores/authStore";
@@ -138,6 +139,9 @@ const AppLayout = ({ children }: AppLayoutProps) => {
           </div>
         </main>
       </div>
+
+      {/* 우측 퀵패널 — 모바일에서는 숨김 */}
+      {!isMobile && <RightQuickPanel />}
     </div>
   );
 };
