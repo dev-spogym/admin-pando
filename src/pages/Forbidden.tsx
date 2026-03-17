@@ -1,9 +1,15 @@
 import React from 'react';
 import { ShieldX } from 'lucide-react';
 import { moveToPage } from '@/internal';
+import { useAuthStore } from '@/stores/authStore';
+import { normalizeRole, hasPermission } from '@/lib/permissions';
 
 // 403 접근 거부 페이지 - AppLayout 없이 독립 렌더링
 export default function Forbidden() {
+  const authUser = useAuthStore((s) => s.user);
+  const userRole = normalizeRole(authUser?.role ?? '');
+  const canAccessDashboard = hasPermission(authUser?.role ?? '', '/', authUser?.isSuperAdmin);
+
   return (
     <div className="min-h-screen bg-surface flex items-center justify-center px-4">
       <div className="text-center max-w-md w-full">
@@ -24,17 +30,28 @@ export default function Forbidden() {
         <p className="mt-3 text-sm text-content-secondary leading-relaxed">
           이 페이지에 접근할 수 있는 권한이 부족합니다.
           <br />
-          관리자에게 문의하거나 대시보드로 이동해 주세요.
+          {canAccessDashboard
+            ? '관리자에게 문의하거나 대시보드로 이동해 주세요.'
+            : '관리자에게 문의해 주세요.'}
         </p>
 
         {/* 버튼 영역 */}
         <div className="mt-8 flex flex-col sm:flex-row gap-3 justify-center">
-          <button
-            onClick={() => moveToPage(966)}
-            className="px-6 py-2.5 rounded-lg bg-primary text-white text-sm font-medium hover:opacity-90 transition-opacity"
-          >
-            대시보드로 이동
-          </button>
+          {canAccessDashboard ? (
+            <button
+              onClick={() => moveToPage(966)}
+              className="px-6 py-2.5 rounded-lg bg-primary text-white text-sm font-medium hover:opacity-90 transition-opacity"
+            >
+              대시보드로 이동
+            </button>
+          ) : (
+            <button
+              onClick={() => window.location.href = '/payroll/statements'}
+              className="px-6 py-2.5 rounded-lg bg-primary text-white text-sm font-medium hover:opacity-90 transition-opacity"
+            >
+              급여 명세서로 이동
+            </button>
+          )}
           <button
             onClick={() => window.history.back()}
             className="px-6 py-2.5 rounded-lg border border-border text-content text-sm font-medium hover:bg-surface-secondary transition-colors"

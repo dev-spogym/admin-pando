@@ -1595,13 +1595,13 @@ export default function MemberDetail() {
           {dDay !== null && dDay <= 7 && dDay >= 0 && (
             <div className="flex items-center gap-sm px-md py-sm bg-red-50 border border-state-error/20 rounded-lg mb-lg text-[12px] text-state-error">
               <AlertTriangle size={14} />
-              회원권이 D-{dDay} 만료 예정입니다.
+              회원권이 {dDay >= 0 ? `D-${dDay}` : `D+${Math.abs(dDay)}`} 만료 예정입니다.
             </div>
           )}
           {dDay !== null && dDay > 7 && dDay <= 30 && (
             <div className="flex items-center gap-sm px-md py-sm bg-orange-50 border border-orange-200 rounded-lg mb-lg text-[12px] text-orange-600">
               <AlertTriangle size={14} />
-              회원권이 D-{dDay} 만료 예정입니다.
+              회원권이 {dDay >= 0 ? `D-${dDay}` : `D+${Math.abs(dDay)}`} 만료 예정입니다.
             </div>
           )}
 
@@ -1633,7 +1633,7 @@ export default function MemberDetail() {
                 <StatusBadge variant={statusVariant} dot>{statusLabel}</StatusBadge>
                 {dDay !== null && (
                   <span className={cn("text-[12px] px-sm py-[2px] rounded-full font-bold border", getDDayClass(dDay))}>
-                    D-{dDay}
+                    {dDay >= 0 ? `D-${dDay}` : `D+${Math.abs(dDay)}`}
                   </span>
                 )}
               </div>
