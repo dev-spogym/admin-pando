@@ -20,6 +20,8 @@ import StatusBadge from "@/components/StatusBadge";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/lib/supabase";
 import { exportToExcel } from "@/lib/exportExcel";
+import { useAuthStore } from "@/stores/authStore";
+import { normalizeRole } from "@/lib/permissions";
 
 const getBranchId = (): number => {
   const stored = localStorage.getItem('branchId');
@@ -84,6 +86,10 @@ function getRecentMonths() {
 }
 
 export default function PayrollStatement() {
+  const authUser = useAuthStore((s) => s.user);
+  const userRole = normalizeRole(authUser?.role ?? '');
+  const isReadonly = userRole === 'readonly';
+
   const MONTHS = useMemo(() => getRecentMonths(), []);
   const [staffList, setStaffList] = useState<StaffItem[]>([]);
   const [payrollRecords, setPayrollRecords] = useState<PayrollRecord[]>([]);
@@ -94,14 +100,21 @@ export default function PayrollStatement() {
   const [modalStatement, setModalStatement] = useState<StatementDetail | null>(null);
   const [modalStaffName, setModalStaffName] = useState("");
 
-  // 직원 목록 로드
+  // 직원 목록 로드 (readonly는 본인만)
   useEffect(() => {
     async function fetchStaff() {
-      const { data, error } = await supabase
+      let query = supabase
         .from("staff")
         .select("id, name, position")
         .eq("branchId", getBranchId())
         .order("name");
+
+      // readonly 사용자는 본인 이름으로 필터
+      if (isReadonly && authUser?.name) {
+        query = query.eq("name", authUser.name);
+      }
+
+      const { data, error } = await query;
       if (error) {
         console.error("직원 목록 로드 실패:", error);
         toast.error("직원 목록을 불러오지 못했습니다.");
@@ -116,7 +129,7 @@ export default function PayrollStatement() {
       }
     }
     fetchStaff();
-  }, []);
+  }, [isReadonly, authUser?.name]);
 
   // 급여 데이터 로드 (월 변경 시)
   useEffect(() => {
@@ -312,13 +325,17 @@ export default function PayrollStatement() {
             <h3 className="text-Body-1 font-bold text-content">명세서 조회</h3>
 
             <div className="grid grid-cols-2 gap-md">
-              {/* 직원 선택 */}
+              {/* 직원 선택 — readonly는 본인만 조회 가능 */}
               <div className="space-y-xs">
                 <label className="text-Label font-semibold text-content-secondary">직원 선택</label>
                 <select
                   value={selectedStaffId}
                   onChange={e => setSelectedStaffId(e.target.value)}
-                  className="w-full px-md py-sm bg-surface-secondary border border-line rounded-button text-Body-2 outline-none focus:border-primary cursor-pointer"
+                  disabled={isReadonly}
+                  className={cn(
+                    "w-full px-md py-sm bg-surface-secondary border border-line rounded-button text-Body-2 outline-none focus:border-primary",
+                    isReadonly ? "opacity-60 cursor-not-allowed" : "cursor-pointer"
+                  )}
                 >
                   {staffList.map(s => (
                     <option key={s.id} value={String(s.id)}>{s.name}</option>

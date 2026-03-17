@@ -13,10 +13,12 @@ datasource db {
 
 enum Role {
   ADMIN
+  OWNER
   MANAGER
   TRAINER
   STAFF
   RECEPTIONIST
+  READONLY
 }
 
 enum Gender {

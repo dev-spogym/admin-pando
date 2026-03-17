@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useCallback } from "react";
 import {
   Calendar as CalendarIcon,
   Search,
@@ -341,6 +341,10 @@ export default function Attendance() {
   const [popups, setPopups] = useState<Array<{ id: number; name: string; status: string; pass: string }>>([]);
   const [isManualModalOpen, setIsManualModalOpen] = useState(false);
 
+  // 검색/필터 상태 (BUG-09: SearchFilter 실제 필터링 연결)
+  const [searchValue, setSearchValue] = useState("");
+  const [filterValues, setFilterValues] = useState<Record<string, string>>({});
+
   const branchId = Number(localStorage.getItem("branchId") ?? 1);
 
   useEffect(() => {
@@ -543,6 +547,33 @@ export default function Attendance() {
   const todayTotal     = todayRecords.filter(r => r.status === "성공").length;
   const todayPT        = todayRecords.filter(r => r.attendanceType === "PT").length;
   const todayGX        = todayRecords.filter(r => r.attendanceType === "GX").length;
+
+  // BUG-09: SearchFilter 필터링 적용된 레코드
+  const filteredTodayRecords = useMemo(() => {
+    return todayRecords.filter(r => {
+      // 출석유형 필터
+      if (filterValues.attendanceType && r.attendanceType !== filterValues.attendanceType) return false;
+      // 체크인방식 필터
+      if (filterValues.checkInMethod && r.checkInMethod !== filterValues.checkInMethod) return false;
+      // 검색어 필터 (회원명 또는 연락처)
+      if (searchValue) {
+        const keyword = searchValue.trim();
+        const matchName = r.memberName.includes(keyword);
+        const matchTel  = r.tel.includes(keyword);
+        if (!matchName && !matchTel) return false;
+      }
+      return true;
+    });
+  }, [todayRecords, filterValues, searchValue]);
+
+  // UX-10: StatCard "오늘 출석" 라벨 — 선택 날짜 기준 동적 표시
+  const todayLabel = useMemo(() => {
+    const today = new Date().toISOString().slice(0, 10);
+    if (selectedDate === today) return "오늘 출석";
+    // MM/DD 형식으로 날짜 표시
+    const [, mm, dd] = selectedDate.split("-");
+    return `${mm}/${dd} 출석`;
+  }, [selectedDate]);
   // 신규 방문: 해당 날짜에 처음 출석한 회원 수 (같은 memberId가 이전 기록에 없는 경우)
   const todayNew = (() => {
     const todayIds = new Set(todayRecords.map(r => r.memberId));
@@ -718,7 +749,8 @@ export default function Attendance() {
           <>
             {/* 상단 통계 카드 4개 — SCR-020 */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-lg">
-              <StatCard label="오늘 출석" value={`${todayTotal}건`} icon={<Users />} description="성공 체크인 건수" />
+              {/* UX-10: 선택 날짜 기준으로 동적 라벨 표시 */}
+              <StatCard label={todayLabel} value={`${todayTotal}건`} icon={<Users />} description="성공 체크인 건수" />
               <StatCard label="PT 수업" value={`${todayPT}건`} variant="mint" icon={<CheckCircle2 />} description="PT 출석 건수" />
               <StatCard label="GX 수업" value={`${todayGX}건`} variant="peach" icon={<MapPin />} description="GX 수업 출석" />
               <StatCard label="신규 방문" value={`${todayNew}명`} icon={<User />} description="첫 방문 회원 수" />
@@ -737,9 +769,16 @@ export default function Attendance() {
               </div>
             </div>
 
-            {/* 검색/필터 */}
+            {/* 검색/필터 (BUG-09: onSearchChange, onFilterChange, onReset 연결) */}
             <SearchFilter
               searchPlaceholder="회원명, 연락처 검색"
+              searchValue={searchValue}
+              onSearchChange={setSearchValue}
+              onSearch={setSearchValue}
+              filterValues={filterValues}
+              onFilterChange={(key, value) => setFilterValues(prev => ({ ...prev, [key]: value }))}
+              onReset={() => { setSearchValue(""); setFilterValues({}); }}
+              onRemoveFilter={(key) => setFilterValues(prev => { const next = { ...prev }; delete next[key]; return next; })}
               filters={[
                 {
                   key: "attendanceType", label: "출석유형", type: "select",
@@ -760,12 +799,12 @@ export default function Attendance() {
               ]}
             />
 
-            {/* 출석 테이블 — UI-124 */}
+            {/* 출석 테이블 — UI-124 (BUG-09: 필터링된 데이터 사용) */}
             <DataTable
               columns={columns}
-              data={todayRecords}
+              data={filteredTodayRecords}
               title="출석 이력 목록"
-              pagination={{ page: 1, pageSize: 10, total: todayRecords.length }}
+              pagination={{ page: 1, pageSize: 10, total: filteredTodayRecords.length }}
               selectable
               onDownloadExcel={() => {
                 const exportColumns = [
@@ -778,8 +817,8 @@ export default function Attendance() {
                   { key: 'presence', header: '재실여부' },
                   { key: 'tel', header: '연락처' },
                 ];
-                exportToExcel(todayRecords as unknown as Record<string, unknown>[], exportColumns, { filename: '출석내역' });
-                toast.success(`${todayRecords.length}건 엑셀 다운로드 완료`);
+                exportToExcel(filteredTodayRecords as unknown as Record<string, unknown>[], exportColumns, { filename: '출석내역' });
+                toast.success(`${filteredTodayRecords.length}건 엑셀 다운로드 완료`);
               }}
             />
           </>
