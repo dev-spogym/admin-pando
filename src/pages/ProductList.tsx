@@ -13,6 +13,8 @@ import {
   ArrowUpDown,
 } from 'lucide-react';
 import AppLayout from '@/components/AppLayout';
+import { useAuthStore } from '@/stores/authStore';
+import { hasFeature } from '@/lib/permissions';
 import PageHeader from '@/components/PageHeader';
 import DataTable from '@/components/DataTable';
 import StatCard from '@/components/StatCard';
@@ -57,6 +59,9 @@ type SortKey = 'name' | 'price' | 'category' | null;
 type SortDir = 'asc' | 'desc';
 
 export default function ProductList() {
+  const authUser = useAuthStore((s) => s.user);
+  const canEditProduct = hasFeature(authUser?.role ?? '', 'productEdit', authUser?.isSuperAdmin);
+
   const [activeTab, setActiveTab] = useState('all');
   const [searchValue, setSearchValue] = useState('');
   const [filterValues, setFilterValues] = useState<{ status: string }>({ status: '' });
@@ -203,7 +208,7 @@ export default function ProductList() {
       header: '',
       width: '80px',
       align: 'center' as const,
-      render: (_: unknown, row: Product) => (
+      render: (_: unknown, row: Product) => canEditProduct ? (
         <div className="flex items-center justify-center gap-xs">
           <button
             className="p-xs text-content-tertiary hover:text-accent transition-colors"
@@ -220,7 +225,7 @@ export default function ProductList() {
             <Trash2 size={15} />
           </button>
         </div>
-      ),
+      ) : null,
     },
   ];
 
@@ -255,7 +260,7 @@ export default function ProductList() {
       <PageHeader
         title="상품 관리"
         description="센터에서 판매하는 이용권, PT, GX 및 기타 상품을 관리합니다."
-        actions={
+        actions={canEditProduct ? (
           <button
             onClick={() => moveToPage(997)}
             className="flex items-center gap-xs px-md py-sm bg-primary text-surface rounded-button text-[13px] font-bold shadow-sm hover:bg-primary-dark transition-colors"
@@ -263,7 +268,7 @@ export default function ProductList() {
             <Plus size={16} />
             상품 등록
           </button>
-        }
+        ) : undefined}
       />
 
       {/* 통계 요약 */}
