@@ -64,7 +64,9 @@ interface BranchStats {
 // ─── 지점 상태 배지 ────────────────────────────────────────────────────────
 
 function BranchStatusBadge({ status }: { status: string }) {
-  if (status === 'CLOSED') {
+  const s = status?.toLowerCase?.() ?? '';
+  // 폐점: CLOSED, closed, 폐점
+  if (s === 'closed' || status === '폐점') {
     return (
       <span className="inline-flex items-center gap-[4px] rounded-full bg-red-50 px-[8px] py-[3px] text-[11px] font-medium text-red-600">
         <span className="h-1.5 w-1.5 rounded-full bg-red-500" />
@@ -72,7 +74,8 @@ function BranchStatusBadge({ status }: { status: string }) {
       </span>
     );
   }
-  if (status === 'SUSPENDED') {
+  // 휴업: SUSPENDED, suspended, inactive, 임시휴업
+  if (s === 'suspended' || s === 'inactive' || status === '임시휴업') {
     return (
       <span className="inline-flex items-center gap-[4px] rounded-full bg-amber-50 px-[8px] py-[3px] text-[11px] font-medium text-amber-600">
         <span className="h-1.5 w-1.5 rounded-full bg-amber-500" />
@@ -80,6 +83,7 @@ function BranchStatusBadge({ status }: { status: string }) {
       </span>
     );
   }
+  // 운영중: ACTIVE, active, 운영중 또는 기타
   return (
     <span className="inline-flex items-center gap-[4px] rounded-full bg-green-50 px-[8px] py-[3px] text-[11px] font-medium text-green-600">
       <span className="h-1.5 w-1.5 rounded-full bg-green-500" />
