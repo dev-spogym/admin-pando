@@ -83,6 +83,7 @@ export const ROUTE_PERMISSIONS: Record<string, UserRole[]> = {
   '/locker/management': ['primary', 'owner'],
   '/rfid': ['primary', 'owner', 'staff'],
   '/rooms': ['primary', 'owner', 'manager'],
+  '/clothing': ['primary', 'owner', 'manager', 'staff'],
 
   // 급여
   '/payroll': ['primary', 'owner'],

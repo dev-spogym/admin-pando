@@ -30,6 +30,7 @@ interface Product {
   cardPrice: number;
   period: string;
   count: string;
+  productType: string | null;
   kiosk: boolean;
   stock: number | null;
 }
@@ -40,6 +41,14 @@ const CATEGORY_KO: Record<string, string> = {
   '이용권': '이용권', '기타': '기타',
 };
 const toCategoryKo = (cat: string) => CATEGORY_KO[cat] ?? cat;
+
+// 상품 타입 배지 색상 매핑
+const PRODUCT_TYPE_BADGE: Record<string, { label: string; className: string }> = {
+  MEMBERSHIP: { label: '회원권', className: 'bg-blue-100 text-blue-700' },
+  LESSON:     { label: '수강권', className: 'bg-green-100 text-green-700' },
+  RENTAL:     { label: '대여권', className: 'bg-orange-100 text-orange-700' },
+  GENERAL:    { label: '일반',   className: 'bg-gray-100 text-gray-600' },
+};
 
 const CATEGORY_TABS = [
   { key: '이용권', label: '이용권' },
@@ -75,20 +84,24 @@ const ProductCard = ({
           : 'border-line hover:border-primary hover:shadow-md cursor-pointer'
       )}
     >
-      {/* 재고 배지 */}
-      {product.stock !== null && (
-        <div className="mb-xs">
-          {isOutOfStock && (
-            <StatusBadge variant="error" dot>품절</StatusBadge>
-          )}
-          {isLowStock && (
-            <StatusBadge variant="warning" dot>재고 부족 ({product.stock}개)</StatusBadge>
-          )}
-          {!isOutOfStock && !isLowStock && (
-            <StatusBadge variant="success" dot>재고 {product.stock}개</StatusBadge>
-          )}
-        </div>
-      )}
+      {/* 상품 타입 배지 + 재고 배지 */}
+      <div className="flex items-center gap-xs mb-xs flex-wrap">
+        {product.productType && PRODUCT_TYPE_BADGE[product.productType] && (
+          <span className={cn(
+            'text-[10px] font-bold px-xs py-[1px] rounded-full',
+            PRODUCT_TYPE_BADGE[product.productType].className
+          )}>
+            {PRODUCT_TYPE_BADGE[product.productType].label}
+          </span>
+        )}
+        {product.stock !== null && (
+          <>
+            {isOutOfStock && <StatusBadge variant="error" dot>품절</StatusBadge>}
+            {isLowStock && <StatusBadge variant="warning" dot>재고 부족 ({product.stock}개)</StatusBadge>}
+            {!isOutOfStock && !isLowStock && <StatusBadge variant="success" dot>재고 {product.stock}개</StatusBadge>}
+          </>
+        )}
+      </div>
 
       <h4 className="text-[14px] font-semibold text-content mb-xs line-clamp-1">{product.name}</h4>
 
@@ -150,11 +163,13 @@ export default function SalesPos() {
             id: p.id as number,
             name: p.name as string,
             category: toCategoryKo(p.category as string),
-            cashPrice: Number(p.price ?? 0),
-            cardPrice: Number(p.price ?? 0),
+            // DB의 cashPrice/cardPrice를 우선 사용, 없으면 price로 폴백
+            cashPrice: Number(p.cashPrice ?? p.price ?? 0),
+            cardPrice: Number(p.cardPrice ?? p.price ?? 0),
             period: p.duration ? String(p.duration) : '-',
             count: p.sessions ? String(p.sessions) : '-',
-            kiosk: false,
+            productType: (p.productType as string) ?? null,
+            kiosk: Boolean(p.kioskVisible ?? false),
             stock: null,
           }))
         );

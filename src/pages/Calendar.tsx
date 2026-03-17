@@ -12,6 +12,9 @@ import {
   AlertTriangle,
   Lock,
   Filter,
+  ChevronLeft,
+  ChevronRight,
+  BookOpen,
 } from "lucide-react";
 import AppLayout from "@/components/AppLayout";
 import PageHeader from "@/components/PageHeader";
@@ -98,6 +101,38 @@ interface ClassManagement {
   room: string;
   schedule: string;
   status: string;
+}
+
+// --- lessons 테이블 타입 ---
+interface Lesson {
+  id: number;
+  branchId: number;
+  name: string;
+  type: string;
+  instructorId: number | null;
+  instructorName: string | null;
+  capacity: number;
+  duration: number;
+  color: string | null;
+  isActive: boolean;
+}
+
+// --- lesson_schedules 테이블 타입 ---
+interface LessonSchedule {
+  id: number;
+  lessonId: number;
+  branchId: number;
+  instructorId: number | null;
+  startAt: string;
+  endAt: string;
+  currentCount: number;
+  capacity: number;
+  status: string;
+  memo: string | null;
+  // join
+  lessonName?: string;
+  instructorName?: string;
+  lessonColor?: string | null;
 }
 
 // --- 수업 유형별 CSS 색상 (FullCalendar 이벤트용 hex) ---
@@ -494,6 +529,14 @@ export default function Calendar() {
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedInstructor, setSelectedInstructor] = useState("");
+  // 추가 필터 상태 (BROJ 스타일)
+  const [selectedLessonFilter, setSelectedLessonFilter] = useState("");
+  const [capacityFilter, setCapacityFilter] = useState<"전체" | "여유" | "마감">("전체");
+  // 우측 패널 선택 날짜
+  const [selectedDate, setSelectedDate] = useState<string>(() => {
+    const today = new Date();
+    return `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
+  });
   // 페널티 데이터 — DB 테이블 미구현, 빈 배열로 초기화 (추후 Supabase 연동 시 교체)
   const [penaltyData] = useState<{ id: number; memberName: string; className: string; date: string; type: string; status: string; points: number }[]>([]);
 
@@ -527,6 +570,9 @@ export default function Calendar() {
   const [events, setEvents] = useState<ScheduleEvent[]>([]);
   const [classManagement, setClassManagement] = useState<ClassManagement[]>([]);
   const [loading, setLoading] = useState(true);
+  // lessons/lesson_schedules 관련 상태
+  const [lessons, setLessons] = useState<Lesson[]>([]);
+  const [lessonSchedules, setLessonSchedules] = useState<LessonSchedule[]>([]);
 
   const branchId = Number(localStorage.getItem("branchId") ?? 1);
 
@@ -580,6 +626,44 @@ export default function Calendar() {
           status: c.status ?? "진행중",
         })));
       }
+      // lessons 테이블에서 유효 수업 목록 조회
+      const { data: lessonsData } = await supabase
+        .from("lessons")
+        .select("*")
+        .eq("branchId", branchId)
+        .eq("isActive", true);
+
+      if (lessonsData) {
+        setLessons(lessonsData as Lesson[]);
+      }
+
+      // lesson_schedules 테이블에서 수업 일정 조회 (lessons 조인)
+      const { data: scheduleData } = await supabase
+        .from("lesson_schedules")
+        .select(`
+          *,
+          lessons (name, color)
+        `)
+        .eq("branchId", branchId);
+
+      if (scheduleData) {
+        const mapped: LessonSchedule[] = scheduleData.map((s: any) => ({
+          id: s.id,
+          lessonId: s.lessonId,
+          branchId: s.branchId,
+          instructorId: s.instructorId,
+          startAt: s.startAt,
+          endAt: s.endAt,
+          currentCount: s.currentCount ?? 0,
+          capacity: s.capacity ?? 0,
+          status: s.status ?? "예약가능",
+          memo: s.memo ?? null,
+          lessonName: s.lessons?.name ?? "",
+          instructorName: s.instructorName ?? "",
+          lessonColor: s.lessons?.color ?? null,
+        }));
+        setLessonSchedules(mapped);
+      }
     } catch (err) {
       console.error("Calendar 데이터 로드 실패:", err);
       toast.error("데이터를 불러오는 데 실패했습니다.");
@@ -594,15 +678,67 @@ export default function Calendar() {
 
   // 선택된 트레이너 필터 + 로컬 추가 이벤트 합산
   const allEvents = useMemo(() => [...events, ...localEvents], [events, localEvents]);
-  const filteredEvents = useMemo(
-    () => selectedInstructor ? allEvents.filter(e => e.instructorId === selectedInstructor) : allEvents,
-    [allEvents, selectedInstructor]
-  );
+  const filteredEvents = useMemo(() => {
+    let result = allEvents;
+    if (selectedInstructor) result = result.filter(e => e.instructorId === selectedInstructor);
+    if (selectedLessonFilter) result = result.filter(e => e.title === selectedLessonFilter);
+    if (capacityFilter === "여유") result = result.filter(e => e.currentCount < e.capacity);
+    if (capacityFilter === "마감") result = result.filter(e => e.currentCount >= e.capacity);
+    return result;
+  }, [allEvents, selectedInstructor, selectedLessonFilter, capacityFilter]);
 
-  // --- FullCalendar 이벤트 변환 (메모이즈) ---
+  // lesson_schedules → FullCalendar 이벤트 변환
+  const lessonScheduleEvents = useMemo(() => {
+    return lessonSchedules.map(s => {
+      // lessons 색상 사용, 없으면 기본 primary 색
+      const color = s.lessonColor ?? "#3b82f6";
+      const isFull = s.currentCount >= s.capacity;
+      // 강사 필터 적용
+      if (selectedInstructor && String(s.instructorId) !== selectedInstructor) return null;
+      // 수업명 필터 적용
+      if (selectedLessonFilter && s.lessonName !== selectedLessonFilter) return null;
+      // 정원 필터 적용
+      if (capacityFilter === "여유" && isFull) return null;
+      if (capacityFilter === "마감" && !isFull) return null;
+      return {
+        id: `ls-${s.id}`,
+        title: s.lessonName ?? "수업",
+        start: s.startAt,
+        end: s.endAt,
+        backgroundColor: isFull ? "#fee2e2" : "#eff6ff",
+        borderColor: color,
+        textColor: isFull ? "#dc2626" : "#1d4ed8",
+        extendedProps: {
+          instructor: s.instructorName ?? "",
+          instructorId: String(s.instructorId ?? ""),
+          room: "",
+          capacity: s.capacity,
+          currentCount: s.currentCount,
+          status: s.status,
+          type: "GX" as const,
+          lessonColor: color,
+          isLessonSchedule: true,
+          scheduleId: s.id,
+        },
+      };
+    }).filter((e): e is NonNullable<typeof e> => e !== null);
+  }, [lessonSchedules, selectedInstructor, selectedLessonFilter, capacityFilter]);
+
+  // 선택 날짜의 lesson_schedules 리스트 (우측 패널용)
+  const selectedDateSchedules = useMemo(() => {
+    return lessonSchedules.filter(s => {
+      const dateStr = s.startAt?.split("T")[0];
+      return dateStr === selectedDate;
+    });
+  }, [lessonSchedules, selectedDate]);
+
+  // --- FullCalendar 이벤트 변환 (메모이즈) — classes + lesson_schedules 합산 ---
   const calendarEvents = useMemo(
-    () => filteredEvents.map(toFullCalendarEvent),
-    [filteredEvents]
+    () => [
+      ...filteredEvents.map(toFullCalendarEvent),
+      ...lessonScheduleEvents,
+    ],
+    [filteredEvents, lessonScheduleEvents]
   );
 
   // --- ScheduleEvent 조회 헬퍼 ---
@@ -620,15 +756,18 @@ export default function Calendar() {
     }
   }, [findScheduleEvent]);
 
-  // --- 빈 날짜/시간 클릭 → 수업 등록 모달 (날짜/시간 사전 입력) ---
+  // --- 빈 날짜/시간 클릭 → 수업 등록 모달 (날짜/시간 사전 입력) + 우측 패널 날짜 선택 ---
   const handleDateClick = useCallback((info: DateClickArg) => {
-    setSelectedEvent(null);
-    resetForm();
-
     const clickedDate = info.date;
     const dateStr = clickedDate.getFullYear() +
       "-" + String(clickedDate.getMonth() + 1).padStart(2, "0") +
       "-" + String(clickedDate.getDate()).padStart(2, "0");
+
+    // 우측 패널 날짜 업데이트
+    setSelectedDate(dateStr);
+
+    setSelectedEvent(null);
+    resetForm();
     setFormDate(dateStr);
 
     // 시간 뷰에서 클릭 시 시간도 사전 입력
@@ -910,9 +1049,10 @@ export default function Calendar() {
         <div className="space-y-lg">
           {activeTab === "schedule" && (
             <>
-              {/* 필터 바 */}
+              {/* 필터 바 (BROJ 스타일) */}
               <div className="flex flex-col md:flex-row md:items-center justify-between gap-md bg-surface p-md rounded-xl border border-line shadow-xs">
-                <div className="flex items-center gap-md">
+                <div className="flex flex-wrap items-center gap-md">
+                  {/* 강사 필터 */}
                   <select
                     className="h-9 rounded-lg bg-surface-secondary border border-line px-md text-[13px] text-content outline-none focus:border-primary transition-colors"
                     value={selectedInstructor}
@@ -923,6 +1063,35 @@ export default function Calendar() {
                       <option key={i.id} value={i.id}>{i.name} ({i.type})</option>
                     ))}
                   </select>
+                  {/* 수업명 필터 */}
+                  <select
+                    className="h-9 rounded-lg bg-surface-secondary border border-line px-md text-[13px] text-content outline-none focus:border-primary transition-colors"
+                    value={selectedLessonFilter}
+                    onChange={e => setSelectedLessonFilter(e.target.value)}
+                  >
+                    <option value="">전체 수업</option>
+                    {lessons.map(l => (
+                      <option key={l.id} value={l.name}>{l.name}</option>
+                    ))}
+                  </select>
+                  {/* 정원 상태 필터 */}
+                  <div className="flex items-center gap-xs">
+                    {(["전체", "여유", "마감"] as const).map(opt => (
+                      <button
+                        key={opt}
+                        type="button"
+                        onClick={() => setCapacityFilter(opt)}
+                        className={cn(
+                          "h-9 px-md rounded-lg text-[12px] font-semibold border transition-colors",
+                          capacityFilter === opt
+                            ? "bg-primary text-white border-primary"
+                            : "bg-surface-secondary text-content-secondary border-line hover:border-primary hover:text-primary"
+                        )}
+                      >
+                        {opt}
+                      </button>
+                    ))}
+                  </div>
                 </div>
                 {/* 범례 */}
                 <div className="flex flex-col md:flex-row md:items-center gap-md">
@@ -938,8 +1107,10 @@ export default function Calendar() {
                 </div>
               </div>
 
-              {/* FullCalendar */}
-              <div className="bg-surface rounded-xl border border-line shadow-card p-md fc-theme-pando">
+              {/* 캘린더 + 우측 패널 레이아웃 */}
+              <div className="flex gap-lg items-start">
+                {/* FullCalendar (좌) */}
+                <div className="flex-1 min-w-0 bg-surface rounded-xl border border-line shadow-card p-md fc-theme-pando">
                 <style>{`
                   /* FullCalendar 앱 테마 오버라이드 */
                   .fc-theme-pando .fc {
@@ -1150,6 +1321,108 @@ export default function Calendar() {
                   }}
                 />
               </div>
+
+                {/* 우측 패널: 선택 날짜 수업 일정 리스트 */}
+                <div className="w-[280px] flex-shrink-0 bg-surface rounded-xl border border-line shadow-xs overflow-hidden">
+                  {/* 날짜 선택 헤더 */}
+                  <div className="px-md py-sm bg-surface-secondary border-b border-line flex items-center justify-between">
+                    <button
+                      type="button"
+                      className="p-xs hover:bg-surface-tertiary rounded transition-colors"
+                      onClick={() => {
+                        const d = new Date(selectedDate);
+                        d.setDate(d.getDate() - 1);
+                        setSelectedDate(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`);
+                      }}
+                    >
+                      <ChevronLeft size={14} className="text-content-secondary" />
+                    </button>
+                    <span className="text-[13px] font-bold text-content">
+                      {new Date(selectedDate + "T00:00:00").toLocaleDateString("ko-KR", { month: "long", day: "numeric", weekday: "short" })}
+                    </span>
+                    <button
+                      type="button"
+                      className="p-xs hover:bg-surface-tertiary rounded transition-colors"
+                      onClick={() => {
+                        const d = new Date(selectedDate);
+                        d.setDate(d.getDate() + 1);
+                        setSelectedDate(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`);
+                      }}
+                    >
+                      <ChevronRight size={14} className="text-content-secondary" />
+                    </button>
+                  </div>
+                  {/* 일정 수 요약 */}
+                  <div className="px-md py-xs border-b border-line bg-surface flex items-center justify-between">
+                    <span className="text-[11px] text-content-secondary">조회 일정</span>
+                    <span className="text-[12px] font-bold text-primary">{selectedDateSchedules.length}건</span>
+                  </div>
+                  {/* 일정 리스트 */}
+                  <div className="divide-y divide-line max-h-[600px] overflow-y-auto">
+                    {selectedDateSchedules.length === 0 ? (
+                      <div className="flex flex-col items-center justify-center py-xl text-center">
+                        <BookOpen size={28} className="text-content-secondary mb-sm opacity-40" />
+                        <p className="text-[12px] text-content-secondary">해당 날짜에 수업이 없습니다.</p>
+                      </div>
+                    ) : (
+                      selectedDateSchedules.map(s => {
+                        const isFull = s.currentCount >= s.capacity;
+                        const color = s.lessonColor ?? "#3b82f6";
+                        return (
+                          <div key={s.id} className="px-md py-sm hover:bg-surface-secondary transition-colors">
+                            <div className="flex items-start justify-between gap-xs mb-xs">
+                              <div className="flex items-center gap-xs min-w-0">
+                                <div
+                                  className="w-2 h-2 rounded-full flex-shrink-0 mt-[3px]"
+                                  style={{ backgroundColor: color }}
+                                />
+                                <span className="text-[13px] font-semibold text-content truncate">{s.lessonName}</span>
+                              </div>
+                              <span
+                                className={cn(
+                                  "text-[10px] font-bold px-xs py-[1px] rounded-full flex-shrink-0",
+                                  isFull
+                                    ? "bg-state-error/10 text-state-error"
+                                    : "bg-state-success/10 text-state-success"
+                                )}
+                              >
+                                {isFull ? "마감" : "여유"}
+                              </span>
+                            </div>
+                            <div className="flex items-center gap-xs text-[11px] text-content-secondary mb-[2px]">
+                              <Clock size={10} />
+                              <span>
+                                {new Date(s.startAt).toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit" })}
+                                {" ~ "}
+                                {new Date(s.endAt).toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit" })}
+                              </span>
+                            </div>
+                            {s.instructorName && (
+                              <div className="flex items-center gap-xs text-[11px] text-content-secondary mb-[2px]">
+                                <Users size={10} />
+                                <span>{s.instructorName}</span>
+                              </div>
+                            )}
+                            <div className="flex items-center gap-xs text-[11px]">
+                              <Users size={10} className="text-content-secondary" />
+                              <span className={cn("font-semibold", isFull ? "text-state-error" : "text-content-secondary")}>
+                                {s.currentCount}/{s.capacity}명
+                              </span>
+                              {/* 정원 바 */}
+                              <div className="flex-1 h-1 bg-surface-tertiary rounded-full overflow-hidden">
+                                <div
+                                  className={cn("h-full rounded-full", isFull ? "bg-state-error" : "bg-state-success")}
+                                  style={{ width: `${Math.min((s.currentCount / s.capacity) * 100, 100)}%` }}
+                                />
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })
+                    )}
+                  </div>
+                </div>
+              </div>
             </>
           )}
 
@@ -1250,24 +1523,78 @@ export default function Calendar() {
           )}
 
           {activeTab === "valid" && (
-            <DataTable
-              columns={[
-                { key: "title",        header: "수업명",   sortable: true },
-                { key: "instructor",   header: "강사" },
-                { key: "start",        header: "시작 시간", sortable: true, render: (val: string) => val.split("T")[1]?.substring(0, 5) },
-                { key: "room",         header: "장소" },
-                { key: "capacity",     header: "정원",     align: "center" as const },
-                { key: "currentCount", header: "예약 인원", align: "center" as const },
-                {
-                  key: "status", header: "상태",
-                  render: (val: string) => (
-                    <StatusBadge variant={val === "예약" ? "info" : "success"} label={val} />
-                  )
-                },
-              ]}
-              data={allEvents}
-              title="오늘의 유효 수업 목록"
-            />
+            <div className="space-y-md">
+              <div className="flex items-center justify-between">
+                <h3 className="text-[15px] font-bold text-content">
+                  유효 수업 목록
+                  <span className="ml-sm text-[13px] font-normal text-content-secondary">({lessons.length}개)</span>
+                </h3>
+              </div>
+              {lessons.length === 0 ? (
+                <div className="bg-surface rounded-xl border border-line p-xxl text-center shadow-xs">
+                  <div className="w-16 h-16 bg-surface-tertiary rounded-full flex items-center justify-center mx-auto mb-lg">
+                    <BookOpen size={32} className="text-content-secondary" />
+                  </div>
+                  <h3 className="text-[15px] font-bold text-content mb-xs">등록된 유효 수업이 없습니다</h3>
+                  <p className="text-[13px] text-content-secondary">수업 관리 페이지에서 수업을 등록해주세요.</p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-md">
+                  {lessons.map(lesson => {
+                    const color = lesson.color ?? "#3b82f6";
+                    return (
+                      <div
+                        key={lesson.id}
+                        className="bg-surface rounded-xl border border-line shadow-xs hover:shadow-card transition-shadow overflow-hidden"
+                      >
+                        {/* 색상 헤더 바 */}
+                        <div className="h-1.5" style={{ backgroundColor: color }} />
+                        <div className="p-md space-y-sm">
+                          <div className="flex items-start justify-between gap-xs">
+                            <h4 className="text-[14px] font-bold text-content leading-tight">{lesson.name}</h4>
+                            <span
+                              className="text-[10px] font-semibold px-xs py-[2px] rounded-full flex-shrink-0"
+                              style={{ backgroundColor: color + "20", color }}
+                            >
+                              {lesson.type}
+                            </span>
+                          </div>
+                          <div className="space-y-xs text-[12px] text-content-secondary">
+                            {lesson.instructorName && (
+                              <div className="flex items-center gap-xs">
+                                <Users size={12} className="flex-shrink-0" />
+                                <span>{lesson.instructorName}</span>
+                              </div>
+                            )}
+                            <div className="flex items-center gap-xs">
+                              <Users size={12} className="flex-shrink-0" />
+                              <span>정원 {lesson.capacity}명</span>
+                            </div>
+                            {lesson.duration > 0 && (
+                              <div className="flex items-center gap-xs">
+                                <Clock size={12} className="flex-shrink-0" />
+                                <span>{lesson.duration}분</span>
+                              </div>
+                            )}
+                          </div>
+                          <div className="pt-xs border-t border-line flex items-center justify-between">
+                            <span className="text-[11px] font-semibold text-state-success flex items-center gap-xs">
+                              <span className="w-1.5 h-1.5 rounded-full bg-state-success inline-block" />
+                              활성
+                            </span>
+                            <div
+                              className="w-4 h-4 rounded-full border-2 border-white shadow-sm"
+                              style={{ backgroundColor: color }}
+                              title="수업 색상"
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
           )}
         </div>
       )}

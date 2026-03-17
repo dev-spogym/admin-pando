@@ -64,6 +64,7 @@ const PenaltyManagement = React.lazy(() => import('@/pages/PenaltyManagement'));
 const RefundManagement = React.lazy(() => import('@/pages/RefundManagement'));
 const UnpaidManagement = React.lazy(() => import('@/pages/UnpaidManagement'));
 const SalesStats = React.lazy(() => import('@/pages/SalesStats'));
+const ClothingManagement = React.lazy(() => import('@/pages/ClothingManagement'));
 
 export default function App() {
   const navigate = useNavigate();
@@ -148,6 +149,9 @@ export default function App() {
       <Route path="/lessons" element={<PrivateRoute><LessonManagement /></PrivateRoute>} />
       <Route path="/lesson-counts" element={<PrivateRoute><LessonCounts /></PrivateRoute>} />
       <Route path="/penalties" element={<PrivateRoute><PenaltyManagement /></PrivateRoute>} />
+
+      {/* 운동복 관리 (BROJ CRM) */}
+      <Route path="/clothing" element={<PrivateRoute><ClothingManagement /></PrivateRoute>} />
 
       {/* 매출 확장 (BROJ CRM) */}
       <Route path="/refunds" element={<PrivateRoute><RefundManagement /></PrivateRoute>} />

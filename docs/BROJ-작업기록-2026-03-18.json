@@ -61,7 +61,8 @@
     {
       "phase": 2,
       "name": "회원 상세 업그레이드 + UX 개선",
-      "status": "IN_PROGRESS",
+      "status": "COMPLETED",
+      "completedAt": "2026-03-18T01:00:00Z",
       "items": [
         {
           "task": "회원 상세 페이지 탐색 (Chrome Extension)",
@@ -83,14 +84,14 @@
         },
         {
           "task": "MemberDetail.tsx 업그레이드 (9탭)",
-          "status": "IN_PROGRESS",
-          "agent": "member-detail-upgrade",
+          "status": "DONE",
+          "files": ["MemberDetail.tsx", "member/TabPaymentDetail.tsx", "member/TabReservation.tsx", "member/TabDetailHistory.tsx"],
           "description": "결제내역/예약내역/상세내역(홀딩/연장/양도) 탭 추가, 프로필 필드 추가, 액션 버튼"
         },
         {
           "task": "기존 페이지 UX 개선",
-          "status": "IN_PROGRESS",
-          "agent": "ux-improvement",
+          "status": "DONE",
+          "files": ["MemberList.tsx", "Attendance.tsx", "Locker.tsx"],
           "description": "MemberList(만료숨기기/벌크상태변경), Attendance(성공실패통계), Locker(기록/이동/회수/고장)"
         }
       ]
@@ -112,9 +113,10 @@
   ],
   "commits": [
     { "hash": "ffc2183", "message": "슈퍼관리자 QA: 5탭 테스트 + 버그 4건 수정", "pushed": true },
-    { "hash": "7f43185", "message": "BROJ CRM 기능 이식: 17개 신규 파일 + DB 마이그레이션", "pushed": true }
+    { "hash": "7f43185", "message": "BROJ CRM 기능 이식: 17개 신규 파일 + DB 마이그레이션", "pushed": true },
+    { "hash": "dcf5fe5", "message": "BROJ CRM Phase 2: 회원상세 9탭 업그레이드 + 기존 페이지 UX 개선", "pushed": true }
   ],
-  "totalNewFiles": 17,
-  "totalNewTables": 14,
-  "totalLinesAdded": 4647
+  "totalNewFiles": 23,
+  "totalNewTables": 18,
+  "totalLinesAdded": 6620
 }
