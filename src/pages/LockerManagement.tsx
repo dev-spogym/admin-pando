@@ -9,6 +9,7 @@ import {
   Trash2,
   AlertTriangle,
   MoveRight,
+  Plus,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { moveToPage } from "@/internal";
@@ -152,6 +153,57 @@ export default function LockerManagement() {
 
   // UI-092: 일괄 해제
   const [isBulkDialogOpen, setIsBulkDialogOpen] = useState(false);
+
+  // 락커 추가 모달 상태
+  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [newLockerNumber, setNewLockerNumber] = useState('');
+  const [newLockerZone, setNewLockerZone] = useState<'A' | 'B' | 'C'>('A');
+  const [isAddingSaving, setIsAddingSaving] = useState(false);
+
+  /** 락커 추가 핸들러 — DB insert 시도, 실패 시 로컬 상태에만 추가 */
+  const handleAddLocker = async () => {
+    const trimmed = newLockerNumber.trim();
+    if (!trimmed) { toast.warning('락커 번호를 입력해주세요.'); return; }
+    setIsAddingSaving(true);
+    try {
+      const { error } = await supabase.from('lockers').insert({
+        number: trimmed,
+        zone: newLockerZone,
+        status: 'AVAILABLE',
+        branchId: getBranchId(),
+      });
+      if (error) {
+        // lockers 테이블이 없거나 insert 실패 시 로컬 상태에만 추가
+        const newLocker: Locker = {
+          id: `${activeTab}-local-${Date.now()}`,
+          number: trimmed,
+          type: activeTab,
+          status: 'available',
+          userName: null,
+          expiryDate: null,
+        };
+        setCurrentLockers(prev => [...prev, newLocker].sort((a, b) => Number(a.number) - Number(b.number)));
+        toast.success(`락커 ${trimmed}번이 추가되었습니다. (로컬)`);
+      } else {
+        toast.success(`락커 ${trimmed}번이 추가되었습니다.`);
+        fetchLockers();
+      }
+    } catch {
+      toast.error('락커 추가 중 오류가 발생했습니다.');
+    } finally {
+      setIsAddingSaving(false);
+      setIsAddModalOpen(false);
+      setNewLockerNumber('');
+      setNewLockerZone('A');
+    }
+  };
+
+  /** 모달 열 때 자동 번호 생성 (현재 탭 최대 번호 + 1) */
+  const openAddModal = () => {
+    const maxNum = currentLockers.reduce((max, l) => Math.max(max, Number(l.number) || 0), 0);
+    setNewLockerNumber(String(maxNum + 1));
+    setIsAddModalOpen(true);
+  };
 
   // 만료일 입력 (기본값: 오늘 + 3개월)
   const defaultExpiryDate = (() => {
@@ -343,6 +395,12 @@ export default function LockerManagement() {
         description="시설 내 일일, 개인, 골프 사물함의 이용 현황을 실시간으로 관리합니다."
         actions={
           <div className="flex items-center gap-sm">
+            <button
+              className="flex items-center gap-xs px-md py-sm rounded-lg bg-primary text-white hover:opacity-90 transition-opacity text-[13px] font-semibold"
+              onClick={openAddModal}
+            >
+              <Plus size={15} /> 락커 추가
+            </button>
             <button
               className="flex items-center gap-xs px-md py-sm rounded-lg border border-line bg-surface text-content-secondary hover:text-primary transition-colors text-[13px] font-semibold"
               onClick={() => moveToPage(979)}
@@ -631,6 +689,74 @@ export default function LockerManagement() {
           </div>
         </div>
       </div>
+
+      {/* 락커 추가 모달 */}
+      {isAddModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+          <div className="bg-surface rounded-2xl shadow-xl w-full max-w-sm mx-md p-xl">
+            <h2 className="text-[16px] font-bold text-content mb-lg">락커 추가</h2>
+            <div className="space-y-md">
+              {/* 락커 번호 */}
+              <div>
+                <label className="block text-[12px] font-semibold text-content-secondary mb-xs">
+                  락커 번호 <span className="text-state-error">*</span>
+                </label>
+                <input
+                  className="w-full h-10 px-md rounded-lg bg-surface border border-line text-[13px] focus:border-primary outline-none transition-all"
+                  placeholder="예: 101"
+                  value={newLockerNumber}
+                  onChange={e => setNewLockerNumber(e.target.value)}
+                  autoFocus
+                />
+              </div>
+              {/* 구역 선택 */}
+              <div>
+                <label className="block text-[12px] font-semibold text-content-secondary mb-xs">구역</label>
+                <div className="flex gap-sm">
+                  {(['A', 'B', 'C'] as const).map(zone => (
+                    <button
+                      key={zone}
+                      type="button"
+                      className={cn(
+                        "flex-1 h-10 rounded-lg border text-[13px] font-semibold transition-all",
+                        newLockerZone === zone
+                          ? "bg-primary text-white border-primary"
+                          : "bg-surface border-line text-content-secondary hover:border-primary hover:text-primary"
+                      )}
+                      onClick={() => setNewLockerZone(zone)}
+                    >
+                      {zone} 구역
+                    </button>
+                  ))}
+                </div>
+              </div>
+              {/* 상태 — 항상 빈 락커 */}
+              <div>
+                <label className="block text-[12px] font-semibold text-content-secondary mb-xs">초기 상태</label>
+                <div className="h-10 rounded-lg border border-line bg-surface-secondary flex items-center px-md text-[13px] text-content-secondary">
+                  빈 락커 (사용 가능)
+                </div>
+              </div>
+            </div>
+            <div className="flex gap-sm mt-xl">
+              <button
+                className="flex-1 h-10 rounded-lg border border-line text-[13px] text-content-secondary hover:bg-surface-tertiary transition-colors"
+                onClick={() => { setIsAddModalOpen(false); setNewLockerNumber(''); setNewLockerZone('A'); }}
+                disabled={isAddingSaving}
+              >
+                취소
+              </button>
+              <button
+                className="flex-1 h-10 rounded-lg bg-primary text-white text-[13px] font-semibold hover:opacity-90 transition-opacity disabled:opacity-50"
+                onClick={handleAddLocker}
+                disabled={isAddingSaving}
+              >
+                {isAddingSaving ? '추가 중...' : '추가'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* UI-092 일괄 해제 확인 모달 */}
       <ConfirmDialog

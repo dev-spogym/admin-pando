@@ -105,6 +105,7 @@ export default function MemberList() {
     return () => { if (debounceTimer.current) clearTimeout(debounceTimer.current); };
   }, [searchValue]);
 
+  // 회원 전체 탭 컬럼
   const columns = useMemo(() => [
     {
       key: 'status', header: '상태', width: 90, align: 'center' as const,
@@ -134,6 +135,84 @@ export default function MemberList() {
     },
     {
       key: 'registeredAt', header: '등록일', width: 110, sortable: true,
+      render: (v: unknown) => <span className="tabular-nums">{v ? String(v).slice(0, 10) : '-'}</span>,
+    },
+  ], []);
+
+  // 이용권 탭 컬럼 (pass): 회원명, 이용권, 시작일, 만료일, D-Day, 상태
+  const passColumns = useMemo(() => [
+    {
+      key: 'name', header: '회원명', width: 110,
+      render: (value: unknown, row: Member) => (
+        <button className="text-primary font-medium hover:underline transition-all text-[13px]" onClick={() => moveToPage(985, { id: row.id })}>{String(value)}</button>
+      ),
+    },
+    { key: 'membershipType', header: '이용권', width: 120, render: (v: unknown) => {
+      const map: Record<string, string> = { MEMBERSHIP: '이용권', PT: 'PT', GX: 'GX', ETC: '기타', '이용권': '이용권', '기타': '기타' };
+      return map[String(v)] ?? String(v);
+    }},
+    {
+      key: 'registeredAt', header: '시작일', width: 110,
+      render: (v: unknown) => <span className="tabular-nums">{v ? String(v).slice(0, 10) : '-'}</span>,
+    },
+    {
+      key: 'membershipExpiry', header: '만료일', width: 110, sortable: true,
+      render: (v: unknown) => <span className="tabular-nums">{v ? String(v).slice(0, 10) : '-'}</span>,
+    },
+    {
+      key: 'membershipExpiry', header: 'D-Day', width: 80, align: 'center' as const,
+      render: (v: unknown) => {
+        if (!v) return <span className="text-content-secondary">-</span>;
+        const diff = Math.ceil((new Date(String(v)).getTime() - Date.now()) / 86400000);
+        if (diff < 0) return <span className="text-state-error text-[12px] font-semibold">만료</span>;
+        if (diff === 0) return <span className="text-state-warning text-[12px] font-semibold">D-Day</span>;
+        return <span className={cn('text-[12px] font-semibold tabular-nums', diff <= 7 ? 'text-state-warning' : 'text-content')}>{`D-${diff}`}</span>;
+      },
+    },
+    {
+      key: 'status', header: '상태', width: 90, align: 'center' as const,
+      render: (_: unknown, row: Member) => (
+        <StatusBadge label={STATUS_LABEL[row.status] ?? row.status} variant={STATUS_VARIANT[row.status] ?? 'default'} dot />
+      ),
+    },
+  ], []);
+
+  // 상품별 탭: membershipType 기준으로 그룹핑하여 요약 카드 + 테이블
+  const productGroups = useMemo(() => {
+    const map: Record<string, Member[]> = {};
+    members.forEach((m) => {
+      const key = m.membershipType || 'ETC';
+      if (!map[key]) map[key] = [];
+      map[key].push(m);
+    });
+    return map;
+  }, [members]);
+
+  const MEMBERSHIP_TYPE_LABEL: Record<string, string> = {
+    MEMBERSHIP: '이용권', PT: 'PT', GX: 'GX', ETC: '기타', '이용권': '이용권', '기타': '기타',
+  };
+
+  // 상품별 탭 테이블 컬럼 (membershipType 기준 정렬)
+  const productColumns = useMemo(() => [
+    {
+      key: 'membershipType', header: '상품', width: 100,
+      render: (v: unknown) => MEMBERSHIP_TYPE_LABEL[String(v)] ?? String(v),
+    },
+    {
+      key: 'name', header: '회원명', width: 110,
+      render: (value: unknown, row: Member) => (
+        <button className="text-primary font-medium hover:underline transition-all text-[13px]" onClick={() => moveToPage(985, { id: row.id })}>{String(value)}</button>
+      ),
+    },
+    {
+      key: 'status', header: '상태', width: 90, align: 'center' as const,
+      render: (_: unknown, row: Member) => (
+        <StatusBadge label={STATUS_LABEL[row.status] ?? row.status} variant={STATUS_VARIANT[row.status] ?? 'default'} dot />
+      ),
+    },
+    { key: 'phone', header: '연락처', width: 130, render: (v: unknown) => <span className="tabular-nums">{String(v)}</span> },
+    {
+      key: 'membershipExpiry', header: '만료일', width: 110, sortable: true,
       render: (v: unknown) => <span className="tabular-nums">{v ? String(v).slice(0, 10) : '-'}</span>,
     },
   ], []);
@@ -276,8 +355,61 @@ export default function MemberList() {
         <TabNav tabs={MAIN_TABS} activeTab={activeMainTab} onTabChange={setActiveMainTab} />
       </div>
 
-      {/* 테이블 영역 */}
-      <div className="bg-surface rounded-xl border border-line overflow-hidden">
+      {/* 상품별 탭: 요약 카드 + 테이블 */}
+      {activeMainTab === 'product' && (
+        <div className="space-y-lg">
+          {/* 상품별 회원 수 요약 카드 */}
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-md">
+            {Object.entries(productGroups).map(([type, list]) => (
+              <div key={type} className="bg-surface border border-line rounded-xl p-md flex flex-col gap-xs">
+                <span className="text-[12px] font-semibold text-content-secondary">{MEMBERSHIP_TYPE_LABEL[type] ?? type}</span>
+                <span className="text-[22px] font-bold text-content tabular-nums">{list.length.toLocaleString()}<span className="text-[13px] font-normal text-content-secondary ml-xs">명</span></span>
+                <span className="text-[11px] text-content-secondary">
+                  활성 {list.filter(m => m.status === 'ACTIVE').length}명
+                </span>
+              </div>
+            ))}
+          </div>
+          {/* membershipType 기준 정렬 테이블 */}
+          <div className="bg-surface rounded-xl border border-line overflow-hidden">
+            <DataTable
+              columns={productColumns}
+              data={[...members].sort((a, b) => (a.membershipType ?? '').localeCompare(b.membershipType ?? ''))}
+              selectable
+              selectedRows={selectedRows}
+              onSelectRows={setSelectedRows}
+              onSort={handleSort}
+              sortConfig={sortKey ? { key: sortKey, direction: sortDirection } : undefined}
+              pagination={{ page: currentPage, pageSize, total: pagination?.total ?? 0, pageSizeOptions: [20, 50, 100] }}
+              onPageChange={setCurrentPage}
+              onPageSizeChange={(s) => { setPageSize(s); setCurrentPage(1); }}
+              emptyMessage={membersQuery.isLoading ? "불러오는 중..." : "등록된 회원이 없습니다."}
+            />
+          </div>
+        </div>
+      )}
+
+      {/* 이용권 목록 탭 */}
+      {activeMainTab === 'pass' && (
+        <div className="bg-surface rounded-xl border border-line overflow-hidden">
+          <DataTable
+            columns={passColumns}
+            data={members}
+            selectable
+            selectedRows={selectedRows}
+            onSelectRows={setSelectedRows}
+            onSort={handleSort}
+            sortConfig={sortKey ? { key: sortKey, direction: sortDirection } : undefined}
+            pagination={{ page: currentPage, pageSize, total: pagination?.total ?? 0, pageSizeOptions: [20, 50, 100] }}
+            onPageChange={setCurrentPage}
+            onPageSizeChange={(s) => { setPageSize(s); setCurrentPage(1); }}
+            emptyMessage={membersQuery.isLoading ? "불러오는 중..." : "등록된 회원이 없습니다."}
+          />
+        </div>
+      )}
+
+      {/* 회원 전체 탭 */}
+      {activeMainTab === 'members' && <div className="bg-surface rounded-xl border border-line overflow-hidden">
         {/* 상태 필터 탭 */}
         <div className="px-lg pt-md border-b border-line">
           <div className="relative">
@@ -364,7 +496,7 @@ export default function MemberList() {
           onPageSizeChange={(s) => { setPageSize(s); setCurrentPage(1); }}
           emptyMessage={membersQuery.isLoading ? "불러오는 중..." : debouncedSearch ? "검색 결과가 없습니다." : "등록된 회원이 없습니다."}
         />
-      </div>
+      </div>}
       {/* 상태 변경 모달 */}
       <Modal
         isOpen={showStatusModal}

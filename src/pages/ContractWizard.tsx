@@ -395,12 +395,21 @@ export default function ContractWizard() {
           { key: 'phone', header: '연락처', width: 160 },
           {
             key: 'status', header: '상태', width: 100,
-            render: v => (
-              <StatusBadge
-                variant={v === 'active' ? 'success' : v === 'hold' ? 'warning' : 'error'}
-                label={v === 'active' ? '정상' : v === 'hold' ? '홀딩' : '만료'}
-              />
-            )
+            render: v => {
+              // 실제 회원 status 값(ACTIVE/EXPIRED/HOLDING/INACTIVE/SUSPENDED)에 따라 배지 표시
+              const statusMap: Record<string, { label: string; variant: 'success' | 'warning' | 'error' | 'default' }> = {
+                ACTIVE:    { label: '활성',   variant: 'success' },
+                active:    { label: '활성',   variant: 'success' },
+                EXPIRED:   { label: '만료',   variant: 'error' },
+                expired:   { label: '만료',   variant: 'error' },
+                HOLDING:   { label: '홀딩',   variant: 'warning' },
+                hold:      { label: '홀딩',   variant: 'warning' },
+                INACTIVE:  { label: '미등록', variant: 'default' },
+                SUSPENDED: { label: '정지',   variant: 'warning' },
+              };
+              const info = statusMap[String(v)] ?? { label: String(v), variant: 'default' as const };
+              return <StatusBadge variant={info.variant} label={info.label} />;
+            }
           },
           { key: 'membership', header: '보유 상품' },
           {
