@@ -2,6 +2,8 @@ import React, { useState, useEffect } from "react";
 import { toast } from "sonner";
 import { useSearchParams } from "react-router-dom";
 import { startHolding, endHolding } from "@/lib/businessLogic";
+import { useAuthStore } from "@/stores/authStore";
+import { hasFeature, hasPermission } from "@/lib/permissions";
 import {
   User,
   Phone,
@@ -1356,6 +1358,10 @@ function LessonModal({
 // ────────────────────────────────────────────────────────────
 
 export default function MemberDetail() {
+  const authUser = useAuthStore((s) => s.user);
+  const canDelete = hasFeature(authUser?.role ?? '', 'memberDelete', authUser?.isSuperAdmin);
+  const canEdit = hasPermission(authUser?.role ?? '', '/members/edit', authUser?.isSuperAdmin);
+
   const [searchParams, setSearchParams] = useSearchParams();
   const activeTab = searchParams.get("tab") || "info";
   const memberId = searchParams.get("id");
@@ -1666,13 +1672,15 @@ export default function MemberDetail() {
                   <CheckCircle2 size={15} />
                   수동 출석
                 </button>
-                <button
-                  className="flex items-center gap-xs px-md py-sm bg-surface-secondary text-content rounded-button font-semibold text-[13px] border border-line hover:bg-surface-tertiary transition-all"
-                  onClick={() => moveToPage(987, { id: memberId ?? '' })}
-                >
-                  <Edit size={15} />
-                  수정
-                </button>
+                {canEdit && (
+                  <button
+                    className="flex items-center gap-xs px-md py-sm bg-surface-secondary text-content rounded-button font-semibold text-[13px] border border-line hover:bg-surface-tertiary transition-all"
+                    onClick={() => moveToPage(987, { id: memberId ?? '' })}
+                  >
+                    <Edit size={15} />
+                    수정
+                  </button>
+                )}
                 <button
                   className="flex items-center gap-xs px-md py-sm bg-accent-light text-accent rounded-button font-semibold text-[13px] hover:bg-accent hover:text-white transition-all"
                   onClick={() => moveToPage(971)}
@@ -1796,18 +1804,20 @@ export default function MemberDetail() {
         </div>
       </div>
 
-      {/* 위험 구역 - 회원 삭제 */}
-      <div className="mx-lg mt-lg mb-lg p-lg bg-red-50 border border-state-error/20 rounded-xl">
-        <h3 className="text-[14px] font-bold text-state-error mb-xs">위험 구역</h3>
-        <p className="text-[12px] text-content-secondary mb-md">이 작업은 되돌릴 수 없습니다. 회원의 상태가 비활성으로 변경되며 목록에서 제외됩니다.</p>
-        <button
-          className="flex items-center gap-xs px-md py-sm border border-state-error/40 text-state-error rounded-button font-semibold text-[13px] hover:bg-state-error hover:text-white transition-all"
-          onClick={() => setIsDeleteDialogOpen(true)}
-        >
-          <Trash2 size={15} />
-          회원 삭제
-        </button>
-      </div>
+      {/* 위험 구역 - 회원 삭제 (primary/owner만) */}
+      {canDelete && (
+        <div className="mx-lg mt-lg mb-lg p-lg bg-red-50 border border-state-error/20 rounded-xl">
+          <h3 className="text-[14px] font-bold text-state-error mb-xs">위험 구역</h3>
+          <p className="text-[12px] text-content-secondary mb-md">이 작업은 되돌릴 수 없습니다. 회원의 상태가 비활성으로 변경되며 목록에서 제외됩니다.</p>
+          <button
+            className="flex items-center gap-xs px-md py-sm border border-state-error/40 text-state-error rounded-button font-semibold text-[13px] hover:bg-state-error hover:text-white transition-all"
+            onClick={() => setIsDeleteDialogOpen(true)}
+          >
+            <Trash2 size={15} />
+            회원 삭제
+          </button>
+        </div>
+      )}
 
       {/* 홀딩 모달 */}
       {isHoldingModalOpen && (

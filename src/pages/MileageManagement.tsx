@@ -242,16 +242,30 @@ export default function MileageManagement() {
         const mapped = data.map((m: any) => ({
           id: m.id,
           name: m.name,
-          contact: m.phone,
+          // □ 등 폰트 미지원 특수문자를 * 로 교체 (BUG-12 수정)
+          contact: (m.phone ?? '').replace(/\u25a1/g, '*').replace(/[^\d\-+\s*]/g, (ch: string) => {
+            // ASCII 범위(0x20~0x7E) 밖의 특수문자는 모두 * 로 치환
+            return ch.codePointAt(0)! < 0x20 || ch.codePointAt(0)! > 0x7e ? '*' : ch;
+          }),
           earned: m.mileage ?? 0,
           used: 0,
+          // 잔여 마일리지 = 적립 - 사용 (현재 used는 0이므로 mileage와 동일)
           balance: m.mileage ?? 0,
           lastEarnedAt: '-',
           expiryDate: '-',
         }));
         setMembers(mapped);
+
+        // BUG-11 수정: 전체 발행/사용/잔여 마일리지를 회원 데이터 기반으로 집계
+        const totalIssued = mapped.reduce((sum: number, m: any) => sum + m.earned, 0);
+        const totalUsed = mapped.reduce((sum: number, m: any) => sum + m.used, 0);
         const totalBalance = mapped.reduce((sum: number, m: any) => sum + m.balance, 0);
-        setSummary(prev => ({ ...prev, currentBalance: totalBalance }));
+        setSummary(prev => ({
+          ...prev,
+          totalIssued,
+          totalUsed,
+          currentBalance: totalBalance,
+        }));
       }
       setIsLoading(false);
     };
@@ -295,8 +309,8 @@ export default function MileageManagement() {
       key: 'contact',
       header: '연락처',
       render: (val: string) => (
-        <div className="flex items-center gap-xs text-content-secondary">
-          <Smartphone size={14} />
+        <div className="flex items-center gap-xs text-content-secondary whitespace-nowrap">
+          <Smartphone size={14} className="flex-shrink-0" />
           <span>{val}</span>
         </div>
       )

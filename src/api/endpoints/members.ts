@@ -99,6 +99,7 @@ export interface MemberListParams extends PaginationParams {
   status?: string;
   gender?: string;
   staffId?: string;
+  product?: string;
   sortKey?: string;
   sortDirection?: 'asc' | 'desc';
 }
@@ -129,6 +130,11 @@ export const getMembers = async (
   // 성별 필터
   if (params?.gender && params.gender !== 'all') {
     query = query.eq('gender', params.gender === 'male' ? 'M' : 'F');
+  }
+
+  // 계약상품(이용권) 필터
+  if (params?.product && params.product !== 'all') {
+    query = query.ilike('membershipType', `%${params.product}%`);
   }
 
   // 담당FC 필터

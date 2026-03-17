@@ -17,6 +17,7 @@ import {
 import { toast } from "sonner";
 import { moveToPage } from "@/internal";
 import { useAuthStore } from "@/stores/authStore";
+import { normalizeRole, hasPermission } from "@/lib/permissions";
 import { supabase } from "@/lib/supabase";
 import { changePassword } from "@/api/endpoints/auth";
 
@@ -504,14 +505,16 @@ const AppHeader = ({
           )}
         </div>
 
-        {/* 회원 등록 버튼 */}
-        <button
-          className="ml-sm h-8 rounded-lg bg-primary px-md flex items-center gap-xs text-[13px] font-semibold text-white hover:bg-primary-dark active:scale-[0.97] transition-all"
-          onClick={() => moveToPage(986)}
-        >
-          <Plus size={16} />
-          <span>회원등록</span>
-        </button>
+        {/* 회원 등록 버튼 — /members/new 접근 권한이 있는 역할만 표시 */}
+        {hasPermission(authUser?.role ?? '', '/members/new', authUser?.isSuperAdmin) && (
+          <button
+            className="ml-sm h-8 rounded-lg bg-primary px-md flex items-center gap-xs text-[13px] font-semibold text-white hover:bg-primary-dark active:scale-[0.97] transition-all"
+            onClick={() => moveToPage(986)}
+          >
+            <Plus size={16} />
+            <span>회원등록</span>
+          </button>
+        )}
       </div>
 
       {/* 비밀번호 변경 모달 */}

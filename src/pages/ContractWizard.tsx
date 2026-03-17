@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import {
   User,
   Search,
@@ -69,6 +69,8 @@ export default function ContractWizard() {
     onConfirm: () => {},
   });
   const [selectedMember, setSelectedMember] = useState<any>(null);
+  // UX-12: 회원 선택 후 "다음 단계" 버튼 영역으로 자동 스크롤하기 위한 ref
+  const selectedMemberInfoRef = useRef<HTMLDivElement>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedProducts, setSelectedProducts] = useState<any[]>([]);
   const [activeCategory, setActiveCategory] = useState('facility');
@@ -102,10 +104,23 @@ export default function ContractWizard() {
         .eq('branchId', getBranchId());
       if (!error && data) {
         const grouped: Record<string, ProductRow[]> = { facility: [], pt: [], gx: [], option: [] };
+
+        // DB category 값 → 탭 키 매핑
+        // DB: "MEMBERSHIP" → 탭: "facility" (시설이용)
+        // DB: "PT"         → 탭: "pt"       (1:1수업)
+        // DB: "GX"         → 탭: "gx"       (그룹수업)
+        // DB: 그 외        → 탭: "option"   (옵션)
+        const categoryToTab: Record<string, string> = {
+          MEMBERSHIP: 'facility',
+          PT: 'pt',
+          GX: 'gx',
+        };
+
         data.forEach((p: Record<string, unknown>) => {
-          const cat = (p.category as string) ?? 'facility';
-          if (!grouped[cat]) grouped[cat] = [];
-          grouped[cat].push({
+          const dbCat = ((p.category as string) ?? '').toUpperCase();
+          // 매핑된 탭 키가 없으면 "option"으로 분류
+          const tabKey = categoryToTab[dbCat] ?? 'option';
+          grouped[tabKey].push({
             id: String(p.id),
             name: p.name as string,
             price: Number(p.price ?? 0),
@@ -392,7 +407,14 @@ export default function ContractWizard() {
             key: 'action', header: '', width: 100, align: 'right',
             render: (_, row) => (
               <button
-                onClick={() => { setSelectedMember(row); clearStepError(1); }}
+                onClick={() => {
+                  setSelectedMember(row);
+                  clearStepError(1);
+                  // UX-12: 선택 후 확인 메시지 영역으로 부드럽게 스크롤
+                  setTimeout(() => {
+                    selectedMemberInfoRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                  }, 50);
+                }}
                 className={cn(
                   "px-md py-sm rounded-button text-Label transition-all",
                   selectedMember?.id === row.id
@@ -409,7 +431,7 @@ export default function ContractWizard() {
       />
 
       {selectedMember && (
-        <div className="mt-md p-md bg-accent-light border border-accent/30 rounded-xl flex items-center gap-sm">
+        <div ref={selectedMemberInfoRef} className="mt-md p-md bg-accent-light border border-accent/30 rounded-xl flex items-center gap-sm">
           <CheckCircle2 className="text-accent" size={16} />
           <span className="text-Body-2 text-content">
             <span className="font-bold text-accent">{selectedMember.name}</span>

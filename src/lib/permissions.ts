@@ -21,10 +21,12 @@ export const ROLE_LABELS: Record<UserRole, string> = {
 // DB 역할(Prisma enum) → 권한 시스템 역할 매핑
 const DB_ROLE_MAP: Record<string, UserRole> = {
   ADMIN: 'primary',
+  OWNER: 'owner',
   MANAGER: 'manager',
   TRAINER: 'fc',
   STAFF: 'staff',
   RECEPTIONIST: 'staff',
+  READONLY: 'readonly',
 };
 
 /** DB 역할을 권한 시스템 역할로 변환 */

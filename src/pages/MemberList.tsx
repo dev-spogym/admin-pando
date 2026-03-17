@@ -27,6 +27,8 @@ import { useMembers, useMemberStats } from '@/api/hooks/useMembers';
 import type { Member } from '@/api/endpoints/members';
 import { exportToExcel } from '@/lib/exportExcel';
 import { supabase } from '@/lib/supabase';
+import { useAuthStore } from '@/stores/authStore';
+import { hasFeature, hasPermission } from '@/lib/permissions';
 
 const MAIN_TABS = [
   { key: 'members', label: '회원 전체' },
@@ -62,6 +64,10 @@ const STATUS_VARIANT: Record<string, BadgeVariant> = {
 };
 
 export default function MemberList() {
+  const authUser = useAuthStore((s) => s.user);
+  const canExcel = hasFeature(authUser?.role ?? '', 'excelDownload', authUser?.isSuperAdmin);
+  const canAddMember = hasPermission(authUser?.role ?? '', '/members/new', authUser?.isSuperAdmin);
+
   const [activeMainTab, setActiveMainTab] = useState('members');
   const [activeStatusTab, setActiveStatusTab] = useState('all');
   const [searchValue, setSearchValue] = useState('');
@@ -82,6 +88,7 @@ export default function MemberList() {
     search: debouncedSearch || undefined,
     status: activeStatusTab !== 'all' ? activeStatusTab : undefined,
     gender: filterValues.gender || undefined,
+    product: filterValues.product || undefined,
     sortKey: sortKey || undefined,
     sortDirection: sortKey ? sortDirection : undefined,
   });
@@ -242,12 +249,16 @@ export default function MemberList() {
         description="센터의 전체 회원 정보를 조회하고 관리합니다."
         actions={
           <div className="flex gap-sm">
-            <button className="bg-surface text-content-secondary border border-line px-md py-[6px] rounded-lg flex items-center gap-xs text-[13px] font-medium hover:bg-surface-tertiary transition-colors" onClick={handleExcelDownload}>
-              <Download size={14} /> 엑셀 다운로드
-            </button>
-            <button className="bg-primary text-white px-md py-[6px] rounded-lg flex items-center gap-xs text-[13px] font-medium hover:bg-primary-dark transition-colors" onClick={() => moveToPage(986)}>
-              <UserPlus size={14} /> 회원 추가
-            </button>
+            {canExcel && (
+              <button className="bg-surface text-content-secondary border border-line px-md py-[6px] rounded-lg flex items-center gap-xs text-[13px] font-medium hover:bg-surface-tertiary transition-colors" onClick={handleExcelDownload}>
+                <Download size={14} /> 엑셀 다운로드
+              </button>
+            )}
+            {canAddMember && (
+              <button className="bg-primary text-white px-md py-[6px] rounded-lg flex items-center gap-xs text-[13px] font-medium hover:bg-primary-dark transition-colors" onClick={() => moveToPage(986)}>
+                <UserPlus size={14} /> 회원 추가
+              </button>
+            )}
           </div>
         }
       />
