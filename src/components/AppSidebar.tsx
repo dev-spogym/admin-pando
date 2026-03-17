@@ -59,14 +59,26 @@ const MENU_ITEMS: MenuItem[] = [
       { label: "전자계약", path: "/contracts/new", viewId: 977 },
     ],
   },
-  { label: "수업/캘린더", icon: Calendar, path: "/calendar", viewId: 969 },
+  {
+    label: "수업/캘린더",
+    icon: Calendar,
+    children: [
+      { label: "캘린더", path: "/calendar", viewId: 969 },
+      { label: "수업 관리", path: "/lessons" },
+      { label: "횟수 관리", path: "/lesson-counts" },
+      { label: "페널티 관리", path: "/penalties" },
+    ],
+  },
   {
     label: "매출",
     icon: TrendingUp,
     children: [
       { label: "매출 현황", path: "/sales", viewId: 970 },
+      { label: "매출 통계", path: "/sales/stats" },
       { label: "POS 결제", path: "/pos", viewId: 971 },
       { label: "현장 판매", path: "/pos/payment", viewId: 982 },
+      { label: "환불 관리", path: "/refunds" },
+      { label: "미수금 관리", path: "/unpaid" },
     ],
   },
   {
