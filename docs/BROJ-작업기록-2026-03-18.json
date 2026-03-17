@@ -1,0 +1,120 @@
+{
+  "date": "2026-03-18",
+  "project": "스포짐 CRM (pando-beta)",
+  "objective": "BROJ CRM 기능 전체 이식",
+  "source": "https://crm.broj.co.kr (스포짐 울지로점)",
+  "phases": [
+    {
+      "phase": 1,
+      "name": "기능 분석 + DB 마이그레이션 + 핵심 페이지",
+      "status": "COMPLETED",
+      "completedAt": "2026-03-18T00:00:00Z",
+      "items": [
+        {
+          "task": "BROJ CRM 전체 메뉴 탐색 (Chrome Extension)",
+          "status": "DONE",
+          "pages": ["대시보드", "고객관리", "출석부", "상세내역", "캘린더", "락커", "메세지/쿠폰", "매출관리(통합매출내역)", "상품관리(현장판매)", "센터설정"]
+        },
+        {
+          "task": "DB 신규 테이블 생성",
+          "status": "DONE",
+          "tables": ["news_feed", "lessons", "lesson_schedules", "lesson_bookings", "lesson_counts", "penalties", "refunds", "unpaid", "visit_logs", "audit_logs"]
+        },
+        {
+          "task": "DB 기존 테이블 확장",
+          "status": "DONE",
+          "tables": {
+            "products": ["productType", "totalCount", "cashPrice", "cardPrice", "kioskVisible", "multiBranch", "sportType", "tag"],
+            "sales": ["cashAmount", "cardAmount", "discountAmount", "unpaidAmount", "registrationType", "processedBy", "processedByName"],
+            "lockers": ["password", "memo", "isBroken", "lastActionType", "lastActionAt", "lastActionBy"],
+            "attendance": ["userType", "checkType", "gateId", "isSuccess", "failReason", "sourceBranchId"],
+            "users": ["isSuperAdmin"]
+          }
+        },
+        {
+          "task": "신규 API 6개",
+          "status": "DONE",
+          "files": ["newsFeed.ts", "lessons.ts", "lessonCounts.ts", "penalties.ts", "refunds.ts", "unpaid.ts"]
+        },
+        {
+          "task": "신규 페이지 6개",
+          "status": "DONE",
+          "files": ["LessonManagement.tsx", "LessonCounts.tsx", "PenaltyManagement.tsx", "RefundManagement.tsx", "UnpaidManagement.tsx", "SalesStats.tsx"]
+        },
+        {
+          "task": "우측 퀵메뉴 패널 5개",
+          "status": "DONE",
+          "files": ["RightQuickPanel.tsx", "panels/NewsFeedPanel.tsx", "panels/SchedulePanel.tsx", "panels/VisitPanel.tsx", "panels/RemotePanel.tsx"]
+        },
+        {
+          "task": "라우트 + 사이드바 + 권한",
+          "status": "DONE",
+          "files": ["App.tsx", "AppSidebar.tsx", "permissions.ts"]
+        },
+        {
+          "task": "분석 문서",
+          "status": "DONE",
+          "files": ["docs/BROJ-CRM-기능분석.md", "docs/BROJ-CRM-데이터모델.md"]
+        }
+      ]
+    },
+    {
+      "phase": 2,
+      "name": "회원 상세 업그레이드 + UX 개선",
+      "status": "IN_PROGRESS",
+      "items": [
+        {
+          "task": "회원 상세 페이지 탐색 (Chrome Extension)",
+          "status": "DONE",
+          "tabs": ["대시보드", "상품내역", "결제내역", "예약내역", "출석내역", "상세내역(홀딩/연장/양도/쿠폰/마일리지)", "로그기록(Beta)", "계약서", "메모"]
+        },
+        {
+          "task": "DB 회원 상세 마이그레이션",
+          "status": "DONE",
+          "tables": {
+            "members_extended": ["shortAddress", "counselorId", "counselorName", "specialNote", "visitSource", "exercisePurpose", "adConsent", "lastVisitAt"],
+            "new_tables": ["member_holdings", "member_extensions", "member_transfer_logs", "member_memos"]
+          }
+        },
+        {
+          "task": "회원 상세 분석 문서",
+          "status": "DONE",
+          "file": "docs/BROJ-CRM-회원상세분석.md"
+        },
+        {
+          "task": "MemberDetail.tsx 업그레이드 (9탭)",
+          "status": "IN_PROGRESS",
+          "agent": "member-detail-upgrade",
+          "description": "결제내역/예약내역/상세내역(홀딩/연장/양도) 탭 추가, 프로필 필드 추가, 액션 버튼"
+        },
+        {
+          "task": "기존 페이지 UX 개선",
+          "status": "IN_PROGRESS",
+          "agent": "ux-improvement",
+          "description": "MemberList(만료숨기기/벌크상태변경), Attendance(성공실패통계), Locker(기록/이동/회수/고장)"
+        }
+      ]
+    },
+    {
+      "phase": 3,
+      "name": "남은 기능 (Phase 3)",
+      "status": "PENDING",
+      "items": [
+        { "task": "회원권/수강권 상품 타입 분리", "priority": "P1" },
+        { "task": "정기 구독 (자동결제)", "priority": "P2" },
+        { "task": "마켓 판매 연동", "priority": "P2" },
+        { "task": "다지점 회원권/수강권", "priority": "P2" },
+        { "task": "운동복 관리", "priority": "P3" },
+        { "task": "캘린더 강사별 일간 뷰", "priority": "P2" },
+        { "task": "POS 현금가/카드가 분리", "priority": "P1" }
+      ]
+    }
+  ],
+  "commits": [
+    { "hash": "ffc2183", "message": "슈퍼관리자 QA: 5탭 테스트 + 버그 4건 수정", "pushed": true },
+    { "hash": "7f43185", "message": "BROJ CRM 기능 이식: 17개 신규 파일 + DB 마이그레이션", "pushed": true }
+  ],
+  "totalNewFiles": 17,
+  "totalNewTables": 14,
+  "totalLinesAdded": 4647
+}

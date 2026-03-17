@@ -35,6 +35,14 @@ import {
   Scale,
   Zap,
   RefreshCcw,
+  // BROJ 추가 아이콘
+  CalendarRange,
+  ListOrdered,
+  UserCheck,
+  Navigation,
+  Target,
+  Megaphone,
+  LogIn,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { moveToPage } from "@/internal";
@@ -49,6 +57,10 @@ import StatCard from "@/components/StatCard";
 import DataTable from "@/components/DataTable";
 import FormSection from "@/components/FormSection";
 import ConfirmDialog from "@/components/ConfirmDialog";
+// BROJ 서브 컴포넌트
+import TabPaymentDetail from "@/components/member/TabPaymentDetail";
+import TabReservation from "@/components/member/TabReservation";
+import TabDetailHistory from "@/components/member/TabDetailHistory";
 
 // ────────────────────────────────────────────────────────────
 // 타입 정의
@@ -71,6 +83,13 @@ type Member = {
   memo: string | null;
   height: number | null;
   branchId: number | null;
+  // BROJ CRM 추가 필드
+  counselorName: string | null;
+  specialNote: string | null;
+  visitSource: string | null;
+  exercisePurpose: string | null;
+  adConsent: boolean | null;
+  lastVisitAt: string | null;
 };
 
 type SaleRecord = {
@@ -394,7 +413,43 @@ function TabInfo({ member }: { member: Member }) {
         <FormSection title="운영 정보" collapsible>
           <div className="space-y-xs">
             <InfoItem label="마일리지" value={`${member.mileage ?? 0}P`} />
+            {/* BROJ CRM 추가 필드 */}
+            <InfoItem
+              label="상담 담당자"
+              value={member.counselorName || "-"}
+              icon={<UserCheck size={16} />}
+            />
+            <InfoItem
+              label="방문경로"
+              value={member.visitSource || "-"}
+              icon={<Navigation size={16} />}
+            />
+            <InfoItem
+              label="운동목적"
+              value={member.exercisePurpose || "-"}
+              icon={<Target size={16} />}
+            />
+            <InfoItem
+              label="광고성 수신"
+              value={member.adConsent === true ? "동의" : member.adConsent === false ? "거부" : "-"}
+              icon={<Megaphone size={16} />}
+              badge={member.adConsent === true ? "success" : member.adConsent === false ? "error" : undefined}
+            />
+            <InfoItem
+              label="마지막 방문"
+              value={member.lastVisitAt ? member.lastVisitAt.slice(0, 10) : "-"}
+              icon={<LogIn size={16} />}
+            />
           </div>
+          {/* 특이사항 */}
+          {member.specialNote && (
+            <div className="mt-md flex flex-col gap-xs">
+              <span className="text-[12px] text-content-secondary font-medium">특이사항</span>
+              <div className="p-md bg-orange-50 rounded-lg text-[13px] text-content whitespace-pre-wrap border border-orange-200">
+                {member.specialNote}
+              </div>
+            </div>
+          )}
           <div className="md:col-span-2">
             <div className="flex flex-col gap-xs">
               <span className="text-[12px] text-content-secondary font-medium">메모</span>
@@ -1514,6 +1569,10 @@ export default function MemberDetail() {
     { key: "tickets", label: "이용권", icon: CreditCard, count: contracts.length },
     { key: "attendance", label: "출석 이력", icon: History },
     { key: "payment", label: "결제 이력", icon: ShoppingBag },
+    // BROJ 추가 탭
+    { key: "payment_detail", label: "결제내역", icon: CreditCard },
+    { key: "reservation", label: "예약내역", icon: CalendarRange },
+    { key: "detail_history", label: "상세내역", icon: ListOrdered },
     { key: "body", label: "체성분", icon: Activity },
     { key: "memo", label: "상담·메모", icon: MessageSquare },
     { key: "lesson", label: "레슨", icon: Dumbbell },
@@ -1683,10 +1742,18 @@ export default function MemberDetail() {
                 )}
                 <button
                   className="flex items-center gap-xs px-md py-sm bg-accent-light text-accent rounded-button font-semibold text-[13px] hover:bg-accent hover:text-white transition-all"
-                  onClick={() => moveToPage(971)}
+                  onClick={() => moveToPage(971, { memberId: memberId ?? '' })}
                 >
                   <ShoppingBag size={15} />
                   상품 구매
+                </button>
+                {/* BROJ: 메시지 버튼 */}
+                <button
+                  className="flex items-center gap-xs px-md py-sm bg-surface-secondary text-content-secondary rounded-button font-semibold text-[13px] border border-line hover:bg-surface-tertiary transition-all"
+                  onClick={() => toast.info("메시지 기능은 준비 중입니다.")}
+                >
+                  <MessageSquare size={15} />
+                  메시지
                 </button>
               </div>
             </div>
@@ -1763,6 +1830,40 @@ export default function MemberDetail() {
             )}
             {activeTab === "attendance" && <TabAttendance attendances={attendances} />}
             {activeTab === "payment" && <TabPayment sales={sales} memberId={memberId} memberName={member.name} />}
+            {/* BROJ 추가 탭 렌더 */}
+            {activeTab === "payment_detail" && (
+              <TabPaymentDetail
+                sales={sales}
+                memberId={memberId}
+                memberName={member.name}
+                onRefresh={async () => {
+                  const { data } = await supabase
+                    .from("sale")
+                    .select("*")
+                    .eq("memberId", memberId)
+                    .order("saleDate", { ascending: false });
+                  if (data) {
+                    setSales(
+                      data.map((s: any) => ({
+                        ...s,
+                        amount: Number(s.amount),
+                        salePrice: Number(s.salePrice),
+                        originalPrice: Number(s.originalPrice),
+                        discountPrice: Number(s.discountPrice),
+                        cash: Number(s.cash),
+                        card: Number(s.card),
+                        mileageUsed: Number(s.mileageUsed),
+                        unpaid: Number(s.unpaid),
+                      }))
+                    );
+                  }
+                }}
+              />
+            )}
+            {activeTab === "reservation" && <TabReservation memberId={memberId ?? ''} />}
+            {activeTab === "detail_history" && (
+              <TabDetailHistory memberId={memberId ?? ''} memberName={member.name} />
+            )}
             {activeTab === "body" && <TabBody initialRecords={bodyRecords} memberHeight={member?.height ?? 0} />}
             {activeTab === "memo" && <TabMemo memberId={memberId ?? ''} />}
             {activeTab === "lesson" && <TabLesson memberId={memberId ?? ''} />}
