@@ -264,7 +264,7 @@ export default function BranchManagement() {
       width: 120,
       align: 'center' as const,
       render: (v: string) => (
-        <StatusBadge variant={v === 'active' ? 'success' : v === 'inactive' ? 'warning' : 'default'} dot={true} label={v === 'active' ? '운영중' : v === 'inactive' ? '임시휴업' : '폐점'}/>
+        <StatusBadge variant={v === 'active' || v === '운영중' ? 'success' : v === 'inactive' || v === '임시휴업' ? 'warning' : 'default'} dot={true} label={v === 'active' || v === '운영중' ? '운영중' : v === 'inactive' || v === '임시휴업' ? '임시휴업' : '폐점'}/>
       )
     },
     { key: 'regDate', header: '등록일', width: 120 },
@@ -356,7 +356,7 @@ export default function BranchManagement() {
             <StatCard label="총 지점 수" value={`${branches.length}개`} icon={<Building2 />} variant="default"/>
             <StatCard label="총 회원 수" value={`${integratedStats.reduce((s, i) => s + (i.members ?? 0), 0).toLocaleString()}명`} icon={<Users />} variant="mint"/>
             <StatCard label="이번 달 매출" value={`${integratedStats.reduce((s, i) => s + Number(String(i.sales).replace(/,/g, '') || 0), 0).toLocaleString()}원`} icon={<TrendingUp />} variant="peach"/>
-            <StatCard label="활성 지점" value={`${branches.filter((b: any) => b.status === 'active').length}개`} icon={<CheckCircle2 />} description={`${branches.filter((b: any) => b.status !== 'active').length}개 비활성`} variant="default"/>
+            <StatCard label="활성 지점" value={`${branches.filter((b: any) => b.status === 'active' || b.status === '운영중').length}개`} icon={<CheckCircle2 />} description={`${branches.filter((b: any) => b.status !== 'active' && b.status !== '운영중').length}개 비활성`} variant="default"/>
           </div>
 
           <SearchFilter searchPlaceholder="지점명 또는 주소 검색" filters={[

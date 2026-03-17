@@ -251,10 +251,11 @@ export const getBranches = async (tenantId?: number): Promise<ApiResponse<Branch
     .select('id, name, address, phone, status')
     .order('id');
 
-  // tenantId가 지정된 경우 해당 테넌트로 필터링
-  if (tenantId !== undefined) {
-    query = query.eq('tenantId', tenantId);
-  }
+  // tenantId 필터링 — branches 테이블에 tenantId 컬럼이 있을 때만 적용
+  // 현재 DB에 tenantId 컬럼 미존재 → 전체 지점 반환
+  // if (tenantId !== undefined) {
+  //   query = query.eq('tenantId', tenantId);
+  // }
 
   const { data: branches, error } = await query;
 
