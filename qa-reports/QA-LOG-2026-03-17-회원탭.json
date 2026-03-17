@@ -1,0 +1,64 @@
+{
+  "meta": {
+    "date": "2026-03-17",
+    "startTime": "13:29",
+    "endTime": "14:03",
+    "tester": "Claude (Chrome Extension)",
+    "account": "admin (운영관리자)",
+    "branch": "강남 본점",
+    "environment": "localhost:5173",
+    "target": ["출석관리", "마일리지관리", "전자계약"]
+  },
+  "steps": [
+    { "id": 1, "time": "13:29", "action": "페이지 접속", "target": "/login", "result": "pass", "note": "로그인 폼 표시" },
+    { "id": 2, "time": "13:29", "action": "superadmin 로그인", "target": "username: superadmin", "result": "fail", "note": "DB에 계정 미존재", "issueId": null },
+    { "id": 3, "time": "13:30", "action": "admin 로그인", "target": "username: admin", "result": "pass", "note": "대시보드 이동" },
+    { "id": 4, "time": "13:31", "action": "페이지 진입", "target": "/attendance", "result": "pass", "note": "일별 뷰, 통계카드 4개" },
+    { "id": 5, "time": "13:31", "action": "주별 뷰 전환", "target": "주별 탭", "result": "pass", "note": "주간 바차트, 화요일 1건" },
+    { "id": 6, "time": "13:32", "action": "월별 뷰 전환", "target": "월별 탭", "result": "pass", "note": "캘린더 히트맵 74건/20PT/21명" },
+    { "id": 7, "time": "13:33", "action": "날짜 이동", "target": "< 버튼 x6", "result": "pass", "note": "3/11 이동, 10건 데이터" },
+    { "id": 8, "time": "13:34", "action": "테이블 스크롤", "target": "하단", "result": "pass", "note": "10건 모두 표시, 페이지네이션" },
+    { "id": 9, "time": "13:35", "action": "출석유형 필터", "target": "PT 선택", "result": "fail", "note": "테이블 필터링 안됨", "issueId": "BUG-09" },
+    { "id": 10, "time": "13:36", "action": "수동 출석 모달", "target": "수동 출석 버튼", "result": "pass", "note": "회원검색/유형/시간 입력" },
+    { "id": 11, "time": "13:37", "action": "회원 검색", "target": "\"김\" 입력", "result": "pass", "note": "김영희, 김민준 결과" },
+    { "id": 12, "time": "13:37", "action": "회원 선택", "target": "김영희 클릭", "result": "pass", "note": "김영희 (#2) 선택됨" },
+    { "id": 13, "time": "13:38", "action": "실시간 토글", "target": "실시간 ON 클릭", "result": "pass", "note": "ON→OFF 전환" },
+    { "id": 14, "time": "13:38", "action": "날짜 라벨 확인", "target": "3/11 통계카드", "result": "fail", "note": "\"오늘 출석\" 하드코딩", "issueId": "UX-10" },
+    { "id": 15, "time": "13:40", "action": "페이지 진입", "target": "/mileage", "result": "pass", "note": "통계카드 4개 + 테이블" },
+    { "id": 16, "time": "13:40", "action": "통계카드 확인", "target": "발행/사용/잔여", "result": "fail", "note": "발행0/사용0/잔여395,599", "issueId": "BUG-11" },
+    { "id": 17, "time": "13:41", "action": "연락처 컬럼 확인", "target": "테이블", "result": "fail", "note": "□ 문자 표시", "issueId": "BUG-12" },
+    { "id": 18, "time": "13:42", "action": "마일리지 이력 탭", "target": "탭 클릭", "result": "pass", "note": "이력 없음, 필터 표시" },
+    { "id": 19, "time": "13:43", "action": "마일리지 정책 탭", "target": "탭 클릭", "result": "pass", "note": "적립률5%, 유효기간12개월" },
+    { "id": 20, "time": "13:44", "action": "수동 처리 모달", "target": "홍길동 수동처리", "result": "pass", "note": "적립/차감, 금액, 사유" },
+    { "id": 21, "time": "13:46", "action": "페이지 진입", "target": "/contracts/new", "result": "pass", "note": "5단계 위자드, Step1" },
+    { "id": 22, "time": "13:46", "action": "회원 상태 확인", "target": "전체 회원", "result": "fail", "note": "모든 회원 만료 배지", "issueId": "UX-11" },
+    { "id": 23, "time": "13:47", "action": "회원 선택", "target": "홍길동 선택", "result": "pass", "note": "선택됨 상태 변경" },
+    { "id": 24, "time": "13:48", "action": "다음 단계", "target": "다음 단계 버튼", "result": "pass", "note": "Step2 이동" },
+    { "id": 25, "time": "13:48", "action": "상품 목록 확인", "target": "시설이용 탭", "result": "fail", "note": "비어있음, 카테고리 매핑 불일치", "issueId": "BUG-10" },
+    { "id": 26, "time": "13:49", "action": "1:1수업/그룹수업/옵션", "target": "탭 클릭", "result": "fail", "note": "모두 비어있음", "issueId": "BUG-10" },
+    { "id": 27, "time": "13:50", "action": "스크롤 UX", "target": "회원 선택 후", "result": "fail", "note": "다음단계 버튼 안보임", "issueId": "UX-12" }
+  ],
+  "issues": {
+    "bugs": [
+      { "id": "BUG-09", "severity": "High", "tab": "출석관리", "description": "SearchFilter 출석유형/체크인방식 선택해도 테이블 필터링 안 됨", "file": "src/pages/Attendance.tsx", "fixed": true },
+      { "id": "BUG-10", "severity": "High", "tab": "전자계약", "description": "Step2 상품 탭에 상품 미표시 — DB 카테고리와 탭 매핑 불일치", "file": "src/pages/ContractWizard.tsx", "fixed": true },
+      { "id": "BUG-11", "severity": "Medium", "tab": "마일리지", "description": "통계카드 발행/사용 합계 미집계", "file": "src/pages/MileageManagement.tsx", "fixed": true },
+      { "id": "BUG-12", "severity": "Medium", "tab": "마일리지", "description": "연락처 Smartphone 아이콘 렌더링 이슈", "file": "src/pages/MileageManagement.tsx", "fixed": true }
+    ],
+    "ux": [
+      { "id": "UX-10", "severity": "Medium", "tab": "출석관리", "description": "과거 날짜 선택 시 '오늘 출석' 표시 → 선택 날짜 기준으로 변경", "file": "src/pages/Attendance.tsx", "fixed": true },
+      { "id": "UX-11", "severity": "Low", "tab": "전자계약", "description": "모든 회원 상태 '만료' 배지", "file": "src/pages/ContractWizard.tsx", "fixed": false },
+      { "id": "UX-12", "severity": "Low", "tab": "전자계약", "description": "회원 선택 후 자동 스크롤 없음", "file": "src/pages/ContractWizard.tsx", "fixed": true }
+    ]
+  },
+  "summary": {
+    "totalSteps": 27,
+    "passed": 20,
+    "failed": 7,
+    "bugsFound": 4,
+    "uxIssues": 3,
+    "bugsFixed": 4,
+    "uxFixed": 2,
+    "passRate": "74%"
+  }
+}

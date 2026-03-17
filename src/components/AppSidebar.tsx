@@ -216,7 +216,7 @@ const AppSidebar: React.FC<AppSidebarProps> = ({
   return (
     <aside
       className={cn(
-        "flex flex-col border-r border-line bg-surface transition-all duration-200 shrink-0",
+        "flex flex-col h-screen border-r border-line bg-surface transition-all duration-200 shrink-0 sticky top-0",
         collapsed ? "w-[60px]" : "w-[220px]"
       )}
     >
