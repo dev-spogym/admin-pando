@@ -80,6 +80,8 @@ export default function MemberList() {
   const [pageSize, setPageSize] = useState(20);
   const [showStatusModal, setShowStatusModal] = useState(false);
   const [pendingStatusValue, setPendingStatusValue] = useState<string>('ACTIVE');
+  // 만료 상품 숨기기 체크박스 상태
+  const [hideExpired, setHideExpired] = useState(false);
 
   // API 훅 (필터/정렬 파라미터 모두 전달)
   const membersQuery = useMembers({
@@ -94,7 +96,9 @@ export default function MemberList() {
   });
   const statsQuery = useMemberStats();
 
-  const members = membersQuery.data?.data?.data ?? [];
+  const rawMembers = membersQuery.data?.data?.data ?? [];
+  // 만료 상품 숨기기 필터 적용
+  const members = hideExpired ? rawMembers.filter((m) => m.status !== 'EXPIRED') : rawMembers;
   const pagination = membersQuery.data?.data?.pagination;
   const stats = statsQuery.data?.data;
 
@@ -473,6 +477,16 @@ export default function MemberList() {
             onFilterChange={(key, value) => { setFilterValues(prev => ({ ...prev, [key]: value })); setCurrentPage(1); }}
             onReset={() => { setSearchValue(''); setDebouncedSearch(''); setFilterValues({}); setCurrentPage(1); }}
           />
+          {/* 만료 상품 숨기기 체크박스 */}
+          <label className="mt-sm flex items-center gap-xs cursor-pointer select-none w-fit">
+            <input
+              type="checkbox"
+              className="w-4 h-4 rounded accent-primary cursor-pointer"
+              checked={hideExpired}
+              onChange={(e) => { setHideExpired(e.target.checked); setCurrentPage(1); }}
+            />
+            <span className="text-[13px] text-content-secondary">만료 상품 숨기기</span>
+          </label>
         </div>
 
         {/* 벌크 액션 바 */}

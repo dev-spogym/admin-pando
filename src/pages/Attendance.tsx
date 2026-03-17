@@ -17,6 +17,7 @@ import {
   Users,
   MapPin,
   Loader2,
+  Building2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { moveToPage } from "@/internal";
@@ -65,6 +66,11 @@ const METHOD_KO: Record<string, string> = {
   '앱': '앱', '키오스크': '키오스크',
 };
 
+// 사용자 유형 (MEMBER/STAFF/GUEST)
+const USER_TYPE_KO: Record<string, string> = {
+  MEMBER: '회원', STAFF: '직원', GUEST: '게스트',
+};
+
 interface AttendanceRecord {
   id: number;
   date: string;
@@ -73,10 +79,13 @@ interface AttendanceRecord {
   attendanceType: "일반" | "PT" | "GX" | "수동";
   checkInMethod: "키오스크" | "앱";
   isOtherBranch: boolean;
+  sourceBranchId?: number | null;
   status: "성공" | "실패";
+  failReason?: string | null;
   memberId: number;
   tel: string;
   presence: "재실" | "부재";
+  userType?: string | null;
 }
 
 interface MemberOption {
@@ -355,7 +364,7 @@ export default function Attendance() {
         // 출석 + 회원 전화번호 함께 조회
         const { data: attendanceData } = await supabase
           .from("attendance")
-          .select("id, memberId, memberName, checkInAt, checkOutAt, type, checkInMethod, branchId, members!inner(phone)")
+          .select("id, memberId, memberName, checkInAt, checkOutAt, type, checkInMethod, branchId, sourceBranchId, status, failReason, userType, members!inner(phone)")
           .eq("branchId", branchId)
           .order("checkInAt", { ascending: false });
 
@@ -367,6 +376,8 @@ export default function Attendance() {
             const typeKo = TYPE_KO[a.type] ?? a.type ?? "일반";
             const methodKo = METHOD_KO[a.checkInMethod] ?? a.checkInMethod ?? "키오스크";
             const phone = a.members?.phone ?? "-";
+            // status 필드: DB에 있으면 사용, 없으면 기본 "성공"
+            const statusVal: "성공" | "실패" = a.status === "실패" || a.status === "FAIL" ? "실패" : "성공";
             return {
               id: a.id,
               date: datePart,
@@ -374,11 +385,14 @@ export default function Attendance() {
               memberName: a.memberName ?? "",
               attendanceType: typeKo as "일반" | "PT" | "GX" | "수동",
               checkInMethod: methodKo as "키오스크" | "앱",
-              isOtherBranch: false,
-              status: "성공" as const,
+              isOtherBranch: !!(a.sourceBranchId && a.sourceBranchId !== branchId),
+              sourceBranchId: a.sourceBranchId ?? null,
+              status: statusVal,
+              failReason: a.failReason ?? null,
               memberId: a.memberId ?? 0,
               tel: phone,
               presence: a.checkOutAt ? "부재" as const : "재실" as const,
+              userType: a.userType ?? null,
             };
           });
           setRecords(mapped);
@@ -544,7 +558,9 @@ export default function Attendance() {
 
   // 오늘 통계 계산
   const todayRecords = records.filter(r => r.date === selectedDate);
-  const todayTotal     = todayRecords.filter(r => r.status === "성공").length;
+  const todayTotal     = todayRecords.length;
+  const todaySuccess   = todayRecords.filter(r => r.status === "성공").length;
+  const todayFail      = todayRecords.filter(r => r.status === "실패").length;
   const todayPT        = todayRecords.filter(r => r.attendanceType === "PT").length;
   const todayGX        = todayRecords.filter(r => r.attendanceType === "GX").length;
 
@@ -622,11 +638,23 @@ export default function Attendance() {
       )
     },
     {
+      key: "userType",
+      header: "사용자 유형",
+      width: 100,
+      align: "center" as const,
+      render: (val: string | null) => {
+        if (!val) return <span className="text-[12px] text-content-tertiary">-</span>;
+        const label = USER_TYPE_KO[val] ?? val;
+        const variant = val === "MEMBER" ? "info" : val === "STAFF" ? "success" : "default";
+        return <StatusBadge variant={variant as "info" | "success" | "default"} label={label} />;
+      }
+    },
+    {
       key: "isOtherBranch",
       header: "타지점",
       width: 80,
       align: "center" as const,
-      render: (val: boolean) => val
+      render: (val: boolean, row: AttendanceRecord) => val || row.sourceBranchId
         ? <StatusBadge variant="warning" label="타지점" dot />
         : <span className="text-[12px] text-content-tertiary">-</span>
     },
@@ -637,6 +665,15 @@ export default function Attendance() {
       render: (val: string) => (
         <StatusBadge variant={val === "성공" ? "success" : "error"} label={val} dot />
       )
+    },
+    {
+      key: "failReason",
+      header: "실패 사유",
+      width: 130,
+      render: (val: string | null) =>
+        val
+          ? <span className="text-[12px] text-state-error">{val}</span>
+          : <span className="text-[12px] text-content-tertiary">-</span>
     },
     {
       key: "presence",
@@ -747,10 +784,12 @@ export default function Attendance() {
         {/* 일별 뷰 */}
         {!loading && viewMode === "day" && (
           <>
-            {/* 상단 통계 카드 4개 — SCR-020 */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-lg">
+            {/* 상단 통계 카드 — 총 건수, 성공, 실패 + 기존 카드 */}
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-lg">
               {/* UX-10: 선택 날짜 기준으로 동적 라벨 표시 */}
-              <StatCard label={todayLabel} value={`${todayTotal}건`} icon={<Users />} description="성공 체크인 건수" />
+              <StatCard label={todayLabel} value={`${todayTotal}건`} icon={<Users />} description="총 출석 시도 건수" />
+              <StatCard label="출석 성공" value={`${todaySuccess}건`} variant="mint" icon={<CheckCircle2 />} description="성공 체크인 건수" />
+              <StatCard label="출석 실패" value={`${todayFail}건`} icon={<XCircle />} description="실패 건수" />
               <StatCard label="PT 수업" value={`${todayPT}건`} variant="mint" icon={<CheckCircle2 />} description="PT 출석 건수" />
               <StatCard label="GX 수업" value={`${todayGX}건`} variant="peach" icon={<MapPin />} description="GX 수업 출석" />
               <StatCard label="신규 방문" value={`${todayNew}명`} icon={<User />} description="첫 방문 회원 수" />
