@@ -40,3 +40,6 @@ __pycache__/
 
 # Output
 output/
+qa-screenshots/
+qa-test.cjs
+qa-test.mjs

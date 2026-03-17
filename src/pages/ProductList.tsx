@@ -34,6 +34,27 @@ const CATEGORY_KO: Record<string, string> = {
 };
 const toCategoryKo = (cat: string) => CATEGORY_KO[cat] ?? cat;
 
+// 상품 타입 탭 (productType 기준)
+const PRODUCT_TYPE_TABS = [
+  { key: 'all',        label: '전체' },
+  { key: 'MEMBERSHIP', label: '회원권' },
+  { key: 'LESSON',     label: '수강권' },
+  { key: 'RENTAL',     label: '대여권' },
+  { key: 'GENERAL',    label: '일반' },
+];
+
+// 상품 타입 배지 스타일
+const PRODUCT_TYPE_BADGE: Record<string, { label: string; variant: 'default' | 'secondary' | 'mint' | 'info' | 'warning' | 'error'; className: string }> = {
+  MEMBERSHIP: { label: '회원권', variant: 'info',      className: 'bg-blue-100 text-blue-700' },
+  LESSON:     { label: '수강권', variant: 'mint',      className: 'bg-green-100 text-green-700' },
+  RENTAL:     { label: '대여권', variant: 'warning',   className: 'bg-orange-100 text-orange-700' },
+  GENERAL:    { label: '일반',   variant: 'secondary', className: 'bg-gray-100 text-gray-600' },
+};
+
+// 종목 목록
+const SPORT_TYPES = ['전체', '헬스', '필라테스', '요가', '수영', '복싱', '크로스핏', '기타'];
+
+// 카테고리 탭 (하위 호환 유지)
 const CATEGORY_TABS = [
   { key: 'all', label: '전체' },
   { key: '이용권', label: '이용권' },
@@ -47,6 +68,13 @@ interface Product {
   name: string;
   category: string;
   price: number;
+  cashPrice: number | null;
+  cardPrice: number | null;
+  productType: string | null;
+  totalCount: number | null;
+  kioskVisible: boolean | null;
+  sportType: string | null;
+  tag: string | null;
   duration: number | null;
   sessions: number | null;
   description: string | null;
@@ -63,6 +91,8 @@ export default function ProductList() {
   const canEditProduct = hasFeature(authUser?.role ?? '', 'productEdit', authUser?.isSuperAdmin);
 
   const [activeTab, setActiveTab] = useState('all');
+  const [activeTypeTab, setActiveTypeTab] = useState('all');
+  const [sportFilter, setSportFilter] = useState('전체');
   const [searchValue, setSearchValue] = useState('');
   const [filterValues, setFilterValues] = useState<{ status: string }>({ status: '' });
   const [products, setProducts] = useState<Product[]>([]);
@@ -109,8 +139,12 @@ export default function ProductList() {
   const filteredData = useMemo(() => {
     let data = products.filter(item => {
       const matchTab = activeTab === 'all' || toCategoryKo(item.category) === activeTab;
+      // 상품 타입 탭 필터
+      const matchTypeTab = activeTypeTab === 'all' || item.productType === activeTypeTab;
+      // 종목 필터
+      const matchSport = sportFilter === '전체' || item.sportType === sportFilter;
       const matchSearch = item.name.toLowerCase().includes(searchValue.toLowerCase());
-      return matchTab && matchSearch;
+      return matchTab && matchTypeTab && matchSport && matchSearch;
     });
     if (sortKey) {
       data = [...data].sort((a, b) => {
@@ -146,8 +180,20 @@ export default function ProductList() {
           카테고리<SortIcon col="category" />
         </button>
       ),
-      width: '110px',
-      render: (val: string) => <StatusBadge variant="secondary">{toCategoryKo(val)}</StatusBadge>,
+      width: '130px',
+      render: (val: string, row: Product) => (
+        <div className="flex items-center gap-xs flex-wrap">
+          <StatusBadge variant="secondary">{toCategoryKo(val)}</StatusBadge>
+          {row.productType && PRODUCT_TYPE_BADGE[row.productType] && (
+            <span className={cn(
+              'text-[10px] font-bold px-xs py-[1px] rounded-full',
+              PRODUCT_TYPE_BADGE[row.productType].className
+            )}>
+              {PRODUCT_TYPE_BADGE[row.productType].label}
+            </span>
+          )}
+        </div>
+      ),
     },
     {
       key: 'name',
@@ -248,12 +294,7 @@ export default function ProductList() {
     },
   ];
 
-  const tabsWithCount = CATEGORY_TABS.map(tab => ({
-    ...tab,
-    count: tab.key === 'all'
-      ? products.length
-      : products.filter(p => toCategoryKo(p.category) === tab.key).length,
-  }));
+  // CATEGORY_TABS는 하위 호환용으로 유지 (현재 타입 탭으로 대체됨)
 
   return (
     <AppLayout>
@@ -286,7 +327,36 @@ export default function ProductList() {
 
       {/* 필터 */}
       <div className="mb-lg space-y-md">
-        <TabNav tabs={tabsWithCount} activeTab={activeTab} onTabChange={setActiveTab} />
+        {/* 상품 타입 탭 (MEMBERSHIP/LESSON/RENTAL/GENERAL) */}
+        <TabNav
+          tabs={PRODUCT_TYPE_TABS.map(tab => ({
+            ...tab,
+            count: tab.key === 'all'
+              ? products.length
+              : products.filter(p => p.productType === tab.key).length,
+          }))}
+          activeTab={activeTypeTab}
+          onTabChange={setActiveTypeTab}
+        />
+
+        {/* 종목 필터 */}
+        <div className="flex items-center gap-xs flex-wrap">
+          {SPORT_TYPES.map(sport => (
+            <button
+              key={sport}
+              onClick={() => setSportFilter(sport)}
+              className={cn(
+                'px-sm py-xs rounded-button text-[12px] font-semibold transition-colors',
+                sportFilter === sport
+                  ? 'bg-primary text-surface'
+                  : 'bg-surface border border-line text-content-secondary hover:bg-surface-secondary'
+              )}
+            >
+              {sport}
+            </button>
+          ))}
+        </div>
+
         <SearchFilter
           searchPlaceholder="상품명으로 검색하세요"
           searchValue={searchValue}
@@ -298,6 +368,8 @@ export default function ProductList() {
             setSearchValue('');
             setFilterValues({ status: '' });
             setActiveTab('all');
+            setActiveTypeTab('all');
+            setSportFilter('전체');
             setSortKey(null);
           }}
         />

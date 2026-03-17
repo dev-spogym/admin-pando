@@ -1,0 +1,377 @@
+import React, { useState, useEffect, useCallback } from 'react';
+import { Shirt, Plus, Search, Download, RefreshCw } from 'lucide-react';
+import { toast } from 'sonner';
+import AppLayout from '@/components/AppLayout';
+import PageHeader from '@/components/PageHeader';
+import StatCard from '@/components/StatCard';
+import DataTable from '@/components/DataTable';
+import StatusBadge from '@/components/StatusBadge';
+import TabNav from '@/components/TabNav';
+import Modal from '@/components/Modal';
+import { supabase } from '@/lib/supabase';
+import { exportToExcel } from '@/lib/exportExcel';
+
+// ─── 타입 ──────────────────────────────────────────────────────────────────
+
+interface ClothingItem {
+  id: number;
+  number: string;      // 운동복 번호
+  size: string;        // S/M/L/XL/XXL
+  type: string;        // 상의/하의/세트
+  status: string;      // AVAILABLE/RENTED/WASHING/DAMAGED
+  memberId?: number;
+  memberName?: string;
+  rentedAt?: string;
+  returnDue?: string;
+  memo?: string;
+}
+
+const STATUS_TABS = [
+  { key: 'all', label: '전체' },
+  { key: 'AVAILABLE', label: '대기' },
+  { key: 'RENTED', label: '대여중' },
+  { key: 'WASHING', label: '세탁중' },
+  { key: 'DAMAGED', label: '파손' },
+];
+
+const SIZE_OPTIONS = ['S', 'M', 'L', 'XL', 'XXL'];
+const TYPE_OPTIONS = [
+  { value: 'TOP', label: '상의' },
+  { value: 'BOTTOM', label: '하의' },
+  { value: 'SET', label: '세트' },
+];
+
+const STATUS_MAP: Record<string, { label: string; variant: 'success' | 'warning' | 'error' | 'default' }> = {
+  AVAILABLE: { label: '대기', variant: 'success' },
+  RENTED: { label: '대여중', variant: 'warning' },
+  WASHING: { label: '세탁중', variant: 'default' },
+  DAMAGED: { label: '파손', variant: 'error' },
+};
+
+function getBranchId() {
+  return localStorage.getItem('branchId') || '1';
+}
+
+// ─── 메인 컴포넌트 ─────────────────────────────────────────────────────────
+
+export default function ClothingManagement() {
+  const [items, setItems] = useState<ClothingItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState('all');
+  const [search, setSearch] = useState('');
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [addForm, setAddForm] = useState({ number: '', size: 'M', type: 'SET', memo: '' });
+
+  // ─── 데이터 조회 ──────────────────────────────────────────────────────────
+
+  const fetchItems = useCallback(async () => {
+    setLoading(true);
+    try {
+      let query = supabase
+        .from('clothing')
+        .select('*')
+        .eq('branchId', getBranchId())
+        .order('number');
+
+      const { data, error } = await query;
+      if (error) throw error;
+      setItems((data ?? []) as ClothingItem[]);
+    } catch (err) {
+      console.error('[ClothingManagement] 조회 실패:', err);
+      // clothing 테이블이 없으면 빈 목록 표시
+      setItems([]);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => { fetchItems(); }, [fetchItems]);
+
+  // ─── 필터링 ───────────────────────────────────────────────────────────────
+
+  const filtered = items.filter(item => {
+    if (activeTab !== 'all' && item.status !== activeTab) return false;
+    if (search && !item.number.includes(search) && !item.memberName?.includes(search)) return false;
+    return true;
+  });
+
+  // ─── 통계 ─────────────────────────────────────────────────────────────────
+
+  const stats = {
+    total: items.length,
+    available: items.filter(i => i.status === 'AVAILABLE').length,
+    rented: items.filter(i => i.status === 'RENTED').length,
+    washing: items.filter(i => i.status === 'WASHING').length,
+  };
+
+  // ─── 운동복 등록 ──────────────────────────────────────────────────────────
+
+  const handleAdd = async () => {
+    if (!addForm.number.trim()) {
+      toast.error('운동복 번호를 입력하세요.');
+      return;
+    }
+    try {
+      const { error } = await supabase.from('clothing').insert({
+        branchId: Number(getBranchId()),
+        number: addForm.number.trim(),
+        size: addForm.size,
+        type: addForm.type,
+        status: 'AVAILABLE',
+        memo: addForm.memo || null,
+      });
+      if (error) throw error;
+      toast.success('운동복이 등록되었습니다.');
+      setShowAddModal(false);
+      setAddForm({ number: '', size: 'M', type: 'SET', memo: '' });
+      fetchItems();
+    } catch (err) {
+      console.error('[ClothingManagement] 등록 실패:', err);
+      toast.error('운동복 등록에 실패했습니다.');
+    }
+  };
+
+  // ─── 상태 변경 ────────────────────────────────────────────────────────────
+
+  const handleStatusChange = async (id: number, newStatus: string) => {
+    try {
+      const updates: Record<string, unknown> = { status: newStatus };
+      if (newStatus === 'AVAILABLE') {
+        updates.memberId = null;
+        updates.memberName = null;
+        updates.rentedAt = null;
+        updates.returnDue = null;
+      }
+      const { error } = await supabase.from('clothing').update(updates).eq('id', id);
+      if (error) throw error;
+      toast.success(`상태가 "${STATUS_MAP[newStatus]?.label}"(으)로 변경되었습니다.`);
+      fetchItems();
+    } catch {
+      toast.error('상태 변경에 실패했습니다.');
+    }
+  };
+
+  // ─── 엑셀 다운로드 ────────────────────────────────────────────────────────
+
+  const handleExcel = () => {
+    const excelColumns = [
+      { key: '번호', header: '번호' },
+      { key: '사이즈', header: '사이즈' },
+      { key: '타입', header: '타입' },
+      { key: '상태', header: '상태' },
+      { key: '대여회원', header: '대여회원' },
+      { key: '대여일', header: '대여일' },
+      { key: '반납예정', header: '반납예정' },
+      { key: '메모', header: '메모' },
+    ];
+    exportToExcel(
+      filtered.map(i => ({
+        번호: i.number,
+        사이즈: i.size,
+        타입: TYPE_OPTIONS.find(t => t.value === i.type)?.label ?? i.type,
+        상태: STATUS_MAP[i.status]?.label ?? i.status,
+        대여회원: i.memberName ?? '-',
+        대여일: i.rentedAt ?? '-',
+        반납예정: i.returnDue ?? '-',
+        메모: i.memo ?? '',
+      })),
+      excelColumns,
+      { filename: '운동복_목록' }
+    );
+  };
+
+  // ─── 테이블 컬럼 ──────────────────────────────────────────────────────────
+
+  const columns = [
+    { key: 'number', header: '번호', width: 80 },
+    { key: 'size', header: '사이즈', width: 80 },
+    {
+      key: 'type', header: '타입', width: 80,
+      render: (v: string) => TYPE_OPTIONS.find(t => t.value === v)?.label ?? v,
+    },
+    {
+      key: 'status', header: '상태', width: 100,
+      render: (v: string) => {
+        const info = STATUS_MAP[v] ?? { label: v, variant: 'default' as const };
+        return <StatusBadge variant={info.variant} label={info.label} />;
+      },
+    },
+    { key: 'memberName', header: '대여 회원', render: (v: string) => v || '-' },
+    { key: 'rentedAt', header: '대여일', width: 120, render: (v: string) => v ? v.slice(0, 10) : '-' },
+    { key: 'returnDue', header: '반납예정', width: 120, render: (v: string) => v ? v.slice(0, 10) : '-' },
+    { key: 'memo', header: '메모', render: (v: string) => v || '-' },
+    {
+      key: 'actions', header: '액션', width: 180, align: 'right' as const,
+      render: (_: unknown, row: ClothingItem) => (
+        <div className="flex gap-xs">
+          {row.status === 'RENTED' && (
+            <button
+              className="text-[11px] px-sm py-[3px] rounded bg-green-50 text-green-700 hover:bg-green-100"
+              onClick={() => handleStatusChange(row.id, 'AVAILABLE')}
+            >
+              반납
+            </button>
+          )}
+          {row.status === 'AVAILABLE' && (
+            <button
+              className="text-[11px] px-sm py-[3px] rounded bg-blue-50 text-blue-700 hover:bg-blue-100"
+              onClick={() => handleStatusChange(row.id, 'WASHING')}
+            >
+              세탁
+            </button>
+          )}
+          {row.status === 'WASHING' && (
+            <button
+              className="text-[11px] px-sm py-[3px] rounded bg-green-50 text-green-700 hover:bg-green-100"
+              onClick={() => handleStatusChange(row.id, 'AVAILABLE')}
+            >
+              세탁완료
+            </button>
+          )}
+          {row.status !== 'DAMAGED' && (
+            <button
+              className="text-[11px] px-sm py-[3px] rounded bg-red-50 text-red-600 hover:bg-red-100"
+              onClick={() => handleStatusChange(row.id, 'DAMAGED')}
+            >
+              파손
+            </button>
+          )}
+          {row.status === 'DAMAGED' && (
+            <button
+              className="text-[11px] px-sm py-[3px] rounded bg-green-50 text-green-700 hover:bg-green-100"
+              onClick={() => handleStatusChange(row.id, 'AVAILABLE')}
+            >
+              복구
+            </button>
+          )}
+        </div>
+      ),
+    },
+  ];
+
+  // ─── 렌더 ─────────────────────────────────────────────────────────────────
+
+  return (
+    <AppLayout>
+      <PageHeader
+        title="운동복 관리"
+        description="운동복 재고와 대여 현황을 관리합니다."
+        actions={
+          <div className="flex gap-sm">
+            <button
+              className="bg-surface text-content-secondary border border-line px-md py-[6px] rounded-lg flex items-center gap-xs text-[13px] font-medium hover:bg-surface-tertiary"
+              onClick={handleExcel}
+            >
+              <Download size={14} /> 엑셀
+            </button>
+            <button
+              className="bg-primary text-white px-md py-[6px] rounded-lg flex items-center gap-xs text-[13px] font-medium hover:bg-primary-dark"
+              onClick={() => setShowAddModal(true)}
+            >
+              <Plus size={14} /> 운동복 등록
+            </button>
+          </div>
+        }
+      />
+
+      {/* 통계 카드 */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-md mb-lg">
+        <StatCard label="전체" value={`${stats.total}벌`} icon={<Shirt />} />
+        <StatCard label="대기" value={`${stats.available}벌`} icon={<Shirt />} variant="mint" />
+        <StatCard label="대여중" value={`${stats.rented}벌`} icon={<Shirt />} variant="peach" />
+        <StatCard label="세탁중" value={`${stats.washing}벌`} icon={<RefreshCw />} />
+      </div>
+
+      {/* 상태 탭 */}
+      <TabNav
+        tabs={STATUS_TABS.map(t => ({
+          ...t,
+          label: `${t.label} ${t.key === 'all' ? items.length : items.filter(i => i.status === t.key).length}`,
+        }))}
+        activeTab={activeTab}
+        onTabChange={setActiveTab}
+      />
+
+      {/* 검색 */}
+      <div className="my-md">
+        <div className="relative max-w-sm">
+          <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-content-tertiary" />
+          <input
+            className="w-full h-9 pl-9 pr-4 rounded-lg border border-line bg-surface-secondary text-[13px] focus:border-primary outline-none"
+            placeholder="번호, 회원명 검색..."
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+          />
+        </div>
+      </div>
+
+      {/* 테이블 */}
+      <DataTable
+        columns={columns}
+        data={filtered}
+        loading={loading}
+        emptyMessage="운동복 데이터가 없습니다."
+      />
+
+      {/* 등록 모달 */}
+      <Modal isOpen={showAddModal} title="운동복 등록" onClose={() => setShowAddModal(false)}>
+          <div className="space-y-md">
+            <div>
+              <label className="text-[12px] font-medium text-content-secondary mb-[4px] block">번호 *</label>
+              <input
+                className="w-full h-[40px] px-md bg-surface-secondary rounded-lg text-[13px] border border-line focus:border-primary outline-none"
+                placeholder="예: 001"
+                value={addForm.number}
+                onChange={e => setAddForm({ ...addForm, number: e.target.value })}
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-md">
+              <div>
+                <label className="text-[12px] font-medium text-content-secondary mb-[4px] block">사이즈</label>
+                <select
+                  className="w-full h-[40px] px-md bg-surface-secondary rounded-lg text-[13px] border border-line focus:border-primary outline-none"
+                  value={addForm.size}
+                  onChange={e => setAddForm({ ...addForm, size: e.target.value })}
+                >
+                  {SIZE_OPTIONS.map(s => <option key={s} value={s}>{s}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="text-[12px] font-medium text-content-secondary mb-[4px] block">타입</label>
+                <select
+                  className="w-full h-[40px] px-md bg-surface-secondary rounded-lg text-[13px] border border-line focus:border-primary outline-none"
+                  value={addForm.type}
+                  onChange={e => setAddForm({ ...addForm, type: e.target.value })}
+                >
+                  {TYPE_OPTIONS.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
+                </select>
+              </div>
+            </div>
+            <div>
+              <label className="text-[12px] font-medium text-content-secondary mb-[4px] block">메모</label>
+              <textarea
+                className="w-full h-20 px-md py-sm bg-surface-secondary rounded-lg text-[13px] border border-line focus:border-primary outline-none resize-none"
+                placeholder="특이사항 입력"
+                value={addForm.memo}
+                onChange={e => setAddForm({ ...addForm, memo: e.target.value })}
+              />
+            </div>
+            <div className="flex gap-sm pt-sm">
+              <button
+                className="flex-1 h-[40px] rounded-lg border border-line text-[13px] font-medium text-content-secondary hover:bg-surface-secondary"
+                onClick={() => setShowAddModal(false)}
+              >
+                취소
+              </button>
+              <button
+                className="flex-1 h-[40px] rounded-lg bg-primary text-[13px] font-semibold text-white hover:bg-primary-dark"
+                onClick={handleAdd}
+              >
+                등록
+              </button>
+            </div>
+          </div>
+        </Modal>
+    </AppLayout>
+  );
+}

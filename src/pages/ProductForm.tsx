@@ -154,8 +154,11 @@ export default function ProductForm() {
       setShowTypeSelection(false);
       setValue('category', cat);
       setValue('name', data.name ?? '');
-      setValue('priceCash', data.price ? Number(data.price).toLocaleString() : '');
-      setValue('priceCard', data.price ? Number(data.price).toLocaleString() : '');
+      // cashPrice/cardPrice가 있으면 우선 사용, 없으면 price 폴백
+      const cashVal = data.cashPrice ?? data.price;
+      const cardVal = data.cardPrice ?? data.price;
+      setValue('priceCash', cashVal ? Number(cashVal).toLocaleString() : '');
+      setValue('priceCard', cardVal ? Number(cardVal).toLocaleString() : '');
       setValue('period', data.duration?.toString() ?? '');
       setValue('count', data.sessions?.toString() ?? '');
       setValue('description', data.description ?? '');
@@ -219,15 +222,35 @@ export default function ProductForm() {
       '기타': 'PRODUCT',
     };
 
+    // 카테고리 → productType 매핑
+    const TYPE_MAP: Record<string, string> = {
+      '이용권': 'MEMBERSHIP',
+      'PT':    'LESSON',
+      'GX':    'LESSON',
+      '기타':  'GENERAL',
+    };
+
     const productData = {
       branchId: getBranchId(),
       name: data.name,
       category: CAT_DB_MAP[data.category] ?? 'PRODUCT',
+      // 대표 price는 현금가로 저장 (기존 호환)
       price: parsePrice(data.priceCash),
+      // 현금가/카드가 별도 저장
+      cashPrice: parsePrice(data.priceCash),
+      cardPrice: parsePrice(data.priceCard),
+      // 상품 타입
+      productType: TYPE_MAP[data.category] ?? 'GENERAL',
+      // 횟수제 총 횟수 (count 필드 재활용)
+      totalCount: data.count ? Number(data.count) : null,
       duration: data.period ? Number(data.period) : null,
       sessions: data.count ? Number(data.count) : null,
       description: data.description || null,
       isActive: data.isUsed,
+      // 키오스크 노출
+      kioskVisible: data.isKioskExposed ?? true,
+      // 태그
+      tag: data.tags || null,
     };
 
     if (isEditMode) {
