@@ -219,7 +219,7 @@ export default function MemberList() {
 
   const handleSort = (key: string, direction: 'asc' | 'desc') => { setSortKey(key); setSortDirection(direction); setCurrentPage(1); };
 
-  const handleExcelDownload = () => {
+  const handleExcelDownload = async () => {
     const exportColumns = [
       { key: 'status', header: '상태' },
       { key: 'name', header: '회원명' },
@@ -230,8 +230,26 @@ export default function MemberList() {
       { key: 'membershipExpiry', header: '만료일' },
       { key: 'registeredAt', header: '등록일' },
     ];
-    exportToExcel(members as unknown as Record<string, unknown>[], exportColumns, { filename: '회원목록' });
-    toast.success(`${members.length}건 엑셀 다운로드 완료`);
+    // 전체 회원 데이터를 가져와서 엑셀 다운로드
+    try {
+      const branchId = localStorage.getItem('branchId') || '1';
+      const { data, error } = await supabase
+        .from('members')
+        .select('*')
+        .eq('branchId', Number(branchId))
+        .is('deletedAt', null)
+        .order('createdAt', { ascending: false });
+      if (error || !data) {
+        exportToExcel(members as unknown as Record<string, unknown>[], exportColumns, { filename: '회원목록' });
+        toast.success(`${members.length}건 엑셀 다운로드 완료`);
+        return;
+      }
+      exportToExcel(data as unknown as Record<string, unknown>[], exportColumns, { filename: '회원목록_전체' });
+      toast.success(`${data.length}건 엑셀 다운로드 완료 (전체)`);
+    } catch {
+      exportToExcel(members as unknown as Record<string, unknown>[], exportColumns, { filename: '회원목록' });
+      toast.success(`${members.length}건 엑셀 다운로드 완료`);
+    }
   };
 
   // 서버사이드 정렬 적용 — 클라이언트 정렬 불필요
