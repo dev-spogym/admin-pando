@@ -461,12 +461,12 @@ export default function ProductList() {
           </div>
 
           {/* 마스터-디테일 컨테이너 */}
-          <div className="flex gap-0 rounded-xl border border-line bg-surface shadow-card overflow-hidden">
+          <div className="flex gap-0 rounded-xl border border-line bg-surface shadow-card overflow-hidden" style={{ minHeight: '520px' }}>
 
             {/* ── 좌측: 상품 목록 (마스터) ── */}
             <div className={cn(
               'flex flex-col transition-all duration-200',
-              panelOpen ? 'w-[60%] border-r border-line' : 'w-full'
+              panelOpen ? 'w-[55%] border-r border-line' : 'w-full'
             )}>
               {/* 목록 헤더 */}
               <div className="px-lg py-sm border-b border-line bg-surface-secondary flex items-center justify-between">
@@ -497,27 +497,23 @@ export default function ProductList() {
                   </div>
                 ) : (
                   <table className="w-full border-collapse">
-                    <thead className="bg-surface-secondary">
+                    <thead className="bg-surface-secondary sticky top-0 z-10">
                       <tr>
-                        <th className="px-md py-sm text-[11px] font-semibold text-content-secondary text-left">상품명</th>
-                        {!panelOpen && (
-                          <th className="px-md py-sm text-[11px] font-semibold text-content-secondary text-left">분류</th>
-                        )}
-                        <th className="px-md py-sm text-[11px] font-semibold text-content-secondary text-right">가격</th>
-                        <th className="px-md py-sm text-[11px] font-semibold text-content-secondary text-center">기간</th>
-                        {!panelOpen && (
-                          <th className="px-md py-sm text-[11px] font-semibold text-content-secondary text-center">세션</th>
-                        )}
+                        <th className="px-sm py-[6px] text-[10px] font-semibold text-content-secondary text-left">상품명</th>
+                        <th className="px-sm py-[6px] text-[10px] font-semibold text-content-secondary text-right">현금가</th>
+                        <th className="px-sm py-[6px] text-[10px] font-semibold text-content-secondary text-right">카드가</th>
+                        <th className="px-sm py-[6px] text-[10px] font-semibold text-content-secondary text-center">기간</th>
+                        <th className="px-sm py-[6px] text-[10px] font-semibold text-content-secondary text-center">횟수</th>
                         {/* 레슨북 스타일: 요일별 이용 가능 ✓/✗ */}
                         {!panelOpen && DAY_LABELS_ORDERED.map(d => (
-                          <th key={d.idx} className="px-[4px] py-sm text-[10px] font-semibold text-content-secondary text-center w-[28px]">
+                          <th key={d.idx} className="px-[2px] py-[6px] text-[10px] font-semibold text-content-secondary text-center w-[24px]">
                             {d.label}
                           </th>
                         ))}
                         {!panelOpen && (
-                          <th className="px-sm py-sm text-[11px] font-semibold text-content-secondary text-center">이용시간</th>
+                          <th className="px-sm py-[6px] text-[10px] font-semibold text-content-secondary text-center">시간</th>
                         )}
-                        <th className="px-md py-sm text-[11px] font-semibold text-content-secondary text-center">상태</th>
+                        <th className="px-sm py-[6px] text-[10px] font-semibold text-content-secondary text-center">상태</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-line-light">
@@ -534,47 +530,45 @@ export default function ProductList() {
                                 : 'hover:bg-surface-secondary border-l-2 border-l-transparent'
                             )}
                           >
-                            {/* 상품명 + 타입 배지 */}
-                            <td className="px-md py-sm">
-                              <div className="flex items-center gap-xs flex-wrap">
-                                <span className={cn(
-                                  'text-[13px] font-semibold truncate',
-                                  isSelected ? 'text-primary' : 'text-content group-hover:text-primary'
-                                )}>
-                                  {product.name}
-                                </span>
+                            {/* 상품명 + 타입 배지 + 분류 */}
+                            <td className="px-sm py-[5px]">
+                              <div className="flex items-center gap-[4px]">
                                 {product.productType && PRODUCT_TYPE_BADGE[product.productType] && (
                                   <span className={cn(
-                                    'text-[10px] font-bold px-xs py-[1px] rounded-full shrink-0',
+                                    'text-[9px] font-bold px-[4px] py-[1px] rounded shrink-0',
                                     PRODUCT_TYPE_BADGE[product.productType].className
                                   )}>
                                     {PRODUCT_TYPE_BADGE[product.productType].label}
                                   </span>
                                 )}
+                                <span className={cn(
+                                  'text-[12px] font-semibold truncate',
+                                  isSelected ? 'text-primary' : 'text-content group-hover:text-primary'
+                                )}>
+                                  {product.name}
+                                </span>
                               </div>
                             </td>
-                            {/* 분류 (패널 열릴 때 숨김) */}
-                            {!panelOpen && (
-                              <td className="px-md py-sm">
-                                <StatusBadge variant="secondary">{toCategoryKo(product.category)}</StatusBadge>
-                              </td>
-                            )}
-                            {/* 가격 */}
-                            <td className="px-md py-sm text-right">
-                              <span className="text-[13px] font-medium tabular-nums">
-                                ₩{Number(product.price).toLocaleString()}
+                            {/* 현금가 */}
+                            <td className="px-sm py-[5px] text-right">
+                              <span className="text-[12px] font-medium tabular-nums text-content">
+                                {product.cashPrice != null ? `₩${Number(product.cashPrice).toLocaleString()}` : `₩${Number(product.price).toLocaleString()}`}
+                              </span>
+                            </td>
+                            {/* 카드가 */}
+                            <td className="px-sm py-[5px] text-right">
+                              <span className="text-[12px] tabular-nums text-content-secondary">
+                                {product.cardPrice != null ? `₩${Number(product.cardPrice).toLocaleString()}` : '-'}
                               </span>
                             </td>
                             {/* 기간 */}
-                            <td className="px-md py-sm text-center text-[12px] text-content-secondary">
+                            <td className="px-sm py-[5px] text-center text-[11px] text-content-secondary">
                               {product.duration != null ? `${product.duration}일` : '-'}
                             </td>
-                            {/* 세션 (패널 열릴 때 숨김) */}
-                            {!panelOpen && (
-                              <td className="px-md py-sm text-center text-[12px] text-content-secondary">
-                                {product.sessions != null ? `${product.sessions}회` : '-'}
-                              </td>
-                            )}
+                            {/* 횟수 */}
+                            <td className="px-sm py-[5px] text-center text-[11px] text-content-secondary">
+                              {product.sessions != null ? `${product.sessions}회` : '-'}
+                            </td>
                             {/* 레슨북 스타일: 요일별 ✓/✗ */}
                             {!panelOpen && (() => {
                               const ur = (product as any).usage_restrictions as UsageRestrictions | null | undefined;
@@ -619,7 +613,7 @@ export default function ProductList() {
 
             {/* ── 우측: 상세/편집 패널 (디테일) ── */}
             {panelOpen && (
-              <div className="w-[40%] flex flex-col bg-gray-50 min-h-[500px]">
+              <div className="w-[45%] flex flex-col bg-gray-50 min-h-[500px]">
                 <ProductDetailPanel
                   product={isNewMode ? null : selectedProduct}
                   isNew={isNewMode}

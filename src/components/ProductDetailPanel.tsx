@@ -363,26 +363,27 @@ export default function ProductDetailPanel({ product, isNew, onSave, onDelete, o
         </button>
       </div>
 
-      {/* 폼 본문 (스크롤 가능) */}
-      <div className="flex-1 overflow-y-auto px-lg py-md space-y-md">
+      {/* 폼 본문 (스크롤 가능) — 컴팩트 레이아웃 */}
+      <div className="flex-1 overflow-y-auto px-md py-sm space-y-sm">
 
-        {/* 상품명 */}
-        <div className="flex flex-col gap-xs">
-          <label className="text-[12px] font-semibold text-content-secondary">
-            상품명 <span className="text-state-error">*</span>
-          </label>
-          <input
-            type="text"
-            value={name}
-            onChange={e => setName(e.target.value)}
-            placeholder="예: 헬스 3개월권"
-            className="px-sm py-[7px] border border-line rounded-lg text-[13px] text-content bg-surface focus:outline-none focus:border-primary transition-colors"
-          />
-        </div>
+        {/* 상품명 + 분류 (한 줄) */}
+        <div className="grid grid-cols-2 gap-sm">
+          <div className="flex flex-col gap-[3px]">
+            <label className="text-[11px] font-semibold text-content-secondary">
+              상품명 <span className="text-state-error">*</span>
+            </label>
+            <input
+              type="text"
+              value={name}
+              onChange={e => setName(e.target.value)}
+              placeholder="예: 헬스 3개월권"
+              className="px-sm py-[5px] border border-line rounded-lg text-[12px] text-content bg-surface focus:outline-none focus:border-primary transition-colors"
+            />
+          </div>
 
         {/* 분류 (ComboBox) */}
-        <div className="flex flex-col gap-xs">
-          <label className="text-[12px] font-semibold text-content-secondary">분류</label>
+        <div className="flex flex-col gap-[3px]">
+          <label className="text-[11px] font-semibold text-content-secondary">분류</label>
           <div className="relative">
             <div className="flex gap-xs">
               {/* 직접 입력 또는 선택값 표시 */}
@@ -396,8 +397,8 @@ export default function ProductDetailPanel({ product, isNew, onSave, onDelete, o
                   }}
                   onFocus={() => setShowCategoryDropdown(true)}
                   onBlur={() => setTimeout(() => setShowCategoryDropdown(false), 150)}
-                  placeholder="분류 선택 또는 직접 입력"
-                  className="w-full px-sm py-[7px] pr-8 border border-line rounded-lg text-[13px] text-content bg-surface focus:outline-none focus:border-primary transition-colors"
+                  placeholder="분류 선택"
+                  className="w-full px-sm py-[5px] pr-8 border border-line rounded-lg text-[12px] text-content bg-surface focus:outline-none focus:border-primary transition-colors"
                 />
                 <button
                   type="button"
@@ -449,12 +450,12 @@ export default function ProductDetailPanel({ product, isNew, onSave, onDelete, o
           </div>
         </div>
 
-        {/* 가격 (현금가 / 카드가) */}
-        <div className="grid grid-cols-2 gap-sm">
-          <div className="flex flex-col gap-xs">
-            <label className="text-[12px] font-semibold text-content-secondary">
-              현금가 <span className="text-state-error">*</span>
-            </label>
+        </div>{/* grid-cols-2 닫기 */}
+
+        {/* 가격 + 기간/세션 (4칸 그리드) */}
+        <div className="grid grid-cols-4 gap-sm">
+          <div className="flex flex-col gap-[3px]">
+            <label className="text-[11px] font-semibold text-content-secondary">현금가 *</label>
             <div className="relative">
               <input
                 type="text"
@@ -462,104 +463,96 @@ export default function ProductDetailPanel({ product, isNew, onSave, onDelete, o
                 value={cashPrice}
                 onChange={e => handlePriceChange(setCashPrice, e.target.value)}
                 placeholder="0"
-                className="w-full px-sm py-[7px] pr-7 border border-line rounded-lg text-[13px] tabular-nums bg-surface focus:outline-none focus:border-primary transition-colors"
+                className="w-full px-sm py-[5px] pr-6 border border-line rounded-lg text-[12px] tabular-nums bg-surface focus:outline-none focus:border-primary"
               />
-              <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[11px] text-content-tertiary">원</span>
+              <span className="absolute right-1.5 top-1/2 -translate-y-1/2 text-[10px] text-content-tertiary">원</span>
             </div>
           </div>
-          <div className="flex flex-col gap-xs">
-            <label className="text-[12px] font-semibold text-content-secondary">카드가</label>
+          <div className="flex flex-col gap-[3px]">
+            <label className="text-[11px] font-semibold text-content-secondary">카드가</label>
             <div className="relative">
               <input
                 type="text"
                 inputMode="numeric"
                 value={cardPrice}
                 onChange={e => handlePriceChange(setCardPrice, e.target.value)}
-                placeholder="현금가와 동일"
-                className="w-full px-sm py-[7px] pr-7 border border-line rounded-lg text-[13px] tabular-nums bg-surface focus:outline-none focus:border-primary transition-colors"
+                placeholder="동일"
+                className="w-full px-sm py-[5px] pr-6 border border-line rounded-lg text-[12px] tabular-nums bg-surface focus:outline-none focus:border-primary"
               />
-              <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[11px] text-content-tertiary">원</span>
+              <span className="absolute right-1.5 top-1/2 -translate-y-1/2 text-[10px] text-content-tertiary">원</span>
             </div>
           </div>
-        </div>
-
-        {/* 기간 / 세션 */}
-        <div className="grid grid-cols-2 gap-sm">
-          <div className="flex flex-col gap-xs">
-            <label className="text-[12px] font-semibold text-content-secondary">기간 (일)</label>
+          <div className="flex flex-col gap-[3px]">
+            <label className="text-[11px] font-semibold text-content-secondary">기간</label>
             <div className="relative">
               <input
                 type="number"
                 min={1}
                 value={duration}
                 onChange={e => setDuration(e.target.value)}
-                placeholder="예: 90"
-                className="w-full px-sm py-[7px] pr-7 border border-line rounded-lg text-[13px] bg-surface focus:outline-none focus:border-primary transition-colors"
+                placeholder="90"
+                className="w-full px-sm py-[5px] pr-5 border border-line rounded-lg text-[12px] bg-surface focus:outline-none focus:border-primary"
               />
-              <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[11px] text-content-tertiary">일</span>
+              <span className="absolute right-1.5 top-1/2 -translate-y-1/2 text-[10px] text-content-tertiary">일</span>
             </div>
           </div>
-          <div className="flex flex-col gap-xs">
-            <label className="text-[12px] font-semibold text-content-secondary">세션 횟수</label>
+          <div className="flex flex-col gap-[3px]">
+            <label className="text-[11px] font-semibold text-content-secondary">횟수</label>
             <div className="relative">
               <input
                 type="number"
                 min={1}
                 value={sessions}
                 onChange={e => setSessions(e.target.value)}
-                placeholder="예: 10"
-                className="w-full px-sm py-[7px] pr-7 border border-line rounded-lg text-[13px] bg-surface focus:outline-none focus:border-primary transition-colors"
+                placeholder="10"
+                className="w-full px-sm py-[5px] pr-5 border border-line rounded-lg text-[12px] bg-surface focus:outline-none focus:border-primary"
               />
-              <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[11px] text-content-tertiary">회</span>
+              <span className="absolute right-1.5 top-1/2 -translate-y-1/2 text-[10px] text-content-tertiary">회</span>
             </div>
           </div>
         </div>
 
-        {/* 설명 */}
-        <div className="flex flex-col gap-xs">
-          <label className="text-[12px] font-semibold text-content-secondary">설명</label>
+        {/* 설명 + 태그 + 분류 (한 줄씩 컴팩트) */}
+        <div className="flex flex-col gap-[3px]">
+          <label className="text-[11px] font-semibold text-content-secondary">설명</label>
           <textarea
             value={description}
             onChange={e => setDescription(e.target.value)}
-            rows={3}
-            placeholder="상품 설명을 입력하세요."
-            className="px-sm py-[7px] border border-line rounded-lg text-[13px] text-content bg-surface focus:outline-none focus:border-primary transition-colors resize-none"
+            rows={2}
+            placeholder="상품 설명"
+            className="px-sm py-[5px] border border-line rounded-lg text-[12px] text-content bg-surface focus:outline-none focus:border-primary resize-none"
           />
         </div>
 
-        {/* 태그 */}
-        <div className="flex flex-col gap-xs">
-          <label className="text-[12px] font-semibold text-content-secondary">태그</label>
-          <input
-            type="text"
-            value={tag}
-            onChange={e => setTag(e.target.value)}
-            placeholder="#인기 #이벤트"
-            className="px-sm py-[7px] border border-line rounded-lg text-[13px] text-content bg-surface focus:outline-none focus:border-primary transition-colors"
-          />
+        <div className="grid grid-cols-2 gap-sm">
+          <div className="flex flex-col gap-[3px]">
+            <label className="text-[11px] font-semibold text-content-secondary">태그</label>
+            <input
+              type="text"
+              value={tag}
+              onChange={e => setTag(e.target.value)}
+              placeholder="#인기 #이벤트"
+              className="px-sm py-[5px] border border-line rounded-lg text-[12px] text-content bg-surface focus:outline-none focus:border-primary"
+            />
+          </div>
+          <div className="flex flex-col gap-[3px]">
+            <label className="text-[11px] font-semibold text-content-secondary">상품 분류</label>
+            <select
+              value={productGroupId}
+              onChange={e => setProductGroupId(e.target.value)}
+              className="px-sm py-[5px] border border-line rounded-lg text-[12px] text-content bg-surface focus:outline-none focus:border-primary"
+            >
+              <option value="">분류 없음</option>
+              {productGroups.map(g => (
+                <option key={g.id} value={String(g.id)}>{g.name}</option>
+              ))}
+            </select>
+          </div>
         </div>
 
-        {/* 상품 분류 (product_groups) */}
-        <div className="flex flex-col gap-xs">
-          <label className="text-[12px] font-semibold text-content-secondary">상품 분류</label>
-          <select
-            value={productGroupId}
-            onChange={e => setProductGroupId(e.target.value)}
-            className="px-sm py-[7px] border border-line rounded-lg text-[13px] text-content bg-surface focus:outline-none focus:border-primary transition-colors"
-          >
-            <option value="">분류 없음</option>
-            {productGroups.map(g => (
-              <option key={g.id} value={String(g.id)}>{g.name}</option>
-            ))}
-          </select>
-        </div>
-
-        {/* 구분선 */}
-        <div className="border-t border-line" />
-
-        {/* 옵션 섹션 */}
-        <div className="space-y-sm">
-          <p className="text-[12px] font-bold text-content-secondary uppercase tracking-wide">옵션</p>
+        {/* 옵션 섹션 — 컴팩트 */}
+        <div className="space-y-[6px] pt-[4px] border-t border-line">
+          <p className="text-[10px] font-bold text-content-tertiary uppercase tracking-wider">옵션</p>
 
           {/* 기간정지 허용 */}
           <div className="flex items-center gap-sm">
@@ -655,9 +648,8 @@ export default function ProductDetailPanel({ product, isNew, onSave, onDelete, o
         {/* 수업 설정 (PT/GX 전용) */}
         {showLessonFields && (
           <>
-            <div className="border-t border-line" />
-            <div className="space-y-sm">
-              <p className="text-[12px] font-bold text-content-secondary uppercase tracking-wide">수업 설정</p>
+            <div className="space-y-[6px] pt-[4px] border-t border-line">
+              <p className="text-[10px] font-bold text-content-tertiary uppercase tracking-wider">수업 설정</p>
 
               <div className="flex flex-col gap-xs">
                 <label className="text-[12px] font-semibold text-content-secondary">수업방식</label>
@@ -691,11 +683,10 @@ export default function ProductDetailPanel({ product, isNew, onSave, onDelete, o
         )}
 
         {/* 이용 제한 설정 */}
-        <div className="border-t border-line" />
-        <div className="space-y-sm">
+        <div className="space-y-[6px] pt-[4px] border-t border-line">
           <div className="flex items-center gap-xs">
-            <Calendar size={13} className="text-content-secondary" />
-            <p className="text-[12px] font-bold text-content-secondary uppercase tracking-wide">이용 제한 설정</p>
+            <Calendar size={12} className="text-content-tertiary" />
+            <p className="text-[10px] font-bold text-content-tertiary uppercase tracking-wider">이용 제한</p>
           </div>
 
           {/* 요일 제한 */}
@@ -713,7 +704,7 @@ export default function ProductDetailPanel({ product, isNew, onSave, onDelete, o
               </label>
             </div>
             {dayRestrictionEnabled && (
-              <div className="flex gap-[4px] flex-wrap pl-[22px]">
+              <div className="flex gap-[3px] flex-wrap pl-[22px]">
                 {DAY_LABELS.map((label, idx) => (
                   <button
                     key={idx}
@@ -726,7 +717,7 @@ export default function ProductDetailPanel({ product, isNew, onSave, onDelete, o
                       );
                     }}
                     className={cn(
-                      'w-8 h-8 rounded-full text-[12px] font-semibold border transition-colors',
+                      'w-7 h-7 rounded-full text-[11px] font-semibold border transition-colors',
                       availableDays.includes(idx)
                         ? 'bg-primary text-white border-primary'
                         : 'bg-surface text-content-secondary border-line hover:border-primary hover:text-primary'
