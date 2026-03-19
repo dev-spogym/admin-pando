@@ -34,6 +34,7 @@ import {
   parsePrice,
 } from '@/lib/validations';
 import type { z } from 'zod';
+import { getProductGroups, type ProductGroup } from '@/api/endpoints/productGroups';
 
 type ProductFormData = z.input<typeof productFormSchema>;
 
@@ -72,6 +73,14 @@ export default function ProductForm() {
   const [isSaving, setIsSaving] = useState(false);
   const [showCancelConfirm, setShowCancelConfirm] = useState(false);
   const [existingProducts, setExistingProducts] = useState<{ name: string; category: string }[]>([]);
+
+  // 추가 필드 상태 (react-hook-form 외부)
+  const [classType, setClassType] = useState('');         // 1:1 / 그룹 / 혼합
+  const [deductionType, setDeductionType] = useState(''); // 횟수차감 / 기간차감 / 무제한
+  const [suspendLimit, setSuspendLimit] = useState('');   // 기간정지 제한 일수
+  const [dailyUseLimit, setDailyUseLimit] = useState(''); // 일사용 횟수 제한
+  const [productGroupId, setProductGroupId] = useState(''); // 분류 ID
+  const [productGroups, setProductGroups] = useState<ProductGroup[]>([]);
 
   // useTimeRanges: react-hook-form 외부 별도 state (복잡한 배열 필드)
   const [useTimeRanges, setUseTimeRanges] = useState([
@@ -127,6 +136,13 @@ export default function ProductForm() {
       }
     };
     fetchExisting();
+  }, []);
+
+  // 상품 분류 목록 로드
+  useEffect(() => {
+    getProductGroups().then(({ data }) => {
+      if (data) setProductGroups(data);
+    });
   }, []);
 
   // 수정 모드: URL의 id로 기존 상품 데이터 로드
@@ -251,6 +267,12 @@ export default function ProductForm() {
       kioskVisible: data.isKioskExposed ?? true,
       // 태그
       tag: data.tags || null,
+      // 추가 필드
+      classType: classType || null,
+      deductionType: deductionType || null,
+      suspendLimit: suspendLimit ? Number(suspendLimit) : null,
+      dailyUseLimit: dailyUseLimit ? Number(dailyUseLimit) : null,
+      productGroupId: productGroupId ? Number(productGroupId) : null,
     };
 
     if (isEditMode) {
@@ -507,6 +529,75 @@ export default function ProductForm() {
               />
             </div>
           </div>
+
+          {/* 상품 분류 선택 */}
+          <div className="flex flex-col gap-sm">
+            <label className="text-[13px] font-semibold text-content">상품 분류</label>
+            <select
+              className="w-full px-md py-sm rounded-input border border-line bg-surface-secondary text-[14px] focus:border-primary focus:outline-none transition-colors"
+              value={productGroupId}
+              onChange={e => setProductGroupId(e.target.value)}
+            >
+              <option value="">분류 없음</option>
+              {productGroups.map(g => (
+                <option key={g.id} value={String(g.id)}>{g.name}</option>
+              ))}
+            </select>
+          </div>
+
+          {/* PT/GX 전용 추가 필드 */}
+          {(watchedCategory === 'PT' || watchedCategory === 'GX') && (
+            <>
+              <div className="flex flex-col gap-sm">
+                <label className="text-[13px] font-semibold text-content">수업 유형</label>
+                <select
+                  className="w-full px-md py-sm rounded-input border border-line bg-surface-secondary text-[14px] focus:border-primary focus:outline-none transition-colors"
+                  value={classType}
+                  onChange={e => setClassType(e.target.value)}
+                >
+                  <option value="">선택</option>
+                  <option value="1:1">1:1</option>
+                  <option value="그룹">그룹</option>
+                  <option value="혼합">혼합</option>
+                </select>
+              </div>
+              <div className="flex flex-col gap-sm">
+                <label className="text-[13px] font-semibold text-content">차감 방식</label>
+                <select
+                  className="w-full px-md py-sm rounded-input border border-line bg-surface-secondary text-[14px] focus:border-primary focus:outline-none transition-colors"
+                  value={deductionType}
+                  onChange={e => setDeductionType(e.target.value)}
+                >
+                  <option value="">선택</option>
+                  <option value="횟수차감">횟수차감</option>
+                  <option value="기간차감">기간차감</option>
+                  <option value="무제한">무제한</option>
+                </select>
+              </div>
+              <div className="flex flex-col gap-sm">
+                <label className="text-[13px] font-semibold text-content">기간정지 제한 (일)</label>
+                <input
+                  type="number"
+                  min={0}
+                  className="w-full px-md py-sm rounded-input border border-line bg-surface-secondary text-[14px] focus:border-primary focus:outline-none transition-colors"
+                  placeholder="예: 30"
+                  value={suspendLimit}
+                  onChange={e => setSuspendLimit(e.target.value)}
+                />
+              </div>
+              <div className="flex flex-col gap-sm">
+                <label className="text-[13px] font-semibold text-content">일사용 횟수 제한</label>
+                <input
+                  type="number"
+                  min={0}
+                  className="w-full px-md py-sm rounded-input border border-line bg-surface-secondary text-[14px] focus:border-primary focus:outline-none transition-colors"
+                  placeholder="예: 2"
+                  value={dailyUseLimit}
+                  onChange={e => setDailyUseLimit(e.target.value)}
+                />
+              </div>
+            </>
+          )}
         </FormSection>
 
         {/* 섹션 02: 이용기간 / 횟수 (카테고리에 따라 동적 변경) */}

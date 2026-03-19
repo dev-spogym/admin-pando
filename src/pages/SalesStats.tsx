@@ -151,10 +151,26 @@ function DonutChart({ data }: { data: AggRow[] }) {
   );
 }
 
+// 직군별 탭: 역할 매핑
+const ROLE_GROUP_MAP: Record<string, string> = {
+  fc: '프론트',
+  staff: '프론트',
+  manager: '매니저',
+  owner: '매니저',
+  primary: '매니저',
+  trainer: '트레이너',
+};
+
+// 매출 직원 행 (staffName, role 포함)
+type SalesRowWithStaff = SalesRow & { staffName: string; staffRole: string };
+
 export default function SalesStats() {
   const [salesData, setSalesData] = useState<SalesRow[]>([]);
+  const [staffSalesData, setStaffSalesData] = useState<SalesRowWithStaff[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('product');
+  // 최상위 탭 (전체 통계 / 직군별 / 담당자별)
+  const [topTab, setTopTab] = useState<'all' | 'role' | 'staff'>('all');
 
   // 날짜 필터 (이번달 기본)
   const today = new Date();
@@ -169,7 +185,7 @@ export default function SalesStats() {
     setIsLoading(true);
     let query = supabase
       .from('sales')
-      .select('id, saleDate, productName, type, category, salePrice, amount, paymentMethod, status, branchId')
+      .select('id, saleDate, productName, type, category, salePrice, amount, paymentMethod, status, branchId, staffName, staffRole')
       .eq('branchId', getBranchId())
       .neq('status', 'REFUNDED');
 
@@ -185,18 +201,20 @@ export default function SalesStats() {
       return;
     }
     if (data) {
-      setSalesData(
-        data.map((row: Record<string, unknown>) => ({
-          id: row.id as number,
-          saleDate: (row.saleDate as string)?.slice(0, 10) ?? '',
-          productName: (row.productName as string) ?? '(미지정)',
-          type: (row.type as string) ?? '기타',
-          category: (row.category as string) ?? '기타',
-          salePrice: Number(row.salePrice) || Number(row.amount) || 0,
-          paymentMethod: PAYMENT_KO[(row.paymentMethod as string) ?? ''] ?? (row.paymentMethod as string) ?? '기타',
-          status: (row.status as string) ?? '',
-        }))
-      );
+      const mapped = data.map((row: Record<string, unknown>) => ({
+        id: row.id as number,
+        saleDate: (row.saleDate as string)?.slice(0, 10) ?? '',
+        productName: (row.productName as string) ?? '(미지정)',
+        type: (row.type as string) ?? '기타',
+        category: (row.category as string) ?? '기타',
+        salePrice: Number(row.salePrice) || Number(row.amount) || 0,
+        paymentMethod: PAYMENT_KO[(row.paymentMethod as string) ?? ''] ?? (row.paymentMethod as string) ?? '기타',
+        status: (row.status as string) ?? '',
+        staffName: (row.staffName as string) ?? '(미지정)',
+        staffRole: (row.staffRole as string) ?? '',
+      }));
+      setSalesData(mapped);
+      setStaffSalesData(mapped);
     }
   }, [dateStart, dateEnd]);
 
@@ -247,6 +265,43 @@ export default function SalesStats() {
   const paymentRows = useMemo(() => aggregate(r => r.paymentMethod), [salesData]);
   const categoryRows = useMemo(() => aggregate(r => r.category), [salesData]);
 
+  // 직군별 집계
+  const roleRows = useMemo(() => {
+    const map = new Map<string, { count: number; total: number }>();
+    staffSalesData.forEach(row => {
+      const key = ROLE_GROUP_MAP[row.staffRole] ?? '기타';
+      const prev = map.get(key) ?? { count: 0, total: 0 };
+      prev.count += 1;
+      prev.total += row.salePrice;
+      map.set(key, prev);
+    });
+    const grandTotal = Array.from(map.values()).reduce((s, v) => s + v.total, 0) || 1;
+    return Array.from(map.entries())
+      .map(([label, v]) => ({ label, ...v, pct: (v.total / grandTotal) * 100 }))
+      .sort((a, b) => b.total - a.total);
+  }, [staffSalesData]);
+
+  // 담당자별 집계
+  const staffRows = useMemo(() => {
+    const map = new Map<string, { count: number; total: number }>();
+    staffSalesData.forEach(row => {
+      const key = row.staffName || '(미지정)';
+      const prev = map.get(key) ?? { count: 0, total: 0 };
+      prev.count += 1;
+      prev.total += row.salePrice;
+      map.set(key, prev);
+    });
+    const grandTotal = Array.from(map.values()).reduce((s, v) => s + v.total, 0) || 1;
+    return Array.from(map.entries())
+      .map(([label, v]) => ({
+        label,
+        ...v,
+        avg: v.count > 0 ? Math.round(v.total / v.count) : 0,
+        pct: (v.total / grandTotal) * 100,
+      }))
+      .sort((a, b) => b.total - a.total);
+  }, [staffSalesData]);
+
   // 공통 테이블 컬럼
   const aggColumns = (labelHeader: string) => [
     { key: 'label', header: labelHeader, width: 220 },
@@ -282,12 +337,83 @@ export default function SalesStats() {
   const current = tabConfig[activeTab];
   const grandTotal = current.rows.reduce((s, r) => s + r.total, 0);
 
+  // 직군별/담당자별 테이블 컬럼
+  const roleColumns = [
+    { key: 'label', header: '직군', width: 160 },
+    { key: 'count', header: '건수', width: 100, align: 'center' as const, render: (v: number) => <span className="tabular-nums">{v.toLocaleString()}건</span> },
+    { key: 'total', header: '매출액', width: 160, align: 'right' as const, render: (v: number) => <span className="font-semibold tabular-nums">₩{v.toLocaleString()}</span> },
+    { key: 'pct', header: '비율', width: 100, align: 'right' as const, render: (v: number) => <span className="tabular-nums text-content-secondary">{v.toFixed(1)}%</span> },
+  ];
+  const staffColumns = [
+    { key: 'label', header: '담당자', width: 140 },
+    { key: 'count', header: '건수', width: 100, align: 'center' as const, render: (v: number) => <span className="tabular-nums">{v.toLocaleString()}건</span> },
+    { key: 'total', header: '매출액', width: 160, align: 'right' as const, render: (v: number) => <span className="font-semibold tabular-nums">₩{v.toLocaleString()}</span> },
+    { key: 'avg', header: '평균단가', width: 140, align: 'right' as const, render: (v: number) => <span className="tabular-nums text-content-secondary">₩{v.toLocaleString()}</span> },
+    { key: 'pct', header: '비율', width: 100, align: 'right' as const, render: (v: number) => <span className="tabular-nums text-content-secondary">{v.toFixed(1)}%</span> },
+  ];
+
   return (
     <AppLayout>
       <PageHeader
         title="매출 통계"
         description="상품별, 결제수단별 매출을 분석합니다."
       />
+
+      {/* 상단 탭: 전체 / 직군별 / 담당자별 */}
+      <div className="mb-lg flex items-center gap-xs border-b border-line pb-sm">
+        {([
+          { key: 'all', label: '전체 통계' },
+          { key: 'role', label: '직군별' },
+          { key: 'staff', label: '담당자별' },
+        ] as const).map(t => (
+          <button
+            key={t.key}
+            onClick={() => setTopTab(t.key)}
+            className={cn(
+              'px-md py-sm text-[13px] font-semibold border-b-2 transition-all -mb-[calc(theme(spacing.sm)+1px)]',
+              topTab === t.key ? 'border-primary text-primary' : 'border-transparent text-content-secondary hover:text-content'
+            )}
+          >{t.label}</button>
+        ))}
+      </div>
+
+      {/* 직군별 탭 */}
+      {topTab === 'role' && (
+        <div className="bg-surface rounded-xl border border-line shadow-card overflow-hidden">
+          <div className="px-lg py-md border-b border-line">
+            <h3 className="text-[14px] font-bold text-content">직군별 매출 합계</h3>
+            <p className="text-[12px] text-content-secondary mt-xs">역할(트레이너/매니저/프론트)별 매출을 집계합니다.</p>
+          </div>
+          <HBarChart data={roleRows.slice(0, 10)} />
+          <DataTable
+            columns={roleColumns}
+            data={roleRows as unknown as Record<string, unknown>[]}
+            loading={isLoading}
+            pagination={{ page: 1, pageSize: 20, total: roleRows.length }}
+            emptyMessage="집계된 데이터가 없습니다."
+          />
+        </div>
+      )}
+
+      {/* 담당자별 탭 */}
+      {topTab === 'staff' && (
+        <div className="bg-surface rounded-xl border border-line shadow-card overflow-hidden">
+          <div className="px-lg py-md border-b border-line">
+            <h3 className="text-[14px] font-bold text-content">담당자별 매출 합계</h3>
+            <p className="text-[12px] text-content-secondary mt-xs">직원별 매출액, 건수, 평균 단가를 확인합니다.</p>
+          </div>
+          <DataTable
+            columns={staffColumns}
+            data={staffRows as unknown as Record<string, unknown>[]}
+            loading={isLoading}
+            pagination={{ page: 1, pageSize: 20, total: staffRows.length }}
+            emptyMessage="집계된 데이터가 없습니다."
+          />
+        </div>
+      )}
+
+      {/* 전체 통계 탭 */}
+      {topTab === 'all' && <>
 
       {/* 날짜 필터 */}
       <div className="bg-surface rounded-xl border border-line p-lg mb-xl flex flex-wrap items-center gap-md">
@@ -369,6 +495,7 @@ export default function SalesStats() {
           emptyMessage="집계된 데이터가 없습니다."
         />
       </div>
+      </>}
     </AppLayout>
   );
 }

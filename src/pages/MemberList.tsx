@@ -10,6 +10,7 @@ import {
   UserCheck,
   Clock,
   AlertTriangle,
+  ChevronDown,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import AppLayout from '@/components/AppLayout';
@@ -25,6 +26,7 @@ import { cn } from '@/lib/utils';
 import { moveToPage } from '@/internal';
 import { useMembers, useMemberStats } from '@/api/hooks/useMembers';
 import type { Member } from '@/api/endpoints/members';
+import { toggleFavorite } from '@/api/endpoints/members';
 import { exportToExcel } from '@/lib/exportExcel';
 import { supabase } from '@/lib/supabase';
 import { useAuthStore } from '@/stores/authStore';
@@ -82,6 +84,16 @@ export default function MemberList() {
   const [pendingStatusValue, setPendingStatusValue] = useState<string>('ACTIVE');
   // 만료 상품 숨기기 체크박스 상태
   const [hideExpired, setHideExpired] = useState(false);
+  // 관심회원만 보기
+  const [onlyFavorite, setOnlyFavorite] = useState(false);
+  // 미방문 N일 필터 (0 = 전체)
+  const [daysNoVisit, setDaysNoVisit] = useState<number>(0);
+  // 회원구분 필터
+  const [memberTypeFilter, setMemberTypeFilter] = useState<string>('all');
+  // 유입경로 필터
+  const [referralSourceFilter, setReferralSourceFilter] = useState<string>('all');
+  // 상품별 탭에서 선택된 상품명
+  const [selectedProductName, setSelectedProductName] = useState<string>('all');
 
   // API 훅 (필터/정렬 파라미터 모두 전달)
   const membersQuery = useMembers({
@@ -93,6 +105,10 @@ export default function MemberList() {
     product: filterValues.product || undefined,
     sortKey: sortKey || undefined,
     sortDirection: sortKey ? sortDirection : undefined,
+    isFavorite: onlyFavorite ? true : undefined,
+    daysNoVisit: daysNoVisit > 0 ? daysNoVisit : undefined,
+    memberType: memberTypeFilter !== 'all' ? memberTypeFilter : undefined,
+    referralSource: referralSourceFilter !== 'all' ? referralSourceFilter : undefined,
   });
   const statsQuery = useMemberStats();
 
@@ -109,8 +125,35 @@ export default function MemberList() {
     return () => { if (debounceTimer.current) clearTimeout(debounceTimer.current); };
   }, [searchValue]);
 
+  // 관심회원 토글 핸들러
+  const handleFavoriteToggle = useCallback(async (row: Member) => {
+    const next = !row.isFavorite;
+    const res = await toggleFavorite(row.id, next);
+    if (res.success) {
+      toast.success(res.message ?? '관심회원 변경');
+      membersQuery.refetch();
+    } else {
+      toast.error(res.message ?? '관심회원 변경 실패');
+    }
+  }, [membersQuery]);
+
   // 회원 전체 탭 컬럼
   const columns = useMemo(() => [
+    {
+      key: 'isFavorite', header: '★', width: 44, align: 'center' as const,
+      render: (_: unknown, row: Member) => (
+        <button
+          className={cn(
+            'transition-colors text-[16px]',
+            row.isFavorite ? 'text-yellow-400 hover:text-yellow-500' : 'text-content-tertiary hover:text-yellow-400'
+          )}
+          onClick={(e) => { e.stopPropagation(); handleFavoriteToggle(row); }}
+          title={row.isFavorite ? '관심회원 해제' : '관심회원 등록'}
+        >
+          {row.isFavorite ? '★' : '☆'}
+        </button>
+      ),
+    },
     {
       key: 'status', header: '상태', width: 90, align: 'center' as const,
       render: (_: unknown, row: Member) => (
@@ -141,7 +184,7 @@ export default function MemberList() {
       key: 'registeredAt', header: '등록일', width: 110, sortable: true,
       render: (v: unknown) => <span className="tabular-nums">{v ? String(v).slice(0, 10) : '-'}</span>,
     },
-  ], []);
+  ], [handleFavoriteToggle]);
 
   // 이용권 탭 컬럼 (pass): 회원명, 이용권, 시작일, 만료일, D-Day, 상태
   const passColumns = useMemo(() => [
@@ -326,11 +369,15 @@ export default function MemberList() {
     }
   };
 
-  /** 일괄 액션: 관심회원 토글 */
-  const handleToggleVip = () => {
+  /** 일괄 액션: 관심회원 일괄 등록 */
+  const handleToggleVip = useCallback(async () => {
     if (selectedRows.size === 0) { toast.warning('회원을 먼저 선택해주세요.'); return; }
-    toast.info('관심회원 기능은 준비 중입니다.');
-  };
+    const ids = Array.from(selectedRows).map(idx => members[idx]?.id).filter(Boolean);
+    await Promise.all(ids.map(id => toggleFavorite(id, true)));
+    toast.success(`${ids.length}명을 관심회원으로 등록했습니다.`);
+    setSelectedRows(new Set());
+    membersQuery.refetch();
+  }, [selectedRows, members, membersQuery]);
 
   /** 일괄 액션 분기 */
   const handleAction = (type: string) => {
@@ -377,13 +424,20 @@ export default function MemberList() {
         <TabNav tabs={MAIN_TABS} activeTab={activeMainTab} onTabChange={setActiveMainTab} />
       </div>
 
-      {/* 상품별 탭: 요약 카드 + 테이블 */}
+      {/* 상품별 탭: 요약 카드 + 상품 드롭다운 + 테이블 */}
       {activeMainTab === 'product' && (
         <div className="space-y-lg">
           {/* 상품별 회원 수 요약 카드 */}
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-md">
             {Object.entries(productGroups).map(([type, list]) => (
-              <div key={type} className="bg-surface border border-line rounded-xl p-md flex flex-col gap-xs">
+              <div
+                key={type}
+                className={cn(
+                  'bg-surface border rounded-xl p-md flex flex-col gap-xs cursor-pointer transition-colors',
+                  selectedProductName === type ? 'border-primary bg-primary/5' : 'border-line hover:bg-surface-secondary'
+                )}
+                onClick={() => setSelectedProductName(prev => prev === type ? 'all' : type)}
+              >
                 <span className="text-[12px] font-semibold text-content-secondary">{MEMBERSHIP_TYPE_LABEL[type] ?? type}</span>
                 <span className="text-[22px] font-bold text-content tabular-nums">{list.length.toLocaleString()}<span className="text-[13px] font-normal text-content-secondary ml-xs">명</span></span>
                 <span className="text-[11px] text-content-secondary">
@@ -392,11 +446,33 @@ export default function MemberList() {
               </div>
             ))}
           </div>
+
+          {/* 상품 드롭다운 필터 */}
+          <div className="flex items-center gap-sm">
+            <span className="text-[13px] text-content-secondary font-medium">상품 선택:</span>
+            <div className="relative">
+              <select
+                className="appearance-none border border-line bg-surface rounded-lg px-md pr-[30px] py-[6px] text-[13px] text-content outline-none focus:ring-2 focus:ring-primary/20 cursor-pointer"
+                value={selectedProductName}
+                onChange={(e) => { setSelectedProductName(e.target.value); setCurrentPage(1); }}
+              >
+                <option value="all">전체 상품</option>
+                {Object.keys(productGroups).map(type => (
+                  <option key={type} value={type}>{MEMBERSHIP_TYPE_LABEL[type] ?? type}</option>
+                ))}
+              </select>
+              <ChevronDown size={14} className="absolute right-[8px] top-1/2 -translate-y-1/2 text-content-tertiary pointer-events-none" />
+            </div>
+          </div>
+
           {/* membershipType 기준 정렬 테이블 */}
           <div className="bg-surface rounded-xl border border-line overflow-hidden">
             <DataTable
               columns={productColumns}
-              data={[...members].sort((a, b) => (a.membershipType ?? '').localeCompare(b.membershipType ?? ''))}
+              data={(() => {
+                const sorted = [...members].sort((a, b) => (a.membershipType ?? '').localeCompare(b.membershipType ?? ''));
+                return selectedProductName === 'all' ? sorted : sorted.filter(m => m.membershipType === selectedProductName);
+              })()}
               selectable
               selectedRows={selectedRows}
               onSelectRows={setSelectedRows}
@@ -477,16 +553,96 @@ export default function MemberList() {
             onFilterChange={(key, value) => { setFilterValues(prev => ({ ...prev, [key]: value })); setCurrentPage(1); }}
             onReset={() => { setSearchValue(''); setDebouncedSearch(''); setFilterValues({}); setCurrentPage(1); }}
           />
-          {/* 만료 상품 숨기기 체크박스 */}
-          <label className="mt-sm flex items-center gap-xs cursor-pointer select-none w-fit">
-            <input
-              type="checkbox"
-              className="w-4 h-4 rounded accent-primary cursor-pointer"
-              checked={hideExpired}
-              onChange={(e) => { setHideExpired(e.target.checked); setCurrentPage(1); }}
-            />
-            <span className="text-[13px] text-content-secondary">만료 상품 숨기기</span>
-          </label>
+          {/* 추가 필터 행 */}
+          <div className="mt-sm flex flex-wrap items-center gap-sm">
+            {/* 관심회원만 체크박스 */}
+            <label className="flex items-center gap-xs cursor-pointer select-none">
+              <input
+                type="checkbox"
+                className="w-4 h-4 rounded accent-primary cursor-pointer"
+                checked={onlyFavorite}
+                onChange={(e) => { setOnlyFavorite(e.target.checked); setCurrentPage(1); }}
+              />
+              <span className="text-[13px] text-content-secondary flex items-center gap-[3px]">
+                <span className="text-yellow-400">★</span> 관심회원만
+              </span>
+            </label>
+
+            <div className="h-4 w-px bg-line" />
+
+            {/* 미방문 N일 드롭다운 */}
+            <div className="flex items-center gap-xs">
+              <span className="text-[13px] text-content-secondary">미방문</span>
+              <div className="relative">
+                <select
+                  className="appearance-none border border-line bg-surface rounded-lg px-sm pr-[26px] py-[4px] text-[13px] text-content outline-none focus:ring-2 focus:ring-primary/20 cursor-pointer"
+                  value={daysNoVisit}
+                  onChange={(e) => { setDaysNoVisit(Number(e.target.value)); setCurrentPage(1); }}
+                >
+                  <option value={0}>전체</option>
+                  <option value={7}>7일 초과</option>
+                  <option value={14}>14일 초과</option>
+                  <option value={30}>30일 초과</option>
+                </select>
+                <ChevronDown size={12} className="absolute right-[6px] top-1/2 -translate-y-1/2 text-content-tertiary pointer-events-none" />
+              </div>
+            </div>
+
+            <div className="h-4 w-px bg-line" />
+
+            {/* 회원구분 드롭다운 */}
+            <div className="flex items-center gap-xs">
+              <span className="text-[13px] text-content-secondary">회원구분</span>
+              <div className="relative">
+                <select
+                  className="appearance-none border border-line bg-surface rounded-lg px-sm pr-[26px] py-[4px] text-[13px] text-content outline-none focus:ring-2 focus:ring-primary/20 cursor-pointer"
+                  value={memberTypeFilter}
+                  onChange={(e) => { setMemberTypeFilter(e.target.value); setCurrentPage(1); }}
+                >
+                  <option value="all">전체</option>
+                  <option value="일반">일반</option>
+                  <option value="기명법인">기명법인</option>
+                  <option value="무기명법인">무기명법인</option>
+                </select>
+                <ChevronDown size={12} className="absolute right-[6px] top-1/2 -translate-y-1/2 text-content-tertiary pointer-events-none" />
+              </div>
+            </div>
+
+            <div className="h-4 w-px bg-line" />
+
+            {/* 유입경로 드롭다운 */}
+            <div className="flex items-center gap-xs">
+              <span className="text-[13px] text-content-secondary">유입경로</span>
+              <div className="relative">
+                <select
+                  className="appearance-none border border-line bg-surface rounded-lg px-sm pr-[26px] py-[4px] text-[13px] text-content outline-none focus:ring-2 focus:ring-primary/20 cursor-pointer"
+                  value={referralSourceFilter}
+                  onChange={(e) => { setReferralSourceFilter(e.target.value); setCurrentPage(1); }}
+                >
+                  <option value="all">전체</option>
+                  <option value="홈페이지">홈페이지</option>
+                  <option value="지인소개">지인소개</option>
+                  <option value="네이버">네이버</option>
+                  <option value="인스타">인스타</option>
+                  <option value="기타">기타</option>
+                </select>
+                <ChevronDown size={12} className="absolute right-[6px] top-1/2 -translate-y-1/2 text-content-tertiary pointer-events-none" />
+              </div>
+            </div>
+
+            <div className="h-4 w-px bg-line" />
+
+            {/* 만료 상품 숨기기 체크박스 */}
+            <label className="flex items-center gap-xs cursor-pointer select-none">
+              <input
+                type="checkbox"
+                className="w-4 h-4 rounded accent-primary cursor-pointer"
+                checked={hideExpired}
+                onChange={(e) => { setHideExpired(e.target.checked); setCurrentPage(1); }}
+              />
+              <span className="text-[13px] text-content-secondary">만료 숨기기</span>
+            </label>
+          </div>
         </div>
 
         {/* 벌크 액션 바 */}

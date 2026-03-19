@@ -61,6 +61,12 @@ import ConfirmDialog from "@/components/ConfirmDialog";
 import TabPaymentDetail from "@/components/member/TabPaymentDetail";
 import TabReservation from "@/components/member/TabReservation";
 import TabDetailHistory from "@/components/member/TabDetailHistory";
+// Sprint 2: 신규 탭 컴포넌트
+import TabBodyInfo from "@/components/member/TabBodyInfo";
+import TabEvaluation from "@/components/member/TabEvaluation";
+import TabConsultation from "@/components/member/TabConsultation";
+import TabExerciseProgram from "@/components/member/TabExerciseProgram";
+import TabExerciseLog from "@/components/member/TabExerciseLog";
 
 // ────────────────────────────────────────────────────────────
 // 타입 정의
@@ -1576,6 +1582,12 @@ export default function MemberDetail() {
     { key: "body", label: "체성분", icon: Activity },
     { key: "memo", label: "상담·메모", icon: MessageSquare },
     { key: "lesson", label: "레슨", icon: Dumbbell },
+    // Sprint 2: 신규 탭
+    { key: "bodyInfo", label: "신체정보", icon: Activity },
+    { key: "evaluation", label: "종합평가", icon: Star },
+    { key: "consultation", label: "상담이력", icon: ClipboardList },
+    { key: "exerciseProgram", label: "운동프로그램", icon: Dumbbell },
+    { key: "exerciseLog", label: "운동이력", icon: BarChart3 },
   ];
 
   const confirmDelete = async () => {
@@ -1867,6 +1879,12 @@ export default function MemberDetail() {
             {activeTab === "body" && <TabBody initialRecords={bodyRecords} memberHeight={member?.height ?? 0} />}
             {activeTab === "memo" && <TabMemo memberId={memberId ?? ''} />}
             {activeTab === "lesson" && <TabLesson memberId={memberId ?? ''} />}
+            {/* Sprint 2: 신규 탭 렌더 */}
+            {activeTab === "bodyInfo" && <TabBodyInfo memberId={member.id} />}
+            {activeTab === "evaluation" && <TabEvaluation memberId={member.id} />}
+            {activeTab === "consultation" && <TabConsultation memberId={member.id} />}
+            {activeTab === "exerciseProgram" && <TabExerciseProgram memberId={member.id} />}
+            {activeTab === "exerciseLog" && <TabExerciseLog memberId={member.id} />}
 
           </div>
         </div>

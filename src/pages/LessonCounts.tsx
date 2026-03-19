@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { toast } from 'sonner';
-import { Minus, Eye, Hash } from 'lucide-react';
+import { Minus, Eye, Hash, Users, CheckCircle } from 'lucide-react';
 import AppLayout from '@/components/AppLayout';
 import PageHeader from '@/components/PageHeader';
+import StatCard from '@/components/StatCard';
 import DataTable from '@/components/DataTable';
 import StatusBadge from '@/components/StatusBadge';
 import TabNav from '@/components/TabNav';
@@ -46,7 +47,14 @@ interface LessonCount {
 interface DeductionLog {
   id: number;
   deductedAt: string;
+  lessonName: string | null;
   note: string | null;
+}
+
+// 회원 목록 (필터용)
+interface MemberOption {
+  id: number;
+  name: string;
 }
 
 export default function LessonCounts() {
@@ -57,16 +65,27 @@ export default function LessonCounts() {
   const [activeTab, setActiveTab] = useState('all');
   const [searchValue, setSearchValue] = useState('');
 
+  // 세션 필터 상태
+  const [filterMemberId, setFilterMemberId] = useState('');
+  const [filterProduct, setFilterProduct] = useState('');
+  const [filterStartDate, setFilterStartDate] = useState('');
+  const [filterEndDate, setFilterEndDate] = useState('');
+  const [memberOptions, setMemberOptions] = useState<MemberOption[]>([]);
+
   // 이력 모달 상태
   const [historyOpen, setHistoryOpen] = useState(false);
   const [historyTarget, setHistoryTarget] = useState<LessonCount | null>(null);
   const [historyLogs, setHistoryLogs] = useState<DeductionLog[]>([]);
   const [historyLoading, setHistoryLoading] = useState(false);
 
+  // 세션 상세 뷰 모달
+  const [sessionOpen, setSessionOpen] = useState(false);
+  const [sessionTarget, setSessionTarget] = useState<LessonCount | null>(null);
+
   // 횟수권 목록 조회 (members 조인으로 branchId 필터)
   const fetchCounts = async () => {
     setLoading(true);
-    const { data, error } = await supabase
+    let query = supabase
       .from('lesson_counts')
       .select(`
         id,
@@ -81,6 +100,13 @@ export default function LessonCounts() {
       `)
       .eq('members.branchId', branchId)
       .order('id', { ascending: false });
+
+    if (filterMemberId) query = query.eq('memberId', Number(filterMemberId));
+    if (filterProduct) query = query.ilike('productName', `%${filterProduct}%`);
+    if (filterStartDate) query = query.gte('startDate', filterStartDate);
+    if (filterEndDate) query = query.lte('endDate', filterEndDate);
+
+    const { data, error } = await query;
 
     if (!error && data) {
       setCounts(
@@ -100,11 +126,32 @@ export default function LessonCounts() {
     setLoading(false);
   };
 
+  // 회원 목록 조회 (필터 드롭다운용)
+  const fetchMembers = async () => {
+    const { data } = await supabase
+      .from('members')
+      .select('id, name')
+      .eq('branchId', branchId)
+      .order('name');
+    if (data) setMemberOptions(data as MemberOption[]);
+  };
+
   useEffect(() => {
     fetchCounts();
+    fetchMembers();
   }, []);
 
-  // 탭 + 검색 필터
+  // 통계
+  const stats = useMemo(() => {
+    const total = counts.length;
+    const active = counts.filter((c) => c.status === 'ACTIVE').length;
+    const totalRemain = counts
+      .filter((c) => c.status === 'ACTIVE')
+      .reduce((s, c) => s + (c.totalCount - c.usedCount), 0);
+    return { total, active, totalRemain };
+  }, [counts]);
+
+  // 탭 + 검색 필터 (클라이언트 측)
   const filtered = useMemo(() => {
     let list = counts;
     if (activeTab !== 'all') list = list.filter((c) => c.status === activeTab);
@@ -118,6 +165,11 @@ export default function LessonCounts() {
     }
     return list;
   }, [counts, activeTab, searchValue]);
+
+  // 고유 상품명 목록 (필터 옵션)
+  const productOptions = useMemo(() => {
+    return Array.from(new Set(counts.map((c) => c.productName))).sort();
+  }, [counts]);
 
   // 1회 차감
   const handleDeduct = async (row: LessonCount) => {
@@ -146,11 +198,26 @@ export default function LessonCounts() {
     setHistoryLoading(true);
     const { data } = await supabase
       .from('lesson_count_logs')
-      .select('id, deductedAt, note')
+      .select('id, deductedAt, lessonName, note')
       .eq('lessonCountId', row.id)
       .order('deductedAt', { ascending: false });
-    setHistoryLogs(data ?? []);
+    setHistoryLogs((data ?? []) as DeductionLog[]);
     setHistoryLoading(false);
+  };
+
+  // 세션 상세 보기
+  const handleViewSession = (row: LessonCount) => {
+    setSessionTarget(row);
+    setSessionOpen(true);
+  };
+
+  // 필터 초기화
+  const handleResetFilter = () => {
+    setFilterMemberId('');
+    setFilterProduct('');
+    setFilterStartDate('');
+    setFilterEndDate('');
+    setTimeout(fetchCounts, 0);
   };
 
   // 테이블 컬럼 정의
@@ -199,6 +266,14 @@ export default function LessonCounts() {
           </button>
           <button
             className="flex items-center gap-1 px-2 py-1 rounded-md border border-line text-content-secondary text-[12px] hover:bg-surface-tertiary transition-colors"
+            onClick={() => handleViewSession(row)}
+            title="세션 상세"
+          >
+            <Hash size={12} />
+            세션
+          </button>
+          <button
+            className="flex items-center gap-1 px-2 py-1 rounded-md border border-line text-content-secondary text-[12px] hover:bg-surface-tertiary transition-colors"
             onClick={() => handleViewHistory(row)}
             title="이력 보기"
           >
@@ -214,8 +289,85 @@ export default function LessonCounts() {
     <AppLayout>
       <PageHeader
         title="횟수 관리"
-        description="수강권 횟수를 관리하고 차감 이력을 확인합니다."
+        description="수강권 횟수를 관리하고 세션별 차감 이력을 확인합니다."
       />
+
+      {/* 통계 카드 */}
+      <div className="grid grid-cols-2 lg:grid-cols-3 gap-md mb-lg">
+        <StatCard label="전체 수강권" value={stats.total} icon={<Hash />} />
+        <StatCard label="이용중" value={stats.active} icon={<CheckCircle />} variant="mint" />
+        <StatCard label="잔여 세션 합계" value={`${stats.totalRemain}회`} icon={<Users />} variant="peach" />
+      </div>
+
+      {/* 필터 영역 */}
+      <div className="bg-surface border border-line rounded-xl p-md mb-md flex flex-wrap gap-md items-end">
+        {/* 회원 필터 */}
+        <div className="flex flex-col gap-xs min-w-[140px]">
+          <label className="text-[11px] font-medium text-content-secondary">회원</label>
+          <select
+            className="px-2 py-1.5 border border-line rounded-lg text-[12px] text-content bg-surface focus:outline-none focus:border-primary"
+            value={filterMemberId}
+            onChange={(e) => setFilterMemberId(e.target.value)}
+          >
+            <option value="">전체 회원</option>
+            {memberOptions.map((m) => (
+              <option key={m.id} value={String(m.id)}>{m.name}</option>
+            ))}
+          </select>
+        </div>
+
+        {/* 상품 필터 */}
+        <div className="flex flex-col gap-xs min-w-[140px]">
+          <label className="text-[11px] font-medium text-content-secondary">상품</label>
+          <select
+            className="px-2 py-1.5 border border-line rounded-lg text-[12px] text-content bg-surface focus:outline-none focus:border-primary"
+            value={filterProduct}
+            onChange={(e) => setFilterProduct(e.target.value)}
+          >
+            <option value="">전체 상품</option>
+            {productOptions.map((p) => (
+              <option key={p} value={p}>{p}</option>
+            ))}
+          </select>
+        </div>
+
+        {/* 시작일 필터 */}
+        <div className="flex flex-col gap-xs min-w-[120px]">
+          <label className="text-[11px] font-medium text-content-secondary">시작일 이후</label>
+          <input
+            type="date"
+            className="px-2 py-1.5 border border-line rounded-lg text-[12px] text-content bg-surface focus:outline-none focus:border-primary"
+            value={filterStartDate}
+            onChange={(e) => setFilterStartDate(e.target.value)}
+          />
+        </div>
+
+        {/* 종료일 필터 */}
+        <div className="flex flex-col gap-xs min-w-[120px]">
+          <label className="text-[11px] font-medium text-content-secondary">종료일 이전</label>
+          <input
+            type="date"
+            className="px-2 py-1.5 border border-line rounded-lg text-[12px] text-content bg-surface focus:outline-none focus:border-primary"
+            value={filterEndDate}
+            onChange={(e) => setFilterEndDate(e.target.value)}
+          />
+        </div>
+
+        <div className="flex gap-sm">
+          <button
+            className="px-3 py-1.5 bg-primary text-white rounded-lg text-[12px] font-medium hover:bg-primary/90 transition-colors"
+            onClick={fetchCounts}
+          >
+            조회
+          </button>
+          <button
+            className="px-3 py-1.5 border border-line text-content-secondary rounded-lg text-[12px] hover:bg-surface-tertiary transition-colors"
+            onClick={handleResetFilter}
+          >
+            초기화
+          </button>
+        </div>
+      </div>
 
       {/* 상태 탭 */}
       <div className="mb-md">
@@ -238,6 +390,80 @@ export default function LessonCounts() {
         searchPlaceholder="회원명, 상품명 검색..."
       />
 
+      {/* 세션 상세 모달 */}
+      <Modal
+        isOpen={sessionOpen}
+        onClose={() => setSessionOpen(false)}
+        title={`세션 현황 — ${sessionTarget?.memberName ?? ''}`}
+        size="md"
+      >
+        {sessionTarget && (
+          <div className="flex flex-col gap-md">
+            {/* 요약 */}
+            <div className="grid grid-cols-3 gap-sm">
+              <div className="flex flex-col items-center p-sm bg-surface-secondary rounded-lg">
+                <span className="text-[20px] font-bold text-content">{sessionTarget.totalCount}</span>
+                <span className="text-[11px] text-content-tertiary mt-0.5">총 횟수</span>
+              </div>
+              <div className="flex flex-col items-center p-sm bg-surface-secondary rounded-lg">
+                <span className="text-[20px] font-bold text-primary">{sessionTarget.usedCount}</span>
+                <span className="text-[11px] text-content-tertiary mt-0.5">사용 횟수</span>
+              </div>
+              <div className="flex flex-col items-center p-sm bg-surface-secondary rounded-lg">
+                <span className={`text-[20px] font-bold ${sessionTarget.totalCount - sessionTarget.usedCount <= 0 ? 'text-state-error' : sessionTarget.totalCount - sessionTarget.usedCount <= 3 ? 'text-amber-600' : 'text-state-success'}`}>
+                  {sessionTarget.totalCount - sessionTarget.usedCount}
+                </span>
+                <span className="text-[11px] text-content-tertiary mt-0.5">잔여 횟수</span>
+              </div>
+            </div>
+
+            {/* 상품/기간 정보 */}
+            <div className="bg-surface-secondary rounded-lg p-md flex flex-col gap-xs">
+              <div className="flex justify-between text-[13px]">
+                <span className="text-content-secondary">상품명</span>
+                <span className="text-content font-medium">{sessionTarget.productName}</span>
+              </div>
+              <div className="flex justify-between text-[13px]">
+                <span className="text-content-secondary">이용 기간</span>
+                <span className="text-content">{sessionTarget.startDate ?? '-'} ~ {sessionTarget.endDate ?? '-'}</span>
+              </div>
+              <div className="flex justify-between text-[13px]">
+                <span className="text-content-secondary">상태</span>
+                <StatusBadge variant={STATUS_VARIANT[sessionTarget.status] ?? 'default'} label={STATUS_LABEL[sessionTarget.status] ?? sessionTarget.status} dot />
+              </div>
+            </div>
+
+            {/* 세션 진행률 바 */}
+            <div>
+              <div className="flex justify-between text-[11px] text-content-secondary mb-xs">
+                <span>진행률</span>
+                <span>{Math.round((sessionTarget.usedCount / Math.max(sessionTarget.totalCount, 1)) * 100)}%</span>
+              </div>
+              <div className="w-full h-2 bg-surface-secondary rounded-full overflow-hidden">
+                <div
+                  className="h-full bg-primary rounded-full transition-all"
+                  style={{ width: `${Math.min((sessionTarget.usedCount / Math.max(sessionTarget.totalCount, 1)) * 100, 100)}%` }}
+                />
+              </div>
+              <div className="flex mt-1.5 flex-wrap gap-1">
+                {Array.from({ length: sessionTarget.totalCount }).map((_, i) => (
+                  <div
+                    key={i}
+                    className={`w-5 h-5 rounded text-[9px] flex items-center justify-center font-medium ${
+                      i < sessionTarget.usedCount
+                        ? 'bg-primary text-white'
+                        : 'bg-surface-secondary text-content-tertiary border border-line'
+                    }`}
+                  >
+                    {i + 1}
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+      </Modal>
+
       {/* 차감 이력 모달 */}
       <Modal
         isOpen={historyOpen}
@@ -252,16 +478,20 @@ export default function LessonCounts() {
         ) : historyLogs.length === 0 ? (
           <p className="text-center text-content-secondary text-[13px] py-lg">차감 이력이 없습니다.</p>
         ) : (
-          <div className="flex flex-col gap-sm max-h-80 overflow-y-auto">
+          <div className="flex flex-col gap-xs max-h-80 overflow-y-auto">
+            {/* 이력 테이블 헤더 */}
+            <div className="grid grid-cols-3 px-md py-xs text-[11px] font-medium text-content-secondary bg-surface-secondary rounded-lg">
+              <span>No</span>
+              <span>차감 일시</span>
+              <span>수업명 / 메모</span>
+            </div>
             {historyLogs.map((log, idx) => (
-              <div key={log.id} className="flex items-center justify-between px-md py-sm bg-surface-secondary rounded-lg">
-                <div className="flex items-center gap-sm">
-                  <span className="w-5 h-5 flex items-center justify-center rounded-full bg-primary text-white text-[10px] font-bold">
-                    {idx + 1}
-                  </span>
-                  <span className="text-[13px] text-content">{log.deductedAt ? log.deductedAt.slice(0, 16).replace('T', ' ') : '-'}</span>
-                </div>
-                {log.note && <span className="text-[12px] text-content-secondary">{log.note}</span>}
+              <div key={log.id} className="grid grid-cols-3 items-center px-md py-sm bg-surface-secondary rounded-lg text-[12px]">
+                <span className="w-5 h-5 flex items-center justify-center rounded-full bg-primary text-white text-[10px] font-bold">
+                  {idx + 1}
+                </span>
+                <span className="text-content">{log.deductedAt ? log.deductedAt.slice(0, 16).replace('T', ' ') : '-'}</span>
+                <span className="text-content-secondary truncate">{log.lessonName ?? log.note ?? '-'}</span>
               </div>
             ))}
           </div>

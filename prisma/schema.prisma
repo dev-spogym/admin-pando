@@ -247,6 +247,13 @@ model Member {
   privacyMaskedAt  DateTime?    // 개인정보 마스킹 처리 일시
   previousMemberId Int?         // 재가입 시 이전 회원 ID
 
+  // OnFit GAP 확장 필드
+  memberType       String?      @default("individual") // individual, named_corporate, unnamed_corporate
+  referralSource   String?      // 유입경로 (홈페이지, 지인소개, 네이버, 인스타 등)
+  isFavorite       Boolean      @default(false) // 관심회원 ★
+  lastVisitAt      DateTime?    // 최근 방문일 (미방문 N일 필터용)
+  companyName      String?      // 법인 회사명
+
   branch     Branch       @relation(fields: [branchId], references: [id])
   staff      Staff?       @relation("MemberStaff", fields: [staffId], references: [id])
   sales      Sale[]
@@ -256,6 +263,11 @@ model Member {
   contracts  Contract[]
   memos      MemberMemo[]
   goals      MemberGoal[]
+  bodyInfos         MemberBodyInfo[]
+  evaluations       MemberEvaluation[]
+  consultations     Consultation[]
+  exercisePrograms  MemberExerciseProgram[]
+  exerciseLogs      ExerciseLog[]
 
   @@map("members")
 }
@@ -361,8 +373,16 @@ model Product {
   createdAt   DateTime        @default(now())
   updatedAt   DateTime        @default(now()) @updatedAt
 
-  branch Branch @relation(fields: [branchId], references: [id])
-  sales  Sale[]
+  // OnFit GAP 확장 필드
+  classType      String?  // 수업방식 (1:1, 그룹, 혼합)
+  deductionType  String?  // 차감방식 (횟수, 기간, 무제한)
+  suspendLimit   Int?     // 기간정지 제한 (일)
+  dailyUseLimit  Int?     // 일사용 횟수 제한
+  productGroupId Int?     // 상품분류 FK
+
+  branch       Branch        @relation(fields: [branchId], references: [id])
+  productGroup ProductGroup? @relation(fields: [productGroupId], references: [id])
+  sales        Sale[]
 
   @@map("products")
 }
@@ -488,6 +508,11 @@ model Class {
   branchId    Int
   createdAt   DateTime @default(now())
   updatedAt   DateTime @default(now()) @updatedAt
+
+  // OnFit GAP 확장 필드
+  targetType       String  @default("member")   // member, non_member, staff
+  scheduleCategory String? // 상담, OT, 체성분, 방문, 수업 등
+  approvalStatus   String  @default("approved") // pending, approved, rejected
 
   staff  Staff  @relation(fields: [staffId], references: [id])
   branch Branch @relation(fields: [branchId], references: [id])
@@ -677,4 +702,247 @@ model BranchClosureLog {
 
   @@index([tenantId])
   @@map("branch_closure_log")
+}
+
+// ============================================================
+// OnFit GAP Phase 1 - 신규 모델
+// ============================================================
+
+/// 회원 신체정보 (키/몸무게/혈압 등 기본 신체 측정)
+model MemberBodyInfo {
+  id            Int       @id @default(autoincrement())
+  memberId      Int
+  height        Decimal?  @db.Decimal(5, 1) // 키 (cm)
+  weight        Decimal?  @db.Decimal(5, 1) // 몸무게 (kg)
+  bloodPressure String?   // 혈압 (120/80 형태)
+  heartRate     Int?      // 심박수
+  notes         String?
+  measuredAt    DateTime  @default(now())
+  branchId      Int
+  createdAt     DateTime  @default(now())
+
+  member Member @relation(fields: [memberId], references: [id])
+
+  @@index([memberId])
+  @@index([branchId])
+  @@map("member_body_info")
+}
+
+/// 회원 종합평가 (트레이너 평가)
+model MemberEvaluation {
+  id          Int      @id @default(autoincrement())
+  memberId    Int
+  staffId     Int      // 평가 작성 트레이너
+  staffName   String   // 비정규화
+  category    String?  // 체력, 자세, 유연성, 목표달성 등
+  score       Int?     // 1~10 점수
+  content     String   // 평가 내용
+  branchId    Int
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @default(now()) @updatedAt
+
+  member Member @relation(fields: [memberId], references: [id])
+
+  @@index([memberId])
+  @@index([branchId])
+  @@map("member_evaluations")
+}
+
+/// 상담 이력
+model Consultation {
+  id          Int       @id @default(autoincrement())
+  memberId    Int
+  staffId     Int       // 상담 담당자
+  staffName   String    // 비정규화
+  type        String    // 상담, OT, 체험, 재등록상담
+  content     String
+  scheduledAt DateTime? // 예정 일시
+  completedAt DateTime? // 완료 일시
+  status      String    @default("scheduled") // scheduled, completed, cancelled, no_show
+  branchId    Int
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @default(now()) @updatedAt
+
+  member Member @relation(fields: [memberId], references: [id])
+
+  @@index([memberId])
+  @@index([branchId])
+  @@index([staffId])
+  @@map("consultations")
+}
+
+/// 운동 프로그램 템플릿
+model ExerciseProgram {
+  id          Int      @id @default(autoincrement())
+  name        String
+  description String?
+  category    String?  // 근력, 유산소, 유연성, 재활 등
+  difficulty  String?  // 초급, 중급, 고급
+  exercises   Json?    // [{name, sets, reps, weight, duration, notes}]
+  isActive    Boolean  @default(true)
+  branchId    Int
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @default(now()) @updatedAt
+
+  memberPrograms MemberExerciseProgram[]
+
+  @@index([branchId])
+  @@map("exercise_programs")
+}
+
+/// 회원별 운동 프로그램 배정
+model MemberExerciseProgram {
+  id         Int       @id @default(autoincrement())
+  memberId   Int
+  programId  Int
+  assignedBy Int       // 배정한 트레이너 ID
+  assignedAt DateTime  @default(now())
+  expiresAt  DateTime? // 프로그램 만료일
+  status     String    @default("active") // active, completed, cancelled
+  branchId   Int
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @default(now()) @updatedAt
+
+  member  Member          @relation(fields: [memberId], references: [id])
+  program ExerciseProgram @relation(fields: [programId], references: [id])
+
+  @@index([memberId])
+  @@index([programId])
+  @@index([branchId])
+  @@map("member_exercise_programs")
+}
+
+/// 운동 이력 기록
+model ExerciseLog {
+  id           Int       @id @default(autoincrement())
+  memberId     Int
+  programId    Int?      // 연결된 프로그램 (선택)
+  exerciseName String    // 운동 이름
+  sets         Int?      // 세트 수
+  reps         Int?      // 반복 횟수
+  weight       Decimal?  @db.Decimal(5, 1) // 무게 (kg)
+  duration     Int?      // 시간 (분)
+  distance     Decimal?  @db.Decimal(7, 2) // 거리 (km)
+  notes        String?
+  loggedAt     DateTime  @default(now())
+  branchId     Int
+  createdAt    DateTime  @default(now())
+
+  member Member @relation(fields: [memberId], references: [id])
+
+  @@index([memberId])
+  @@index([branchId])
+  @@index([loggedAt])
+  @@map("exercise_logs")
+}
+
+/// 그룹수업 템플릿 (수업 사전 정의)
+model ClassTemplate {
+  id              Int      @id @default(autoincrement())
+  name            String   // 템플릿 이름
+  type            String   // GX, PT, 필라테스, 요가 등
+  defaultCapacity Int      @default(14) // 기본 정원
+  defaultDuration Int      @default(50) // 기본 시간 (분)
+  description     String?
+  color           String?  // 캘린더 표시 색상
+  isActive        Boolean  @default(true)
+  branchId        Int
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @default(now()) @updatedAt
+
+  @@index([branchId])
+  @@map("class_templates")
+}
+
+/// 직원 근태 기록
+model StaffAttendanceRecord {
+  id        Int       @id @default(autoincrement())
+  staffId   Int
+  staffName String    // 비정규화
+  clockIn   DateTime
+  clockOut  DateTime?
+  status    String    @default("normal") // normal, late, early_leave, absent
+  workHours Decimal?  @db.Decimal(4, 1) // 근무 시간
+  notes     String?
+  branchId  Int
+  createdAt DateTime  @default(now())
+
+  @@index([staffId])
+  @@index([branchId])
+  @@index([clockIn])
+  @@map("staff_attendance")
+}
+
+/// 할인 정책
+model DiscountPolicy {
+  id          Int      @id @default(autoincrement())
+  name        String   // 할인명
+  type        String   // percentage, fixed
+  value       Decimal  @db.Decimal(10, 2) // 할인율(%) 또는 할인금액
+  minPeriod   Int?     // 최소 계약 기간 (일)
+  maxDiscount Decimal? @db.Decimal(10, 0) // 최대 할인금액 (percentage 타입용)
+  conditions  Json?    // 추가 조건 (상품유형, 기간 등)
+  isActive    Boolean  @default(true)
+  branchId    Int
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @default(now()) @updatedAt
+
+  @@index([branchId])
+  @@map("discount_policies")
+}
+
+/// 선수익금 (미래 매출 인식)
+model DeferredRevenue {
+  id               Int      @id @default(autoincrement())
+  saleId           Int
+  memberId         Int
+  memberName       String   // 비정규화
+  productName      String?  // 비정규화
+  totalAmount      Decimal  @db.Decimal(12, 0)
+  recognizedAmount Decimal  @default(0) @db.Decimal(12, 0) // 인식된 매출
+  remainingAmount  Decimal  @db.Decimal(12, 0) // 잔여 선수익금
+  startDate        DateTime @db.Date
+  endDate          DateTime @db.Date
+  branchId         Int
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @default(now()) @updatedAt
+
+  @@index([branchId])
+  @@index([memberId])
+  @@map("deferred_revenue")
+}
+
+/// 공지사항
+model Notice {
+  id          Int       @id @default(autoincrement())
+  title       String
+  content     String
+  authorId    Int       // 작성자 (staff ID)
+  authorName  String    // 비정규화
+  isPinned    Boolean   @default(false) // 고정글
+  isPublished Boolean   @default(true)
+  publishedAt DateTime?
+  branchId    Int
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @default(now()) @updatedAt
+
+  @@index([branchId])
+  @@index([isPinned])
+  @@map("notices")
+}
+
+/// 상품 분류 (카테고리 그룹)
+model ProductGroup {
+  id        Int      @id @default(autoincrement())
+  name      String   // 분류명
+  sortOrder Int      @default(0)
+  isActive  Boolean  @default(true)
+  branchId  Int
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
+
+  products Product[]
+
+  @@index([branchId])
+  @@map("product_groups")
 }

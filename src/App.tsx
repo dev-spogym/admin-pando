@@ -57,6 +57,9 @@ const SuperDashboard = React.lazy(() => import('@/pages/SuperDashboard'));
 const AuditLog = React.lazy(() => import('@/pages/AuditLog'));
 const MemberTransfer = React.lazy(() => import('@/pages/MemberTransfer'));
 
+// --- Sprint 3 신규 페이지 ---
+const ScheduleRequests = React.lazy(() => import('@/pages/ScheduleRequests'));
+
 // --- BROJ CRM 신규 페이지 ---
 const LessonManagement = React.lazy(() => import('@/pages/LessonManagement'));
 const LessonCounts = React.lazy(() => import('@/pages/LessonCounts'));
@@ -65,6 +68,12 @@ const RefundManagement = React.lazy(() => import('@/pages/RefundManagement'));
 const UnpaidManagement = React.lazy(() => import('@/pages/UnpaidManagement'));
 const SalesStats = React.lazy(() => import('@/pages/SalesStats'));
 const ClothingManagement = React.lazy(() => import('@/pages/ClothingManagement'));
+
+// --- Sprint 4: 수업 관리 강화 ---
+const ClassTemplates = React.lazy(() => import('@/pages/ClassTemplates'));
+const ClassSchedule = React.lazy(() => import('@/pages/ClassSchedule'));
+const ClassStats = React.lazy(() => import('@/pages/ClassStats'));
+const InstructorStatus = React.lazy(() => import('@/pages/InstructorStatus'));
 
 export default function App() {
   const navigate = useNavigate();
@@ -104,6 +113,7 @@ export default function App() {
       {/* 출석/일정 */}
       <Route path="/attendance" element={<PrivateRoute><Attendance /></PrivateRoute>} />
       <Route path="/calendar" element={<PrivateRoute><Calendar /></PrivateRoute>} />
+      <Route path="/schedule-requests" element={<PrivateRoute><ScheduleRequests /></PrivateRoute>} />
 
       {/* 매출/결제 */}
       <Route path="/sales" element={<PrivateRoute><Sales /></PrivateRoute>} />
@@ -149,6 +159,12 @@ export default function App() {
       <Route path="/lessons" element={<PrivateRoute><LessonManagement /></PrivateRoute>} />
       <Route path="/lesson-counts" element={<PrivateRoute><LessonCounts /></PrivateRoute>} />
       <Route path="/penalties" element={<PrivateRoute><PenaltyManagement /></PrivateRoute>} />
+
+      {/* 수업 관리 강화 (Sprint 4) */}
+      <Route path="/class-templates" element={<PrivateRoute><ClassTemplates /></PrivateRoute>} />
+      <Route path="/class-schedule" element={<PrivateRoute><ClassSchedule /></PrivateRoute>} />
+      <Route path="/class-stats" element={<PrivateRoute><ClassStats /></PrivateRoute>} />
+      <Route path="/instructor-status" element={<PrivateRoute><InstructorStatus /></PrivateRoute>} />
 
       {/* 운동복 관리 (BROJ CRM) */}
       <Route path="/clothing" element={<PrivateRoute><ClothingManagement /></PrivateRoute>} />

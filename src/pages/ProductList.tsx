@@ -11,7 +11,16 @@ import {
   ArrowUp,
   ArrowDown,
   ArrowUpDown,
+  Save,
+  X,
 } from 'lucide-react';
+import {
+  getProductGroups,
+  createProductGroup,
+  updateProductGroup,
+  deleteProductGroup,
+  type ProductGroup,
+} from '@/api/endpoints/productGroups';
 import AppLayout from '@/components/AppLayout';
 import { useAuthStore } from '@/stores/authStore';
 import { hasFeature } from '@/lib/permissions';
@@ -89,6 +98,49 @@ type SortDir = 'asc' | 'desc';
 export default function ProductList() {
   const authUser = useAuthStore((s) => s.user);
   const canEditProduct = hasFeature(authUser?.role ?? '', 'productEdit', authUser?.isSuperAdmin);
+
+  // 최상위 탭: "상품 목록" / "분류 관리"
+  const [mainTab, setMainTab] = useState<'products' | 'groups'>('products');
+
+  // 분류 관리 상태
+  const [groups, setGroups] = useState<ProductGroup[]>([]);
+  const [groupsLoading, setGroupsLoading] = useState(false);
+  const [groupForm, setGroupForm] = useState({ name: '', sortOrder: 0, isActive: true });
+  const [editingGroupId, setEditingGroupId] = useState<number | null>(null);
+  const [groupSaving, setGroupSaving] = useState(false);
+
+  const fetchGroups = async () => {
+    setGroupsLoading(true);
+    const { data } = await getProductGroups();
+    if (data) setGroups(data);
+    setGroupsLoading(false);
+  };
+
+  useEffect(() => {
+    if (mainTab === 'groups') fetchGroups();
+  }, [mainTab]);
+
+  const handleGroupSave = async () => {
+    if (!groupForm.name.trim()) { toast.error('분류명을 입력하세요.'); return; }
+    setGroupSaving(true);
+    if (editingGroupId !== null) {
+      const { error } = await updateProductGroup(editingGroupId, groupForm);
+      if (error) { toast.error('수정에 실패했습니다.'); } else { toast.success('분류가 수정되었습니다.'); }
+    } else {
+      const { error } = await createProductGroup(groupForm);
+      if (error) { toast.error('등록에 실패했습니다.'); } else { toast.success('분류가 등록되었습니다.'); }
+    }
+    setGroupForm({ name: '', sortOrder: 0, isActive: true });
+    setEditingGroupId(null);
+    setGroupSaving(false);
+    fetchGroups();
+  };
+
+  const handleGroupDelete = async (id: number) => {
+    if (!window.confirm('이 분류를 삭제하시겠습니까?')) return;
+    const { error } = await deleteProductGroup(id);
+    if (error) { toast.error('삭제에 실패했습니다.'); } else { toast.success('분류가 삭제되었습니다.'); fetchGroups(); }
+  };
 
   const [activeTab, setActiveTab] = useState('all');
   const [activeTypeTab, setActiveTypeTab] = useState('all');
@@ -301,16 +353,142 @@ export default function ProductList() {
       <PageHeader
         title="상품 관리"
         description="센터에서 판매하는 이용권, PT, GX 및 기타 상품을 관리합니다."
-        actions={canEditProduct ? (
-          <button
-            onClick={() => moveToPage(997)}
-            className="flex items-center gap-xs px-md py-sm bg-primary text-surface rounded-button text-[13px] font-bold shadow-sm hover:bg-primary-dark transition-colors"
-          >
-            <Plus size={16} />
-            상품 등록
-          </button>
-        ) : undefined}
+        actions={
+          <div className="flex items-center gap-sm">
+            {/* 탭 토글 */}
+            <div className="flex rounded-lg border border-line overflow-hidden">
+              {([
+                { key: 'products', label: '상품 목록' },
+                { key: 'groups', label: '분류 관리' },
+              ] as const).map(t => (
+                <button
+                  key={t.key}
+                  onClick={() => setMainTab(t.key)}
+                  className={cn(
+                    'px-md py-sm text-[13px] font-semibold transition-colors',
+                    mainTab === t.key ? 'bg-primary text-surface' : 'bg-surface text-content-secondary hover:bg-surface-secondary'
+                  )}
+                >{t.label}</button>
+              ))}
+            </div>
+            {mainTab === 'products' && canEditProduct && (
+              <button
+                onClick={() => moveToPage(997)}
+                className="flex items-center gap-xs px-md py-sm bg-primary text-surface rounded-button text-[13px] font-bold shadow-sm hover:bg-primary-dark transition-colors"
+              >
+                <Plus size={16} />
+                상품 등록
+              </button>
+            )}
+          </div>
+        }
       />
+
+      {/* 분류 관리 탭 */}
+      {mainTab === 'groups' && (
+        <div className="space-y-lg">
+          {/* 분류 등록/수정 폼 */}
+          <div className="bg-surface rounded-xl border border-line p-lg">
+            <h3 className="text-[14px] font-bold text-content mb-md">{editingGroupId !== null ? '분류 수정' : '분류 등록'}</h3>
+            <div className="flex flex-wrap gap-md items-end">
+              <div className="flex flex-col gap-xs min-w-[200px]">
+                <label className="text-[11px] font-medium text-content-secondary">분류명 *</label>
+                <input
+                  className="px-sm py-[6px] border border-line rounded-lg text-[13px] text-content bg-surface focus:outline-none focus:border-primary"
+                  placeholder="분류명 입력"
+                  value={groupForm.name}
+                  onChange={e => setGroupForm(f => ({ ...f, name: e.target.value }))}
+                />
+              </div>
+              <div className="flex flex-col gap-xs min-w-[100px]">
+                <label className="text-[11px] font-medium text-content-secondary">정렬순서</label>
+                <input
+                  type="number"
+                  className="px-sm py-[6px] border border-line rounded-lg text-[13px] text-content bg-surface focus:outline-none focus:border-primary"
+                  value={groupForm.sortOrder}
+                  onChange={e => setGroupForm(f => ({ ...f, sortOrder: Number(e.target.value) }))}
+                />
+              </div>
+              <div className="flex items-center gap-xs">
+                <label className="text-[12px] font-medium text-content-secondary">활성</label>
+                <button
+                  type="button"
+                  onClick={() => setGroupForm(f => ({ ...f, isActive: !f.isActive }))}
+                  className={cn('relative inline-flex h-5 w-9 items-center rounded-full transition-colors', groupForm.isActive ? 'bg-accent' : 'bg-line')}
+                >
+                  <span className={cn('inline-block h-4 w-4 transform rounded-full bg-surface shadow transition-transform', groupForm.isActive ? 'translate-x-4' : 'translate-x-0.5')} />
+                </button>
+              </div>
+              <div className="flex gap-sm">
+                <button
+                  onClick={handleGroupSave}
+                  disabled={groupSaving}
+                  className="flex items-center gap-xs px-md py-[6px] bg-primary text-surface rounded-lg text-[13px] font-semibold hover:bg-primary-dark transition-colors disabled:opacity-50"
+                >
+                  <Save size={14} />{editingGroupId !== null ? '수정 저장' : '등록'}
+                </button>
+                {editingGroupId !== null && (
+                  <button
+                    onClick={() => { setEditingGroupId(null); setGroupForm({ name: '', sortOrder: 0, isActive: true }); }}
+                    className="flex items-center gap-xs px-md py-[6px] border border-line text-content-secondary rounded-lg text-[13px] hover:bg-surface-secondary transition-colors"
+                  >
+                    <X size={14} />취소
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* 분류 목록 */}
+          <div className="bg-surface rounded-xl border border-line shadow-card overflow-hidden">
+            {groupsLoading ? (
+              <div className="flex items-center justify-center py-xl">
+                <div className="w-6 h-6 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
+              </div>
+            ) : groups.length === 0 ? (
+              <div className="text-center py-xl text-[13px] text-content-secondary">등록된 분류가 없습니다.</div>
+            ) : (
+              <table className="w-full">
+                <thead className="bg-surface-secondary">
+                  <tr>
+                    {['분류명', '정렬순서', '상태', ''].map(h => (
+                      <th key={h} className="px-md py-sm text-[11px] font-semibold text-content-secondary text-left">{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-line-light">
+                  {groups.map(g => (
+                    <tr key={g.id} className="hover:bg-surface-secondary transition-colors">
+                      <td className="px-md py-sm text-[13px] text-content font-medium">{g.name}</td>
+                      <td className="px-md py-sm text-[13px] text-content-secondary">{g.sortOrder}</td>
+                      <td className="px-md py-sm">
+                        <span className={cn('text-[11px] font-semibold px-xs py-[2px] rounded-full', g.isActive ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500')}>
+                          {g.isActive ? '활성' : '비활성'}
+                        </span>
+                      </td>
+                      <td className="px-md py-sm">
+                        <div className="flex items-center gap-xs justify-end">
+                          <button
+                            className="p-xs text-content-tertiary hover:text-accent transition-colors"
+                            onClick={() => { setEditingGroupId(g.id); setGroupForm({ name: g.name, sortOrder: g.sortOrder, isActive: g.isActive }); }}
+                          ><Edit2 size={14} /></button>
+                          <button
+                            className="p-xs text-content-tertiary hover:text-state-error transition-colors"
+                            onClick={() => handleGroupDelete(g.id)}
+                          ><Trash2 size={14} /></button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* 상품 목록 탭 */}
+      {mainTab === 'products' && <>
 
       {/* 통계 요약 */}
       <div className="mb-xl grid grid-cols-2 lg:grid-cols-4 gap-md">
@@ -408,6 +586,7 @@ export default function ProductList() {
         onConfirm={confirmDelete}
         onCancel={() => setDeleteDialogOpen(false)}
       />
+      </>}
     </AppLayout>
   );
 }
