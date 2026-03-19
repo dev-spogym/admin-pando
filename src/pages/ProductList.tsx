@@ -52,8 +52,8 @@ const CATEGORY_KO: Record<string, string> = {
 };
 const toCategoryKo = (cat: string) => CATEGORY_KO[cat] ?? cat;
 
-// 상품 타입 탭
-const PRODUCT_TYPE_TABS = [
+// 기본 상품 타입 탭 (동적 분류가 추가됨)
+const DEFAULT_TYPE_TABS = [
   { key: 'all',        label: '전체' },
   { key: 'MEMBERSHIP', label: '회원권' },
   { key: 'LESSON',     label: '수강권' },
@@ -124,10 +124,20 @@ export default function ProductList() {
 
   // ── 상품 목록 상태 ──────────────────────────────────────────
   const [activeTypeTab, setActiveTypeTab] = useState('all');
+  const [activeCategoryTab, setActiveCategoryTab] = useState('all');
   const [sportFilter, setSportFilter] = useState('전체');
   const [searchValue, setSearchValue] = useState('');
   const [products, setProducts] = useState<ProductRow[]>([]);
   const [loading, setLoading] = useState(false);
+
+  // 동적 카테고리 목록 (product_groups + 실제 상품에서 추출)
+  const dynamicCategories = useMemo(() => {
+    // product_groups에서 가져온 분류 + 실제 상품의 카테고리 합집합
+    const fromGroups = groups.filter(g => g.isActive).map(g => g.name);
+    const fromProducts = [...new Set(products.map(p => toCategoryKo(p.category)))];
+    const all = [...new Set([...fromGroups, ...fromProducts])].filter(Boolean);
+    return all;
+  }, [groups, products]);
 
   // 마스터-디테일 패널 상태
   const [selectedProduct, setSelectedProduct] = useState<ProductRow | null>(null);
@@ -154,18 +164,19 @@ export default function ProductList() {
 
   useEffect(() => {
     fetchProducts();
-  }, [fetchProducts]);
+    fetchGroups(); // 동적 카테고리용
+  }, [fetchProducts, fetchGroups]);
 
   // 필터링된 데이터
   const filteredData = useMemo(() => {
     return products.filter(item => {
-      // isActive 여부와 무관하게 전체 표시 (삭제된 것만 제외: isActive=false 숨김은 선택적)
       const matchTypeTab = activeTypeTab === 'all' || item.productType === activeTypeTab;
+      const matchCategory = activeCategoryTab === 'all' || toCategoryKo(item.category) === activeCategoryTab;
       const matchSport = sportFilter === '전체' || item.sportType === sportFilter;
       const matchSearch = item.name.toLowerCase().includes(searchValue.toLowerCase());
-      return matchTypeTab && matchSport && matchSearch;
+      return matchTypeTab && matchCategory && matchSport && matchSearch;
     });
-  }, [products, activeTypeTab, sportFilter, searchValue]);
+  }, [products, activeTypeTab, activeCategoryTab, sportFilter, searchValue]);
 
   // 행 클릭 → 상세 패널 열기
   const handleRowClick = (product: ProductRow) => {
@@ -413,7 +424,7 @@ export default function ProductList() {
           <div className="mb-md space-y-md">
             {/* 상품 타입 탭 */}
             <TabNav
-              tabs={PRODUCT_TYPE_TABS.map(tab => ({
+              tabs={DEFAULT_TYPE_TABS.map(tab => ({
                 ...tab,
                 count: tab.key === 'all'
                   ? products.length
@@ -422,6 +433,41 @@ export default function ProductList() {
               activeTab={activeTypeTab}
               onTabChange={val => { setActiveTypeTab(val); handlePanelClose(); }}
             />
+
+            {/* 동적 카테고리 분류 탭 (레슨북 스타일: 자유롭게 추가 가능) */}
+            {dynamicCategories.length > 0 && (
+              <div className="flex items-center gap-[6px] flex-wrap">
+                <span className="text-[11px] text-content-tertiary font-medium mr-xs">분류:</span>
+                <button
+                  onClick={() => setActiveCategoryTab('all')}
+                  className={cn(
+                    'px-sm py-[3px] rounded-full text-[11px] font-semibold transition-colors',
+                    activeCategoryTab === 'all'
+                      ? 'bg-content text-surface'
+                      : 'bg-surface border border-line text-content-secondary hover:bg-surface-secondary'
+                  )}
+                >
+                  전체
+                </button>
+                {dynamicCategories.map(cat => (
+                  <button
+                    key={cat}
+                    onClick={() => setActiveCategoryTab(activeCategoryTab === cat ? 'all' : cat)}
+                    className={cn(
+                      'px-sm py-[3px] rounded-full text-[11px] font-semibold transition-colors',
+                      activeCategoryTab === cat
+                        ? 'bg-content text-surface'
+                        : 'bg-surface border border-line text-content-secondary hover:bg-surface-secondary'
+                    )}
+                  >
+                    {cat}
+                    <span className="ml-[3px] text-[10px] opacity-70">
+                      {products.filter(p => toCategoryKo(p.category) === cat).length}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            )}
 
             {/* 종목 + 검색 */}
             <div className="flex items-center gap-sm flex-wrap">

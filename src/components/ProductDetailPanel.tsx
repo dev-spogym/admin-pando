@@ -90,7 +90,8 @@ const TYPE_MAP: Record<string, string> = {
   '기타': 'GENERAL',
 };
 
-const BASE_CATEGORIES = ['이용권', 'PT', 'GX', '기타'];
+// 기본 카테고리 (동적으로 product_groups에서 추가됨)
+const DEFAULT_CATEGORIES = ['이용권', 'PT', 'GX', '골프', '식품', '기타'];
 
 const getBranchId = (): number => {
   const stored = localStorage.getItem('branchId');
@@ -335,10 +336,10 @@ export default function ProductDetailPanel({ product, isNew, onSave, onDelete, o
     onDelete();
   };
 
-  // 카테고리 ComboBox의 드롭다운 항목 목록
+  // 카테고리 ComboBox의 드롭다운 항목 목록 (기본 + product_groups에서 동적 추가)
   const categoryOptions = [
-    ...BASE_CATEGORIES,
-    ...productGroups.map(g => g.name).filter(n => !BASE_CATEGORIES.includes(n)),
+    ...DEFAULT_CATEGORIES,
+    ...productGroups.map(g => g.name).filter(n => !DEFAULT_CATEGORIES.includes(n)),
   ];
 
   return (
