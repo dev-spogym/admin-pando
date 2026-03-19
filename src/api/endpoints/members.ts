@@ -27,6 +27,16 @@ export interface Member {
   branchId: number;
   createdAt?: string;
   updatedAt?: string;
+  /** 관심회원 여부 */
+  isFavorite?: boolean;
+  /** 마지막 방문일 */
+  lastVisitAt?: string;
+  /** 회원구분: 일반/기명법인/무기명법인 */
+  memberType?: string;
+  /** 유입경로 */
+  referralSource?: string;
+  /** 법인 회사명 */
+  companyName?: string;
 }
 
 /** 회원 생성/수정 요청 */
@@ -45,6 +55,14 @@ export interface MemberRequest {
   memo?: string;
   height?: number;
   branchId?: number;
+  /** 관심회원 여부 */
+  isFavorite?: boolean;
+  /** 회원구분 */
+  memberType?: string;
+  /** 유입경로 */
+  referralSource?: string;
+  /** 법인 회사명 */
+  companyName?: string;
 }
 
 /** 회원 통계 */
@@ -83,6 +101,11 @@ function rowToMember(row: Record<string, any>): Member {
     branchId: row.branchId ?? row.branch_id ?? 1,
     createdAt: row.createdAt ?? row.created_at ?? undefined,
     updatedAt: row.updatedAt ?? row.updated_at ?? undefined,
+    isFavorite: row.isFavorite ?? row.is_favorite ?? false,
+    lastVisitAt: row.lastVisitAt ?? row.last_visit_at ?? undefined,
+    memberType: row.memberType ?? row.member_type ?? undefined,
+    referralSource: row.referralSource ?? row.referral_source ?? undefined,
+    companyName: row.companyName ?? row.company_name ?? undefined,
   };
 }
 
@@ -102,6 +125,16 @@ export interface MemberListParams extends PaginationParams {
   product?: string;
   sortKey?: string;
   sortDirection?: 'asc' | 'desc';
+  /** 관심회원만 조회 */
+  isFavorite?: boolean;
+  /** 미방문 N일 초과 필터 (last_visit_at 기준) */
+  daysNoVisit?: number;
+  /** 회원구분 필터 */
+  memberType?: string;
+  /** 유입경로 필터 */
+  referralSource?: string;
+  /** 상품 ID 기준 구매 이력 있는 회원 조회 */
+  productId?: number;
 }
 
 /** 회원 목록 조회 */
@@ -141,6 +174,32 @@ export const getMembers = async (
   if (params?.staffId) {
     query = query.eq('staffId', params.staffId);
   }
+
+  // 관심회원 필터
+  if (params?.isFavorite === true) {
+    query = query.eq('isFavorite', true);
+  }
+
+  // 미방문 N일 초과 필터 (lastVisitAt < 기준일)
+  if (params?.daysNoVisit) {
+    const cutoff = new Date();
+    cutoff.setDate(cutoff.getDate() - params.daysNoVisit);
+    query = query.lt('lastVisitAt', cutoff.toISOString());
+  }
+
+  // 회원구분 필터
+  if (params?.memberType && params.memberType !== 'all') {
+    query = query.eq('memberType', params.memberType);
+  }
+
+  // 유입경로 필터
+  if (params?.referralSource && params.referralSource !== 'all') {
+    query = query.eq('referralSource', params.referralSource);
+  }
+
+  // 상품별 회원 조회 (sales 테이블 조인 불가 → membershipType 기준 임시 필터)
+  // PostgREST 에서 서브쿼리가 지원되지 않으므로 productId는 클라이언트에서 처리
+  // (MemberList.tsx에서 상품 목록을 먼저 불러와 membershipType 문자열로 필터)
 
   const from = (page - 1) * size;
   const to = from + size - 1;
@@ -271,6 +330,19 @@ export const deleteMember = async (id: number): Promise<ApiResponse<null>> => {
 
   createAuditLog({ action: AUDIT_ACTIONS.DELETE, targetType: 'member', targetId: id });
   return { success: true, data: null, message: '회원이 삭제되었습니다.' };
+};
+
+/** 관심회원 토글 */
+export const toggleFavorite = async (memberId: number, isFavorite: boolean): Promise<ApiResponse<null>> => {
+  const { error } = await supabase
+    .from('members')
+    .update({ isFavorite, updatedAt: new Date().toISOString() })
+    .eq('id', memberId);
+
+  if (error) {
+    return { success: false, data: null, message: error.message };
+  }
+  return { success: true, data: null, message: isFavorite ? '관심회원으로 등록되었습니다.' : '관심회원에서 해제되었습니다.' };
 };
 
 /** 회원 통계 조회 */

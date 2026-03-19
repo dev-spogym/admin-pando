@@ -64,9 +64,14 @@ const MENU_ITEMS: MenuItem[] = [
     icon: Calendar,
     children: [
       { label: "캘린더", path: "/calendar", viewId: 969 },
+      { label: "일정 요청", path: "/schedule-requests" },
       { label: "수업 관리", path: "/lessons" },
       { label: "횟수 관리", path: "/lesson-counts" },
       { label: "페널티 관리", path: "/penalties" },
+      { label: "수업 템플릿", path: "/class-templates" },
+      { label: "시간표 등록", path: "/class-schedule" },
+      { label: "수업 현황", path: "/class-stats" },
+      { label: "강사 현황", path: "/instructor-status" },
     ],
   },
   {
@@ -75,6 +80,7 @@ const MENU_ITEMS: MenuItem[] = [
     children: [
       { label: "매출 현황", path: "/sales", viewId: 970 },
       { label: "매출 통계", path: "/sales/stats" },
+      { label: "선수익금", path: "/deferred-revenue" },
       { label: "POS 결제", path: "/pos", viewId: 971 },
       { label: "현장 판매", path: "/pos/payment", viewId: 982 },
       { label: "환불 관리", path: "/refunds" },
@@ -120,12 +126,20 @@ const MENU_ITEMS: MenuItem[] = [
     children: [
       { label: "센터 설정", path: "/settings", viewId: 975 },
       { label: "직원 관리", path: "/staff", viewId: 974 },
+      { label: "직원 근태", path: "/staff/attendance" },
+      { label: "할인 설정", path: "/discount-settings" },
+      { label: "운동 프로그램", path: "/exercise-programs" },
       { label: "권한 설정", path: "/settings/permissions", viewId: 996 },
       { label: "키오스크", path: "/settings/kiosk", viewId: 994 },
       { label: "출입문/IoT", path: "/settings/iot", viewId: 995 },
       { label: "구독 관리", path: "/subscription", viewId: 983 },
       { label: "지점 관리", path: "/branches", viewId: 984 },
     ],
+  },
+  {
+    label: "공지사항",
+    icon: MessageSquare,
+    path: "/notices",
   },
 ];
 

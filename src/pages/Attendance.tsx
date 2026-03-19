@@ -18,6 +18,7 @@ import {
   MapPin,
   Loader2,
   Building2,
+  LogOut,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { moveToPage } from "@/internal";
@@ -33,6 +34,7 @@ import { supabase } from "@/lib/supabase";
 import { toast } from "sonner";
 import { exportToExcel } from "@/lib/exportExcel";
 import { deductSession } from "@/lib/businessLogic";
+import { checkOutMember } from "@/api/endpoints/attendance";
 
 /**
  * SCR-020: 출석 관리 (Attendance)
@@ -418,6 +420,68 @@ export default function Attendance() {
     fetchData();
   }, [branchId]);
 
+  // #14 실시간 입장 팝업 — Supabase Realtime attendance INSERT 구독
+  useEffect(() => {
+    if (!isRealtimeEnabled) return;
+    const channel = supabase
+      .channel('attendance-realtime')
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'attendance',
+          filter: `branchId=eq.${branchId}`,
+        },
+        (payload: any) => {
+          const memberName = payload.new?.memberName ?? '회원';
+          toast.info(`${memberName}님이 입장했습니다.`);
+          // 새 레코드를 목록에 즉시 반영
+          const checkInAt: string = payload.new?.checkInAt ?? '';
+          const datePart = checkInAt.split('T')[0] ?? '';
+          const timePart = checkInAt.split('T')[1]?.substring(0, 5) ?? '';
+          const newRecord: AttendanceRecord = {
+            id: payload.new?.id ?? Date.now(),
+            date: datePart,
+            time: timePart,
+            memberName,
+            attendanceType: (TYPE_KO[payload.new?.type as string] ?? '일반') as '일반' | 'PT' | 'GX' | '수동',
+            checkInMethod: (METHOD_KO[payload.new?.checkInMethod] ?? '키오스크') as '키오스크' | '앱',
+            isOtherBranch: false,
+            status: '성공',
+            memberId: payload.new?.memberId ?? 0,
+            tel: '-',
+            presence: '재실',
+          };
+          setRecords(prev => [newRecord, ...prev]);
+          // 팝업 표시
+          if (isRealtimeEnabled) {
+            const popupItem = { id: Date.now(), name: memberName, status: '입장 성공', pass: '' };
+            setPopups(prev => [popupItem, ...prev]);
+            setTimeout(() => setPopups(prev => prev.filter(p => p.id !== popupItem.id)), 5000);
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [branchId, isRealtimeEnabled]);
+
+  // #13 퇴장 처리
+  const handleCheckOut = useCallback(async (record: AttendanceRecord) => {
+    const result = await checkOutMember(record.id);
+    if (!result.success) {
+      toast.error('퇴장 처리에 실패했습니다.');
+      return;
+    }
+    setRecords(prev =>
+      prev.map(r => r.id === record.id ? { ...r, presence: '부재' as const } : r)
+    );
+    toast.success(`${record.memberName}님이 퇴장했습니다.`);
+  }, []);
+
   const addMockPopup = () => {
     if (!isRealtimeEnabled) return;
     const newPopup = { id: Date.now(), name: "한소희", status: "입장 성공", pass: "필라테스 패키지" };
@@ -563,6 +627,8 @@ export default function Attendance() {
   const todayFail      = todayRecords.filter(r => r.status === "실패").length;
   const todayPT        = todayRecords.filter(r => r.attendanceType === "PT").length;
   const todayGX        = todayRecords.filter(r => r.attendanceType === "GX").length;
+  // #12 현재 재실 인원 (checkInAt 있고 checkOutAt 없는 회원)
+  const currentPresence = records.filter(r => r.presence === "재실").length;
 
   // BUG-09: SearchFilter 필터링 적용된 레코드
   const filteredTodayRecords = useMemo(() => {
@@ -598,7 +664,7 @@ export default function Attendance() {
   })();
 
   // 테이블 컬럼 (SCR-020 UI-124)
-  const columns = [
+  const columns: any[] = [
     { key: "no", header: "No", width: 55, align: "center" as const, render: (_: any, __: any, i: number) => i + 1 },
     {
       key: "date",
@@ -684,6 +750,25 @@ export default function Attendance() {
       )
     },
     { key: "tel", header: "연락처", width: 130 },
+    {
+      // #13 퇴장 버튼 — 재실 상태일 때만 활성
+      key: "checkOut",
+      header: "퇴장",
+      width: 80,
+      align: "center" as const,
+      render: (_: any, row: AttendanceRecord) =>
+        row.presence === "재실" ? (
+          <button
+            className="flex items-center gap-xs px-sm py-[3px] rounded-md bg-surface-secondary border border-line text-[11px] font-semibold text-content-secondary hover:bg-state-error/10 hover:border-state-error/30 hover:text-state-error transition-all"
+            onClick={() => handleCheckOut(row)}
+          >
+            <LogOut size={11} />
+            퇴장
+          </button>
+        ) : (
+          <span className="text-[11px] text-content-tertiary">-</span>
+        ),
+    },
   ];
 
   const navigate = (dir: 1 | -1) => {
@@ -785,7 +870,7 @@ export default function Attendance() {
         {!loading && viewMode === "day" && (
           <>
             {/* 상단 통계 카드 — 총 건수, 성공, 실패 + 기존 카드 */}
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-lg">
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-7 gap-lg">
               {/* UX-10: 선택 날짜 기준으로 동적 라벨 표시 */}
               <StatCard label={todayLabel} value={`${todayTotal}건`} icon={<Users />} description="총 출석 시도 건수" />
               <StatCard label="출석 성공" value={`${todaySuccess}건`} variant="mint" icon={<CheckCircle2 />} description="성공 체크인 건수" />
@@ -793,6 +878,8 @@ export default function Attendance() {
               <StatCard label="PT 수업" value={`${todayPT}건`} variant="mint" icon={<CheckCircle2 />} description="PT 출석 건수" />
               <StatCard label="GX 수업" value={`${todayGX}건`} variant="peach" icon={<MapPin />} description="GX 수업 출석" />
               <StatCard label="신규 방문" value={`${todayNew}명`} icon={<User />} description="첫 방문 회원 수" />
+              {/* #12 현재 재실 인원 */}
+              <StatCard label="현재 재실" value={`${currentPresence}명`} variant="mint" icon={<Building2 />} description="현재 센터 내 인원" />
             </div>
 
             {/* 출석 유형 범례 */}

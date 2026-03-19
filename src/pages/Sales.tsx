@@ -93,6 +93,24 @@ const statusVariant = (status: string) => {
   return 'default' as const;
 };
 
+// 매출 유형(round) 세분화 배지
+const ROUND_TYPES = ['신규', '재등록', '휴면복귀', '종목추가', '업그레이드'];
+const roundBadge = (round: string) => {
+  const map: Record<string, { bg: string; text: string }> = {
+    신규:     { bg: 'bg-blue-100',   text: 'text-blue-700' },
+    재등록:   { bg: 'bg-green-100',  text: 'text-green-700' },
+    휴면복귀: { bg: 'bg-yellow-100', text: 'text-yellow-700' },
+    종목추가: { bg: 'bg-purple-100', text: 'text-purple-700' },
+    업그레이드: { bg: 'bg-orange-100', text: 'text-orange-700' },
+  };
+  const style = map[round] ?? { bg: 'bg-gray-100', text: 'text-gray-600' };
+  return (
+    <span className={`inline-flex items-center px-xs py-[1px] rounded-full text-[11px] font-semibold ${style.bg} ${style.text}`}>
+      {round || '-'}
+    </span>
+  );
+};
+
 export default function Sales() {
   const [salesData, setSalesData] = useState<SaleItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -339,6 +357,8 @@ export default function Sales() {
   const columns = [
     { key: 'no', header: 'No', width: 60, align: 'center' as const },
     { key: 'purchaseDate', header: '구매일', width: 170 },
+    { key: 'round', header: '매출유형', width: 90, align: 'center' as const,
+      render: (val: string) => roundBadge(val) },
     { key: 'type', header: '유형', width: 80, align: 'center' as const,
       render: (val: string) => <StatusBadge variant="secondary">{val}</StatusBadge> },
     { key: 'productName', header: '상품명', width: 200,
@@ -383,9 +403,18 @@ export default function Sales() {
       render: (val: string) => <span className="text-content-tertiary text-[12px]">{val}</span> },
   ];
 
+  // round 필터 상태
+  const [roundFilter, setRoundFilter] = useState<string>('');
+
   const isAggregateTab = ['TAB-002', 'TAB-003', 'TAB-004', 'TAB-005'].includes(activeTab);
+  // round 필터 적용 (TAB-001 전용)
+  const displayData = useMemo(() => {
+    if (isAggregateTab) return filteredData;
+    if (!roundFilter) return filteredData;
+    return filteredData.filter(item => item.round === roundFilter);
+  }, [filteredData, roundFilter, isAggregateTab]);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const tableData: any[] = isAggregateTab ? aggregateData[activeTab] : filteredData;
+  const tableData: any[] = isAggregateTab ? aggregateData[activeTab] : displayData;
   const tableColumns = isAggregateTab ? aggregateColumns[activeTab] : columns;
 
   // 필터 옵션
@@ -515,6 +544,34 @@ export default function Sales() {
           }}
         />
       </div>
+
+      {/* round 유형 필터 (TAB-001 전용) */}
+      {activeTab === 'TAB-001' && (
+        <div className="flex items-center gap-xs flex-wrap mb-md">
+          <span className="text-[12px] text-content-secondary font-semibold">매출유형:</span>
+          <button
+            onClick={() => setRoundFilter('')}
+            className={cn(
+              'px-sm py-xs rounded-button text-[12px] font-semibold border transition-all',
+              roundFilter === ''
+                ? 'bg-primary text-surface border-primary'
+                : 'bg-surface text-content-secondary border-line hover:border-primary hover:text-primary'
+            )}
+          >전체</button>
+          {ROUND_TYPES.map(r => (
+            <button
+              key={r}
+              onClick={() => setRoundFilter(prev => prev === r ? '' : r)}
+              className={cn(
+                'px-sm py-xs rounded-button text-[12px] font-semibold border transition-all',
+                roundFilter === r
+                  ? 'bg-primary text-surface border-primary'
+                  : 'bg-surface text-content-secondary border-line hover:border-primary hover:text-primary'
+              )}
+            >{r}</button>
+          ))}
+        </div>
+      )}
 
       {/* 탭 + 테이블 */}
       <div className="bg-surface rounded-xl border border-line shadow-card overflow-hidden">

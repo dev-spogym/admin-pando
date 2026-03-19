@@ -155,6 +155,8 @@ export default function MemberForm() {
       company: "",
       marketingConsent: false,
       attendanceNumber: "",
+      referralSource: "",
+      companyName: "",
     },
     mode: "onBlur",
   });
@@ -216,6 +218,8 @@ export default function MemberForm() {
         company: "",
         marketingConsent: false,
         attendanceNumber: "",
+        referralSource: data.referralSource ?? "",
+        companyName: data.companyName ?? "",
       });
       setPhoneChecked(true);
     };
@@ -295,6 +299,9 @@ export default function MemberForm() {
       membershipType: data.memberType,
       height: data.height ? parseFloat(data.height) : null,
       memo: data.notes || null,
+      memberType: data.memberType || null,
+      referralSource: data.referralSource || null,
+      companyName: data.companyName || null,
     };
 
     try {
@@ -361,6 +368,7 @@ export default function MemberForm() {
       birthDate: "", height: "", trainer: "", fc: "", visitPath: "", exerciseGoal: "",
       nickname: "", email: "", address: "", addressDetail: "", company: "",
       marketingConsent: false, notes: "", attendanceNumber: "",
+      referralSource: "", companyName: "",
     });
     setPhoneChecked(false);
     setCurrentStep("step1");
@@ -628,6 +636,21 @@ export default function MemberForm() {
                   </select>
                 </Field>
 
+                {/* 법인 회사명: 기명법인/무기명법인 선택 시만 표시 */}
+                {(watchedValues.memberType === '기명법인' || watchedValues.memberType === '무기명법인') && (
+                  <Field label="법인 회사명" error={errors.companyName?.message}>
+                    <div className="relative">
+                      <Building className="absolute left-md top-1/2 -translate-y-1/2 text-content-tertiary" size={15} />
+                      <input
+                        className={cn(inputCls(!!errors.companyName), "pl-[36px]")}
+                        type="text"
+                        placeholder="법인 회사명을 입력하세요"
+                        {...register("companyName")}
+                      />
+                    </div>
+                  </Field>
+                )}
+
                 {/* UI-030 생년월일 */}
                 <Field
                   label="생년월일"
@@ -696,6 +719,18 @@ export default function MemberForm() {
                     <option value="SNS">SNS (인스타그램/페이스북)</option>
                     <option value="인터넷검색">인터넷 검색</option>
                     <option value="전단지">전단지/현수막</option>
+                    <option value="기타">기타</option>
+                  </select>
+                </Field>
+
+                {/* 유입경로 */}
+                <Field label="유입경로">
+                  <select className={inputCls(false)} {...register("referralSource")}>
+                    <option value="">선택 안함</option>
+                    <option value="홈페이지">홈페이지</option>
+                    <option value="지인소개">지인소개</option>
+                    <option value="네이버">네이버</option>
+                    <option value="인스타">인스타</option>
                     <option value="기타">기타</option>
                   </select>
                 </Field>

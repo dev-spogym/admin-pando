@@ -58,6 +58,12 @@ export const memberFormSchema = z.object({
     .optional()
     .default(''),
 
+  // Step 1: 추가 필드
+  /** 유입경로 */
+  referralSource: z.string().optional().default(''),
+  /** 법인회원 회사명 */
+  companyName: z.string().optional().default(''),
+
   // Step 2: 선택
   email: optionalEmailSchema,
   address: z

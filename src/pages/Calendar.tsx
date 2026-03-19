@@ -15,6 +15,9 @@ import {
   ChevronLeft,
   ChevronRight,
   BookOpen,
+  CheckCircle2,
+  XOctagon,
+  Bell,
 } from "lucide-react";
 import AppLayout from "@/components/AppLayout";
 import PageHeader from "@/components/PageHeader";
@@ -43,6 +46,20 @@ import type { DateClickArg, EventResizeDoneArg } from "@fullcalendar/interaction
  * UI-125 캘린더 뷰 (월/주/일/리스트), UI-126 일정 상세 모달
  * FullCalendar 기반으로 전환 — 드래그&드롭, 리사이즈, 클릭 생성/편집 지원
  */
+
+// #15 일정 유형 색상 매핑
+const SCHEDULE_COLORS: Record<string, string> = {
+  '방문':   '#3B82F6',  // 파랑
+  'OT':     '#10B981',  // 초록
+  '상담':   '#F59E0B',  // 노랑
+  '체성분': '#8B5CF6',  // 보라
+  '수업':   '#EF4444',  // 빨강
+  'PT':     '#F97316',  // 주황
+  '기타':   '#6B7280',  // 회색
+};
+
+// #17 일정 분류 목록
+const SCHEDULE_CATEGORIES = ['상담', 'OT', '체성분', '방문', '수업', 'PT', '기타'] as const;
 
 // --- 하드코딩 유지 (DB 테이블 없음) ---
 const ROOMS = [
@@ -85,6 +102,14 @@ interface ScheduleEvent {
   seatRows?: number;
   seatCols?: number;
   reservedSeats?: number[];
+  // #17 일정 분류
+  scheduleCategory?: string | null;
+  // #16 대상 유형
+  targetType?: "회원" | "비회원" | "직원" | null;
+  targetName?: string | null;
+  targetPhone?: string | null;
+  // #18 미승인 처리
+  approvalStatus?: "pending" | "approved" | "rejected" | null;
 }
 
 interface Instructor {
@@ -255,16 +280,21 @@ const EventDetailModal = ({
   onClose,
   onEdit,
   onDelete,
+  onApprove,
+  onReject,
 }: {
   event: ScheduleEvent;
   onClose: () => void;
   onEdit: () => void;
   onDelete: () => void;
+  onApprove?: () => void;
+  onReject?: () => void;
 }) => {
   const { editable, reason } = isEventEditable(event.start);
   const colors = EVENT_TYPE_COLORS[event.type] ?? EVENT_TYPE_COLORS["기타"];
   const [showSeats, setShowSeats] = React.useState(false);
   const [toggledSeats, setToggledSeats] = React.useState<number[]>([]);
+  const isPending = event.approvalStatus === 'pending';
 
   const hasSeatGrid = (event.seatRows ?? 0) > 0 && (event.seatCols ?? 0) > 0;
   const reservedSeats = event.reservedSeats ?? [];
@@ -283,14 +313,33 @@ const EventDetailModal = ({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-md">
       <div className="bg-surface rounded-xl w-full max-w-[520px] max-h-[90vh] overflow-y-auto shadow-2xl animate-in fade-in zoom-in duration-200">
-        <div className={cn("px-xl py-lg border-b border-line flex items-center justify-between", colors.light)}>
-          <div className="flex items-center gap-sm">
+        <div className={cn("px-xl py-lg border-b border-line flex items-center justify-between", isPending ? "bg-amber-50" : colors.light)}>
+          <div className="flex items-center gap-sm flex-wrap">
             <div className={cn("w-3 h-3 rounded-full border-2", colors.border)} />
             <h2 className="text-[16px] font-bold text-content">{event.title}</h2>
             <StatusBadge
               variant={event.status === "완료" ? "success" : event.status === "취소" ? "error" : "info"}
               label={event.status}
             />
+            {/* #18 미승인 배지 */}
+            {isPending && (
+              <span className="inline-flex items-center gap-xs px-sm py-[2px] rounded-full bg-amber-100 text-amber-700 text-[11px] font-bold border border-amber-300">
+                <Bell size={10} />
+                미승인
+              </span>
+            )}
+            {/* #17 카테고리 배지 */}
+            {event.scheduleCategory && (
+              <span
+                className="inline-flex items-center px-sm py-[2px] rounded-full text-[11px] font-semibold"
+                style={{
+                  backgroundColor: (SCHEDULE_COLORS[event.scheduleCategory] ?? '#6B7280') + '20',
+                  color: SCHEDULE_COLORS[event.scheduleCategory] ?? '#6B7280',
+                }}
+              >
+                {event.scheduleCategory}
+              </span>
+            )}
           </div>
           <button className="p-sm hover:bg-surface-secondary rounded-full transition-colors" onClick={onClose}>
             <XCircle className="text-content-secondary" size={20} />
@@ -353,6 +402,17 @@ const EventDetailModal = ({
             {event.type} 수업
           </div>
 
+          {/* #16 대상 정보 */}
+          {(event.targetType || event.targetName) && (
+            <div className="flex items-center gap-sm p-sm bg-surface-secondary rounded-lg border border-line">
+              <Users size={14} className="text-content-secondary flex-shrink-0" />
+              <span className="text-[12px] text-content">
+                <span className="font-semibold text-content-secondary mr-xs">{event.targetType ?? '대상'}:</span>
+                {event.targetName ?? '-'}
+              </span>
+            </div>
+          )}
+
           {/* FN-037: 좌석 그리드 토글 */}
           {hasSeatGrid && (
             <div className="border border-line rounded-xl overflow-hidden">
@@ -385,22 +445,45 @@ const EventDetailModal = ({
           )}
         </div>
 
-        <div className="px-xl py-lg border-t border-line flex items-center justify-end gap-md">
-          <button
-            className="px-lg py-sm rounded-lg text-[12px] font-semibold text-state-error border border-state-error/20 hover:bg-state-error/5 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
-            disabled={!editable}
-            onClick={onDelete}
-          >
-            <Trash2 size={13} className="inline mr-xs" />
-            삭제
-          </button>
-          <button
-            className="px-xl py-sm rounded-lg bg-primary text-white text-[12px] font-bold shadow-sm hover:opacity-90 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
-            disabled={!editable}
-            onClick={onEdit}
-          >
-            수정
-          </button>
+        <div className="px-xl py-lg border-t border-line flex items-center justify-between gap-md">
+          {/* #18 미승인 상태일 때 승인/거절 버튼 */}
+          {isPending ? (
+            <div className="flex items-center gap-sm">
+              <button
+                className="flex items-center gap-xs px-lg py-sm rounded-lg text-[12px] font-semibold bg-state-success/10 text-state-success border border-state-success/30 hover:bg-state-success/20 transition-all"
+                onClick={() => { onApprove?.(); onClose(); }}
+              >
+                <CheckCircle2 size={13} />
+                승인
+              </button>
+              <button
+                className="flex items-center gap-xs px-lg py-sm rounded-lg text-[12px] font-semibold bg-state-error/10 text-state-error border border-state-error/30 hover:bg-state-error/20 transition-all"
+                onClick={() => { onReject?.(); onClose(); }}
+              >
+                <XOctagon size={13} />
+                거절
+              </button>
+            </div>
+          ) : (
+            <div />
+          )}
+          <div className="flex items-center gap-md">
+            <button
+              className="px-lg py-sm rounded-lg text-[12px] font-semibold text-state-error border border-state-error/20 hover:bg-state-error/5 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+              disabled={!editable}
+              onClick={onDelete}
+            >
+              <Trash2 size={13} className="inline mr-xs" />
+              삭제
+            </button>
+            <button
+              className="px-xl py-sm rounded-lg bg-primary text-white text-[12px] font-bold shadow-sm hover:opacity-90 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+              disabled={!editable}
+              onClick={onEdit}
+            >
+              수정
+            </button>
+          </div>
         </div>
       </div>
     </div>
@@ -440,15 +523,23 @@ function toFullCalendarEvent(ev: ScheduleEvent) {
   const trainerColors = TRAINER_HEX[ev.instructorId] ?? DEFAULT_HEX;
   const { editable: canEdit } = isEventEditable(ev.start);
 
+  // #15 scheduleCategory 색상 우선 적용
+  const categoryColor = ev.scheduleCategory ? SCHEDULE_COLORS[ev.scheduleCategory] : null;
+  const borderColor = categoryColor ?? trainerColors.border;
+
+  // #18 미승인(pending) 이벤트는 반투명 처리
+  const isPending = ev.approvalStatus === 'pending';
+
   return {
     id: ev.id,
     title: ev.title,
     start: ev.start,
     end: ev.end,
     editable: canEdit,
-    backgroundColor: trainerColors.bg,
-    borderColor: trainerColors.border,
-    textColor: trainerColors.text,
+    backgroundColor: isPending ? '#f9fafb' : (categoryColor ? categoryColor + '18' : trainerColors.bg),
+    borderColor,
+    textColor: categoryColor ? borderColor : trainerColors.text,
+    classNames: isPending ? ['fc-event-pending'] : [],
     extendedProps: {
       instructor: ev.instructor,
       instructorId: ev.instructorId,
@@ -465,6 +556,10 @@ function toFullCalendarEvent(ev: ScheduleEvent) {
       reservedSeats: ev.reservedSeats,
       typeColors,
       trainerColors,
+      scheduleCategory: ev.scheduleCategory,
+      approvalStatus: ev.approvalStatus,
+      targetType: ev.targetType,
+      targetName: ev.targetName,
     },
   };
 }
@@ -474,19 +569,24 @@ function renderEventContent(eventInfo: EventContentArg) {
   const { event, view } = eventInfo;
   const props = event.extendedProps;
   const typeColors = props.typeColors as { bg: string; border: string; text: string } | undefined;
+  const isPending = props.approvalStatus === 'pending';
+  // #15 scheduleCategory 색상 dot 색
+  const categoryColor = props.scheduleCategory ? SCHEDULE_COLORS[props.scheduleCategory as string] : null;
+  const dotColor = categoryColor ?? typeColors?.border ?? "#a3a3a3";
 
   // 월 뷰: 컴팩트
   if (view.type === "dayGridMonth") {
     return (
-      <div className="flex items-center gap-[3px] px-[3px] py-[1px] overflow-hidden w-full">
+      <div className={cn("flex items-center gap-[3px] px-[3px] py-[1px] overflow-hidden w-full", isPending && "opacity-70")}>
         <div
           className="w-[6px] h-[6px] rounded-full flex-shrink-0"
-          style={{ backgroundColor: typeColors?.border ?? "#a3a3a3" }}
+          style={{ backgroundColor: dotColor }}
         />
         <span className="text-[10px] font-semibold truncate" style={{ color: typeColors?.text ?? "#525252" }}>
           {event.start ? new Date(event.start).toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit" }) : ""}{" "}
           {event.title}
         </span>
+        {isPending && <span className="text-[8px] font-bold text-amber-600 flex-shrink-0">미승인</span>}
       </div>
     );
   }
@@ -496,6 +596,12 @@ function renderEventContent(eventInfo: EventContentArg) {
     return (
       <div className="flex items-center gap-sm">
         <span className="font-bold text-[13px]">{event.title}</span>
+        {props.scheduleCategory && (
+          <span className="text-[10px] px-xs py-[1px] rounded-full font-semibold" style={{ backgroundColor: dotColor + '22', color: dotColor }}>
+            {props.scheduleCategory as string}
+          </span>
+        )}
+        {isPending && <span className="text-[10px] px-xs py-[1px] rounded-full bg-amber-100 text-amber-700 font-semibold">미승인</span>}
         <span className="text-[11px] text-content-secondary">{props.instructor} / {props.room}</span>
         <span className="text-[11px] text-content-secondary">{props.currentCount}/{props.capacity}명</span>
       </div>
@@ -504,8 +610,14 @@ function renderEventContent(eventInfo: EventContentArg) {
 
   // 주/일 뷰: 상세
   return (
-    <div className="flex flex-col gap-[1px] px-[4px] py-[2px] overflow-hidden w-full h-full">
-      <div className="text-[11px] font-bold truncate">{event.title}</div>
+    <div className={cn("flex flex-col gap-[1px] px-[4px] py-[2px] overflow-hidden w-full h-full", isPending && "opacity-80")}>
+      <div className="flex items-center gap-[3px]">
+        <span className="text-[11px] font-bold truncate">{event.title}</span>
+        {isPending && <span className="text-[8px] font-bold text-amber-600 flex-shrink-0">미승인</span>}
+      </div>
+      {props.scheduleCategory && (
+        <span className="text-[8px] font-semibold" style={{ color: dotColor }}>{props.scheduleCategory as string}</span>
+      )}
       <div className="flex items-center gap-[4px] text-[9px] opacity-80">
         <Users size={8} />
         <span>{props.currentCount}/{props.capacity}</span>
@@ -561,6 +673,17 @@ export default function Calendar() {
   // --- FN-037: 좌석 설정 폼 상태 ---
   const [formSeatRows, setFormSeatRows] = useState(0);
   const [formSeatCols, setFormSeatCols] = useState(0);
+  // --- #17 분류 폼 상태 ---
+  const [formScheduleCategory, setFormScheduleCategory] = useState("");
+  // --- #16 대상 유형 폼 상태 ---
+  const [formTargetType, setFormTargetType] = useState<"회원" | "비회원" | "직원">("회원");
+  const [formTargetName, setFormTargetName] = useState("");
+  const [formTargetPhone, setFormTargetPhone] = useState("");
+  const [formTargetStaff, setFormTargetStaff] = useState("");
+  // --- #17 카테고리 필터 ---
+  const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
+  // --- #18 미승인 처리 ---
+  const [pendingCount, setPendingCount] = useState(0);
 
   // --- 로컬 상태에 추가된 수업 이벤트 ---
   const [localEvents, setLocalEvents] = useState<ScheduleEvent[]>([]);
@@ -598,7 +721,7 @@ export default function Calendar() {
       // 수업 일정 (classes 테이블)
       const { data: classData } = await supabase
         .from("classes")
-        .select("id, title, type, staffId, staffName, room, startTime, endTime, capacity, booked, isRecurring, branchId, status")
+        .select("id, title, type, staffId, staffName, room, startTime, endTime, capacity, booked, isRecurring, branchId, status, scheduleCategory, approvalStatus, targetType, targetName")
         .eq("branchId", branchId);
 
       if (classData) {
@@ -614,7 +737,14 @@ export default function Calendar() {
           currentCount: c.booked ?? 0,
           status: (c.status as "예약" | "완료" | "취소") ?? "예약",
           type: (c.type as EventType) ?? "기타",
+          scheduleCategory: c.scheduleCategory ?? null,
+          approvalStatus: c.approvalStatus ?? null,
+          targetType: c.targetType ?? null,
+          targetName: c.targetName ?? null,
         }));
+        // #18 미승인 건수 계산
+        const pendingItems = mapped.filter(e => e.approvalStatus === 'pending');
+        setPendingCount(pendingItems.length);
         setEvents(mapped);
         setClassManagement(classData.map((c: any) => ({
           id: c.id,
@@ -684,8 +814,12 @@ export default function Calendar() {
     if (selectedLessonFilter) result = result.filter(e => e.title === selectedLessonFilter);
     if (capacityFilter === "여유") result = result.filter(e => e.currentCount < e.capacity);
     if (capacityFilter === "마감") result = result.filter(e => e.currentCount >= e.capacity);
+    // #17 카테고리 멀티필터
+    if (selectedCategories.length > 0) {
+      result = result.filter(e => e.scheduleCategory && selectedCategories.includes(e.scheduleCategory));
+    }
     return result;
-  }, [allEvents, selectedInstructor, selectedLessonFilter, capacityFilter]);
+  }, [allEvents, selectedInstructor, selectedLessonFilter, capacityFilter, selectedCategories]);
 
   // lesson_schedules → FullCalendar 이벤트 변환
   const lessonScheduleEvents = useMemo(() => {
@@ -907,6 +1041,13 @@ export default function Calendar() {
     setFormReservationDeadline("");
     setFormSeatRows(0);
     setFormSeatCols(0);
+    // #17 분류 초기화
+    setFormScheduleCategory("");
+    // #16 대상 초기화
+    setFormTargetType("회원");
+    setFormTargetName("");
+    setFormTargetPhone("");
+    setFormTargetStaff("");
   };
 
   // --- 수업 등록 제출 핸들러 ---
@@ -929,6 +1070,11 @@ export default function Calendar() {
     setIsSaving(true);
     try {
       const instructorInfo = instructors.find(i => i.id === formInstructor);
+      // #16 대상명 결정
+      const resolvedTargetName =
+        formTargetType === "직원"
+          ? (instructors.find(i => i.id === formTargetStaff)?.name ?? formTargetStaff)
+          : formTargetName || null;
       const newEvent: ScheduleEvent = {
         id: `local-${Date.now()}`,
         title: formName,
@@ -947,6 +1093,10 @@ export default function Calendar() {
         seatRows: formSeatRows > 0 ? formSeatRows : undefined,
         seatCols: formSeatCols > 0 ? formSeatCols : undefined,
         reservedSeats: [],
+        scheduleCategory: formScheduleCategory || null,
+        targetType: formTargetType,
+        targetName: resolvedTargetName,
+        approvalStatus: null,
       };
 
       setLocalEvents(prev => [...prev, newEvent]);
@@ -1000,6 +1150,38 @@ export default function Calendar() {
     }
   }, [selectedEvent]);
 
+  // #18 일정 승인 핸들러
+  const handleApproveEvent = useCallback(async () => {
+    if (!selectedEvent) return;
+    const { error } = await supabase
+      .from('classes')
+      .update({ approvalStatus: 'approved' })
+      .eq('id', Number(selectedEvent.id));
+    if (error) { toast.error('승인에 실패했습니다.'); return; }
+    setEvents(prev => prev.map(e =>
+      e.id === selectedEvent.id ? { ...e, approvalStatus: 'approved' } : e
+    ));
+    setPendingCount(prev => Math.max(0, prev - 1));
+    toast.success('일정이 승인되었습니다.');
+    setIsDetailModalOpen(false);
+  }, [selectedEvent]);
+
+  // #18 일정 거절 핸들러
+  const handleRejectEvent = useCallback(async () => {
+    if (!selectedEvent) return;
+    const { error } = await supabase
+      .from('classes')
+      .update({ approvalStatus: 'rejected' })
+      .eq('id', Number(selectedEvent.id));
+    if (error) { toast.error('거절에 실패했습니다.'); return; }
+    setEvents(prev => prev.map(e =>
+      e.id === selectedEvent.id ? { ...e, approvalStatus: 'rejected' } : e
+    ));
+    setPendingCount(prev => Math.max(0, prev - 1));
+    toast.success('일정이 거절되었습니다.');
+    setIsDetailModalOpen(false);
+  }, [selectedEvent]);
+
   const tabs = [
     { key: "schedule", label: "일정표", icon: CalendarIcon },
     { key: "classes",  label: "수업 관리", count: classManagement.length },
@@ -1049,8 +1231,18 @@ export default function Calendar() {
         <div className="space-y-lg">
           {activeTab === "schedule" && (
             <>
+              {/* #18 미승인 일정 알림 배지 */}
+              {pendingCount > 0 && (
+                <div className="flex items-center gap-sm p-sm bg-amber-50 border border-amber-200 rounded-xl">
+                  <Bell size={15} className="text-amber-600 flex-shrink-0" />
+                  <span className="text-[13px] font-semibold text-amber-700">
+                    미승인 일정 <span className="font-bold">{pendingCount}건</span>이 있습니다.
+                  </span>
+                </div>
+              )}
+
               {/* 필터 바 (BROJ 스타일) */}
-              <div className="flex flex-col md:flex-row md:items-center justify-between gap-md bg-surface p-md rounded-xl border border-line shadow-xs">
+              <div className="flex flex-col gap-md bg-surface p-md rounded-xl border border-line shadow-xs">
                 <div className="flex flex-wrap items-center gap-md">
                   {/* 강사 필터 */}
                   <select
@@ -1093,16 +1285,67 @@ export default function Calendar() {
                     ))}
                   </div>
                 </div>
+                {/* #17 카테고리 멀티셀렉트 필터 */}
+                <div className="flex flex-wrap items-center gap-xs pt-xs border-t border-line">
+                  <span className="text-[12px] font-semibold text-content-secondary mr-xs">분류</span>
+                  <button
+                    type="button"
+                    onClick={() => setSelectedCategories([])}
+                    className={cn(
+                      "h-7 px-sm rounded-full text-[11px] font-semibold border transition-colors",
+                      selectedCategories.length === 0
+                        ? "bg-primary text-white border-primary"
+                        : "bg-surface-secondary text-content-secondary border-line hover:border-primary hover:text-primary"
+                    )}
+                  >
+                    전체
+                  </button>
+                  {SCHEDULE_CATEGORIES.map(cat => {
+                    const color = SCHEDULE_COLORS[cat] ?? '#6B7280';
+                    const isSelected = selectedCategories.includes(cat);
+                    return (
+                      <button
+                        key={cat}
+                        type="button"
+                        onClick={() => {
+                          setSelectedCategories(prev =>
+                            isSelected ? prev.filter(c => c !== cat) : [...prev, cat]
+                          );
+                        }}
+                        className="h-7 px-sm rounded-full text-[11px] font-semibold border transition-all"
+                        style={isSelected
+                          ? { backgroundColor: color, color: '#fff', borderColor: color }
+                          : { backgroundColor: color + '15', color, borderColor: color + '40' }
+                        }
+                      >
+                        {cat}
+                      </button>
+                    );
+                  })}
+                </div>
                 {/* 범례 */}
-                <div className="flex flex-col md:flex-row md:items-center gap-md">
-                  <div className="flex items-center gap-md">
-                    <span className="text-[12px] font-semibold text-content-secondary flex-shrink-0">강사</span>
-                    <TrainerLegend instructors={instructors} />
-                  </div>
-                  <div className="hidden md:block w-px h-4 bg-line" />
-                  <div className="flex items-center gap-md">
-                    <span className="text-[12px] font-semibold text-content-secondary flex-shrink-0">유형</span>
-                    <EventTypeLegend />
+                <div className="flex flex-wrap items-center gap-md pt-xs border-t border-line">
+                  <div className="flex flex-col md:flex-row md:items-center gap-md">
+                    <div className="flex items-center gap-md">
+                      <span className="text-[12px] font-semibold text-content-secondary flex-shrink-0">강사</span>
+                      <TrainerLegend instructors={instructors} />
+                    </div>
+                    <div className="hidden md:block w-px h-4 bg-line" />
+                    <div className="flex items-center gap-md">
+                      <span className="text-[12px] font-semibold text-content-secondary flex-shrink-0">유형</span>
+                      <EventTypeLegend />
+                    </div>
+                    <div className="hidden md:block w-px h-4 bg-line" />
+                    {/* #15 분류 색상 범례 */}
+                    <div className="flex flex-wrap items-center gap-sm">
+                      <span className="text-[12px] font-semibold text-content-secondary flex-shrink-0">분류</span>
+                      {Object.entries(SCHEDULE_COLORS).map(([cat, color]) => (
+                        <div key={cat} className="flex items-center gap-xs">
+                          <div className="w-3 h-3 rounded-sm" style={{ backgroundColor: color }} />
+                          <span className="text-[11px] text-content-secondary">{cat}</span>
+                        </div>
+                      ))}
+                    </div>
                   </div>
                 </div>
               </div>
@@ -1606,6 +1849,8 @@ export default function Calendar() {
           onClose={() => setIsDetailModalOpen(false)}
           onEdit={() => { setIsDetailModalOpen(false); setIsAddModalOpen(true); }}
           onDelete={handleDeleteClass}
+          onApprove={handleApproveEvent}
+          onReject={handleRejectEvent}
         />
       )}
 
@@ -1818,6 +2063,119 @@ export default function Calendar() {
                   <p className="text-[12px] text-state-info">
                     총 {formSeatRows * formSeatCols}석 좌석 그리드가 생성됩니다.
                   </p>
+                )}
+              </div>
+
+              {/* #17 일정 분류 */}
+              <div className="border border-line rounded-xl p-lg space-y-md">
+                <h3 className="text-[13px] font-bold text-content">일정 분류</h3>
+                <div>
+                  <label className="block text-[12px] font-semibold text-content-secondary mb-sm">분류 선택</label>
+                  <div className="flex flex-wrap gap-xs">
+                    <button
+                      type="button"
+                      onClick={() => setFormScheduleCategory("")}
+                      className={cn(
+                        "h-8 px-md rounded-full text-[12px] font-semibold border transition-all",
+                        !formScheduleCategory
+                          ? "bg-primary text-white border-primary"
+                          : "bg-surface-secondary text-content-secondary border-line hover:border-primary hover:text-primary"
+                      )}
+                    >
+                      없음
+                    </button>
+                    {SCHEDULE_CATEGORIES.map(cat => {
+                      const color = SCHEDULE_COLORS[cat] ?? '#6B7280';
+                      const isSelected = formScheduleCategory === cat;
+                      return (
+                        <button
+                          key={cat}
+                          type="button"
+                          onClick={() => setFormScheduleCategory(cat)}
+                          className="h-8 px-md rounded-full text-[12px] font-semibold border transition-all"
+                          style={isSelected
+                            ? { backgroundColor: color, color: '#fff', borderColor: color }
+                            : { backgroundColor: color + '15', color, borderColor: color + '40' }
+                          }
+                        >
+                          {cat}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+
+              {/* #16 대상 유형 */}
+              <div className="border border-line rounded-xl p-lg space-y-md">
+                <h3 className="text-[13px] font-bold text-content">대상 설정</h3>
+                <div>
+                  <label className="block text-[12px] font-semibold text-content-secondary mb-sm">대상 유형</label>
+                  <div className="flex items-center gap-sm">
+                    {(["회원", "비회원", "직원"] as const).map(t => (
+                      <button
+                        key={t}
+                        type="button"
+                        onClick={() => setFormTargetType(t)}
+                        className={cn(
+                          "h-9 px-lg rounded-lg text-[12px] font-semibold border transition-all",
+                          formTargetType === t
+                            ? "bg-primary text-white border-primary"
+                            : "bg-surface-secondary text-content-secondary border-line hover:border-primary hover:text-primary"
+                        )}
+                      >
+                        {t}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                {formTargetType === "회원" && (
+                  <div>
+                    <label className="block text-[12px] font-semibold text-content-secondary mb-sm">회원명</label>
+                    <input
+                      className="w-full h-11 rounded-lg bg-surface-secondary border border-line px-md text-[13px] focus:border-primary outline-none transition-all"
+                      placeholder="회원명을 입력하세요"
+                      value={formTargetName}
+                      onChange={e => setFormTargetName(e.target.value)}
+                    />
+                  </div>
+                )}
+                {formTargetType === "비회원" && (
+                  <div className="grid grid-cols-2 gap-md">
+                    <div>
+                      <label className="block text-[12px] font-semibold text-content-secondary mb-sm">이름</label>
+                      <input
+                        className="w-full h-11 rounded-lg bg-surface-secondary border border-line px-md text-[13px] focus:border-primary outline-none transition-all"
+                        placeholder="이름 입력"
+                        value={formTargetName}
+                        onChange={e => setFormTargetName(e.target.value)}
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[12px] font-semibold text-content-secondary mb-sm">연락처</label>
+                      <input
+                        className="w-full h-11 rounded-lg bg-surface-secondary border border-line px-md text-[13px] focus:border-primary outline-none transition-all"
+                        placeholder="010-0000-0000"
+                        value={formTargetPhone}
+                        onChange={e => setFormTargetPhone(e.target.value)}
+                      />
+                    </div>
+                  </div>
+                )}
+                {formTargetType === "직원" && (
+                  <div>
+                    <label className="block text-[12px] font-semibold text-content-secondary mb-sm">직원 선택</label>
+                    <select
+                      className="w-full h-11 rounded-lg bg-surface-secondary border border-line px-md text-[13px] focus:border-primary outline-none transition-all"
+                      value={formTargetStaff}
+                      onChange={e => setFormTargetStaff(e.target.value)}
+                    >
+                      <option value="">직원을 선택하세요</option>
+                      {instructors.map(i => (
+                        <option key={i.id} value={i.id}>{i.name} ({i.type})</option>
+                      ))}
+                    </select>
+                  </div>
                 )}
               </div>
 

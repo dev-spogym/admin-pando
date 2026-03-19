@@ -1,0 +1,183 @@
+{
+  "meta": {
+    "date": "2026-03-18",
+    "type": "competitor-analysis",
+    "target": "OnFit (admin.onfitgym.com)",
+    "branch": "판교역점",
+    "analyzer": "Claude (Chrome Extension)",
+    "account": "spomaster"
+  },
+  "globalFeatures": {
+    "topBar": ["공지사항", "회원검색", "회원등록", "지점선택"],
+    "memberSearch": {
+      "searchBy": ["회원명", "전화번호 뒷4자리"],
+      "options": ["계열센터 포함"]
+    }
+  },
+  "menuStructure": {
+    "회원": {
+      "submenus": [
+        { "name": "회원 관리", "url": "/member/list", "tabs": ["회원조회", "상품별 회원조회"] },
+        { "name": "방문 이력", "url": "/member/visit-list" },
+        { "name": "전자 계약", "url": "/member/contract/elec-contract", "wizard": 5 },
+        { "name": "일일 입장 판매 등록", "url": "/member/contract/oneday-member-contract" }
+      ]
+    },
+    "일정": {
+      "submenus": [
+        { "name": "일정", "url": "/schedule/state", "views": ["일별", "주별"] },
+        { "name": "일정 요청 처리", "url": "/schedule/request" }
+      ]
+    },
+    "수업": {
+      "submenus": [
+        { "name": "그룹수업 관리", "url": "/schedule/state?type=group" },
+        { "name": "그룹수업템플릿 관리" },
+        { "name": "룸 좌석 배치 정보" },
+        { "name": "그룹수업 시간표 등록" },
+        { "name": "세션 관리" },
+        { "name": "1:1 회원 수업현황" },
+        { "name": "그룹수업현황" },
+        { "name": "강사 근무 현황" }
+      ]
+    },
+    "매출": {
+      "submenus": [
+        { "name": "매출 통계", "url": "/analytics/sales", "tabs": ["직군별 매출", "담당자별 매출", "상품별 매출 요약", "상품별 상세 요약", "결제수단별 매출"] },
+        { "name": "매출관리", "url": "/sales/salesManage" },
+        { "name": "선수익금 조회" }
+      ]
+    },
+    "시설": {
+      "submenus": [
+        { "name": "모바일앱", "url": "/mobile/state" },
+        { "name": "배너 관리" },
+        { "name": "일일 사물함" },
+        { "name": "개인 사물함" },
+        { "name": "골프 사물함" },
+        { "name": "밴드/카드" },
+        { "name": "타석 관리" },
+        { "name": "운동룸 관리" }
+      ]
+    },
+    "설정": {
+      "submenus": [
+        { "name": "상품 관리", "url": "/production/list", "totalProducts": 89 },
+        { "name": "할인 설정" },
+        { "name": "직원 관리" },
+        { "name": "직원근태관리" },
+        { "name": "운동 프로그램 관리" },
+        { "name": "권한 관리" },
+        { "name": "센터 설정" }
+      ]
+    }
+  },
+  "memberManagement": {
+    "listPage": {
+      "totalMembers": 6745,
+      "genderSplit": { "male": 4037, "female": 2705 },
+      "filters": [
+        { "name": "회원구분", "type": "radio", "options": ["전체", "유효회원", "만료", "기간정지", "사용대기"] },
+        { "name": "계약상품", "type": "select", "options": ["전체", "상품선택"] },
+        { "name": "최종 만료일", "type": "dateRange" },
+        { "name": "사물함 만료일", "type": "dateRange" },
+        { "name": "최근 방문일", "type": "dateRange" },
+        { "name": "최근 계약일", "type": "dateRange" },
+        { "name": "연령", "type": "numberRange" },
+        { "name": "성별", "type": "radio", "options": ["전체", "남", "여"] },
+        { "name": "최종담당자", "type": "dropdown", "count": 2 },
+        { "name": "회원명", "type": "text" },
+        { "name": "미방문", "type": "number", "suffix": "일 초과" },
+        { "name": "주소", "type": "text" },
+        { "name": "회사명", "type": "text" },
+        { "name": "관심회원", "type": "radio", "options": ["전체", "관심회원"] }
+      ],
+      "tableColumns": ["No", "체크박스", "회원명", "전화번호", "생년월일", "나이", "성별", "등록일", "상품"],
+      "actions": ["검색하기", "관심회원변경", "엑셀 다운로드"]
+    },
+    "registerForm": {
+      "fields": [
+        { "name": "프로필사진", "required": false, "type": "image" },
+        { "name": "이름", "required": true, "type": "text" },
+        { "name": "별칭", "required": false, "type": "text" },
+        { "name": "회원구분", "required": true, "type": "radio", "options": ["일반", "기명법인", "무기명법인"] },
+        { "name": "성별", "required": true, "type": "radio", "options": ["남", "여"] },
+        { "name": "생년월일", "required": true, "type": "select", "count": 3 },
+        { "name": "휴대전화", "required": true, "type": "phone", "features": ["중복확인"] },
+        { "name": "이메일", "required": false, "type": "email" },
+        { "name": "유입경로", "required": false, "type": "dropdown", "options": ["없음", "..."] },
+        { "name": "주소", "required": false, "type": "address", "features": ["우편번호"] },
+        { "name": "담당트레이너", "required": false, "type": "dropdown" },
+        { "name": "담당FC", "required": false, "type": "dropdown" },
+        { "name": "회사명", "required": false, "type": "text" },
+        { "name": "메모", "required": false, "type": "textarea", "maxLength": 5000 }
+      ]
+    },
+    "detailPage": {
+      "tabs": [
+        { "index": 1, "name": "회원정보", "sections": ["기본정보", "일일사물함", "출입관리(NFC)", "수업완료처리(지문)", "회원권/옵션내역", "상담내역"] },
+        { "index": 2, "name": "계약 정보" },
+        { "index": 3, "name": "신체정보" },
+        { "index": 4, "name": "체성분 정보" },
+        { "index": 5, "name": "종합평가" },
+        { "index": 6, "name": "설문" },
+        { "index": 7, "name": "운동 프로그램" },
+        { "index": 8, "name": "운동 이력" },
+        { "index": 9, "name": "온핏 분석" },
+        { "index": 10, "name": "상담 이력" },
+        { "index": 11, "name": "예약이력" }
+      ],
+      "features": ["D+N일 만료표시", "관심회원 별마킹", "방문이력/등록", "메인센터 변경", "NFC카드등록", "지문등록"]
+    }
+  },
+  "visitHistory": {
+    "columns": ["No", "회원명", "재실여부", "상태", "만료일(D-day)", "입장시간", "퇴장시간", "방문회차", "회원권내역", "성별", "락카번호"],
+    "features": ["날짜선택", "상세검색", "리스트형뷰", "실시간입장팝업"],
+    "statuses": ["정상", "일중복입장"]
+  },
+  "electronicContract": {
+    "steps": ["회원정보입력", "상품선택", "약관동의", "결제", "계약서확인"],
+    "step1Fields": ["이름*", "성별*", "휴대전화*", "생년월일*", "주소", "이메일", "유입경로"]
+  },
+  "schedule": {
+    "views": ["일별", "주별"],
+    "filters": ["직군/강사", "카테고리", "처리상태", "장소", "이름검색"],
+    "eventTypes": [
+      { "name": "방문", "color": "red" },
+      { "name": "OT", "color": "green" },
+      { "name": "상담", "color": "lightGreen" },
+      { "name": "체성분", "color": "navy" },
+      { "name": "1:1수업", "color": "gray" },
+      { "name": "그룹수업(세션)", "color": "yellow" },
+      { "name": "시설이용(비세션)", "color": "purple" }
+    ],
+    "newScheduleForm": {
+      "targetTypes": ["회원", "비회원", "직원"],
+      "categories": ["상담", "OT", "체성분", "방문"],
+      "fields": ["대상회원", "분류", "일시", "담당자", "메모(50자)"]
+    },
+    "approvalWorkflow": true,
+    "pendingCount": true
+  },
+  "classManagement": {
+    "groupClassRegister": {
+      "fields": ["수업템플릿선택", "유형선택*", "수업명*", "정원수*", "강사선택*", "날짜*", "시간*", "반복", "룸선택", "예약방식", "예약공개방식", "메모"],
+      "bookingMethods": ["현장", "모바일"],
+      "features": ["주간캘린더뷰", "스케줄일괄변경"]
+    }
+  },
+  "salesAnalytics": {
+    "summary": {
+      "categories": ["총계", "신규", "재등록", "휴면", "종목추가", "기타", "미지정", "업그레이드", "환불", "미수금", "수수료"]
+    },
+    "periodFilters": ["일간", "월간", "연간"],
+    "analysisTabs": ["직군별 매출", "담당자별 매출", "상품별 매출 요약", "상품별 상세 요약", "결제수단별 매출"],
+    "features": ["엑셀다운로드", "정렬", "항목설정"]
+  },
+  "productManagement": {
+    "totalProducts": 89,
+    "categories": ["쿠폰", "골프이용권", "헬스", "골프+헬스", "골프+GX+헬스", "1:1수업", "PT"],
+    "tableColumns": ["No", "상품분류", "상품명", "사용기간", "세션", "수업방식", "차감방식", "금액(VAT포함)", "기간정지제한", "일사용횟수", "상태"],
+    "features": ["상품분류관리(CRUD)", "필터", "신규등록"]
+  }
+}

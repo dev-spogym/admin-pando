@@ -152,6 +152,11 @@ export const checkOut = async (
   }
 };
 
+/** 퇴장 처리 — checkOutAt을 현재 시각으로 업데이트 */
+export const checkOutMember = async (attendanceId: number): Promise<ApiResponse<Attendance>> => {
+  return checkOut(attendanceId, { checkOutAt: new Date().toISOString() });
+};
+
 /** 출석 통계 조회 */
 export const getAttendanceStats = async (): Promise<ApiResponse<AttendanceStats>> => {
   try {
