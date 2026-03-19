@@ -72,6 +72,18 @@ const INITIAL_NOTIFICATIONS: Notification[] = [
   { id: 3, message: '새 회원 등록이 완료되었습니다.', time: formatRelativeTime(61), read: false },
 ];
 
+/** 즐겨찾기 회원 ID 목록 가져오기 */
+async function getFavoriteIds(): Promise<number[]> {
+  const { data } = await supabase
+    .from('settings')
+    .select('value')
+    .eq('branchId', getBranchId())
+    .eq('key', 'favorites')
+    .single();
+  if (!data?.value) return [];
+  try { return JSON.parse(data.value); } catch { return []; }
+}
+
 // ─── 컴포넌트 ──────────────────────────────────────────────────────────────────
 
 const AppHeader = ({
@@ -113,6 +125,69 @@ const AppHeader = ({
 
   // ── 알림 상태 ──
   const [notifications, setNotifications] = useState<Notification[]>(INITIAL_NOTIFICATIONS);
+
+  // ── 즐겨찾기 회원 입장 실시간 알림 (Supabase Realtime) ──
+  useEffect(() => {
+    let favoriteIds: number[] = [];
+    let channel: ReturnType<typeof supabase.channel> | null = null;
+
+    const setup = async () => {
+      favoriteIds = await getFavoriteIds();
+      if (favoriteIds.length === 0) return;
+
+      channel = supabase
+        .channel('favorite-attendance')
+        .on(
+          'postgres_changes',
+          {
+            event: 'INSERT',
+            schema: 'public',
+            table: 'attendance',
+            filter: `branchId=eq.${getBranchId()}`,
+          },
+          (payload: any) => {
+            const record = payload.new;
+            if (!record || !favoriteIds.includes(record.memberId)) return;
+
+            const memberName = record.memberName || '회원';
+            const now = new Date();
+            const timeStr = `${now.getHours()}:${String(now.getMinutes()).padStart(2, '0')}`;
+
+            // 알림 목록에 추가
+            const newNotif: Notification = {
+              id: Date.now(),
+              message: `⭐ 즐겨찾기 회원 ${memberName}님이 입장했습니다. (${timeStr})`,
+              time: '방금 전',
+              read: false,
+            };
+            setNotifications(prev => [newNotif, ...prev].slice(0, 20));
+
+            // toast 알림
+            toast.info(`⭐ ${memberName}님 입장! 즐겨찾기 회원입니다.`, { duration: 8000 });
+
+            // 브라우저 알림 (권한 있을 때)
+            if (Notification && (window as any).Notification?.permission === 'granted') {
+              new (window as any).Notification('즐겨찾기 회원 입장', {
+                body: `${memberName}님이 센터에 입장했습니다.`,
+                icon: '/favicon.ico',
+              });
+            }
+          }
+        )
+        .subscribe();
+    };
+
+    setup();
+
+    // 브라우저 알림 권한 요청
+    if ((window as any).Notification && (window as any).Notification.permission === 'default') {
+      (window as any).Notification.requestPermission();
+    }
+
+    return () => {
+      if (channel) supabase.removeChannel(channel);
+    };
+  }, []);
 
   // ── 외부 클릭 시 모든 드롭다운 닫기 ──
   const headerRef = useRef<HTMLElement>(null);

@@ -197,6 +197,9 @@ export default function LessonManagement() {
   const [autoCompleteHours, setAutoCompleteHours] = useState('24');
   const [lateCancelPenalty, setLateCancelPenalty] = useState(true);
   const [maxNoShowCount, setMaxNoShowCount] = useState('3');
+  const [reservationAutoOpenHours, setReservationAutoOpenHours] = useState('48');
+  const [waitlistEnabled, setWaitlistEnabled] = useState(true);
+  const [waitlistAutoPromote, setWaitlistAutoPromote] = useState(true);
 
   // ── 수업 목록 조회 ────────────────────────────────────────────
   const fetchLessons = async () => {
@@ -263,6 +266,9 @@ export default function LessonManagement() {
         setAutoCompleteHours(policy.autoCompleteHours?.toString() ?? '24');
         setLateCancelPenalty(policy.lateCancelPenalty ?? true);
         setMaxNoShowCount(policy.maxNoShowCount?.toString() ?? '3');
+        setReservationAutoOpenHours(policy.reservationAutoOpenHours?.toString() ?? '48');
+        setWaitlistEnabled(policy.waitlistEnabled ?? true);
+        setWaitlistAutoPromote(policy.waitlistAutoPromote ?? true);
       } catch { /* 파싱 실패 시 기본값 유지 */ }
     }
   };
@@ -275,6 +281,9 @@ export default function LessonManagement() {
       autoCompleteHours: Number(autoCompleteHours) || 24,
       lateCancelPenalty,
       maxNoShowCount: Number(maxNoShowCount) || 3,
+      reservationAutoOpenHours: Number(reservationAutoOpenHours) || 48,
+      waitlistEnabled,
+      waitlistAutoPromote,
     });
 
     // upsert: 있으면 업데이트, 없으면 생성
@@ -1308,6 +1317,67 @@ export default function LessonManagement() {
             </div>
           </div>
 
+          {/* GX 예약 자동 오픈 */}
+          <div className="p-md bg-surface-secondary rounded-xl border border-line space-y-md">
+            <div className="flex items-center gap-sm">
+              <CalendarCheck size={16} className="text-accent" />
+              <h4 className="text-[14px] font-bold text-content">GX 예약 자동 오픈</h4>
+            </div>
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-[13px] text-content">수업 N시간 전 예약 자동 오픈</p>
+                <p className="text-[11px] text-content-tertiary mt-xs">설정한 시간 전에 예약이 자동으로 오픈됩니다</p>
+              </div>
+              <div className="flex items-center gap-xs">
+                <input
+                  type="number"
+                  min={1}
+                  max={168}
+                  value={reservationAutoOpenHours}
+                  onChange={e => setReservationAutoOpenHours(e.target.value)}
+                  className="w-[70px] px-sm py-[6px] border border-line rounded-lg text-[13px] text-center bg-surface focus:outline-none focus:border-primary"
+                />
+                <span className="text-[12px] text-content-secondary">시간 전</span>
+              </div>
+            </div>
+          </div>
+
+          {/* 대기열 시스템 */}
+          <div className="p-md bg-surface-secondary rounded-xl border border-line space-y-md">
+            <div className="flex items-center gap-sm">
+              <Users size={16} className="text-state-info" />
+              <h4 className="text-[14px] font-bold text-content">대기열 시스템</h4>
+            </div>
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-[13px] text-content">대기열 기능 사용</p>
+                <p className="text-[11px] text-content-tertiary mt-xs">정원 초과 시 대기 등록 허용</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setWaitlistEnabled(v => !v)}
+                className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${waitlistEnabled ? 'bg-accent' : 'bg-line'}`}
+              >
+                <span className={`inline-block h-4 w-4 transform rounded-full bg-surface shadow transition-transform ${waitlistEnabled ? 'translate-x-4' : 'translate-x-0.5'}`} />
+              </button>
+            </div>
+            {waitlistEnabled && (
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-[13px] text-content">취소 시 자동 승격</p>
+                  <p className="text-[11px] text-content-tertiary mt-xs">예약 취소 발생 시 대기 1순위 자동 예약 전환</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setWaitlistAutoPromote(v => !v)}
+                  className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${waitlistAutoPromote ? 'bg-accent' : 'bg-line'}`}
+                >
+                  <span className={`inline-block h-4 w-4 transform rounded-full bg-surface shadow transition-transform ${waitlistAutoPromote ? 'translate-x-4' : 'translate-x-0.5'}`} />
+                </button>
+              </div>
+            )}
+          </div>
+
           {/* 정책 요약 */}
           <div className="p-sm bg-blue-50 border border-blue-200 rounded-lg">
             <p className="text-[12px] text-blue-700 font-medium">현재 정책 요약</p>
@@ -1317,6 +1387,8 @@ export default function LessonManagement() {
               {noShowDeductsSession && <li>• 노쇼 시 세션 횟수 차감 (수업 진행으로 간주)</li>}
               <li>• {maxNoShowCount}회 연속 노쇼 시 경고</li>
               <li>• 수업 종료 {autoCompleteHours}시간 후 미처리 건 자동 완료</li>
+              <li>• GX 예약 {reservationAutoOpenHours}시간 전 자동 오픈</li>
+              {waitlistEnabled && <li>• 대기열 기능 활성{waitlistAutoPromote ? ' (자동 승격)' : ''}</li>}
             </ul>
           </div>
         </div>

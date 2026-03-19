@@ -555,6 +555,9 @@ interface LessonPolicy {
   autoCompleteHours: number;
   lateCancelPenalty: boolean;
   maxNoShowCount: number;
+  reservationAutoOpenHours: number;
+  waitlistEnabled: boolean;
+  waitlistAutoPromote: boolean;
 }
 
 /** 현재 지점의 레슨 정책 조회 */
@@ -566,6 +569,9 @@ const getLessonPolicy = async (): Promise<LessonPolicy> => {
     autoCompleteHours: 24,
     lateCancelPenalty: true,
     maxNoShowCount: 3,
+    reservationAutoOpenHours: 48,
+    waitlistEnabled: true,
+    waitlistAutoPromote: true,
   };
 
   const { data } = await supabase
@@ -703,22 +709,222 @@ export const processNoShowWithPolicy = async (
   };
 };
 
+// ─── GX 예약 N시간 전 자동 오픈 ─────────────────────────────────
+/**
+ * 예약 오픈 대기 중인 수업을 자동으로 OPEN 상태로 전환
+ * lesson_schedules 테이블의 status를 PENDING → OPEN으로 변경
+ * (수업 시작 N시간 전이 되면 자동 오픈)
+ */
+export const syncAutoOpenReservations = async (): Promise<number> => {
+  const branchId = getBranchId();
+  const policy = await getLessonPolicy();
+  const openTime = new Date(
+    Date.now() + policy.reservationAutoOpenHours * 60 * 60 * 1000
+  ).toISOString();
+
+  // startAt이 현재로부터 N시간 이내이고 아직 PENDING인 수업을 OPEN으로 전환
+  const { data, error } = await supabase
+    .from('lesson_schedules')
+    .update({ status: 'OPEN' })
+    .eq('branchId', branchId)
+    .eq('status', 'PENDING')
+    .lte('startAt', openTime)
+    .select('id');
+
+  if (error) {
+    console.error('예약 자동 오픈 실패:', error.message);
+    return 0;
+  }
+  return data?.length ?? 0;
+};
+
+// ─── 대기열(Waitlist) 시스템 ────────────────────────────────────
+
+/**
+ * 대기열 등록: 정원 초과 시 WAITLIST 상태로 예약 생성
+ * @returns 대기 순번 또는 에러
+ */
+export const joinWaitlist = async (
+  scheduleId: number,
+  memberId: number,
+  memberName: string
+): Promise<{ success: boolean; position?: number; message: string }> => {
+  const policy = await getLessonPolicy();
+  if (!policy.waitlistEnabled) {
+    return { success: false, message: '대기열 기능이 비활성화되어 있습니다.' };
+  }
+
+  // 이미 예약/대기 중인지 확인
+  const { data: existing } = await supabase
+    .from('lesson_bookings')
+    .select('id, status')
+    .eq('scheduleId', scheduleId)
+    .eq('memberId', memberId)
+    .in('status', ['BOOKED', 'WAITLIST'])
+    .limit(1);
+
+  if (existing && existing.length > 0) {
+    return {
+      success: false,
+      message: existing[0].status === 'BOOKED'
+        ? '이미 예약되어 있습니다.'
+        : '이미 대기 중입니다.',
+    };
+  }
+
+  // 대기열에 추가
+  const { error } = await supabase
+    .from('lesson_bookings')
+    .insert({
+      scheduleId,
+      memberId,
+      memberName,
+      status: 'WAITLIST',
+    });
+
+  if (error) {
+    return { success: false, message: '대기열 등록에 실패했습니다.' };
+  }
+
+  // 현재 대기 순번 계산
+  const { data: waitlist } = await supabase
+    .from('lesson_bookings')
+    .select('id')
+    .eq('scheduleId', scheduleId)
+    .eq('status', 'WAITLIST')
+    .order('createdAt', { ascending: true });
+
+  const position = waitlist?.length ?? 1;
+
+  return {
+    success: true,
+    position,
+    message: `대기 ${position}번째로 등록되었습니다.`,
+  };
+};
+
+/**
+ * 대기열 자동 승격: 예약 취소 발생 시 대기 1순위를 자동으로 예약 전환
+ * @param scheduleId 취소가 발생한 수업 일정 ID
+ */
+export const promoteFromWaitlist = async (
+  scheduleId: number
+): Promise<{ promoted: boolean; memberName?: string }> => {
+  const policy = await getLessonPolicy();
+  if (!policy.waitlistEnabled || !policy.waitlistAutoPromote) {
+    return { promoted: false };
+  }
+
+  // 수업 정원 확인
+  const { data: schedule } = await supabase
+    .from('lesson_schedules')
+    .select('capacity, bookedCount')
+    .eq('id', scheduleId)
+    .single();
+
+  if (!schedule) return { promoted: false };
+
+  const currentBooked = schedule.bookedCount ?? 0;
+  const capacity = schedule.capacity ?? 0;
+
+  // 정원 여유가 없으면 승격하지 않음
+  if (currentBooked >= capacity) return { promoted: false };
+
+  // 대기 1순위 조회 (가장 오래된 WAITLIST)
+  const { data: waitlist } = await supabase
+    .from('lesson_bookings')
+    .select('id, memberId, memberName')
+    .eq('scheduleId', scheduleId)
+    .eq('status', 'WAITLIST')
+    .order('createdAt', { ascending: true })
+    .limit(1);
+
+  if (!waitlist || waitlist.length === 0) return { promoted: false };
+
+  const next = waitlist[0];
+
+  // WAITLIST → BOOKED 전환
+  const { error } = await supabase
+    .from('lesson_bookings')
+    .update({ status: 'BOOKED' })
+    .eq('id', next.id);
+
+  if (error) return { promoted: false };
+
+  // bookedCount 증가
+  await supabase
+    .from('lesson_schedules')
+    .update({ bookedCount: currentBooked + 1 })
+    .eq('id', scheduleId);
+
+  return { promoted: true, memberName: next.memberName };
+};
+
+/**
+ * 예약 취소 + 대기열 자동 승격 (통합 함수)
+ * 예약을 취소하고, 대기열에서 다음 회원을 자동으로 승격시킵니다.
+ */
+export const cancelBookingWithWaitlistPromotion = async (
+  bookingId: number,
+  scheduleId: number,
+  reason?: string
+): Promise<{ success: boolean; promotedMember?: string; message: string }> => {
+  // 예약 취소
+  const { error } = await supabase
+    .from('lesson_bookings')
+    .update({ status: 'CANCELLED', cancelReason: reason ?? null })
+    .eq('id', bookingId);
+
+  if (error) {
+    return { success: false, message: '예약 취소에 실패했습니다.' };
+  }
+
+  // bookedCount 감소
+  const { data: schedule } = await supabase
+    .from('lesson_schedules')
+    .select('bookedCount')
+    .eq('id', scheduleId)
+    .single();
+
+  if (schedule && (schedule.bookedCount ?? 0) > 0) {
+    await supabase
+      .from('lesson_schedules')
+      .update({ bookedCount: (schedule.bookedCount ?? 1) - 1 })
+      .eq('id', scheduleId);
+  }
+
+  // 대기열 자동 승격
+  const { promoted, memberName } = await promoteFromWaitlist(scheduleId);
+
+  if (promoted && memberName) {
+    return {
+      success: true,
+      promotedMember: memberName,
+      message: `예약이 취소되었습니다. 대기 중이던 ${memberName}님이 자동 예약되었습니다.`,
+    };
+  }
+
+  return { success: true, message: '예약이 취소되었습니다.' };
+};
+
 // ─── 초기화: 앱 시작 시 만료 항목 일괄 처리 ─────────────────────
-/** 대시보드 로드 시 호출 - 만료 회원/락커/쿠폰/수업 일괄 처리 */
+/** 대시보드 로드 시 호출 - 만료 회원/락커/쿠폰/수업/예약 일괄 처리 */
 export const runDailySync = async (): Promise<{
   expiredMembers: number;
   expiredLockers: number;
   expiredCoupons: number;
   autoCompletedClasses: number;
+  autoOpenedReservations: number;
 }> => {
-  const [expiredMembers, expiredLockers, expiredCoupons, autoCompletedClasses] = await Promise.all([
+  const [expiredMembers, expiredLockers, expiredCoupons, autoCompletedClasses, autoOpenedReservations] = await Promise.all([
     syncExpiredMembers(),
     syncExpiredLockers(),
     syncExpiredCoupons(),
     syncAutoCompleteClasses(),
+    syncAutoOpenReservations(),
   ]);
 
-  return { expiredMembers, expiredLockers, expiredCoupons, autoCompletedClasses };
+  return { expiredMembers, expiredLockers, expiredCoupons, autoCompletedClasses, autoOpenedReservations };
 };
 
 // ─── FN-036. 노쇼 페널티 자동 처리 ──────────────────────────────
