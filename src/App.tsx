@@ -75,6 +75,9 @@ const ClassSchedule = React.lazy(() => import('@/pages/ClassSchedule'));
 const ClassStats = React.lazy(() => import('@/pages/ClassStats'));
 const InstructorStatus = React.lazy(() => import('@/pages/InstructorStatus'));
 
+// --- 골프 타석 관리 ---
+const GolfBayManagement = React.lazy(() => import('@/pages/GolfBayManagement'));
+
 // --- Sprint 5: 매출/설정/전자계약/공통 ---
 const DeferredRevenue = React.lazy(() => import('@/pages/DeferredRevenue'));
 const DiscountSettings = React.lazy(() => import('@/pages/DiscountSettings'));
@@ -137,6 +140,7 @@ export default function App() {
       <Route path="/locker/management" element={<PrivateRoute><LockerManagement /></PrivateRoute>} />
       <Route path="/rfid" element={<PrivateRoute><RfidManagement /></PrivateRoute>} />
       <Route path="/rooms" element={<PrivateRoute><RoomManagement /></PrivateRoute>} />
+      <Route path="/golf-bays" element={<PrivateRoute><GolfBayManagement /></PrivateRoute>} />
 
       {/* 직원/급여 */}
       <Route path="/staff" element={<PrivateRoute><StaffList /></PrivateRoute>} />

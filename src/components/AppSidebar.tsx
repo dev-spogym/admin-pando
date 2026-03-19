@@ -100,6 +100,7 @@ const MENU_ITEMS: MenuItem[] = [
       { label: "사물함 관리", path: "/locker/management", viewId: 991 },
       { label: "밴드/카드", path: "/rfid", viewId: 979 },
       { label: "운동룸", path: "/rooms", viewId: 978 },
+      { label: "골프 타석", path: "/golf-bays" },
       { label: "운동복", path: "/clothing" },
     ],
   },
