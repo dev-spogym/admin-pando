@@ -559,6 +559,13 @@ export default function ProductList() {
                         {!panelOpen && (
                           <th className="px-sm py-[6px] text-[10px] font-semibold text-content-secondary text-center">시간</th>
                         )}
+                        {!panelOpen && (
+                          <>
+                            <th className="px-[3px] py-[6px] text-[10px] font-semibold text-content-secondary text-center">홀딩</th>
+                            <th className="px-[3px] py-[6px] text-[10px] font-semibold text-content-secondary text-center">양도</th>
+                            <th className="px-[3px] py-[6px] text-[10px] font-semibold text-content-secondary text-center">포인트</th>
+                          </>
+                        )}
                         <th className="px-sm py-[6px] text-[10px] font-semibold text-content-secondary text-center">상태</th>
                       </tr>
                     </thead>
@@ -642,8 +649,28 @@ export default function ProductList() {
                                 </td>
                               );
                             })()}
+                            {/* 홀딩/양도/포인트 (레슨북 컬럼) */}
+                            {!panelOpen && (
+                              <>
+                                <td className="px-[3px] py-[5px] text-center">
+                                  <span className={cn('text-[11px] font-bold', (product as any).holdingEnabled ? 'text-green-500' : 'text-red-400')}>
+                                    {(product as any).holdingEnabled ? '✓' : '✗'}
+                                  </span>
+                                </td>
+                                <td className="px-[3px] py-[5px] text-center">
+                                  <span className={cn('text-[11px] font-bold', (product as any).transferEnabled ? 'text-green-500' : 'text-red-400')}>
+                                    {(product as any).transferEnabled ? '✓' : '✗'}
+                                  </span>
+                                </td>
+                                <td className="px-[3px] py-[5px] text-center">
+                                  <span className={cn('text-[11px] font-bold', (product as any).pointAccrual !== false ? 'text-green-500' : 'text-red-400')}>
+                                    {(product as any).pointAccrual !== false ? '✓' : '✗'}
+                                  </span>
+                                </td>
+                              </>
+                            )}
                             {/* 상태 */}
-                            <td className="px-md py-sm text-center">
+                            <td className="px-sm py-[5px] text-center">
                               <StatusBadge variant={product.isActive ? 'mint' : 'default'} dot={product.isActive}>
                                 {product.isActive ? '사용' : '미사용'}
                               </StatusBadge>

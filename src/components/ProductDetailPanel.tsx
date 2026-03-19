@@ -49,6 +49,10 @@ export interface ProductRow {
   suspendLimit: number | null;
   dailyUseLimit: number | null;
   productGroupId: number | null;
+  holdingEnabled: boolean | null;      // 홀딩 가능 여부
+  transferEnabled: boolean | null;     // 양도 가능 여부
+  pointAccrual: boolean | null;        // 포인트 적립 여부
+  salesChannel: string | null;         // 판매유형: KIOSK, COUNTER, ONLINE, ALL
   usage_restrictions?: UsageRestrictions | null;
   createdAt?: string;
 }
@@ -133,6 +137,12 @@ export default function ProductDetailPanel({ product, isNew, onSave, onDelete, o
   const [classType, setClassType] = useState('');
   const [deductionType, setDeductionType] = useState('');
 
+  // 레슨북 추가 컬럼
+  const [holdingEnabled, setHoldingEnabled] = useState(false);
+  const [transferEnabled, setTransferEnabled] = useState(false);
+  const [pointAccrual, setPointAccrual] = useState(true);
+  const [salesChannel, setSalesChannel] = useState('ALL');
+
   // 상품 분류 (product_groups)
   const [productGroupId, setProductGroupId] = useState<string>('');
   const [productGroups, setProductGroups] = useState<ProductGroup[]>([]);
@@ -179,6 +189,10 @@ export default function ProductDetailPanel({ product, isNew, onSave, onDelete, o
       setClassType('');
       setDeductionType('');
       setProductGroupId('');
+      setHoldingEnabled(false);
+      setTransferEnabled(false);
+      setPointAccrual(true);
+      setSalesChannel('ALL');
       setDayRestrictionEnabled(false);
       setAvailableDays([1, 2, 3, 4, 5]);
       setTimeRestrictionEnabled(false);
@@ -210,6 +224,10 @@ export default function ProductDetailPanel({ product, isNew, onSave, onDelete, o
     setClassType(product.classType ?? '');
     setDeductionType(product.deductionType ?? '');
     setProductGroupId(product.productGroupId?.toString() ?? '');
+    setHoldingEnabled(product.holdingEnabled ?? false);
+    setTransferEnabled(product.transferEnabled ?? false);
+    setPointAccrual(product.pointAccrual ?? true);
+    setSalesChannel(product.salesChannel ?? 'ALL');
 
     // 이용 제한 설정 복원
     const ur = product.usage_restrictions;
@@ -289,6 +307,10 @@ export default function ProductDetailPanel({ product, isNew, onSave, onDelete, o
       suspendLimit: suspendEnabled ? (parseNum(suspendLimit) ?? null) : null,
       dailyUseLimit: dailyLimitEnabled ? (parseNum(dailyUseLimit) ?? null) : null,
       productGroupId: productGroupId ? Number(productGroupId) : null,
+      holdingEnabled,
+      transferEnabled,
+      pointAccrual,
+      salesChannel: salesChannel || 'ALL',
       // 이용 제한 설정 저장
       usage_restrictions: (dayRestrictionEnabled || timeRestrictionEnabled || splitPriceEnabled) ? {
         availableDays: dayRestrictionEnabled ? availableDays : [],
@@ -607,6 +629,75 @@ export default function ProductDetailPanel({ product, isNew, onSave, onDelete, o
                 <span className="text-[11px] text-content-tertiary">회</span>
               </div>
             )}
+          </div>
+
+          {/* 홀딩 가능 */}
+          <div className="flex items-center justify-between gap-sm">
+            <label className="text-[13px] text-content select-none">홀딩 가능</label>
+            <button
+              type="button"
+              onClick={() => setHoldingEnabled(v => !v)}
+              className={cn(
+                'relative inline-flex h-5 w-9 items-center rounded-full transition-colors',
+                holdingEnabled ? 'bg-accent' : 'bg-line'
+              )}
+            >
+              <span className={cn(
+                'inline-block h-4 w-4 transform rounded-full bg-surface shadow transition-transform',
+                holdingEnabled ? 'translate-x-4' : 'translate-x-0.5'
+              )} />
+            </button>
+          </div>
+
+          {/* 양도 가능 */}
+          <div className="flex items-center justify-between gap-sm">
+            <label className="text-[13px] text-content select-none">양도 가능</label>
+            <button
+              type="button"
+              onClick={() => setTransferEnabled(v => !v)}
+              className={cn(
+                'relative inline-flex h-5 w-9 items-center rounded-full transition-colors',
+                transferEnabled ? 'bg-accent' : 'bg-line'
+              )}
+            >
+              <span className={cn(
+                'inline-block h-4 w-4 transform rounded-full bg-surface shadow transition-transform',
+                transferEnabled ? 'translate-x-4' : 'translate-x-0.5'
+              )} />
+            </button>
+          </div>
+
+          {/* 포인트 적립 */}
+          <div className="flex items-center justify-between gap-sm">
+            <label className="text-[13px] text-content select-none">포인트 적립</label>
+            <button
+              type="button"
+              onClick={() => setPointAccrual(v => !v)}
+              className={cn(
+                'relative inline-flex h-5 w-9 items-center rounded-full transition-colors',
+                pointAccrual ? 'bg-accent' : 'bg-line'
+              )}
+            >
+              <span className={cn(
+                'inline-block h-4 w-4 transform rounded-full bg-surface shadow transition-transform',
+                pointAccrual ? 'translate-x-4' : 'translate-x-0.5'
+              )} />
+            </button>
+          </div>
+
+          {/* 판매유형 */}
+          <div className="flex items-center justify-between gap-sm">
+            <label className="text-[13px] text-content select-none">판매유형</label>
+            <select
+              value={salesChannel}
+              onChange={e => setSalesChannel(e.target.value)}
+              className="px-sm py-[4px] border border-line rounded text-[12px] bg-surface focus:outline-none focus:border-primary"
+            >
+              <option value="ALL">전체</option>
+              <option value="KIOSK">키오스크</option>
+              <option value="COUNTER">현장</option>
+              <option value="ONLINE">온라인</option>
+            </select>
           </div>
 
           {/* 활성 상태 */}
