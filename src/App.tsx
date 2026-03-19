@@ -75,6 +75,13 @@ const ClassSchedule = React.lazy(() => import('@/pages/ClassSchedule'));
 const ClassStats = React.lazy(() => import('@/pages/ClassStats'));
 const InstructorStatus = React.lazy(() => import('@/pages/InstructorStatus'));
 
+// --- Sprint 5: 매출/설정/전자계약/공통 ---
+const DeferredRevenue = React.lazy(() => import('@/pages/DeferredRevenue'));
+const DiscountSettings = React.lazy(() => import('@/pages/DiscountSettings'));
+const StaffAttendancePage = React.lazy(() => import('@/pages/StaffAttendance'));
+const ExerciseProgramManagement = React.lazy(() => import('@/pages/ExerciseProgramManagement'));
+const Notices = React.lazy(() => import('@/pages/Notices'));
+
 export default function App() {
   const navigate = useNavigate();
 
@@ -173,6 +180,13 @@ export default function App() {
       <Route path="/refunds" element={<PrivateRoute><RefundManagement /></PrivateRoute>} />
       <Route path="/unpaid" element={<PrivateRoute><UnpaidManagement /></PrivateRoute>} />
       <Route path="/sales/stats" element={<PrivateRoute><SalesStats /></PrivateRoute>} />
+
+      {/* Sprint 5: 매출/설정/공통 */}
+      <Route path="/deferred-revenue" element={<PrivateRoute><DeferredRevenue /></PrivateRoute>} />
+      <Route path="/discount-settings" element={<PrivateRoute><DiscountSettings /></PrivateRoute>} />
+      <Route path="/staff-attendance" element={<PrivateRoute><StaffAttendancePage /></PrivateRoute>} />
+      <Route path="/exercise-programs" element={<PrivateRoute><ExerciseProgramManagement /></PrivateRoute>} />
+      <Route path="/notices" element={<PrivateRoute><Notices /></PrivateRoute>} />
 
       {/* 멀티테넌트 */}
       <Route path="/super-dashboard" element={<PrivateRoute><SuperDashboard /></PrivateRoute>} />
