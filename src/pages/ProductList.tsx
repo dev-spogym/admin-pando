@@ -1,18 +1,17 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { toast } from 'sonner';
 import {
   Plus,
-  Edit2,
-  Trash2,
+  Search,
   Package,
   CheckCircle,
   XCircle,
   LayoutGrid,
-  ArrowUp,
-  ArrowDown,
-  ArrowUpDown,
-  Save,
+  LayoutList,
   X,
+  Edit2,
+  Save,
+  Trash2,
 } from 'lucide-react';
 import {
   getProductGroups,
@@ -25,25 +24,24 @@ import AppLayout from '@/components/AppLayout';
 import { useAuthStore } from '@/stores/authStore';
 import { hasFeature } from '@/lib/permissions';
 import PageHeader from '@/components/PageHeader';
-import DataTable from '@/components/DataTable';
 import StatCard from '@/components/StatCard';
 import StatusBadge from '@/components/StatusBadge';
-import { SearchFilter } from '@/components/SearchFilter';
 import TabNav from '@/components/TabNav';
-import ConfirmDialog from '@/components/ConfirmDialog';
-import { moveToPage } from '@/internal';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/lib/supabase';
 import { exportToExcel } from '@/lib/exportExcel';
+import ProductDetailPanel, { type ProductRow } from '@/components/ProductDetailPanel';
+
+// ─── 상수 ────────────────────────────────────────────────────
 
 // DB 카테고리 영문 → 한글 매핑
 const CATEGORY_KO: Record<string, string> = {
-  MEMBERSHIP: '이용권', PT: 'PT', GX: 'GX', ETC: '기타',
+  MEMBERSHIP: '이용권', PT: 'PT', GX: 'GX', ETC: '기타', PRODUCT: '기타', SERVICE: '기타',
   '이용권': '이용권', '기타': '기타',
 };
 const toCategoryKo = (cat: string) => CATEGORY_KO[cat] ?? cat;
 
-// 상품 타입 탭 (productType 기준)
+// 상품 타입 탭
 const PRODUCT_TYPE_TABS = [
   { key: 'all',        label: '전체' },
   { key: 'MEMBERSHIP', label: '회원권' },
@@ -53,48 +51,19 @@ const PRODUCT_TYPE_TABS = [
 ];
 
 // 상품 타입 배지 스타일
-const PRODUCT_TYPE_BADGE: Record<string, { label: string; variant: 'default' | 'secondary' | 'mint' | 'info' | 'warning' | 'error'; className: string }> = {
-  MEMBERSHIP: { label: '회원권', variant: 'info',      className: 'bg-blue-100 text-blue-700' },
-  LESSON:     { label: '수강권', variant: 'mint',      className: 'bg-green-100 text-green-700' },
-  RENTAL:     { label: '대여권', variant: 'warning',   className: 'bg-orange-100 text-orange-700' },
-  GENERAL:    { label: '일반',   variant: 'secondary', className: 'bg-gray-100 text-gray-600' },
+const PRODUCT_TYPE_BADGE: Record<string, { label: string; className: string }> = {
+  MEMBERSHIP: { label: '회원권', className: 'bg-blue-100 text-blue-700' },
+  LESSON:     { label: '수강권', className: 'bg-green-100 text-green-700' },
+  RENTAL:     { label: '대여권', className: 'bg-orange-100 text-orange-700' },
+  GENERAL:    { label: '일반',   className: 'bg-gray-100 text-gray-600' },
 };
 
 // 종목 목록
 const SPORT_TYPES = ['전체', '헬스', '필라테스', '요가', '수영', '복싱', '크로스핏', '기타'];
 
-// 카테고리 탭 (하위 호환 유지)
-const CATEGORY_TABS = [
-  { key: 'all', label: '전체' },
-  { key: '이용권', label: '이용권' },
-  { key: 'PT', label: 'PT' },
-  { key: 'GX', label: 'GX' },
-  { key: '기타', label: '기타' },
-];
+const getBranchId = (): number => Number(localStorage.getItem('branchId')) || 1;
 
-interface Product {
-  id: number;
-  name: string;
-  category: string;
-  price: number;
-  cashPrice: number | null;
-  cardPrice: number | null;
-  productType: string | null;
-  totalCount: number | null;
-  kioskVisible: boolean | null;
-  sportType: string | null;
-  tag: string | null;
-  duration: number | null;
-  sessions: number | null;
-  description: string | null;
-  isActive: boolean;
-  branchId: number;
-  createdAt?: string;
-}
-
-type SortKey = 'name' | 'price' | 'category' | null;
-type SortDir = 'asc' | 'desc';
-
+// ─── 컴포넌트 ────────────────────────────────────────────────
 export default function ProductList() {
   const authUser = useAuthStore((s) => s.user);
   const canEditProduct = hasFeature(authUser?.role ?? '', 'productEdit', authUser?.isSuperAdmin);
@@ -102,23 +71,23 @@ export default function ProductList() {
   // 최상위 탭: "상품 목록" / "분류 관리"
   const [mainTab, setMainTab] = useState<'products' | 'groups'>('products');
 
-  // 분류 관리 상태
+  // ── 분류 관리 상태 ──────────────────────────────────────────
   const [groups, setGroups] = useState<ProductGroup[]>([]);
   const [groupsLoading, setGroupsLoading] = useState(false);
   const [groupForm, setGroupForm] = useState({ name: '', sortOrder: 0, isActive: true });
   const [editingGroupId, setEditingGroupId] = useState<number | null>(null);
   const [groupSaving, setGroupSaving] = useState(false);
 
-  const fetchGroups = async () => {
+  const fetchGroups = useCallback(async () => {
     setGroupsLoading(true);
     const { data } = await getProductGroups();
     if (data) setGroups(data);
     setGroupsLoading(false);
-  };
+  }, []);
 
   useEffect(() => {
     if (mainTab === 'groups') fetchGroups();
-  }, [mainTab]);
+  }, [mainTab, fetchGroups]);
 
   const handleGroupSave = async () => {
     if (!groupForm.name.trim()) { toast.error('분류명을 입력하세요.'); return; }
@@ -142,211 +111,110 @@ export default function ProductList() {
     if (error) { toast.error('삭제에 실패했습니다.'); } else { toast.success('분류가 삭제되었습니다.'); fetchGroups(); }
   };
 
-  const [activeTab, setActiveTab] = useState('all');
+  // ── 상품 목록 상태 ──────────────────────────────────────────
   const [activeTypeTab, setActiveTypeTab] = useState('all');
   const [sportFilter, setSportFilter] = useState('전체');
   const [searchValue, setSearchValue] = useState('');
-  const [filterValues, setFilterValues] = useState<{ status: string }>({ status: '' });
-  const [products, setProducts] = useState<Product[]>([]);
+  const [products, setProducts] = useState<ProductRow[]>([]);
   const [loading, setLoading] = useState(false);
-  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-  const [productToDelete, setProductToDelete] = useState<number | null>(null);
-  const [sortKey, setSortKey] = useState<SortKey>(null);
-  const [sortDir, setSortDir] = useState<SortDir>('asc');
 
-  const branchId = Number(localStorage.getItem('branchId')) || 1;
+  // 마스터-디테일 패널 상태
+  const [selectedProduct, setSelectedProduct] = useState<ProductRow | null>(null);
+  const [isNewMode, setIsNewMode] = useState(false);
+  const [panelOpen, setPanelOpen] = useState(false);
 
-  const fetchProducts = async () => {
+  const fetchProducts = useCallback(async () => {
     setLoading(true);
     const { data, error } = await supabase
       .from('products')
       .select('*')
-      .eq('branchId', branchId)
-      .eq('isActive', true)
+      .eq('branchId', getBranchId())
       .order('id');
     if (!error && data) {
-      setProducts(data.map(p => ({ ...p, price: Number(p.price) })));
+      setProducts((data as unknown as ProductRow[]).map(p => ({
+        ...p,
+        price: Number(p.price),
+        cashPrice: p.cashPrice != null ? Number(p.cashPrice) : null,
+        cardPrice: p.cardPrice != null ? Number(p.cardPrice) : null,
+      })));
     }
     setLoading(false);
-  };
+  }, []);
 
   useEffect(() => {
     fetchProducts();
-  }, []);
+  }, [fetchProducts]);
 
-  // 정렬
-  const handleSort = (key: SortKey) => {
-    if (sortKey === key) setSortDir(prev => (prev === 'asc' ? 'desc' : 'asc'));
-    else { setSortKey(key); setSortDir('asc'); }
-  };
-
-  const SortIcon = ({ col }: { col: SortKey }) => {
-    if (sortKey !== col) return <ArrowUpDown size={13} className="text-content-tertiary ml-xs inline" />;
-    return sortDir === 'asc'
-      ? <ArrowUp size={13} className="text-primary ml-xs inline" />
-      : <ArrowDown size={13} className="text-primary ml-xs inline" />;
-  };
-
-  // 필터 + 정렬
+  // 필터링된 데이터
   const filteredData = useMemo(() => {
-    let data = products.filter(item => {
-      const matchTab = activeTab === 'all' || toCategoryKo(item.category) === activeTab;
-      // 상품 타입 탭 필터
+    return products.filter(item => {
+      // isActive 여부와 무관하게 전체 표시 (삭제된 것만 제외: isActive=false 숨김은 선택적)
       const matchTypeTab = activeTypeTab === 'all' || item.productType === activeTypeTab;
-      // 종목 필터
       const matchSport = sportFilter === '전체' || item.sportType === sportFilter;
       const matchSearch = item.name.toLowerCase().includes(searchValue.toLowerCase());
-      return matchTab && matchTypeTab && matchSport && matchSearch;
+      return matchTypeTab && matchSport && matchSearch;
     });
-    if (sortKey) {
-      data = [...data].sort((a, b) => {
-        const aVal = a[sortKey as keyof Product];
-        const bVal = b[sortKey as keyof Product];
-        let cmp = 0;
-        if (typeof aVal === 'string' && typeof bVal === 'string') {
-          cmp = aVal.localeCompare(bVal, 'ko');
-        } else if (typeof aVal === 'number' && typeof bVal === 'number') {
-          cmp = aVal - bVal;
-        }
-        return sortDir === 'asc' ? cmp : -cmp;
-      });
-    }
-    return data;
-  }, [products, activeTab, searchValue, sortKey, sortDir]);
+  }, [products, activeTypeTab, sportFilter, searchValue]);
 
-  const confirmDelete = async () => {
-    if (productToDelete !== null) {
-      await supabase.from('products').update({ isActive: false }).eq('id', productToDelete);
-      setDeleteDialogOpen(false);
-      setProductToDelete(null);
-      fetchProducts();
+  // 행 클릭 → 상세 패널 열기
+  const handleRowClick = (product: ProductRow) => {
+    setSelectedProduct(product);
+    setIsNewMode(false);
+    setPanelOpen(true);
+  };
+
+  // "+ 상품 등록" 클릭 → 신규 폼 패널 열기
+  const handleNewProduct = () => {
+    setSelectedProduct(null);
+    setIsNewMode(true);
+    setPanelOpen(true);
+  };
+
+  // 패널 닫기
+  const handlePanelClose = () => {
+    setPanelOpen(false);
+    setSelectedProduct(null);
+    setIsNewMode(false);
+  };
+
+  // 저장 성공 콜백: 목록 새로고침 + 저장된 상품 선택 유지
+  const handleSave = async (savedId: number) => {
+    await fetchProducts();
+    // 저장된 상품을 새로 로드된 목록에서 찾아 선택 유지
+    const { data } = await supabase
+      .from('products')
+      .select('*')
+      .eq('id', savedId)
+      .single();
+    if (data) {
+      const updated: ProductRow = {
+        ...(data as ProductRow),
+        price: Number(data.price),
+        cashPrice: data.cashPrice != null ? Number(data.cashPrice) : null,
+        cardPrice: data.cardPrice != null ? Number(data.cardPrice) : null,
+      };
+      setSelectedProduct(updated);
+      setIsNewMode(false);
     }
   };
 
-  // 테이블 컬럼
-  const columns = [
-    {
-      key: 'category',
-      header: (
-        <button className="flex items-center cursor-pointer select-none" onClick={() => handleSort('category')}>
-          카테고리<SortIcon col="category" />
-        </button>
-      ),
-      width: '130px',
-      render: (val: string, row: Product) => (
-        <div className="flex items-center gap-xs flex-wrap">
-          <StatusBadge variant="secondary">{toCategoryKo(val)}</StatusBadge>
-          {row.productType && PRODUCT_TYPE_BADGE[row.productType] && (
-            <span className={cn(
-              'text-[10px] font-bold px-xs py-[1px] rounded-full',
-              PRODUCT_TYPE_BADGE[row.productType].className
-            )}>
-              {PRODUCT_TYPE_BADGE[row.productType].label}
-            </span>
-          )}
-        </div>
-      ),
-    },
-    {
-      key: 'name',
-      header: (
-        <button className="flex items-center cursor-pointer select-none" onClick={() => handleSort('name')}>
-          상품명<SortIcon col="name" />
-        </button>
-      ),
-      render: (val: string) => (
-        <button
-          className="text-[14px] font-semibold text-content hover:text-primary transition-colors text-left"
-          onClick={() => moveToPage(997)}
-        >
-          {val}
-        </button>
-      ),
-    },
-    {
-      key: 'price',
-      header: (
-        <button className="flex items-center cursor-pointer select-none ml-auto" onClick={() => handleSort('price')}>
-          가격<SortIcon col="price" />
-        </button>
-      ),
-      width: '130px',
-      align: 'right' as const,
-      render: (val: number) => (
-        <span className="text-[13px] font-medium tabular-nums">₩{Number(val).toLocaleString()}</span>
-      ),
-    },
-    {
-      key: 'duration',
-      header: '이용기간',
-      width: '90px',
-      align: 'center' as const,
-      render: (val: number | null) => val != null ? `${val}일` : '-',
-    },
-    {
-      key: 'sessions',
-      header: '세션',
-      width: '80px',
-      align: 'center' as const,
-      render: (val: number | null) => val != null ? `${val}회` : '-',
-    },
-    {
-      key: 'isActive',
-      header: '상태',
-      width: '90px',
-      align: 'center' as const,
-      render: (val: boolean) => (
-        <StatusBadge variant={val ? 'mint' : 'default'} dot={val}>
-          {val ? '사용' : '미사용'}
-        </StatusBadge>
-      ),
-    },
-    {
-      key: 'actions',
-      header: '',
-      width: '80px',
-      align: 'center' as const,
-      render: (_: unknown, row: Product) => canEditProduct ? (
-        <div className="flex items-center justify-center gap-xs">
-          <button
-            className="p-xs text-content-tertiary hover:text-accent transition-colors"
-            onClick={() => moveToPage(997, { id: row.id })}
-            title="수정"
-          >
-            <Edit2 size={15} />
-          </button>
-          <button
-            className="p-xs text-content-tertiary hover:text-state-error transition-colors"
-            onClick={() => { setProductToDelete(row.id); setDeleteDialogOpen(true); }}
-            title="삭제"
-          >
-            <Trash2 size={15} />
-          </button>
-        </div>
-      ) : null,
-    },
-  ];
+  // 삭제 성공 콜백
+  const handleDelete = () => {
+    handlePanelClose();
+    fetchProducts();
+  };
+
+  // 통계
+  const activeCount = products.filter(p => p.isActive).length;
+  const inactiveCount = products.filter(p => !p.isActive).length;
+  const categoryCount = new Set(products.map(p => p.category)).size;
 
   const statItems = [
-    {
-      label: '전체 상품', value: products.length,
-      icon: <Package />, variant: 'peach' as const,
-    },
-    {
-      label: '활성 상품', value: products.filter(p => p.isActive).length,
-      icon: <CheckCircle />, variant: 'mint' as const,
-    },
-    {
-      label: '비활성', value: products.filter(p => !p.isActive).length,
-      icon: <XCircle />,
-    },
-    {
-      label: '카테고리 수', value: new Set(products.map(p => p.category)).size,
-      icon: <LayoutGrid />,
-    },
+    { label: '전체 상품', value: products.length, icon: <Package />, variant: 'peach' as const },
+    { label: '활성 상품', value: activeCount, icon: <CheckCircle />, variant: 'mint' as const },
+    { label: '비활성', value: inactiveCount, icon: <XCircle /> },
+    { label: '카테고리 수', value: categoryCount, icon: <LayoutGrid /> },
   ];
-
-  // CATEGORY_TABS는 하위 호환용으로 유지 (현재 타입 탭으로 대체됨)
 
   return (
     <AppLayout>
@@ -355,41 +223,68 @@ export default function ProductList() {
         description="센터에서 판매하는 이용권, PT, GX 및 기타 상품을 관리합니다."
         actions={
           <div className="flex items-center gap-sm">
-            {/* 탭 토글 */}
+            {/* 메인 탭 토글 */}
             <div className="flex rounded-lg border border-line overflow-hidden">
               {([
-                { key: 'products', label: '상품 목록' },
-                { key: 'groups', label: '분류 관리' },
+                { key: 'products', label: '상품 목록', icon: <LayoutList size={14} /> },
+                { key: 'groups',   label: '분류 관리', icon: <LayoutGrid size={14} /> },
               ] as const).map(t => (
                 <button
                   key={t.key}
                   onClick={() => setMainTab(t.key)}
                   className={cn(
-                    'px-md py-sm text-[13px] font-semibold transition-colors',
-                    mainTab === t.key ? 'bg-primary text-surface' : 'bg-surface text-content-secondary hover:bg-surface-secondary'
+                    'flex items-center gap-xs px-md py-sm text-[13px] font-semibold transition-colors',
+                    mainTab === t.key
+                      ? 'bg-primary text-surface'
+                      : 'bg-surface text-content-secondary hover:bg-surface-secondary'
                   )}
-                >{t.label}</button>
+                >
+                  {t.icon}{t.label}
+                </button>
               ))}
             </div>
+            {/* 상품 등록 버튼 (상품 목록 탭에서만) */}
             {mainTab === 'products' && canEditProduct && (
               <button
-                onClick={() => moveToPage(997)}
+                onClick={handleNewProduct}
                 className="flex items-center gap-xs px-md py-sm bg-primary text-surface rounded-button text-[13px] font-bold shadow-sm hover:bg-primary-dark transition-colors"
               >
-                <Plus size={16} />
+                <Plus size={15} />
                 상품 등록
+              </button>
+            )}
+            {/* 엑셀 다운로드 */}
+            {mainTab === 'products' && (
+              <button
+                onClick={() => {
+                  const cols = [
+                    { key: 'category', header: '카테고리' },
+                    { key: 'name', header: '상품명' },
+                    { key: 'price', header: '가격' },
+                    { key: 'duration', header: '이용기간' },
+                    { key: 'sessions', header: '세션' },
+                    { key: 'isActive', header: '상태' },
+                  ];
+                  exportToExcel(filteredData as unknown as Record<string, unknown>[], cols, { filename: '상품목록' });
+                  toast.success(`${filteredData.length}건 엑셀 다운로드 완료`);
+                }}
+                className="flex items-center gap-xs px-md py-sm border border-line bg-surface text-content-secondary rounded-button text-[13px] hover:bg-surface-secondary transition-colors"
+              >
+                Excel
               </button>
             )}
           </div>
         }
       />
 
-      {/* 분류 관리 탭 */}
+      {/* ── 분류 관리 탭 ─────────────────────────────────────── */}
       {mainTab === 'groups' && (
         <div className="space-y-lg">
           {/* 분류 등록/수정 폼 */}
           <div className="bg-surface rounded-xl border border-line p-lg">
-            <h3 className="text-[14px] font-bold text-content mb-md">{editingGroupId !== null ? '분류 수정' : '분류 등록'}</h3>
+            <h3 className="text-[14px] font-bold text-content mb-md">
+              {editingGroupId !== null ? '분류 수정' : '분류 등록'}
+            </h3>
             <div className="flex flex-wrap gap-md items-end">
               <div className="flex flex-col gap-xs min-w-[200px]">
                 <label className="text-[11px] font-medium text-content-secondary">분류명 *</label>
@@ -487,106 +382,214 @@ export default function ProductList() {
         </div>
       )}
 
-      {/* 상품 목록 탭 */}
-      {mainTab === 'products' && <>
+      {/* ── 상품 목록 탭 (마스터-디테일) ─────────────────────── */}
+      {mainTab === 'products' && (
+        <>
+          {/* 통계 요약 */}
+          <div className="mb-xl grid grid-cols-2 lg:grid-cols-4 gap-md">
+            {statItems.map((stat, idx) => (
+              <StatCard
+                key={idx}
+                label={stat.label}
+                value={stat.value}
+                icon={stat.icon}
+                variant={stat.variant}
+              />
+            ))}
+          </div>
 
-      {/* 통계 요약 */}
-      <div className="mb-xl grid grid-cols-2 lg:grid-cols-4 gap-md">
-        {statItems.map((stat, idx) => (
-          <StatCard
-            key={idx}
-            label={stat.label}
-            value={stat.value}
-            icon={stat.icon}
-            variant={stat.variant}
-          />
-        ))}
-      </div>
+          {/* 필터 바 */}
+          <div className="mb-md space-y-md">
+            {/* 상품 타입 탭 */}
+            <TabNav
+              tabs={PRODUCT_TYPE_TABS.map(tab => ({
+                ...tab,
+                count: tab.key === 'all'
+                  ? products.length
+                  : products.filter(p => p.productType === tab.key).length,
+              }))}
+              activeTab={activeTypeTab}
+              onTabChange={val => { setActiveTypeTab(val); handlePanelClose(); }}
+            />
 
-      {/* 필터 */}
-      <div className="mb-lg space-y-md">
-        {/* 상품 타입 탭 (MEMBERSHIP/LESSON/RENTAL/GENERAL) */}
-        <TabNav
-          tabs={PRODUCT_TYPE_TABS.map(tab => ({
-            ...tab,
-            count: tab.key === 'all'
-              ? products.length
-              : products.filter(p => p.productType === tab.key).length,
-          }))}
-          activeTab={activeTypeTab}
-          onTabChange={setActiveTypeTab}
-        />
+            {/* 종목 + 검색 */}
+            <div className="flex items-center gap-sm flex-wrap">
+              {SPORT_TYPES.map(sport => (
+                <button
+                  key={sport}
+                  onClick={() => setSportFilter(sport)}
+                  className={cn(
+                    'px-sm py-xs rounded-button text-[12px] font-semibold transition-colors',
+                    sportFilter === sport
+                      ? 'bg-primary text-surface'
+                      : 'bg-surface border border-line text-content-secondary hover:bg-surface-secondary'
+                  )}
+                >
+                  {sport}
+                </button>
+              ))}
+              <div className="ml-auto relative">
+                <Search size={14} className="absolute left-sm top-1/2 -translate-y-1/2 text-content-tertiary" />
+                <input
+                  type="text"
+                  value={searchValue}
+                  onChange={e => setSearchValue(e.target.value)}
+                  placeholder="상품명 검색"
+                  className="pl-7 pr-sm py-[6px] border border-line rounded-lg text-[13px] bg-surface focus:outline-none focus:border-primary w-[200px] transition-colors"
+                />
+                {searchValue && (
+                  <button
+                    onClick={() => setSearchValue('')}
+                    className="absolute right-sm top-1/2 -translate-y-1/2 text-content-tertiary hover:text-content"
+                  >
+                    <X size={12} />
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
 
-        {/* 종목 필터 */}
-        <div className="flex items-center gap-xs flex-wrap">
-          {SPORT_TYPES.map(sport => (
-            <button
-              key={sport}
-              onClick={() => setSportFilter(sport)}
-              className={cn(
-                'px-sm py-xs rounded-button text-[12px] font-semibold transition-colors',
-                sportFilter === sport
-                  ? 'bg-primary text-surface'
-                  : 'bg-surface border border-line text-content-secondary hover:bg-surface-secondary'
-              )}
-            >
-              {sport}
-            </button>
-          ))}
-        </div>
+          {/* 마스터-디테일 컨테이너 */}
+          <div className="flex gap-0 rounded-xl border border-line bg-surface shadow-card overflow-hidden">
 
-        <SearchFilter
-          searchPlaceholder="상품명으로 검색하세요"
-          searchValue={searchValue}
-          onSearchChange={val => setSearchValue(val)}
-          filters={[]}
-          filterValues={filterValues}
-          onFilterChange={(key, val) => setFilterValues(prev => ({ ...prev, [key]: val }))}
-          onReset={() => {
-            setSearchValue('');
-            setFilterValues({ status: '' });
-            setActiveTab('all');
-            setActiveTypeTab('all');
-            setSportFilter('전체');
-            setSortKey(null);
-          }}
-        />
-      </div>
+            {/* ── 좌측: 상품 목록 (마스터) ── */}
+            <div className={cn(
+              'flex flex-col transition-all duration-200',
+              panelOpen ? 'w-[60%] border-r border-line' : 'w-full'
+            )}>
+              {/* 목록 헤더 */}
+              <div className="px-lg py-sm border-b border-line bg-surface-secondary flex items-center justify-between">
+                <span className="text-[12px] font-semibold text-content-secondary">
+                  총 {filteredData.length}개 상품
+                </span>
+                <span className="text-[11px] text-content-tertiary">행을 클릭하면 상세가 표시됩니다</span>
+              </div>
 
-      {/* 상품 목록 */}
-      <div className="rounded-xl bg-surface border border-line shadow-card overflow-hidden">
-        <DataTable
-          columns={columns}
-          data={filteredData}
-          loading={loading}
-          title={`총 ${filteredData.length}개의 상품`}
-          onDownloadExcel={() => {
-            const exportColumns = [
-              { key: 'category', header: '카테고리' },
-              { key: 'name', header: '상품명' },
-              { key: 'price', header: '가격' },
-              { key: 'duration', header: '이용기간' },
-              { key: 'sessions', header: '세션' },
-              { key: 'isActive', header: '상태' },
-            ];
-            exportToExcel(filteredData as unknown as Record<string, unknown>[], exportColumns, { filename: '상품목록' });
-            toast.success(`${filteredData.length}건 엑셀 다운로드 완료`);
-          }}
-          pagination={{ page: 1, pageSize: 10, total: filteredData.length }}
-        />
-      </div>
+              {/* 테이블 */}
+              <div className="overflow-x-auto flex-1">
+                {loading ? (
+                  <div className="flex items-center justify-center py-xl">
+                    <div className="w-6 h-6 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
+                  </div>
+                ) : filteredData.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center py-xl gap-sm text-content-secondary">
+                    <Package size={36} className="text-line" />
+                    <p className="text-[14px]">상품이 없습니다.</p>
+                    {canEditProduct && (
+                      <button
+                        onClick={handleNewProduct}
+                        className="flex items-center gap-xs text-[13px] text-primary font-semibold hover:underline"
+                      >
+                        <Plus size={14} /> 첫 상품 등록하기
+                      </button>
+                    )}
+                  </div>
+                ) : (
+                  <table className="w-full border-collapse">
+                    <thead className="bg-surface-secondary">
+                      <tr>
+                        <th className="px-md py-sm text-[11px] font-semibold text-content-secondary text-left">상품명</th>
+                        {!panelOpen && (
+                          <th className="px-md py-sm text-[11px] font-semibold text-content-secondary text-left">분류</th>
+                        )}
+                        <th className="px-md py-sm text-[11px] font-semibold text-content-secondary text-right">가격</th>
+                        <th className="px-md py-sm text-[11px] font-semibold text-content-secondary text-center">기간</th>
+                        {!panelOpen && (
+                          <th className="px-md py-sm text-[11px] font-semibold text-content-secondary text-center">세션</th>
+                        )}
+                        <th className="px-md py-sm text-[11px] font-semibold text-content-secondary text-center">상태</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-line-light">
+                      {filteredData.map(product => {
+                        const isSelected = selectedProduct?.id === product.id && panelOpen;
+                        return (
+                          <tr
+                            key={product.id}
+                            onClick={() => handleRowClick(product)}
+                            className={cn(
+                              'cursor-pointer transition-colors group',
+                              isSelected
+                                ? 'bg-primary/5 border-l-2 border-l-primary'
+                                : 'hover:bg-surface-secondary border-l-2 border-l-transparent'
+                            )}
+                          >
+                            {/* 상품명 + 타입 배지 */}
+                            <td className="px-md py-sm">
+                              <div className="flex items-center gap-xs flex-wrap">
+                                <span className={cn(
+                                  'text-[13px] font-semibold truncate',
+                                  isSelected ? 'text-primary' : 'text-content group-hover:text-primary'
+                                )}>
+                                  {product.name}
+                                </span>
+                                {product.productType && PRODUCT_TYPE_BADGE[product.productType] && (
+                                  <span className={cn(
+                                    'text-[10px] font-bold px-xs py-[1px] rounded-full shrink-0',
+                                    PRODUCT_TYPE_BADGE[product.productType].className
+                                  )}>
+                                    {PRODUCT_TYPE_BADGE[product.productType].label}
+                                  </span>
+                                )}
+                              </div>
+                            </td>
+                            {/* 분류 (패널 열릴 때 숨김) */}
+                            {!panelOpen && (
+                              <td className="px-md py-sm">
+                                <StatusBadge variant="secondary">{toCategoryKo(product.category)}</StatusBadge>
+                              </td>
+                            )}
+                            {/* 가격 */}
+                            <td className="px-md py-sm text-right">
+                              <span className="text-[13px] font-medium tabular-nums">
+                                ₩{Number(product.price).toLocaleString()}
+                              </span>
+                            </td>
+                            {/* 기간 */}
+                            <td className="px-md py-sm text-center text-[12px] text-content-secondary">
+                              {product.duration != null ? `${product.duration}일` : '-'}
+                            </td>
+                            {/* 세션 (패널 열릴 때 숨김) */}
+                            {!panelOpen && (
+                              <td className="px-md py-sm text-center text-[12px] text-content-secondary">
+                                {product.sessions != null ? `${product.sessions}회` : '-'}
+                              </td>
+                            )}
+                            {/* 상태 */}
+                            <td className="px-md py-sm text-center">
+                              <StatusBadge variant={product.isActive ? 'mint' : 'default'} dot={product.isActive}>
+                                {product.isActive ? '사용' : '미사용'}
+                              </StatusBadge>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                )}
+              </div>
+            </div>
 
-      <ConfirmDialog
-        open={deleteDialogOpen}
-        title="상품 삭제"
-        description="정말로 이 상품을 삭제하시겠습니까? 삭제된 상품은 복구할 수 없습니다."
-        confirmLabel="삭제하기"
-        cancelLabel="취소"
-        variant="danger"
-        onConfirm={confirmDelete}
-        onCancel={() => setDeleteDialogOpen(false)}
-      />
-      </>}
+            {/* ── 우측: 상세/편집 패널 (디테일) ── */}
+            {panelOpen && (
+              <div className="w-[40%] flex flex-col bg-gray-50 min-h-[500px]">
+                <ProductDetailPanel
+                  product={isNewMode ? null : selectedProduct}
+                  isNew={isNewMode}
+                  onSave={handleSave}
+                  onDelete={handleDelete}
+                  onClose={handlePanelClose}
+                />
+              </div>
+            )}
+
+            {/* 패널 닫혀있을 때 안내 메시지 (데이터 있고, 캔에딧일 때) */}
+            {!panelOpen && !loading && filteredData.length > 0 && (
+              <div className="hidden" /> /* 안내 없음 — 행 클릭으로 충분 */
+            )}
+          </div>
+        </>
+      )}
     </AppLayout>
   );
 }
