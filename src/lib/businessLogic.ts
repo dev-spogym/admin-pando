@@ -546,20 +546,179 @@ export const autoCheckGxAttendance = async (classId: string, date: string): Prom
   return checkedCount;
 };
 
+// ─── 노쇼/취소 자동 정책 처리 ───────────────────────────────────
+
+/** 레슨 정책 타입 */
+interface LessonPolicy {
+  cancelDeadlineHours: number;
+  noShowDeductsSession: boolean;
+  autoCompleteHours: number;
+  lateCancelPenalty: boolean;
+  maxNoShowCount: number;
+}
+
+/** 현재 지점의 레슨 정책 조회 */
+const getLessonPolicy = async (): Promise<LessonPolicy> => {
+  const branchId = getBranchId();
+  const defaults: LessonPolicy = {
+    cancelDeadlineHours: 3,
+    noShowDeductsSession: true,
+    autoCompleteHours: 24,
+    lateCancelPenalty: true,
+    maxNoShowCount: 3,
+  };
+
+  const { data } = await supabase
+    .from('settings')
+    .select('value')
+    .eq('branchId', branchId)
+    .eq('key', 'lesson_policy')
+    .single();
+
+  if (!data?.value) return defaults;
+
+  try {
+    const parsed = JSON.parse(data.value);
+    return { ...defaults, ...parsed };
+  } catch {
+    return defaults;
+  }
+};
+
+/**
+ * 미처리 수업 자동 완료 처리 (배치/초기화 시 호출)
+ * - 수업 종료 후 N시간 경과한 'scheduled'/'in_progress' 상태 수업을 자동 완료 처리
+ * - 레슨북 참고: "하루 지나면 자동으로 수업 완료 처리"
+ */
+export const syncAutoCompleteClasses = async (): Promise<number> => {
+  const branchId = getBranchId();
+  const policy = await getLessonPolicy();
+  const cutoff = new Date(Date.now() - policy.autoCompleteHours * 60 * 60 * 1000).toISOString();
+
+  const { data, error } = await supabase
+    .from('classes')
+    .update({
+      lesson_status: 'completed',
+      completed_at: new Date().toISOString(),
+    })
+    .eq('branchId', branchId)
+    .in('lesson_status', ['scheduled', 'in_progress'])
+    .lt('endTime', cutoff)
+    .select('id');
+
+  if (error) {
+    console.error('자동 완료 처리 실패:', error.message);
+    return 0;
+  }
+  return data?.length ?? 0;
+};
+
+/**
+ * 취소 마감 시간 체크
+ * @returns 취소 가능 여부 + 메시지
+ */
+export const checkCancelDeadline = async (
+  classStartTime: string
+): Promise<{ canCancel: boolean; message: string }> => {
+  const policy = await getLessonPolicy();
+  const deadline = new Date(
+    new Date(classStartTime).getTime() - policy.cancelDeadlineHours * 60 * 60 * 1000
+  );
+  const now = new Date();
+
+  if (now > deadline) {
+    return {
+      canCancel: false,
+      message: `수업 시작 ${policy.cancelDeadlineHours}시간 전까지만 취소 가능합니다. (마감: ${deadline.toLocaleString('ko-KR')})`,
+    };
+  }
+
+  return { canCancel: true, message: '취소 가능합니다.' };
+};
+
+/**
+ * 노쇼 처리 + 정책 기반 패널티 적용
+ * - 노쇼 시 세션 차감 (정책에 따라)
+ * - 연속 노쇼 경고 기록
+ */
+export const processNoShowWithPolicy = async (
+  memberId: number,
+  classId: number
+): Promise<{ success: boolean; message: string }> => {
+  const branchId = getBranchId();
+  const policy = await getLessonPolicy();
+
+  // 수업 상태를 노쇼로 변경
+  const { error: statusError } = await supabase
+    .from('classes')
+    .update({ lesson_status: 'no_show' })
+    .eq('id', classId);
+
+  if (statusError) {
+    return { success: false, message: '노쇼 상태 변경 실패' };
+  }
+
+  // 세션 차감 (정책에 따라)
+  if (policy.noShowDeductsSession && memberId) {
+    await deductSession(memberId, 'PT');
+  }
+
+  // 연속 노쇼 체크
+  const { data: recentClasses } = await supabase
+    .from('classes')
+    .select('lesson_status')
+    .eq('branchId', branchId)
+    .eq('member_id', memberId)
+    .order('startTime', { ascending: false })
+    .limit(policy.maxNoShowCount);
+
+  const consecutiveNoShows =
+    recentClasses != null &&
+    recentClasses.length >= policy.maxNoShowCount &&
+    recentClasses.every(c => c.lesson_status === 'no_show');
+
+  if (consecutiveNoShows) {
+    const warningMsg = `[경고] ${new Date().toLocaleDateString('ko-KR')} ${policy.maxNoShowCount}회 연속 노쇼`;
+    const { data: member } = await supabase
+      .from('members')
+      .select('memo')
+      .eq('id', memberId)
+      .single();
+
+    const existingMemo = member?.memo ? member.memo + '\n' : '';
+    await supabase
+      .from('members')
+      .update({ memo: existingMemo + warningMsg, updatedAt: new Date().toISOString() })
+      .eq('id', memberId);
+
+    return {
+      success: true,
+      message: `노쇼 처리 완료. ${policy.maxNoShowCount}회 연속 노쇼 경고가 기록되었습니다.${policy.noShowDeductsSession ? ' (세션 차감됨)' : ''}`,
+    };
+  }
+
+  return {
+    success: true,
+    message: `노쇼 처리 완료.${policy.noShowDeductsSession ? ' 세션이 차감되었습니다.' : ''}`,
+  };
+};
+
 // ─── 초기화: 앱 시작 시 만료 항목 일괄 처리 ─────────────────────
-/** 대시보드 로드 시 호출 - 만료 회원/락커/쿠폰 일괄 처리 */
+/** 대시보드 로드 시 호출 - 만료 회원/락커/쿠폰/수업 일괄 처리 */
 export const runDailySync = async (): Promise<{
   expiredMembers: number;
   expiredLockers: number;
   expiredCoupons: number;
+  autoCompletedClasses: number;
 }> => {
-  const [expiredMembers, expiredLockers, expiredCoupons] = await Promise.all([
+  const [expiredMembers, expiredLockers, expiredCoupons, autoCompletedClasses] = await Promise.all([
     syncExpiredMembers(),
     syncExpiredLockers(),
     syncExpiredCoupons(),
+    syncAutoCompleteClasses(),
   ]);
 
-  return { expiredMembers, expiredLockers, expiredCoupons };
+  return { expiredMembers, expiredLockers, expiredCoupons, autoCompletedClasses };
 };
 
 // ─── FN-036. 노쇼 페널티 자동 처리 ──────────────────────────────

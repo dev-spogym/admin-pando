@@ -30,7 +30,18 @@ import TabNav from '@/components/TabNav';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/lib/supabase';
 import { exportToExcel } from '@/lib/exportExcel';
-import ProductDetailPanel, { type ProductRow } from '@/components/ProductDetailPanel';
+import ProductDetailPanel, { type ProductRow, type UsageRestrictions } from '@/components/ProductDetailPanel';
+
+// 요일 라벨 (레슨북 스타일 — 월~일 순서)
+const DAY_LABELS_ORDERED = [
+  { idx: 1, label: '월' },
+  { idx: 2, label: '화' },
+  { idx: 3, label: '수' },
+  { idx: 4, label: '목' },
+  { idx: 5, label: '금' },
+  { idx: 6, label: '토' },
+  { idx: 0, label: '일' },
+];
 
 // ─── 상수 ────────────────────────────────────────────────────
 
@@ -497,6 +508,15 @@ export default function ProductList() {
                         {!panelOpen && (
                           <th className="px-md py-sm text-[11px] font-semibold text-content-secondary text-center">세션</th>
                         )}
+                        {/* 레슨북 스타일: 요일별 이용 가능 ✓/✗ */}
+                        {!panelOpen && DAY_LABELS_ORDERED.map(d => (
+                          <th key={d.idx} className="px-[4px] py-sm text-[10px] font-semibold text-content-secondary text-center w-[28px]">
+                            {d.label}
+                          </th>
+                        ))}
+                        {!panelOpen && (
+                          <th className="px-sm py-sm text-[11px] font-semibold text-content-secondary text-center">이용시간</th>
+                        )}
                         <th className="px-md py-sm text-[11px] font-semibold text-content-secondary text-center">상태</th>
                       </tr>
                     </thead>
@@ -555,6 +575,33 @@ export default function ProductList() {
                                 {product.sessions != null ? `${product.sessions}회` : '-'}
                               </td>
                             )}
+                            {/* 레슨북 스타일: 요일별 ✓/✗ */}
+                            {!panelOpen && (() => {
+                              const ur = (product as any).usage_restrictions as UsageRestrictions | null | undefined;
+                              const days = ur?.availableDays;
+                              const hasDayRestriction = days && days.length > 0 && days.length < 7;
+                              return DAY_LABELS_ORDERED.map(d => (
+                                <td key={d.idx} className="px-[4px] py-sm text-center">
+                                  {!hasDayRestriction ? (
+                                    <span className="text-[11px] text-green-500 font-bold">✓</span>
+                                  ) : days!.includes(d.idx) ? (
+                                    <span className="text-[11px] text-green-500 font-bold">✓</span>
+                                  ) : (
+                                    <span className="text-[11px] text-red-400 font-bold">✗</span>
+                                  )}
+                                </td>
+                              ));
+                            })()}
+                            {/* 이용 가능 시간 */}
+                            {!panelOpen && (() => {
+                              const ur = (product as any).usage_restrictions as UsageRestrictions | null | undefined;
+                              const hasTime = ur?.availableTimeStart && ur?.availableTimeEnd;
+                              return (
+                                <td className="px-sm py-sm text-center text-[11px] text-content-secondary whitespace-nowrap">
+                                  {hasTime ? `${ur!.availableTimeStart}~${ur!.availableTimeEnd}` : '전체'}
+                                </td>
+                              );
+                            })()}
                             {/* 상태 */}
                             <td className="px-md py-sm text-center">
                               <StatusBadge variant={product.isActive ? 'mint' : 'default'} dot={product.isActive}>

@@ -1,10 +1,30 @@
 import React, { useState, useEffect } from 'react';
 import { toast } from 'sonner';
-import { Save, Trash2, X, ChevronDown } from 'lucide-react';
+import { Save, Trash2, X, ChevronDown, Clock, Calendar } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/lib/supabase';
 import { getProductGroups, type ProductGroup } from '@/api/endpoints/productGroups';
 import StatusBadge from '@/components/StatusBadge';
+
+// ─── 이용 제한 설정 타입 ──────────────────────────────────────
+export interface UsageRestrictions {
+  availableDays: number[];        // 0=일,1=월,...,6=토
+  availableTimeStart: string;     // HH:MM
+  availableTimeEnd: string;       // HH:MM
+  weekdayPrice: number | null;    // 주중 가격
+  weekendPrice: number | null;    // 주말 가격
+}
+
+// 30분 단위 시간 옵션 생성 (06:00 ~ 23:30)
+const TIME_OPTIONS: string[] = [];
+for (let h = 0; h < 24; h++) {
+  for (const m of [0, 30]) {
+    TIME_OPTIONS.push(`${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`);
+  }
+}
+
+// 요일 라벨
+const DAY_LABELS = ['일', '월', '화', '수', '목', '금', '토'];
 
 // ─── 타입 정의 ───────────────────────────────────────────────
 export interface ProductRow {
@@ -29,6 +49,7 @@ export interface ProductRow {
   suspendLimit: number | null;
   dailyUseLimit: number | null;
   productGroupId: number | null;
+  usage_restrictions?: UsageRestrictions | null;
   createdAt?: string;
 }
 
@@ -115,6 +136,16 @@ export default function ProductDetailPanel({ product, isNew, onSave, onDelete, o
   const [productGroupId, setProductGroupId] = useState<string>('');
   const [productGroups, setProductGroups] = useState<ProductGroup[]>([]);
 
+  // 이용 제한 설정
+  const [dayRestrictionEnabled, setDayRestrictionEnabled] = useState(false);
+  const [availableDays, setAvailableDays] = useState<number[]>([1, 2, 3, 4, 5]); // 기본: 월~금
+  const [timeRestrictionEnabled, setTimeRestrictionEnabled] = useState(false);
+  const [availableTimeStart, setAvailableTimeStart] = useState('06:00');
+  const [availableTimeEnd, setAvailableTimeEnd] = useState('22:00');
+  const [splitPriceEnabled, setSplitPriceEnabled] = useState(false);
+  const [weekdayPrice, setWeekdayPrice] = useState('');
+  const [weekendPrice, setWeekendPrice] = useState('');
+
   const [saving, setSaving] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState(false);
 
@@ -147,6 +178,14 @@ export default function ProductDetailPanel({ product, isNew, onSave, onDelete, o
       setClassType('');
       setDeductionType('');
       setProductGroupId('');
+      setDayRestrictionEnabled(false);
+      setAvailableDays([1, 2, 3, 4, 5]);
+      setTimeRestrictionEnabled(false);
+      setAvailableTimeStart('06:00');
+      setAvailableTimeEnd('22:00');
+      setSplitPriceEnabled(false);
+      setWeekdayPrice('');
+      setWeekendPrice('');
       return;
     }
 
@@ -170,6 +209,28 @@ export default function ProductDetailPanel({ product, isNew, onSave, onDelete, o
     setClassType(product.classType ?? '');
     setDeductionType(product.deductionType ?? '');
     setProductGroupId(product.productGroupId?.toString() ?? '');
+
+    // 이용 제한 설정 복원
+    const ur = product.usage_restrictions;
+    if (ur) {
+      setDayRestrictionEnabled((ur.availableDays?.length ?? 0) > 0);
+      setAvailableDays(ur.availableDays ?? [1, 2, 3, 4, 5]);
+      setTimeRestrictionEnabled(!!(ur.availableTimeStart && ur.availableTimeEnd));
+      setAvailableTimeStart(ur.availableTimeStart ?? '06:00');
+      setAvailableTimeEnd(ur.availableTimeEnd ?? '22:00');
+      setSplitPriceEnabled(ur.weekdayPrice != null || ur.weekendPrice != null);
+      setWeekdayPrice(ur.weekdayPrice != null ? Number(ur.weekdayPrice).toLocaleString() : '');
+      setWeekendPrice(ur.weekendPrice != null ? Number(ur.weekendPrice).toLocaleString() : '');
+    } else {
+      setDayRestrictionEnabled(false);
+      setAvailableDays([1, 2, 3, 4, 5]);
+      setTimeRestrictionEnabled(false);
+      setAvailableTimeStart('06:00');
+      setAvailableTimeEnd('22:00');
+      setSplitPriceEnabled(false);
+      setWeekdayPrice('');
+      setWeekendPrice('');
+    }
   }, [product, isNew]);
 
   // 현재 카테고리 결정 (직접 입력 OR 선택값)
@@ -227,6 +288,14 @@ export default function ProductDetailPanel({ product, isNew, onSave, onDelete, o
       suspendLimit: suspendEnabled ? (parseNum(suspendLimit) ?? null) : null,
       dailyUseLimit: dailyLimitEnabled ? (parseNum(dailyUseLimit) ?? null) : null,
       productGroupId: productGroupId ? Number(productGroupId) : null,
+      // 이용 제한 설정 저장
+      usage_restrictions: (dayRestrictionEnabled || timeRestrictionEnabled || splitPriceEnabled) ? {
+        availableDays: dayRestrictionEnabled ? availableDays : [],
+        availableTimeStart: timeRestrictionEnabled ? availableTimeStart : null,
+        availableTimeEnd: timeRestrictionEnabled ? availableTimeEnd : null,
+        weekdayPrice: splitPriceEnabled ? (parseNum(weekdayPrice) ?? null) : null,
+        weekendPrice: splitPriceEnabled ? (parseNum(weekendPrice) ?? null) : null,
+      } : null,
     };
 
     if (!isNew && product) {
@@ -620,6 +689,144 @@ export default function ProductDetailPanel({ product, isNew, onSave, onDelete, o
             </div>
           </>
         )}
+
+        {/* 이용 제한 설정 */}
+        <div className="border-t border-line" />
+        <div className="space-y-sm">
+          <div className="flex items-center gap-xs">
+            <Calendar size={13} className="text-content-secondary" />
+            <p className="text-[12px] font-bold text-content-secondary uppercase tracking-wide">이용 제한 설정</p>
+          </div>
+
+          {/* 요일 제한 */}
+          <div className="space-y-xs">
+            <div className="flex items-center gap-sm">
+              <input
+                id="dayRestrictionEnabled"
+                type="checkbox"
+                checked={dayRestrictionEnabled}
+                onChange={e => setDayRestrictionEnabled(e.target.checked)}
+                className="w-[14px] h-[14px] rounded accent-primary cursor-pointer"
+              />
+              <label htmlFor="dayRestrictionEnabled" className="text-[13px] text-content cursor-pointer select-none">
+                요일 제한
+              </label>
+            </div>
+            {dayRestrictionEnabled && (
+              <div className="flex gap-[4px] flex-wrap pl-[22px]">
+                {DAY_LABELS.map((label, idx) => (
+                  <button
+                    key={idx}
+                    type="button"
+                    onClick={() => {
+                      setAvailableDays(prev =>
+                        prev.includes(idx)
+                          ? prev.filter(d => d !== idx)
+                          : [...prev, idx].sort()
+                      );
+                    }}
+                    className={cn(
+                      'w-8 h-8 rounded-full text-[12px] font-semibold border transition-colors',
+                      availableDays.includes(idx)
+                        ? 'bg-primary text-white border-primary'
+                        : 'bg-surface text-content-secondary border-line hover:border-primary hover:text-primary'
+                    )}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* 시간 제한 */}
+          <div className="space-y-xs">
+            <div className="flex items-center gap-sm">
+              <input
+                id="timeRestrictionEnabled"
+                type="checkbox"
+                checked={timeRestrictionEnabled}
+                onChange={e => setTimeRestrictionEnabled(e.target.checked)}
+                className="w-[14px] h-[14px] rounded accent-primary cursor-pointer"
+              />
+              <label htmlFor="timeRestrictionEnabled" className="text-[13px] text-content cursor-pointer select-none">
+                시간 제한
+              </label>
+            </div>
+            {timeRestrictionEnabled && (
+              <div className="flex items-center gap-xs pl-[22px]">
+                <Clock size={12} className="text-content-tertiary shrink-0" />
+                <select
+                  value={availableTimeStart}
+                  onChange={e => setAvailableTimeStart(e.target.value)}
+                  className="px-xs py-[5px] border border-line rounded-lg text-[12px] text-content bg-surface focus:outline-none focus:border-primary transition-colors"
+                >
+                  {TIME_OPTIONS.map(t => (
+                    <option key={t} value={t}>{t}</option>
+                  ))}
+                </select>
+                <span className="text-[12px] text-content-tertiary">~</span>
+                <select
+                  value={availableTimeEnd}
+                  onChange={e => setAvailableTimeEnd(e.target.value)}
+                  className="px-xs py-[5px] border border-line rounded-lg text-[12px] text-content bg-surface focus:outline-none focus:border-primary transition-colors"
+                >
+                  {TIME_OPTIONS.map(t => (
+                    <option key={t} value={t}>{t}</option>
+                  ))}
+                </select>
+              </div>
+            )}
+          </div>
+
+          {/* 주중/주말 가격 분리 */}
+          <div className="space-y-xs">
+            <div className="flex items-center gap-sm">
+              <input
+                id="splitPriceEnabled"
+                type="checkbox"
+                checked={splitPriceEnabled}
+                onChange={e => setSplitPriceEnabled(e.target.checked)}
+                className="w-[14px] h-[14px] rounded accent-primary cursor-pointer"
+              />
+              <label htmlFor="splitPriceEnabled" className="text-[13px] text-content cursor-pointer select-none">
+                주중/주말 가격 분리
+              </label>
+            </div>
+            {splitPriceEnabled && (
+              <div className="grid grid-cols-2 gap-sm pl-[22px]">
+                <div className="flex flex-col gap-xs">
+                  <label className="text-[11px] font-semibold text-content-secondary">주중가</label>
+                  <div className="relative">
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      value={weekdayPrice}
+                      onChange={e => handlePriceChange(setWeekdayPrice, e.target.value)}
+                      placeholder="0"
+                      className="w-full px-xs py-[5px] pr-6 border border-line rounded-lg text-[12px] tabular-nums bg-surface focus:outline-none focus:border-primary transition-colors"
+                    />
+                    <span className="absolute right-1.5 top-1/2 -translate-y-1/2 text-[10px] text-content-tertiary">원</span>
+                  </div>
+                </div>
+                <div className="flex flex-col gap-xs">
+                  <label className="text-[11px] font-semibold text-content-secondary">주말가</label>
+                  <div className="relative">
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      value={weekendPrice}
+                      onChange={e => handlePriceChange(setWeekendPrice, e.target.value)}
+                      placeholder="0"
+                      className="w-full px-xs py-[5px] pr-6 border border-line rounded-lg text-[12px] tabular-nums bg-surface focus:outline-none focus:border-primary transition-colors"
+                    />
+                    <span className="absolute right-1.5 top-1/2 -translate-y-1/2 text-[10px] text-content-tertiary">원</span>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
       </div>
 
       {/* 하단 버튼 */}
