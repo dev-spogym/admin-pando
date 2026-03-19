@@ -71,7 +71,7 @@ const TABS = [
 const INITIAL_DATA: SettingsData = {
   isActive: true,
   kioskType: "typeB",
-  checkInMethods: ["qr", "rfid"],
+  checkInMethods: ["qr", "rfid", "face"],
   screenTimeout: 30,
   autoLogout: 5,
   adminPin: "1234",
@@ -343,6 +343,48 @@ export default function KioskSettings() {
               </div>
             </div>
           </FormSection>
+
+          {/* 얼굴 인식 설정 (face 체크인 활성 시) */}
+          {settings.checkInMethods.includes("face") && (
+            <FormSection title="얼굴 인식 설정" description="AI 기반 얼굴 인식 출입 시스템 설정 (브로제이 참고)" columns={2}>
+              <div className="space-y-xs">
+                <label className="text-Label text-content-secondary">인식 모드</label>
+                <select className="w-full bg-surface-secondary p-md rounded-input border-none focus:ring-2 focus:ring-accent/20 outline-none text-[13px]">
+                  <option value="single">단일 인식 (1명씩)</option>
+                  <option value="multi">다중 인식 (최대 10명 동시)</option>
+                </select>
+                <p className="text-[11px] text-content-secondary">브로제이: 10명 동시 인식 가능</p>
+              </div>
+              <div className="space-y-xs">
+                <label className="text-Label text-content-secondary">인식 민감도</label>
+                <select className="w-full bg-surface-secondary p-md rounded-input border-none focus:ring-2 focus:ring-accent/20 outline-none text-[13px]">
+                  <option value="high">높음 (정확도 우선)</option>
+                  <option value="medium">보통</option>
+                  <option value="low">낮음 (속도 우선)</option>
+                </select>
+              </div>
+              <div className="space-y-xs">
+                <label className="text-Label text-content-secondary">병행 인증 수단</label>
+                <select className="w-full bg-surface-secondary p-md rounded-input border-none focus:ring-2 focus:ring-accent/20 outline-none text-[13px]">
+                  <option value="none">얼굴만</option>
+                  <option value="phone">전화번호 입력 병행</option>
+                  <option value="qr">QR 코드 병행</option>
+                </select>
+                <p className="text-[11px] text-content-secondary">인식 실패 시 대체 수단</p>
+              </div>
+              <div className="space-y-xs">
+                <label className="text-Label text-content-secondary">자동 등록</label>
+                <select className="w-full bg-surface-secondary p-md rounded-input border-none focus:ring-2 focus:ring-accent/20 outline-none text-[13px]">
+                  <option value="manual">수동 등록 (관리자 촬영)</option>
+                  <option value="first_visit">첫 방문 시 자동 촬영</option>
+                </select>
+              </div>
+              <div className="col-span-2 p-md bg-blue-50 rounded-xl border border-blue-200">
+                <p className="text-[12px] text-blue-700 font-medium">카메라 연동 필요</p>
+                <p className="text-[11px] text-blue-600 mt-xs">얼굴 인식 사용을 위해 IoT 설정에서 카메라 장치를 등록하세요. 입장/퇴실 자동 체크가 가능합니다.</p>
+              </div>
+            </FormSection>
+          )}
 
           <FormSection title="시스템 설정" columns={2}>
             <div className="space-y-xs">
