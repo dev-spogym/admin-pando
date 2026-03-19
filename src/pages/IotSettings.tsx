@@ -72,6 +72,7 @@ const tabs = [
   { key: "iot", label: "IoT 기기", icon: Cpu },
   { key: "log", label: "출입 로그", icon: ClipboardList },
   { key: "rule", label: "출입 규칙", icon: Settings2 },
+  { key: "power", label: "자동 전원", icon: Cpu },
 ];
 
 // --- settings 저장/불러오기 헬퍼 ---
@@ -150,6 +151,14 @@ export default function IotSettings() {
   const [newDevice, setNewDevice] = useState({
     name: "", type: "출입문" as DeviceType, ip: "", port: 8080,
   });
+
+  // 자동 전원 제어 스케줄 (레슨북 참고: 오픈/마감 시 키오스크·프로젝터 자동 제어)
+  const [powerSchedules, setPowerSchedules] = useState([
+    { id: 1, deviceName: "로비 키오스크", powerOnTime: "05:50", powerOffTime: "23:10", enabled: true },
+    { id: 2, deviceName: "프로젝터 (타석1)", powerOnTime: "06:00", powerOffTime: "23:00", enabled: true },
+    { id: 3, deviceName: "프로젝터 (타석2)", powerOnTime: "06:00", powerOffTime: "23:00", enabled: true },
+    { id: 4, deviceName: "메인 출입구 RFID", powerOnTime: "05:55", powerOffTime: "23:05", enabled: true },
+  ]);
 
   // 초기 로딩
   useEffect(() => {
@@ -689,6 +698,93 @@ export default function IotSettings() {
         {activeTab === "iot" && renderIotDevices()}
         {activeTab === "log" && renderAccessLog()}
         {activeTab === "rule" && renderAccessRules()}
+
+        {/* 자동 전원 제어 탭 (레슨북 참고: 오픈/마감 시 키오스크·프로젝터 자동 제어) */}
+        {activeTab === "power" && (
+          <div className="space-y-lg">
+            <FormSection title="자동 전원 스케줄" description="오픈/마감 시간에 맞춰 장비 전원을 자동으로 켜고 끕니다. (레슨북 고척점 참고)">
+              <div className="col-span-full space-y-sm">
+                {powerSchedules.map((schedule, idx) => (
+                  <div key={schedule.id} className={cn(
+                    "flex items-center gap-md p-md rounded-xl border transition-colors",
+                    schedule.enabled ? "border-accent/30 bg-accent-light/30" : "border-line bg-surface-secondary opacity-60"
+                  )}>
+                    <button
+                      onClick={() => {
+                        const next = [...powerSchedules];
+                        next[idx] = { ...next[idx], enabled: !next[idx].enabled };
+                        setPowerSchedules(next);
+                      }}
+                      className={cn(
+                        "relative inline-flex h-5 w-9 items-center rounded-full transition-colors shrink-0",
+                        schedule.enabled ? "bg-accent" : "bg-line"
+                      )}
+                    >
+                      <span className={cn(
+                        "inline-block h-4 w-4 transform rounded-full bg-surface shadow transition-transform",
+                        schedule.enabled ? "translate-x-4" : "translate-x-0.5"
+                      )} />
+                    </button>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-[13px] font-semibold text-content truncate">{schedule.deviceName}</p>
+                    </div>
+                    <div className="flex items-center gap-xs">
+                      <span className="text-[11px] text-content-secondary">ON</span>
+                      <input
+                        type="time"
+                        value={schedule.powerOnTime}
+                        onChange={e => {
+                          const next = [...powerSchedules];
+                          next[idx] = { ...next[idx], powerOnTime: e.target.value };
+                          setPowerSchedules(next);
+                        }}
+                        className="px-sm py-[4px] border border-line rounded-lg text-[12px] bg-surface focus:outline-none focus:border-accent w-[90px]"
+                      />
+                    </div>
+                    <div className="flex items-center gap-xs">
+                      <span className="text-[11px] text-content-secondary">OFF</span>
+                      <input
+                        type="time"
+                        value={schedule.powerOffTime}
+                        onChange={e => {
+                          const next = [...powerSchedules];
+                          next[idx] = { ...next[idx], powerOffTime: e.target.value };
+                          setPowerSchedules(next);
+                        }}
+                        className="px-sm py-[4px] border border-line rounded-lg text-[12px] bg-surface focus:outline-none focus:border-accent w-[90px]"
+                      />
+                    </div>
+                    <button
+                      onClick={() => setPowerSchedules(prev => prev.filter((_, i) => i !== idx))}
+                      className="p-xs text-content-tertiary hover:text-state-error transition-colors"
+                    >
+                      <Trash2 size={14} />
+                    </button>
+                  </div>
+                ))}
+                <button
+                  onClick={() => setPowerSchedules(prev => [
+                    ...prev,
+                    { id: Date.now(), deviceName: "새 장비", powerOnTime: "06:00", powerOffTime: "23:00", enabled: true },
+                  ])}
+                  className="flex items-center gap-xs text-[13px] text-primary font-medium hover:text-primary/80 transition-colors"
+                >
+                  <Plus size={14} /> 스케줄 추가
+                </button>
+              </div>
+            </FormSection>
+
+            <div className="p-md bg-blue-50 rounded-xl border border-blue-200">
+              <p className="text-[12px] text-blue-700 font-medium">자동 전원 제어 안내</p>
+              <ul className="mt-xs space-y-xs text-[11px] text-blue-600">
+                <li>• 설정된 시간에 WoL(Wake on LAN) 또는 스마트 플러그 API로 전원을 제어합니다</li>
+                <li>• 프로젝터는 RS-232/IP 제어 프로토콜을 사용합니다</li>
+                <li>• 시간 종료 시 자동 종료되어 에너지를 절약합니다</li>
+                <li>• IoT 기기 탭에서 장비를 먼저 등록하세요</li>
+              </ul>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* 기기 추가 모달 */}

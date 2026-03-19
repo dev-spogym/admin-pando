@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Shirt, Plus, Search, Download, RefreshCw } from 'lucide-react';
+import { Shirt, Plus, Search, Download, RefreshCw, QrCode, ScanLine } from 'lucide-react';
 import { toast } from 'sonner';
 import AppLayout from '@/components/AppLayout';
 import PageHeader from '@/components/PageHeader';
@@ -16,6 +16,7 @@ import { exportToExcel } from '@/lib/exportExcel';
 interface ClothingItem {
   id: number;
   number: string;      // 운동복 번호
+  qrCode?: string;     // QR 코드 (자동 생성)
   size: string;        // S/M/L/XL/XXL
   type: string;        // 상의/하의/세트
   status: string;      // AVAILABLE/RENTED/WASHING/DAMAGED
@@ -61,6 +62,37 @@ export default function ClothingManagement() {
   const [search, setSearch] = useState('');
   const [showAddModal, setShowAddModal] = useState(false);
   const [addForm, setAddForm] = useState({ number: '', size: 'M', type: 'SET', memo: '' });
+
+  // QR 스캔 모달
+  const [showQrScan, setShowQrScan] = useState(false);
+  const [qrInput, setQrInput] = useState('');
+  const [qrResult, setQrResult] = useState<ClothingItem | null>(null);
+
+  // QR 코드로 운동복 검색 + 상태 토글 (대여/반납)
+  const handleQrLookup = async () => {
+    if (!qrInput.trim()) { toast.error('QR 코드를 입력하세요.'); return; }
+    const { data, error } = await supabase
+      .from('clothing')
+      .select('*')
+      .eq('branchId', getBranchId())
+      .or(`qrCode.eq.${qrInput.trim()},number.eq.${qrInput.trim()}`)
+      .limit(1);
+    if (error || !data || data.length === 0) {
+      toast.error('해당 QR 코드의 운동복을 찾을 수 없습니다.');
+      setQrResult(null);
+      return;
+    }
+    setQrResult(data[0] as ClothingItem);
+  };
+
+  // QR 스캔으로 빠른 반납
+  const handleQrReturn = async () => {
+    if (!qrResult) return;
+    await handleStatusChange(qrResult.id, 'AVAILABLE');
+    setQrResult(null);
+    setQrInput('');
+    toast.success(`${qrResult.number}번 운동복이 반납되었습니다.`);
+  };
 
   // ─── 데이터 조회 ──────────────────────────────────────────────────────────
 
@@ -260,6 +292,12 @@ export default function ClothingManagement() {
           <div className="flex gap-sm">
             <button
               className="bg-surface text-content-secondary border border-line px-md py-[6px] rounded-lg flex items-center gap-xs text-[13px] font-medium hover:bg-surface-tertiary"
+              onClick={() => setShowQrScan(true)}
+            >
+              <ScanLine size={14} /> QR 스캔
+            </button>
+            <button
+              className="bg-surface text-content-secondary border border-line px-md py-[6px] rounded-lg flex items-center gap-xs text-[13px] font-medium hover:bg-surface-tertiary"
               onClick={handleExcel}
             >
               <Download size={14} /> 엑셀
@@ -369,6 +407,115 @@ export default function ClothingManagement() {
               >
                 등록
               </button>
+            </div>
+          </div>
+        </Modal>
+
+        {/* QR 스캔 모달 — 운동복 QR 코드/번호로 빠른 대여/반납 */}
+        <Modal
+          isOpen={showQrScan}
+          onClose={() => { setShowQrScan(false); setQrInput(''); setQrResult(null); }}
+          title="QR 코드 스캔 — 빠른 대여/반납"
+          size="md"
+          footer={
+            <button
+              className="px-md py-[6px] border border-line rounded-lg text-[13px] text-content-secondary hover:bg-surface-tertiary"
+              onClick={() => { setShowQrScan(false); setQrInput(''); setQrResult(null); }}
+            >
+              닫기
+            </button>
+          }
+        >
+          <div className="space-y-md">
+            {/* QR 입력 */}
+            <div className="flex gap-sm">
+              <div className="relative flex-1">
+                <QrCode size={14} className="absolute left-sm top-1/2 -translate-y-1/2 text-content-tertiary" />
+                <input
+                  type="text"
+                  value={qrInput}
+                  onChange={e => setQrInput(e.target.value)}
+                  onKeyDown={e => e.key === 'Enter' && handleQrLookup()}
+                  placeholder="QR 코드 또는 운동복 번호 입력"
+                  className="w-full pl-8 pr-sm py-[7px] border border-line rounded-lg text-[13px] bg-surface focus:outline-none focus:border-primary"
+                  autoFocus
+                />
+              </div>
+              <button
+                onClick={handleQrLookup}
+                className="px-md py-[7px] bg-primary text-white rounded-lg text-[13px] font-medium hover:bg-primary-dark"
+              >
+                조회
+              </button>
+            </div>
+
+            {/* 조회 결과 */}
+            {qrResult && (
+              <div className="p-md bg-surface-secondary rounded-xl border border-line space-y-sm">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-[15px] font-bold text-content">{qrResult.number}번</p>
+                    <p className="text-[12px] text-content-secondary">
+                      {TYPE_OPTIONS.find(t => t.value === qrResult.type)?.label} · {qrResult.size}
+                    </p>
+                  </div>
+                  <span className={`text-[12px] font-semibold px-sm py-xs rounded-full ${
+                    qrResult.status === 'AVAILABLE' ? 'bg-green-100 text-green-700' :
+                    qrResult.status === 'RENTED' ? 'bg-yellow-100 text-yellow-700' :
+                    'bg-gray-100 text-gray-600'
+                  }`}>
+                    {STATUS_MAP[qrResult.status]?.label ?? qrResult.status}
+                  </span>
+                </div>
+
+                {qrResult.memberName && (
+                  <p className="text-[12px] text-content-secondary">
+                    대여 회원: <strong className="text-content">{qrResult.memberName}</strong>
+                    {qrResult.rentedAt && ` (${qrResult.rentedAt})`}
+                  </p>
+                )}
+
+                <div className="flex gap-sm pt-xs">
+                  {qrResult.status === 'RENTED' && (
+                    <button
+                      onClick={handleQrReturn}
+                      className="flex-1 flex items-center justify-center gap-xs px-md py-sm bg-green-600 text-white rounded-lg text-[13px] font-medium hover:bg-green-700"
+                    >
+                      <RefreshCw size={14} /> 반납 처리
+                    </button>
+                  )}
+                  {qrResult.status === 'AVAILABLE' && (
+                    <button
+                      onClick={() => {
+                        toast.info('회원 선택 후 대여 처리를 진행하세요.');
+                      }}
+                      className="flex-1 flex items-center justify-center gap-xs px-md py-sm bg-primary text-white rounded-lg text-[13px] font-medium hover:bg-primary-dark"
+                    >
+                      <Shirt size={14} /> 대여 처리
+                    </button>
+                  )}
+                  {qrResult.status === 'RENTED' && (
+                    <button
+                      onClick={async () => {
+                        await handleStatusChange(qrResult.id, 'WASHING');
+                        setQrResult(null);
+                        setQrInput('');
+                        toast.success('세탁 처리되었습니다.');
+                      }}
+                      className="flex-1 flex items-center justify-center gap-xs px-md py-sm border border-line text-content-secondary rounded-lg text-[13px] font-medium hover:bg-surface-tertiary"
+                    >
+                      세탁 전환
+                    </button>
+                  )}
+                </div>
+              </div>
+            )}
+
+            <div className="p-sm bg-blue-50 border border-blue-200 rounded-lg">
+              <p className="text-[11px] text-blue-600">
+                키오스크에서 QR 코드를 스캔하면 자동으로 대여/반납이 처리됩니다.
+                운동복 등록 시 QR 코드가 자동 생성됩니다.
+              </p>
             </div>
           </div>
         </Modal>
