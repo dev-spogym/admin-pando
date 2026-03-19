@@ -43,7 +43,7 @@ const getBranchId = (): number => {
   return stored ? Number(stored) : 1;
 };
 
-// 카테고리별 동적 하위 필드 정의
+// 카테고리별 동적 하위 필드 정의 (알려진 카테고리는 설정 유지, 나머지는 기본값)
 const CATEGORY_CONFIG: Record<
   string,
   { periodLabel: string; showCount: boolean; countLabel: string; showDays: boolean }
@@ -51,15 +51,22 @@ const CATEGORY_CONFIG: Record<
   이용권: { periodLabel: '이용기간 (개월)', showCount: false, countLabel: '', showDays: false },
   PT: { periodLabel: '유효기간 (일)', showCount: true, countLabel: '총 횟수 (회)', showDays: false },
   GX: { periodLabel: '유효기간 (개월)', showCount: true, countLabel: '총 횟수 (회)', showDays: true },
+  골프: { periodLabel: '유효기간 (일)', showCount: true, countLabel: '총 횟수 (회)', showDays: false },
+  식품: { periodLabel: '유통기한 (일)', showCount: false, countLabel: '', showDays: false },
   기타: { periodLabel: '이용기간', showCount: false, countLabel: '', showDays: false },
 };
+// 동적 카테고리용 기본값
+const DEFAULT_CATEGORY_CONFIG = { periodLabel: '이용기간', showCount: false, countLabel: '', showDays: false };
 
-const CATEGORIES = ['이용권', 'PT', 'GX', '기타'];
+// 기본 카테고리 (분류 관리에서 동적으로 추가 가능)
+const DEFAULT_CATEGORIES = ['이용권', 'PT', 'GX', '골프', '식품', '기타'];
 
 const PRODUCT_TYPES = [
   { id: '이용권', label: '이용권', desc: '헬스 등 기간 이용권', icon: UserCheck, color: 'text-primary' },
   { id: 'PT', label: 'PT', desc: '1:1 개인 레슨 횟수권', icon: CalendarDays, color: 'text-accent' },
   { id: 'GX', label: 'GX', desc: '그룹 수업 횟수권', icon: CheckCircle2, color: 'text-state-info' },
+  { id: '골프', label: '골프', desc: '타석 이용권, 레슨 등', icon: CalendarDays, color: 'text-green-600' },
+  { id: '식품', label: '식품', desc: '보충제, 음료, 간식 등', icon: TagIcon, color: 'text-orange-600' },
   { id: '기타', label: '기타', desc: '락커, 운동복, 일반 상품', icon: Lock, color: 'text-content-secondary' },
 ];
 
@@ -183,8 +190,8 @@ export default function ProductForm() {
     fetchProduct();
   }, [editId, setValue]);
 
-  // 현재 카테고리 설정
-  const categoryConfig = CATEGORY_CONFIG[watchedCategory] ?? null;
+  // 현재 카테고리 설정 (동적 카테고리도 기본값 적용)
+  const categoryConfig = CATEGORY_CONFIG[watchedCategory] ?? (watchedCategory ? DEFAULT_CATEGORY_CONFIG : null);
 
   // 중복 체크
   const checkDuplicate = (name: string, category: string): boolean => {
@@ -408,7 +415,7 @@ export default function ProductForm() {
               )}
             >
               <option value="">선택해주세요</option>
-              {CATEGORIES.map(cat => (
+              {[...DEFAULT_CATEGORIES, ...productGroups.map(g => g.name).filter(n => !DEFAULT_CATEGORIES.includes(n))].map(cat => (
                 <option key={cat} value={cat}>{cat}</option>
               ))}
             </select>
