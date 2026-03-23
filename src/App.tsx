@@ -168,6 +168,7 @@ export default function App() {
       <Route path="/lessons" element={<PrivateRoute><Calendar /></PrivateRoute>} />
       <Route path="/lesson-counts" element={<PrivateRoute><Calendar /></PrivateRoute>} />
       <Route path="/penalties" element={<PrivateRoute><Calendar /></PrivateRoute>} />
+      <Route path="/valid-lessons" element={<PrivateRoute><Calendar /></PrivateRoute>} />
 
       {/* 수업 관리 강화 (Sprint 4) */}
       <Route path="/class-templates" element={<PrivateRoute><ClassTemplates /></PrivateRoute>} />
