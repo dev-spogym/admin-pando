@@ -3,8 +3,8 @@ import AppHeader from "@/components/AppHeader";
 import AppSidebar from "@/components/AppSidebar";
 import RightQuickPanel from "@/components/RightQuickPanel";
 import { cn } from "@/lib/utils";
-import { moveToPage, setNavigate } from "@/internal";
-import { useNavigate } from "react-router-dom";
+import { moveToPage } from "@/internal";
+import { useLocation, useNavigate } from "react-router-dom";
 import { useAuthStore } from "@/stores/authStore";
 
 interface AppLayoutProps {
@@ -15,11 +15,11 @@ interface AppLayoutProps {
 const MOBILE_BREAKPOINT = 768;
 
 const AppLayout = ({ children }: AppLayoutProps) => {
+  const navigate = useNavigate();
+  const location = useLocation();
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(() => window.innerWidth < MOBILE_BREAKPOINT);
-  const [activePath, setActivePath] = useState(() => window.location.pathname);
-  const navigate = useNavigate();
   const authUser = useAuthStore((s) => s.user);
 
   // 화면 크기 감지
@@ -44,7 +44,6 @@ const AppLayout = ({ children }: AppLayoutProps) => {
   }, [mobileOpen]);
 
   const handleNavigate = useCallback((path: string, viewId?: number) => {
-    setActivePath(path);
     // 모바일에서 네비게이션 시 사이드바 자동 닫기
     if (isMobile) setMobileOpen(false);
     if (viewId) {
@@ -124,7 +123,7 @@ const AppLayout = ({ children }: AppLayoutProps) => {
         <AppSidebar
           collapsed={isMobile ? false : sidebarCollapsed}
           onNavigate={handleNavigate}
-          activePath={activePath}
+          activePath={location.pathname}
         />
       </div>
 
