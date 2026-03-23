@@ -68,6 +68,7 @@ export const ROUTE_PERMISSIONS: Record<string, UserRole[]> = {
   // 매출
   '/sales': ['primary', 'owner', 'manager'],
   '/sales/stats': ['primary', 'owner', 'manager'],
+  '/sales/statistics-management': ['primary', 'owner', 'manager'],
   '/pos': ['primary', 'owner', 'manager', 'staff'],
   '/pos/payment': ['primary', 'owner', 'manager', 'staff'],
   '/refunds': ['primary', 'owner'],

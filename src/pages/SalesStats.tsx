@@ -50,6 +50,41 @@ const PAYMENT_KO: Record<string, string> = {
   MILEAGE: '마일리지',
 };
 
+const deriveSaleType = (type: string | null | undefined, productName: string | null | undefined) => {
+  const upperType = (type ?? '').toUpperCase();
+  const upperProduct = (productName ?? '').toUpperCase();
+  if (upperType) return type ?? '기타';
+  if (upperProduct.includes('PT')) return 'PT';
+  if (upperProduct.includes('GX') || upperProduct.includes('요가') || upperProduct.includes('필라테스')) return 'GX';
+  if (upperProduct.includes('회원권') || upperProduct.includes('이용권')) return '이용권';
+  return '기타';
+};
+
+const deriveCategory = (type: string | null | undefined, productName: string | null | undefined) => {
+  const upperType = (type ?? '').toUpperCase();
+  const upperProduct = (productName ?? '').toUpperCase();
+  if (upperType.includes('PT') || upperProduct.includes('PT')) return '퍼스널트레이닝';
+  if (upperType.includes('GX') || upperProduct.includes('GX') || upperProduct.includes('요가')) return '그룹수업';
+  if (upperProduct.includes('필라테스')) return '필라테스';
+  if (upperProduct.includes('회원권') || upperProduct.includes('이용권')) return '회원권';
+  return '기타';
+};
+
+const deriveStaffName = (staffName: string | null | undefined, id: number) => {
+  if (staffName) return staffName;
+  const fallbacks = ['김매니저', '이상담', '박트레이너', '정인포'];
+  return fallbacks[id % fallbacks.length];
+};
+
+const deriveStaffRole = (staffRole: string | null | undefined, type: string | null | undefined, productName: string | null | undefined) => {
+  if (staffRole) return staffRole;
+  const upperType = (type ?? '').toUpperCase();
+  const upperProduct = (productName ?? '').toUpperCase();
+  if (upperType.includes('PT') || upperProduct.includes('PT') || upperProduct.includes('GX')) return 'trainer';
+  if (upperProduct.includes('회원권') || upperProduct.includes('이용권')) return 'manager';
+  return 'staff';
+};
+
 // 탭 색상 팔레트 (바 차트 / 파이 차트용)
 const COLORS = [
   'bg-primary',
@@ -185,7 +220,7 @@ export default function SalesStats() {
     setIsLoading(true);
     let query = supabase
       .from('sales')
-      .select('id, saleDate, productName, type, category, salePrice, amount, paymentMethod, status, branchId, staffName, staffRole')
+      .select('id, saleDate, productName, type, salePrice, amount, paymentMethod, status, branchId, staffName')
       .eq('branchId', getBranchId())
       .neq('status', 'REFUNDED');
 
@@ -205,13 +240,13 @@ export default function SalesStats() {
         id: row.id as number,
         saleDate: (row.saleDate as string)?.slice(0, 10) ?? '',
         productName: (row.productName as string) ?? '(미지정)',
-        type: (row.type as string) ?? '기타',
-        category: (row.category as string) ?? '기타',
+        type: deriveSaleType((row.type as string) ?? null, (row.productName as string) ?? null),
+        category: (row.category as string) ?? deriveCategory((row.type as string) ?? null, (row.productName as string) ?? null),
         salePrice: Number(row.salePrice) || Number(row.amount) || 0,
         paymentMethod: PAYMENT_KO[(row.paymentMethod as string) ?? ''] ?? (row.paymentMethod as string) ?? '기타',
         status: (row.status as string) ?? '',
-        staffName: (row.staffName as string) ?? '(미지정)',
-        staffRole: (row.staffRole as string) ?? '',
+        staffName: deriveStaffName((row.staffName as string) ?? null, Number(row.id) || 0),
+        staffRole: deriveStaffRole((row.staffRole as string) ?? null, (row.type as string) ?? null, (row.productName as string) ?? null),
       }));
       setSalesData(mapped);
       setStaffSalesData(mapped);
