@@ -70,7 +70,7 @@ export default function ScheduleRequests() {
 
   // 필터링
   const filtered = requests.filter(r => {
-    if (typeFilter !== '전체' && r.scheduleCategory !== typeFilter) return false;
+    if (typeFilter !== '전체' && r.schedule_category !== typeFilter) return false;
     if (dateFrom && r.startTime && r.startTime < dateFrom) return false;
     if (dateTo && r.startTime && r.startTime > dateTo + 'T23:59:59') return false;
     return true;
@@ -132,8 +132,8 @@ export default function ScheduleRequests() {
       render: (val: string | null, row: ScheduleRequest) => (
         <div className="flex flex-col">
           <span className="text-[13px] font-semibold text-content">{val ?? '-'}</span>
-          {row.targetType && (
-            <span className="text-[11px] text-content-secondary">{row.targetType}</span>
+          {row.target_type && (
+            <span className="text-[11px] text-content-secondary">{row.target_type}</span>
           )}
         </div>
       ),

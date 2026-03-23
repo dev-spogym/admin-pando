@@ -772,13 +772,13 @@ export const promoteFromWaitlist = async (
   // 수업 정원 확인
   const { data: schedule } = await supabase
     .from('lesson_schedules')
-    .select('capacity, bookedCount')
+    .select('capacity, currentCount')
     .eq('id', scheduleId)
     .single();
 
   if (!schedule) return { promoted: false };
 
-  const currentBooked = schedule.bookedCount ?? 0;
+  const currentBooked = schedule.currentCount ?? 0;
   const capacity = schedule.capacity ?? 0;
 
   // 정원 여유가 없으면 승격하지 않음
@@ -805,10 +805,10 @@ export const promoteFromWaitlist = async (
 
   if (error) return { promoted: false };
 
-  // bookedCount 증가
+  // currentCount 증가
   await supabase
     .from('lesson_schedules')
-    .update({ bookedCount: currentBooked + 1 })
+    .update({ currentCount: currentBooked + 1 })
     .eq('id', scheduleId);
 
   return { promoted: true, memberName: next.memberName };
@@ -833,17 +833,17 @@ export const cancelBookingWithWaitlistPromotion = async (
     return { success: false, message: '예약 취소에 실패했습니다.' };
   }
 
-  // bookedCount 감소
+  // currentCount 감소
   const { data: schedule } = await supabase
     .from('lesson_schedules')
-    .select('bookedCount')
+    .select('currentCount')
     .eq('id', scheduleId)
     .single();
 
-  if (schedule && (schedule.bookedCount ?? 0) > 0) {
+  if (schedule && (schedule.currentCount ?? 0) > 0) {
     await supabase
       .from('lesson_schedules')
-      .update({ bookedCount: (schedule.bookedCount ?? 1) - 1 })
+      .update({ currentCount: (schedule.currentCount ?? 1) - 1 })
       .eq('id', scheduleId);
   }
 

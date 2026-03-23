@@ -280,12 +280,12 @@ const SchedulePanel = () => {
                       <Users size={11} className="text-content-tertiary" />
                       <span
                         className={`font-medium ${
-                          (s.bookedCount ?? 0) >= (s.capacity ?? 0)
+                          (s.currentCount ?? 0) >= (s.capacity ?? 0)
                             ? "text-state-error"
                             : "text-content-secondary"
                         }`}
                       >
-                        {s.bookedCount ?? 0}/{s.capacity ?? "-"}
+                        {s.currentCount ?? 0}/{s.capacity ?? "-"}
                       </span>
                     </div>
                   </div>

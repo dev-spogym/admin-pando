@@ -15,10 +15,10 @@ export interface ScheduleRequest {
   branchId: number;
   title: string;
   type: string;
-  scheduleCategory: string | null;
-  approvalStatus: 'pending' | 'approved' | 'rejected';
-  targetType: string | null;
-  targetName: string | null;
+  schedule_category: string | null;
+  approval_status: 'pending' | 'approved' | 'rejected';
+  target_type: string | null;
+  member_name: string | null;
   staffId: number | null;
   staffName: string | null;
   startTime: string | null;
@@ -32,9 +32,9 @@ export const getScheduleRequests = async (branchId?: number): Promise<ApiRespons
     const bid = branchId ?? getBranchId();
     const { data, error } = await supabase
       .from('classes')
-      .select('id, branchId, title, type, scheduleCategory, approvalStatus, targetType, staffId, staffName, startTime, endTime, createdAt')
+      .select('id, branchId, title, type, schedule_category, approval_status, target_type, member_name, staffId, staffName, startTime, endTime, createdAt')
       .eq('branchId', bid)
-      .eq('approvalStatus', 'pending')
+      .eq('approval_status', 'pending')
       .order('createdAt', { ascending: false });
 
     if (error) throw error;
@@ -54,7 +54,7 @@ export const approveSchedule = async (classId: number): Promise<ApiResponse<null
   try {
     const { error } = await supabase
       .from('classes')
-      .update({ approvalStatus: 'approved' })
+      .update({ approval_status: 'approved' })
       .eq('id', classId);
 
     if (error) throw error;
@@ -72,7 +72,7 @@ export const rejectSchedule = async (classId: number, reason?: string): Promise<
     void reason;
     const { error } = await supabase
       .from('classes')
-      .update({ approvalStatus: 'rejected' })
+      .update({ approval_status: 'rejected' })
       .eq('id', classId);
 
     if (error) throw error;

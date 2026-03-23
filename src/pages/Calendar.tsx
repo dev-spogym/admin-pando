@@ -721,7 +721,7 @@ export default function Calendar() {
       // 수업 일정 (classes 테이블)
       const { data: classData } = await supabase
         .from("classes")
-        .select("id, title, type, staffId, staffName, room, startTime, endTime, capacity, booked, isRecurring, branchId")
+        .select("id, title, staffId, staffName, room, startTime, endTime, capacity, booked, isRecurring, branchId, target_type, schedule_category, approval_status, lesson_status, member_name")
         .eq("branchId", branchId);
 
       if (classData) {
@@ -736,11 +736,11 @@ export default function Calendar() {
           capacity: c.capacity ?? 0,
           currentCount: c.booked ?? 0,
           status: "예약",
-          type: (c.type as EventType) ?? "기타",
-          scheduleCategory: null,
-          approvalStatus: null,
-          targetType: null,
-          targetName: null,
+          type: "기타" as EventType,
+          scheduleCategory: c.schedule_category ?? null,
+          approvalStatus: c.approval_status ?? null,
+          targetType: c.target_type ?? null,
+          targetName: c.member_name ?? null,
         }));
         // #18 미승인 건수 계산
         const pendingItems = mapped.filter(e => e.approvalStatus === 'pending');
@@ -1152,7 +1152,7 @@ export default function Calendar() {
     if (!selectedEvent) return;
     const { error } = await supabase
       .from('classes')
-      .update({ approvalStatus: 'approved' })
+      .update({ approval_status: 'approved' })
       .eq('id', Number(selectedEvent.id));
     if (error) { toast.error('승인에 실패했습니다.'); return; }
     setEvents(prev => prev.map(e =>
@@ -1168,7 +1168,7 @@ export default function Calendar() {
     if (!selectedEvent) return;
     const { error } = await supabase
       .from('classes')
-      .update({ approvalStatus: 'rejected' })
+      .update({ approval_status: 'rejected' })
       .eq('id', Number(selectedEvent.id));
     if (error) { toast.error('거절에 실패했습니다.'); return; }
     setEvents(prev => prev.map(e =>

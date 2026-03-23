@@ -46,7 +46,7 @@ export interface LessonSchedule {
   startAt: string;
   endAt: string;
   capacity?: number;
-  bookedCount?: number;
+  currentCount?: number;
   status?: string;
   createdAt?: string;
 }
@@ -187,7 +187,7 @@ export const createSchedule = async (
   try {
     const { data, error } = await supabase
       .from('lesson_schedules')
-      .insert({ ...payload, branchId, bookedCount: 0, status: 'OPEN' })
+      .insert({ ...payload, branchId, currentCount: 0, status: 'OPEN' })
       .select()
       .single();
 
