@@ -10,6 +10,7 @@
  * - 중복 결제/등록 방지
  */
 import { supabase } from './supabase';
+import { readBranchJson } from './branchStorage';
 
 /** branchId 가져오기 */
 const getBranchId = (): number => {
@@ -338,39 +339,15 @@ export const syncExpiredCoupons = async (): Promise<number> => {
   const today = new Date().toISOString().slice(0, 10);
 
   const { data, error } = await supabase
-    .from('settings')
-    .select('id, value')
+    .from('coupons')
+    .update({ isActive: false, updatedAt: new Date().toISOString() })
     .eq('branchId', branchId)
-    .eq('key', 'coupons');
+    .eq('isActive', true)
+    .lt('validUntil', `${today}T00:00:00`)
+    .select('id');
 
-  if (error || !data || data.length === 0) return 0;
-
-  let expiredCount = 0;
-  for (const row of data) {
-    try {
-      const coupons = JSON.parse(row.value);
-      if (!Array.isArray(coupons)) continue;
-
-      let changed = false;
-      for (const coupon of coupons) {
-        if (coupon.isActive && coupon.endDate && coupon.endDate < today) {
-          coupon.isActive = false;
-          changed = true;
-          expiredCount++;
-        }
-      }
-
-      if (changed) {
-        await supabase
-          .from('settings')
-          .update({ value: JSON.stringify(coupons) })
-          .eq('id', row.id);
-      }
-    } catch {
-      // JSON 파싱 실패 시 무시
-    }
-  }
-  return expiredCount;
+  if (error) return 0;
+  return data?.length ?? 0;
 };
 
 // ─── 11. 중복 결제/등록 방지 ────────────────────────────────
@@ -438,17 +415,7 @@ export const getFavoriteVisitsToday = async (): Promise<{ id: number; name: stri
   const today = new Date().toISOString().slice(0, 10);
 
   // 즐겨찾기 목록 조회
-  const { data: favData } = await supabase
-    .from('settings')
-    .select('value')
-    .eq('branchId', branchId)
-    .eq('key', 'favorites')
-    .single();
-
-  if (!favData?.value) return [];
-
-  let favIds: number[] = [];
-  try { favIds = JSON.parse(favData.value); } catch { return []; }
+  const favIds = readBranchJson<number[]>('favorites', [], branchId);
   if (favIds.length === 0) return [];
 
   // 오늘 출석 기록 중 즐겨찾기 회원 필터
@@ -574,21 +541,8 @@ const getLessonPolicy = async (): Promise<LessonPolicy> => {
     waitlistAutoPromote: true,
   };
 
-  const { data } = await supabase
-    .from('settings')
-    .select('value')
-    .eq('branchId', branchId)
-    .eq('key', 'lesson_policy')
-    .single();
-
-  if (!data?.value) return defaults;
-
-  try {
-    const parsed = JSON.parse(data.value);
-    return { ...defaults, ...parsed };
-  } catch {
-    return defaults;
-  }
+  const parsed = readBranchJson<Partial<LessonPolicy>>('lesson_policy', {}, branchId);
+  return { ...defaults, ...parsed };
 };
 
 /**
@@ -1029,20 +983,10 @@ export interface Promotion {
 
 export const getActivePromotions = async (branchId: number): Promise<Promotion[]> => {
   const today = new Date().toISOString().slice(0, 10);
-
-  const { data, error } = await supabase
-    .from('settings')
-    .select('value')
-    .eq('branchId', branchId)
-    .eq('key', 'promotions')
-    .single();
-
-  if (error || !data?.value) return [];
+  const promotions = readBranchJson<Promotion[]>('promotions', [], branchId);
+  if (!Array.isArray(promotions) || promotions.length === 0) return [];
 
   try {
-    const promotions: Promotion[] = JSON.parse(data.value);
-    if (!Array.isArray(promotions)) return [];
-
     return promotions.filter((p) => {
       if (!p.isActive) return false;
       if (p.startDate && p.startDate > today) return false;

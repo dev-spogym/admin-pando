@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react";
+﻿import React, { useState, useEffect, useCallback } from "react";
 import AppHeader from "@/components/AppHeader";
 import AppSidebar from "@/components/AppSidebar";
 import RightQuickPanel from "@/components/RightQuickPanel";
@@ -129,7 +129,7 @@ const AppLayout = ({ children }: AppLayoutProps) => {
           onToggleSidebar={handleToggleSidebar}
           notificationCount={0}
           userName={authUser?.name ?? '사용자'}
-          branchName={authUser?.branchName || '스포짐'}
+          branchName={authUser?.branchName || 'FitGenie CRM'}
         />
 
         {/* 콘텐츠 — 모바일에서 패딩 축소 */}
@@ -147,3 +147,4 @@ const AppLayout = ({ children }: AppLayoutProps) => {
 };
 
 export default AppLayout;
+

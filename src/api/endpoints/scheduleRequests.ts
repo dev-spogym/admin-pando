@@ -23,9 +23,7 @@ export interface ScheduleRequest {
   staffName: string | null;
   startTime: string | null;
   endTime: string | null;
-  memo: string | null;
   createdAt: string | null;
-  rejectionReason: string | null;
 }
 
 /** 미승인(pending) 일정 목록 조회 */
@@ -34,7 +32,7 @@ export const getScheduleRequests = async (branchId?: number): Promise<ApiRespons
     const bid = branchId ?? getBranchId();
     const { data, error } = await supabase
       .from('classes')
-      .select('id, branchId, title, type, scheduleCategory, approvalStatus, targetType, targetName, staffId, staffName, startTime, endTime, memo, createdAt, rejectionReason')
+      .select('id, branchId, title, type, scheduleCategory, approvalStatus, targetType, staffId, staffName, startTime, endTime, createdAt')
       .eq('branchId', bid)
       .eq('approvalStatus', 'pending')
       .order('createdAt', { ascending: false });
@@ -71,12 +69,10 @@ export const approveSchedule = async (classId: number): Promise<ApiResponse<null
 /** 일정 거절 */
 export const rejectSchedule = async (classId: number, reason?: string): Promise<ApiResponse<null>> => {
   try {
+    void reason;
     const { error } = await supabase
       .from('classes')
-      .update({
-        approvalStatus: 'rejected',
-        rejectionReason: reason ?? null,
-      })
+      .update({ approvalStatus: 'rejected' })
       .eq('id', classId);
 
     if (error) throw error;

@@ -1,4 +1,4 @@
-
+﻿
 import React, { useState, useEffect } from 'react';
 import {
   Building2,
@@ -519,7 +519,7 @@ export default function BranchManagement() {
                       "w-full p-sm bg-surface-secondary rounded-input border focus:outline-none transition-colors",
                       formErrors.name ? "border-state-error focus:border-state-error" : "border-transparent focus:border-accent"
                     )}
-                    placeholder="예: 스포짐 광화문점"
+                    placeholder="예: FitGenie CRM 광화문점"
                     value={branchForm.name}
                     onChange={e => handleFormChange('name', e.target.value)}
                   />
@@ -717,14 +717,14 @@ export default function BranchManagement() {
               <div className="grid grid-cols-2 gap-md" >
                 <div className="space-y-xs" >
                   <label className="text-Label text-content-secondary" >현재 지점</label>
-                  <input className="w-full p-sm bg-surface-secondary rounded-input border border-transparent text-content-secondary" value="스포짐 종각점" disabled={true}/>
+                  <input className="w-full p-sm bg-surface-secondary rounded-input border border-transparent text-content-secondary" value="FitGenie CRM 종각점" disabled={true}/>
                 </div>
                 <div className="space-y-xs" >
                   <label className="text-Label text-content-secondary" >이동할 지점 <span className="text-state-error" >*</span></label>
                   <select className="w-full p-sm bg-surface-secondary rounded-input border border-transparent focus:border-accent focus:outline-none" >
                     <option value="">지점 선택</option>
-                    <option value="2">스포짐 강남점</option>
-                    <option value="3">스포짐 여의도점</option>
+                    <option value="2">FitGenie CRM 강남점</option>
+                    <option value="3">FitGenie CRM 여의도점</option>
                   </select>
                 </div>
               </div>
@@ -868,3 +868,4 @@ export default function BranchManagement() {
     </AppLayout>
   );
 }
+

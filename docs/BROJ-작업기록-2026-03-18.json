@@ -1,8 +1,8 @@
-{
+﻿{
   "date": "2026-03-18",
-  "project": "스포짐 CRM (pando-beta)",
+  "project": "FitGenie CRM (pando-beta)",
   "objective": "BROJ CRM 기능 전체 이식",
-  "source": "https://crm.broj.co.kr (스포짐 울지로점)",
+  "source": "https://crm.broj.co.kr (FitGenie CRM 울지로점)",
   "phases": [
     {
       "phase": 1,
@@ -120,3 +120,5 @@
   "totalNewTables": 18,
   "totalLinesAdded": 6620
 }
+
+

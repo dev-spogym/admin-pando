@@ -1,4 +1,4 @@
-/**
+﻿/**
  * 초기 시드 데이터
  * 실행: npx tsx prisma/seed.ts
  */
@@ -406,7 +406,7 @@ async function main() {
     update: {},
     create: {
       branchId: 1,
-      centerName: '스포짐 강남 본점',
+      centerName: 'FitGenie CRM 강남 본점',
       businessHoursOpen: '06:00',
       businessHoursClose: '22:00',
       holidays: ['SUNDAY'],
@@ -431,3 +431,4 @@ main()
   .finally(async () => {
     await prisma.$disconnect();
   });
+

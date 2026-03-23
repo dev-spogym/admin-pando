@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from "react";
+﻿import React, { useState, useEffect, useRef, useCallback } from "react";
 import {
   Menu,
   Search,
@@ -20,6 +20,7 @@ import { useAuthStore } from "@/stores/authStore";
 import { normalizeRole, hasPermission } from "@/lib/permissions";
 import { supabase } from "@/lib/supabase";
 import { changePassword } from "@/api/endpoints/auth";
+import { readBranchJson } from "@/lib/branchStorage";
 
 // ─── 타입 정의 ─────────────────────────────────────────────────────────────────
 
@@ -74,14 +75,7 @@ const INITIAL_NOTIFICATIONS: Notification[] = [
 
 /** 즐겨찾기 회원 ID 목록 가져오기 */
 async function getFavoriteIds(): Promise<number[]> {
-  const { data } = await supabase
-    .from('settings')
-    .select('value')
-    .eq('branchId', getBranchId())
-    .eq('key', 'favorites')
-    .single();
-  if (!data?.value) return [];
-  try { return JSON.parse(data.value); } catch { return []; }
+  return readBranchJson<number[]>('favorites', [], getBranchId());
 }
 
 // ─── 컴포넌트 ──────────────────────────────────────────────────────────────────
@@ -95,7 +89,7 @@ const AppHeader = ({
   const setBranch = useAuthStore((s) => s.setBranch);
 
   // props 우선, 없으면 스토어 값 사용
-  const displayBranchName = branchNameProp ?? authUser?.branchName ?? '스포짐';
+  const displayBranchName = branchNameProp ?? authUser?.branchName ?? 'FitGenie CRM';
   const displayUserName = userNameProp ?? authUser?.name ?? '사용자';
 
   // ── 드롭다운 열림 상태: 하나만 열리도록 단일 키로 관리 ──
@@ -691,3 +685,4 @@ const AppHeader = ({
 };
 
 export default AppHeader;
+

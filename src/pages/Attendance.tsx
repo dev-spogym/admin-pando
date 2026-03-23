@@ -363,12 +363,22 @@ export default function Attendance() {
       setLoading(true);
       try {
         // 출석 데이터 (attendance 테이블)
-        // 출석 + 회원 전화번호 함께 조회
         const { data: attendanceData } = await supabase
           .from("attendance")
-          .select("id, memberId, memberName, checkInAt, checkOutAt, type, checkInMethod, branchId, sourceBranchId, status, failReason, userType, members!inner(phone)")
+          .select("id, memberId, memberName, checkInAt, checkOutAt, type, checkInMethod, branchId")
           .eq("branchId", branchId)
           .order("checkInAt", { ascending: false });
+
+        const memberIds = Array.from(
+          new Set((attendanceData ?? []).map((a: any) => a.memberId).filter((id: unknown) => typeof id === "number"))
+        );
+        const { data: memberPhoneData } = memberIds.length > 0
+          ? await supabase
+              .from("members")
+              .select("id, phone")
+              .in("id", memberIds)
+          : { data: [] as Array<{ id: number; phone: string | null }> };
+        const phoneMap = new Map((memberPhoneData ?? []).map((m: any) => [m.id, m.phone ?? "-"]));
 
         if (attendanceData) {
           const mapped: AttendanceRecord[] = attendanceData.map((a: any) => {
@@ -377,9 +387,7 @@ export default function Attendance() {
             const timePart = checkInAt.split("T")[1]?.substring(0, 5) ?? "";
             const typeKo = TYPE_KO[a.type] ?? a.type ?? "일반";
             const methodKo = METHOD_KO[a.checkInMethod] ?? a.checkInMethod ?? "키오스크";
-            const phone = a.members?.phone ?? "-";
-            // status 필드: DB에 있으면 사용, 없으면 기본 "성공"
-            const statusVal: "성공" | "실패" = a.status === "실패" || a.status === "FAIL" ? "실패" : "성공";
+            const phone = phoneMap.get(a.memberId) ?? "-";
             return {
               id: a.id,
               date: datePart,
@@ -387,14 +395,14 @@ export default function Attendance() {
               memberName: a.memberName ?? "",
               attendanceType: typeKo as "일반" | "PT" | "GX" | "수동",
               checkInMethod: methodKo as "키오스크" | "앱",
-              isOtherBranch: !!(a.sourceBranchId && a.sourceBranchId !== branchId),
-              sourceBranchId: a.sourceBranchId ?? null,
-              status: statusVal,
-              failReason: a.failReason ?? null,
+              isOtherBranch: false,
+              sourceBranchId: null,
+              status: "성공",
+              failReason: null,
               memberId: a.memberId ?? 0,
               tel: phone,
               presence: a.checkOutAt ? "부재" as const : "재실" as const,
-              userType: a.userType ?? null,
+              userType: null,
             };
           });
           setRecords(mapped);
