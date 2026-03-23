@@ -40,6 +40,7 @@ import listPlugin from "@fullcalendar/list";
 import koLocale from "@fullcalendar/core/locales/ko";
 import type { EventClickArg, EventDropArg, EventContentArg } from "@fullcalendar/core";
 import type { DateClickArg, EventResizeDoneArg } from "@fullcalendar/interaction";
+import { useLocation, useNavigate } from "react-router-dom";
 
 /**
  * SCR-021: 수업/캘린더
@@ -195,6 +196,20 @@ const TRAINER_COLORS: Record<string, { bg: string; border: string; text: string;
   "5": { bg: "bg-emerald-50", border: "border-emerald-400",text: "text-emerald-700",light: "bg-emerald-50" },
 };
 const DEFAULT_COLOR = { bg: "bg-surface-secondary", border: "border-line", text: "text-content-secondary", light: "bg-surface-secondary" };
+
+const PATH_TO_TAB: Record<string, string> = {
+  "/calendar": "schedule",
+  "/lessons": "classes",
+  "/lesson-counts": "counts",
+  "/penalties": "penalty",
+};
+
+const TAB_TO_PATH: Record<string, string> = {
+  schedule: "/calendar",
+  classes: "/lessons",
+  counts: "/lesson-counts",
+  penalty: "/penalties",
+};
 
 // --- 수업 편집 가능 여부 체크 ---
 function isEventEditable(startStr: string): { editable: boolean; reason: string } {
@@ -633,9 +648,10 @@ function renderEventContent(eventInfo: EventContentArg) {
 }
 
 export default function Calendar() {
+  const location = useLocation();
+  const navigate = useNavigate();
   const calendarRef = useRef<FullCalendar>(null);
 
-  const [activeTab, setActiveTab] = useState("schedule");
   const [selectedEvent, setSelectedEvent] = useState<ScheduleEvent | null>(null);
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
@@ -698,6 +714,21 @@ export default function Calendar() {
   const [lessonSchedules, setLessonSchedules] = useState<LessonSchedule[]>([]);
 
   const branchId = Number(localStorage.getItem("branchId") ?? 1);
+  const activeTab = useMemo(() => {
+    const routeTab = PATH_TO_TAB[location.pathname];
+    if (routeTab) return routeTab;
+    const queryTab = new URLSearchParams(location.search).get("tab");
+    return queryTab === "valid" ? "valid" : "schedule";
+  }, [location.pathname, location.search]);
+
+  const handleTabChange = useCallback((tab: string) => {
+    if (tab === "valid") {
+      navigate("/calendar?tab=valid");
+      return;
+    }
+    const nextPath = TAB_TO_PATH[tab] ?? "/calendar";
+    navigate(nextPath);
+  }, [navigate]);
 
   // --- Supabase 데이터 로드 ---
   const fetchData = useCallback(async () => {
@@ -1216,7 +1247,7 @@ export default function Calendar() {
         }
       />
 
-      <TabNav className="mb-lg" tabs={tabs} activeTab={activeTab} onTabChange={setActiveTab} />
+      <TabNav className="mb-lg" tabs={tabs} activeTab={activeTab} onTabChange={handleTabChange} />
 
       {loading && (
         <div className="flex items-center justify-center py-xl text-[13px] text-content-secondary">
