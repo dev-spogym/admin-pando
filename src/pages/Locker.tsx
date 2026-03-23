@@ -253,11 +253,19 @@ export default function Locker() {
           .eq("branchId", branchId);
 
         if (lockerData) {
+          // DB status → UI status 변환
+          const mapStatus = (s: string): LockerStatus => {
+            const m: Record<string, LockerStatus> = {
+              AVAILABLE: "available", IN_USE: "in_use", MAINTENANCE: "broken",
+              available: "available", in_use: "in_use", broken: "broken", expiring: "expiring",
+            };
+            return m[s] ?? "available";
+          };
           const mapped: LockerData[] = lockerData.map((l: any) => ({
             id: String(l.id),
             number: l.number ?? 0,
-            zone: (l.zone as "A" | "B" | "C") ?? "A",
-            status: (l.status as LockerStatus) ?? "available",
+            zone: "A" as "A" | "B" | "C",
+            status: mapStatus(l.status ?? "AVAILABLE"),
             memberName: l.memberName ?? undefined,
             memberId: l.memberId ? String(l.memberId) : undefined,
             assignedDate: l.assignedAt ? String(l.assignedAt).split("T")[0] : undefined,
@@ -574,11 +582,15 @@ export default function Locker() {
                   .eq("branchId", branchId)
                   .then(({ data }) => {
                     if (data) {
+                      const mapSt = (s: string): LockerStatus => {
+                        const m: Record<string, LockerStatus> = { AVAILABLE: "available", IN_USE: "in_use", MAINTENANCE: "broken" };
+                        return m[s] ?? (s as LockerStatus) ?? "available";
+                      };
                       setLockers(data.map((l: any) => ({
                         id: String(l.id),
                         number: l.number ?? 0,
-                        zone: (l.zone as "A" | "B" | "C") ?? "A",
-                        status: (l.status as LockerStatus) ?? "available",
+                        zone: "A" as "A" | "B" | "C",
+                        status: mapSt(l.status ?? "AVAILABLE"),
                         memberName: l.memberName ?? undefined,
                         memberId: l.memberId ? String(l.memberId) : undefined,
                         assignedDate: l.assignedAt ? String(l.assignedAt).split("T")[0] : undefined,
