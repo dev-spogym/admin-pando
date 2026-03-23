@@ -48,7 +48,7 @@ export default function StaffAttendance() {
 
   // 직원 목록 로드
   useEffect(() => {
-    supabase.from('staffs').select('id, name').eq('branchId', getBranchId()).then(({ data }) => {
+    supabase.from('staff').select('id, name').eq('branchId', getBranchId()).then(({ data }) => {
       if (data) setStaffList(data.map((s: Record<string, unknown>) => ({ id: s.id as number, name: s.name as string })));
     });
   }, []);

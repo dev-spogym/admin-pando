@@ -89,9 +89,19 @@ export default function ClassTemplates() {
     const { data, error } = await supabase
       .from('class_templates')
       .select('*')
-      .eq('branchId', branchId)
+      .eq('branch_id', branchId)
       .order('name');
-    if (!error && data) setTemplates(data as ClassTemplate[]);
+    if (!error && data) setTemplates(data.map((r: Record<string, unknown>) => ({
+      id: r.id as number,
+      branchId: (r.branch_id ?? r.branchId) as number,
+      name: r.name as string,
+      type: r.type as string,
+      defaultCapacity: (r.default_capacity ?? r.defaultCapacity) as number,
+      defaultDurationMin: (r.default_duration ?? r.defaultDurationMin) as number,
+      description: (r.description as string | null) ?? null,
+      color: r.color as string,
+      isActive: (r.is_active ?? r.isActive) as boolean,
+    })));
     setLoading(false);
   };
 
@@ -147,12 +157,12 @@ export default function ClassTemplates() {
     const payload = {
       name: form.name.trim(),
       type: form.type,
-      defaultCapacity: Number(form.defaultCapacity) || 10,
-      defaultDurationMin: Number(form.defaultDurationMin) || 60,
+      default_capacity: Number(form.defaultCapacity) || 10,
+      default_duration: Number(form.defaultDurationMin) || 60,
       description: form.description.trim() || null,
       color: form.color,
-      isActive: form.isActive,
-      branchId,
+      is_active: form.isActive,
+      branch_id: branchId,
     };
 
     if (editTarget) {

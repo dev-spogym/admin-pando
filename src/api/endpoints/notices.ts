@@ -24,9 +24,9 @@ export async function getNotices(branchId?: number): Promise<{ data: Notice[] | 
   const { data, error } = await supabase
     .from('notices')
     .select('*')
-    .eq('branchId', bid)
-    .order('isPinned', { ascending: false })
-    .order('createdAt', { ascending: false });
+    .eq('branch_id', bid)
+    .order('is_pinned', { ascending: false })
+    .order('created_at', { ascending: false });
 
   if (error) return { data: null, error: error.message };
   return {
@@ -34,12 +34,12 @@ export async function getNotices(branchId?: number): Promise<{ data: Notice[] | 
       id: row.id as number,
       title: (row.title as string) ?? '',
       content: (row.content as string) ?? '',
-      authorName: (row.authorName as string) ?? '',
-      isPinned: (row.isPinned as boolean) ?? false,
-      isPublic: (row.isPublic as boolean) ?? true,
-      branchId: row.branchId as number,
-      createdAt: (row.createdAt as string) ?? '',
-      updatedAt: (row.updatedAt as string) ?? '',
+      authorName: (row.author_name as string) ?? '',
+      isPinned: (row.is_pinned as boolean) ?? false,
+      isPublic: (row.is_published as boolean) ?? true,
+      branchId: (row.branch_id as number),
+      createdAt: (row.created_at as string) ?? '',
+      updatedAt: (row.updated_at as string) ?? '',
     })),
     error: null,
   };
@@ -53,8 +53,12 @@ export async function createNotice(data: {
   isPublic: boolean;
 }): Promise<{ error: string | null }> {
   const { error } = await supabase.from('notices').insert({
-    ...data,
-    branchId: getBranchId(),
+    title: data.title,
+    content: data.content,
+    author_name: data.authorName,
+    is_pinned: data.isPinned,
+    is_published: data.isPublic,
+    branch_id: getBranchId(),
   });
   return { error: error?.message ?? null };
 }
@@ -65,7 +69,13 @@ export async function updateNotice(id: number, data: Partial<{
   isPinned: boolean;
   isPublic: boolean;
 }>): Promise<{ error: string | null }> {
-  const { error } = await supabase.from('notices').update({ ...data, updatedAt: new Date().toISOString() }).eq('id', id);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const dbData: Record<string, any> = { updated_at: new Date().toISOString() };
+  if (data.title !== undefined) dbData.title = data.title;
+  if (data.content !== undefined) dbData.content = data.content;
+  if (data.isPinned !== undefined) dbData.is_pinned = data.isPinned;
+  if (data.isPublic !== undefined) dbData.is_published = data.isPublic;
+  const { error } = await supabase.from('notices').update(dbData).eq('id', id);
   return { error: error?.message ?? null };
 }
 

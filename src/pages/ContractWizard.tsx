@@ -133,7 +133,7 @@ export default function ContractWizard() {
 
     const fetchStaffs = async () => {
       const { data, error } = await supabase
-        .from('staffs')
+        .from('staff')
         .select('id, name')
         .eq('branchId', getBranchId());
       if (!error && data) {

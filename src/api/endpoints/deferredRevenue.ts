@@ -28,30 +28,30 @@ export async function getDeferredRevenues(branchId?: number): Promise<{ data: De
   const { data, error } = await supabase
     .from('deferred_revenue')
     .select('*')
-    .eq('branchId', bid)
-    .order('createdAt', { ascending: false });
+    .eq('branch_id', bid)
+    .order('created_at', { ascending: false });
 
   if (error) return { data: null, error: error.message };
 
   const items: DeferredRevenueItem[] = (data ?? []).map((row: Record<string, unknown>) => {
-    const total = Number(row.totalAmount) || 0;
-    const recognized = Number(row.recognizedAmount) || 0;
+    const total = Number(row.total_amount) || 0;
+    const recognized = Number(row.recognized_amount) || 0;
     const remaining = total - recognized;
     const progressPct = total > 0 ? Math.round((recognized / total) * 100) : 0;
     return {
       id: row.id as number,
-      saleId: row.saleId as number,
-      memberId: row.memberId as number,
-      memberName: (row.memberName as string) ?? '',
-      productName: (row.productName as string) ?? '',
+      saleId: (row.sale_id as number),
+      memberId: (row.member_id as number),
+      memberName: (row.member_name as string) ?? '',
+      productName: (row.product_name as string) ?? '',
       totalAmount: total,
       recognizedAmount: recognized,
       remainingAmount: remaining,
-      startDate: (row.startDate as string)?.slice(0, 10) ?? '',
-      endDate: (row.endDate as string)?.slice(0, 10) ?? '',
+      startDate: (row.start_date as string)?.slice(0, 10) ?? '',
+      endDate: (row.end_date as string)?.slice(0, 10) ?? '',
       progressPct,
-      branchId: row.branchId as number,
-      createdAt: (row.createdAt as string) ?? '',
+      branchId: (row.branch_id as number),
+      createdAt: (row.created_at as string) ?? '',
     };
   });
 
@@ -67,15 +67,15 @@ export async function calculateDeferredRevenue(saleId: number): Promise<{
 } | null> {
   const { data, error } = await supabase
     .from('deferred_revenue')
-    .select('totalAmount, recognizedAmount, startDate, endDate')
-    .eq('saleId', saleId)
+    .select('total_amount, recognized_amount, start_date, end_date')
+    .eq('sale_id', saleId)
     .single();
 
   if (error || !data) return null;
 
-  const total = Number(data.totalAmount) || 0;
-  const startDate = new Date(data.startDate as string);
-  const endDate = new Date(data.endDate as string);
+  const total = Number(data.total_amount) || 0;
+  const startDate = new Date(data.start_date as string);
+  const endDate = new Date(data.end_date as string);
   const today = new Date();
 
   // 일할 인식: (오늘까지 경과일 / 총 기간) * 총액

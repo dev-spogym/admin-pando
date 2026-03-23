@@ -46,7 +46,7 @@ export const getClassTemplates = async (
     const { data, error } = await supabase
       .from('class_templates')
       .select('*')
-      .eq('branchId', resolvedBranchId)
+      .eq('branch_id', resolvedBranchId)
       .order('name', { ascending: true });
     if (error) throw new Error(error.message);
     return { success: true, data: (data ?? []) as ClassTemplate[] };
@@ -64,7 +64,16 @@ export const createClassTemplate = async (
   try {
     const { data, error } = await supabase
       .from('class_templates')
-      .insert({ ...payload, branchId })
+      .insert({
+        branch_id: branchId,
+        name: payload.name,
+        type: payload.type,
+        default_capacity: payload.defaultCapacity,
+        default_duration: payload.defaultDurationMin,
+        description: payload.description ?? null,
+        color: payload.color,
+        is_active: payload.isActive,
+      })
       .select()
       .single();
     if (error) throw new Error(error.message);
@@ -80,10 +89,19 @@ export const updateClassTemplate = async (
   id: number,
   payload: Partial<ClassTemplateRequest>
 ): Promise<ApiResponse<ClassTemplate>> => {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const dbPayload: Record<string, any> = {};
+  if (payload.name !== undefined) dbPayload.name = payload.name;
+  if (payload.type !== undefined) dbPayload.type = payload.type;
+  if (payload.defaultCapacity !== undefined) dbPayload.default_capacity = payload.defaultCapacity;
+  if (payload.defaultDurationMin !== undefined) dbPayload.default_duration = payload.defaultDurationMin;
+  if (payload.description !== undefined) dbPayload.description = payload.description;
+  if (payload.color !== undefined) dbPayload.color = payload.color;
+  if (payload.isActive !== undefined) dbPayload.is_active = payload.isActive;
   try {
     const { data, error } = await supabase
       .from('class_templates')
-      .update(payload)
+      .update(dbPayload)
       .eq('id', id)
       .select()
       .single();

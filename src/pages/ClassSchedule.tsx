@@ -136,10 +136,16 @@ export default function ClassSchedule() {
   const fetchData = async () => {
     setLoading(true);
     const [tmplRes, staffRes] = await Promise.all([
-      supabase.from('class_templates').select('id, name, defaultCapacity, defaultDurationMin, color').eq('branchId', branchId).eq('isActive', true).order('name'),
+      supabase.from('class_templates').select('id, name, default_capacity, default_duration, color').eq('branch_id', branchId).eq('is_active', true).order('name'),
       supabase.from('users').select('id, name').eq('branchId', branchId).in('role', ['fc', 'staff', 'manager', 'owner', 'primary']),
     ]);
-    if (!tmplRes.error && tmplRes.data) setTemplates(tmplRes.data as ClassTemplate[]);
+    if (!tmplRes.error && tmplRes.data) setTemplates(tmplRes.data.map((r: Record<string, unknown>) => ({
+      id: r.id as number,
+      name: r.name as string,
+      defaultCapacity: r.default_capacity as number,
+      defaultDurationMin: r.default_duration as number,
+      color: r.color as string,
+    })));
     if (!staffRes.error && staffRes.data) setStaffList(staffRes.data as Staff[]);
     setLoading(false);
   };
