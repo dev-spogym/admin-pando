@@ -68,6 +68,7 @@ const MENU_ITEMS: MenuItem[] = [
       { label: "수업 관리", path: "/lessons" },
       { label: "횟수 관리", path: "/lesson-counts" },
       { label: "페널티 관리", path: "/penalties" },
+      { label: "유효 수업 목록", path: "/valid-lessons" },
       { label: "수업 템플릿", path: "/class-templates" },
       { label: "시간표 등록", path: "/class-schedule" },
       { label: "수업 현황", path: "/class-stats" },
