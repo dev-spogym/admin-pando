@@ -47,7 +47,7 @@ export interface RefreshTokenRequest {
 const fetchUserProfile = async (username: string) => {
   const { data: rows, error } = await supabase
     .from('users')
-    .select('id, username, name, role, branchId, tenantId, isSuperAdmin, currentBranchId')
+    .select('*')
     .eq('username', username)
     .eq('isActive', true)
     .single();
