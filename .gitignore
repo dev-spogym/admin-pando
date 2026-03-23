@@ -43,3 +43,6 @@ output/
 qa-screenshots/
 qa-test.cjs
 qa-test.mjs
+
+# MCP
+.mcp.json
