@@ -61,9 +61,6 @@ const MemberTransfer = React.lazy(() => import('@/pages/MemberTransfer'));
 const ScheduleRequests = React.lazy(() => import('@/pages/ScheduleRequests'));
 
 // --- BROJ CRM 신규 페이지 ---
-const LessonManagement = React.lazy(() => import('@/pages/LessonManagement'));
-const LessonCounts = React.lazy(() => import('@/pages/LessonCounts'));
-const PenaltyManagement = React.lazy(() => import('@/pages/PenaltyManagement'));
 const RefundManagement = React.lazy(() => import('@/pages/RefundManagement'));
 const UnpaidManagement = React.lazy(() => import('@/pages/UnpaidManagement'));
 const SalesStats = React.lazy(() => import('@/pages/SalesStats'));
@@ -167,9 +164,9 @@ export default function App() {
       <Route path="/branch-report" element={<PrivateRoute><BranchReport /></PrivateRoute>} />
 
       {/* 수업 관리 (BROJ CRM) */}
-      <Route path="/lessons" element={<PrivateRoute><LessonManagement /></PrivateRoute>} />
-      <Route path="/lesson-counts" element={<PrivateRoute><LessonCounts /></PrivateRoute>} />
-      <Route path="/penalties" element={<PrivateRoute><PenaltyManagement /></PrivateRoute>} />
+      <Route path="/lessons" element={<PrivateRoute><Calendar /></PrivateRoute>} />
+      <Route path="/lesson-counts" element={<PrivateRoute><Calendar /></PrivateRoute>} />
+      <Route path="/penalties" element={<PrivateRoute><Calendar /></PrivateRoute>} />
 
       {/* 수업 관리 강화 (Sprint 4) */}
       <Route path="/class-templates" element={<PrivateRoute><ClassTemplates /></PrivateRoute>} />
