@@ -1,4 +1,4 @@
--- 멀티테넌트 아키텍처 마이그레이션
+﻿-- 멀티테넌트 아키텍처 마이그레이션
 -- 2026-03-12
 
 -- ============================================================
@@ -20,7 +20,7 @@ CREATE TABLE IF NOT EXISTS tenants (
 );
 
 -- 기본 테넌트 생성 (기존 데이터 호환)
-INSERT INTO tenants (id, name, plan) VALUES (1, '스포짐', 'STANDARD')
+INSERT INTO tenants (id, name, plan) VALUES (1, 'FitGenie CRM', 'STANDARD')
 ON CONFLICT (id) DO NOTHING;
 
 -- ============================================================
@@ -218,3 +218,4 @@ CREATE INDEX IF NOT EXISTS idx_branches_tenant ON branches("tenantId");
 CREATE INDEX IF NOT EXISTS idx_users_tenant ON users("tenantId");
 CREATE INDEX IF NOT EXISTS idx_staff_status ON staff("staffStatus");
 CREATE INDEX IF NOT EXISTS idx_members_home_branch ON members("homeBranchId");
+

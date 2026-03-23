@@ -1,8 +1,8 @@
-{
+﻿{
   "meta": {
     "date": "2026-03-18",
     "type": "gap-analysis",
-    "comparison": "OnFit vs 스포짐 CRM (pando-beta)",
+    "comparison": "OnFit vs FitGenie CRM (pando-beta)",
     "analyzer": "Claude (Chrome Extension)"
   },
   "summary": {
@@ -112,3 +112,5 @@
     ]
   }
 }
+
+

@@ -1,4 +1,4 @@
-"""
+﻿"""
 기획문서 v6 업데이트: 레슨북/온핏/브로제이 경쟁사 기능 반영
 - 상품 레슨북 컬럼 (홀딩/양도/포인트/판매유형)
 - 상품 동적 카테고리
@@ -12,8 +12,8 @@ import shutil
 from openpyxl import load_workbook
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 
-SRC = "excel/스포짐_기획문서_v5_온핏반영.xlsx"
-DST = "excel/스포짐_기획문서_v6_레슨북반영.xlsx"
+SRC = "excel/FitGenie CRM_기획문서_v5_온핏반영.xlsx"
+DST = "excel/FitGenie CRM_기획문서_v6_레슨북반영.xlsx"
 
 # 복사
 shutil.copy2(SRC, DST)
@@ -220,3 +220,4 @@ print("  - 기능명세서: 11개 신규 기능")
 print("  - 비즈니스정책: 10개 신규 정책")
 print("  - 데이터 정의서: 6개 신규 컬럼")
 print("  - UI 요소 상세: 10개 신규 요소")
+

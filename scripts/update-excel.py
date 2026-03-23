@@ -1,5 +1,5 @@
-"""
-스포짐 기획문서 v3 → v4 업데이트 스크립트
+﻿"""
+FitGenie CRM 기획문서 v3 → v4 업데이트 스크립트
 - IA(정보구조): 7개 페이지 추가
 - 기능명세서: 11개 기능 추가
 - 데이터 정의서: 14개 테이블 컬럼 추가
@@ -11,8 +11,8 @@ import openpyxl
 from openpyxl.styles import PatternFill, Font, Alignment, Border, Side
 from copy import copy
 
-SRC = "excel/스포짐_기획문서_v3.xlsx"
-DST = "excel/스포짐_기획문서_v4.xlsx"
+SRC = "excel/FitGenie CRM_기획문서_v3.xlsx"
+DST = "excel/FitGenie CRM_기획문서_v4.xlsx"
 
 wb = openpyxl.load_workbook(SRC)
 
@@ -520,3 +520,4 @@ for name in targets:
     old_r = wb_old[name].max_row
     new_r = wb_new[name].max_row
     print(f"  [{name}] {old_r}행 → {new_r}행 (+{new_r - old_r})")
+

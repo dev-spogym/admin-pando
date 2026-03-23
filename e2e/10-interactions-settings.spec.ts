@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+﻿import { test, expect } from '@playwright/test';
 
 // ============================================================
 // 메시지 발송 인터랙션 (/message)
@@ -110,14 +110,14 @@ test.describe('메시지 발송 인터랙션', () => {
     await page.getByRole('button', { name: '전체' }).click();
 
     // 메시지 입력
-    await page.getByPlaceholder('내용을 입력하세요.').fill('안녕하세요, 스포짐입니다.');
+    await page.getByPlaceholder('내용을 입력하세요.').fill('안녕하세요, FitGenie CRM입니다.');
 
     // 발송 버튼 클릭 -> 미리보기 모달
     await page.getByRole('button', { name: '메시지 발송' }).click();
     await expect(page.getByText('발송 미리보기')).toBeVisible();
     await expect(page.getByText('수신자 1,240명에게 발송됩니다.')).toBeVisible();
     // 모달 내 미리보기 텍스트 (paragraph 안에 있음)
-    await expect(page.locator('.fixed p.whitespace-pre-wrap').filter({ hasText: '안녕하세요, 스포짐입니다.' })).toBeVisible();
+    await expect(page.locator('.fixed p.whitespace-pre-wrap').filter({ hasText: '안녕하세요, FitGenie CRM입니다.' })).toBeVisible();
 
     // 취소 클릭
     await page.getByRole('button', { name: '취소' }).click();
@@ -742,7 +742,7 @@ test.describe('지점 관리 인터랙션', () => {
 
     // 취소
     await page.getByRole('button', { name: '취소' }).click();
-    await expect(page.getByPlaceholder('예: 스포짐 광화문점')).not.toBeVisible();
+    await expect(page.getByPlaceholder('예: FitGenie CRM 광화문점')).not.toBeVisible();
   });
 
   test('지점 이동 모달: 열기 -> 내용 확인 -> 닫기', async ({ page }) => {
@@ -763,3 +763,4 @@ test.describe('지점 관리 인터랙션', () => {
     await expect(page.locator('span').filter({ hasText: '임시휴업' }).first()).toBeVisible();
   });
 });
+

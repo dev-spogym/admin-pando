@@ -1,5 +1,5 @@
-"""
-스포짐 기획문서 v4 엑셀에 QA 리포트 결과를 반영하는 스크립트
+﻿"""
+FitGenie CRM 기획문서 v4 엑셀에 QA 리포트 결과를 반영하는 스크립트
 - QA테스트케이스 시트: BUG/UX 항목 TC 행 추가
 - 기능명세서 시트: 수정된 기능 비고 컬럼 업데이트
 - 화면설계서 시트: 수정된 화면 비고 업데이트
@@ -9,7 +9,7 @@ import openpyxl
 from openpyxl.styles import PatternFill, Font, Alignment, Border, Side
 from copy import copy
 
-EXCEL_PATH = "/Users/simjaehyeong/Desktop/pando/pando-beta/excel/스포짐_기획문서_v4.xlsx"
+EXCEL_PATH = "/Users/simjaehyeong/Desktop/pando/pando-beta/excel/FitGenie CRM_기획문서_v4.xlsx"
 
 # ─────────────────────────────────────────────
 # 1. QA 데이터 정의
@@ -479,3 +479,4 @@ QA테스트케이스: {before_qa_rows}행 → {after_qa_rows}행 (+{after_qa_row
 
 if __name__ == "__main__":
     main()
+

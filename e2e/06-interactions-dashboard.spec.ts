@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+﻿import { test, expect } from '@playwright/test';
 
 // 공통 로그인 헬퍼
 async function login(page: import('@playwright/test').Page) {
@@ -360,7 +360,7 @@ test.describe('사이드바 네비게이션', () => {
     await expect(sidebar).toHaveClass(/w-\[60px\]/);
 
     // 접힌 상태: 텍스트 메뉴가 안 보이고, 로고 "S"만 보임
-    await expect(sidebar.getByText('스포짐', { exact: true })).not.toBeVisible();
+    await expect(sidebar.getByText('FitGenie CRM', { exact: true })).not.toBeVisible();
     // 아이콘은 여전히 존재 (svg 아이콘)
     await expect(sidebar.locator('svg').first()).toBeVisible();
   });
@@ -476,7 +476,7 @@ test.describe('헤더 인터랙션', () => {
     await expect(header.getByText('운영관리자')).toBeVisible();
 
     // 지점 이름 표시 확인
-    await expect(header.getByText('스포짐 종각점')).toBeVisible();
+    await expect(header.getByText('FitGenie CRM 종각점')).toBeVisible();
 
     // 프로필 영역 클릭 가능 확인
     const profileArea = header.getByText('운영관리자').locator('..');
@@ -512,3 +512,4 @@ test.describe('헤더 인터랙션', () => {
     await page.waitForURL('**/members/new', { timeout: 5_000 });
   });
 });
+

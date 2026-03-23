@@ -1,4 +1,4 @@
-/**
+﻿/**
  * 멀티테넌트 전체 시딩 스크립트
  * 실행: npx tsx scripts/seed-full.ts
  *
@@ -39,7 +39,7 @@ async function main() {
   if (!existingTenant) {
     await supabase.from('tenants').insert({
       id: 1,
-      name: '스포짐',
+      name: 'FitGenie CRM',
       plan: 'PREMIUM',
       maxBranches: 10,
       isActive: true,
@@ -471,7 +471,7 @@ async function main() {
     if (!existing) {
       await supabase.from('settings').insert({
         branchId,
-        centerName: branchId === 2 ? '스포짐 서초점' : '스포짐 송파점',
+        centerName: branchId === 2 ? 'FitGenie CRM 서초점' : 'FitGenie CRM 송파점',
         businessHoursOpen: '06:00',
         businessHoursClose: branchId === 2 ? '23:00' : '22:00',
         smsEnabled: true,
@@ -523,3 +523,4 @@ async function main() {
 }
 
 main().catch(console.error);
+

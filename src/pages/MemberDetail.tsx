@@ -47,6 +47,7 @@ import {
 import { cn } from "@/lib/utils";
 import { moveToPage } from "@/internal";
 import { supabase } from "@/lib/supabase";
+import { readBranchJson, writeBranchJson } from "@/lib/branchStorage";
 
 import SignaturePad from "@/components/SignaturePad";
 import AppLayout from "@/components/AppLayout";
@@ -1178,33 +1179,12 @@ function TabLesson({ memberId }: { memberId: string }) {
 
   // 저장 / 불러오기
   const loadRecords = async () => {
-    try {
-      const { data } = await supabase
-        .from("settings")
-        .select("value")
-        .eq("branchId", branchId)
-        .eq("key", SETTINGS_KEY)
-        .single();
-      if (data?.value) {
-        const parsed = JSON.parse(data.value);
-        if (Array.isArray(parsed)) { setRecords(parsed); return; }
-      }
-    } catch {}
-    const local = localStorage.getItem(`settings_${branchId}_${SETTINGS_KEY}`);
-    if (local) {
-      try { const p = JSON.parse(local); if (Array.isArray(p)) setRecords(p); } catch {}
-    }
+    const saved = readBranchJson<LessonRecord[]>(SETTINGS_KEY, [], branchId);
+    if (Array.isArray(saved)) setRecords(saved);
   };
 
   const saveRecords = async (next: LessonRecord[]) => {
-    const v = JSON.stringify(next);
-    localStorage.setItem(`settings_${branchId}_${SETTINGS_KEY}`, v);
-    try {
-      await supabase.from("settings").upsert(
-        { branchId, key: SETTINGS_KEY, value: v, updatedAt: new Date().toISOString() },
-        { onConflict: "branchId,key" }
-      );
-    } catch {}
+    writeBranchJson(SETTINGS_KEY, next, branchId);
   };
 
   useEffect(() => { loadRecords(); }, [memberId]);
@@ -1438,33 +1418,15 @@ export default function MemberDetail() {
     if (!memberId) return;
     const loadFavorite = async () => {
       const branchId = Number(localStorage.getItem('branchId') || '1');
-      const { data } = await supabase
-        .from('settings')
-        .select('value')
-        .eq('branchId', branchId)
-        .eq('key', 'favorites')
-        .single();
-      if (data?.value) {
-        try {
-          const favIds: number[] = JSON.parse(data.value);
-          setIsFavorite(favIds.includes(Number(memberId)));
-        } catch {}
-      }
+      const favIds = readBranchJson<number[]>('favorites', [], branchId);
+      setIsFavorite(favIds.includes(Number(memberId)));
     };
     loadFavorite();
   }, [memberId]);
 
   const toggleFavorite = async () => {
     const branchId = Number(localStorage.getItem('branchId') || '1');
-    const { data } = await supabase
-      .from('settings')
-      .select('id, value')
-      .eq('branchId', branchId)
-      .eq('key', 'favorites')
-      .single();
-
-    let favIds: number[] = [];
-    try { favIds = data?.value ? JSON.parse(data.value) : []; } catch {}
+    let favIds = readBranchJson<number[]>('favorites', [], branchId);
 
     const mid = Number(memberId);
     if (isFavorite) {
@@ -1473,11 +1435,7 @@ export default function MemberDetail() {
       if (!favIds.includes(mid)) favIds.push(mid);
     }
 
-    if (data?.id) {
-      await supabase.from('settings').update({ value: JSON.stringify(favIds) }).eq('id', data.id);
-    } else {
-      await supabase.from('settings').insert({ branchId, key: 'favorites', value: JSON.stringify(favIds) });
-    }
+    writeBranchJson('favorites', favIds, branchId);
 
     setIsFavorite(!isFavorite);
     toast.success(isFavorite ? '즐겨찾기가 해제되었습니다.' : '즐겨찾기에 추가되었습니다.');

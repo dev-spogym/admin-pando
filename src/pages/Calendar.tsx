@@ -706,7 +706,7 @@ export default function Calendar() {
       // 트레이너 목록 (staff 테이블, role = '트레이너')
       const { data: staffData } = await supabase
         .from("staff")
-        .select("id, name, type")
+        .select("id, name, role")
         .eq("role", "트레이너")
         .eq("branchId", branchId);
 
@@ -714,14 +714,14 @@ export default function Calendar() {
         setInstructors(staffData.map((s: any) => ({
           id: String(s.id),
           name: s.name,
-          type: s.type ?? "",
+          type: s.role ?? "",
         })));
       }
 
       // 수업 일정 (classes 테이블)
       const { data: classData } = await supabase
         .from("classes")
-        .select("id, title, type, staffId, staffName, room, startTime, endTime, capacity, booked, isRecurring, branchId, status, scheduleCategory, approvalStatus, targetType, targetName")
+        .select("id, title, type, staffId, staffName, room, startTime, endTime, capacity, booked, isRecurring, branchId")
         .eq("branchId", branchId);
 
       if (classData) {
@@ -735,12 +735,12 @@ export default function Calendar() {
           room: c.room ?? "",
           capacity: c.capacity ?? 0,
           currentCount: c.booked ?? 0,
-          status: (c.status as "예약" | "완료" | "취소") ?? "예약",
+          status: "예약",
           type: (c.type as EventType) ?? "기타",
-          scheduleCategory: c.scheduleCategory ?? null,
-          approvalStatus: c.approvalStatus ?? null,
-          targetType: c.targetType ?? null,
-          targetName: c.targetName ?? null,
+          scheduleCategory: null,
+          approvalStatus: null,
+          targetType: null,
+          targetName: null,
         }));
         // #18 미승인 건수 계산
         const pendingItems = mapped.filter(e => e.approvalStatus === 'pending');
@@ -753,7 +753,7 @@ export default function Calendar() {
           instructor: c.staffName ?? "",
           room: c.room ?? "",
           schedule: c.startTime ? c.startTime.split("T")[0] : "",
-          status: c.status ?? "진행중",
+          status: "진행중",
         })));
       }
       // lessons 테이블에서 유효 수업 목록 조회
@@ -770,10 +770,7 @@ export default function Calendar() {
       // lesson_schedules 테이블에서 수업 일정 조회 (lessons 조인)
       const { data: scheduleData } = await supabase
         .from("lesson_schedules")
-        .select(`
-          *,
-          lessons (name, color)
-        `)
+        .select("*")
         .eq("branchId", branchId);
 
       if (scheduleData) {
@@ -788,9 +785,9 @@ export default function Calendar() {
           capacity: s.capacity ?? 0,
           status: s.status ?? "예약가능",
           memo: s.memo ?? null,
-          lessonName: s.lessons?.name ?? "",
+          lessonName: s.lessonName ?? "",
           instructorName: s.instructorName ?? "",
-          lessonColor: s.lessons?.color ?? null,
+          lessonColor: s.lessonColor ?? null,
         }));
         setLessonSchedules(mapped);
       }

@@ -1,5 +1,5 @@
-"""
-스포짐_기획문서_v4.xlsx 나머지 5개 시트 데이터 추가 스크립트
+﻿"""
+FitGenie CRM_기획문서_v4.xlsx 나머지 5개 시트 데이터 추가 스크립트
 - 사용자 스토리: US-070~080 (11개)
 - 화면설계서: SCR-070~076 (7개)
 - UI 요소 상세: UI-700~776 (신규 페이지 요소)
@@ -11,7 +11,7 @@ import openpyxl
 from openpyxl.styles import PatternFill, Font, Alignment, Border, Side
 from copy import copy
 
-FILE_PATH = "excel/스포짐_기획문서_v4.xlsx"
+FILE_PATH = "excel/FitGenie CRM_기획문서_v4.xlsx"
 
 wb = openpyxl.load_workbook(FILE_PATH)
 
@@ -461,3 +461,4 @@ print(f"화면설계서:   {before_screen} → {after_screen} (+{after_screen - 
 print(f"UI 요소 상세: {before_ui} → {after_ui} (+{after_ui - before_ui}행)")
 print(f"비즈니스정책: {before_bp} → {after_bp} (+{after_bp - before_bp}행)")
 print(f"화면흐름도:   {before_flow} → {after_flow} (+{after_flow - before_flow}행)")
+

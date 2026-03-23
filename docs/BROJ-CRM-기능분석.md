@@ -1,8 +1,8 @@
-# BROJ CRM 기능 분석 vs 스포짐 CRM 비교
+﻿# BROJ CRM 기능 분석 vs FitGenie CRM 비교
 
 - 분석일: 2026-03-17
-- 대상: https://crm.broj.co.kr (스포짐 울지로점)
-- 목적: BROJ CRM의 기능을 스포짐 CRM에 가져오기 위한 GAP 분석
+- 대상: https://crm.broj.co.kr (FitGenie CRM 울지로점)
+- 목적: BROJ CRM의 기능을 FitGenie CRM에 가져오기 위한 GAP 분석
 
 ---
 
@@ -140,3 +140,5 @@
 - 마켓 판매 연동
 - 다지점 회원권/수강권
 - 운동복 관리
+
+

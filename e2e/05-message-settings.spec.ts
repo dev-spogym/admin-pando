@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+﻿import { test, expect } from '@playwright/test';
 
 // ============================================================
 // 1. 메시지 발송 (/message)
@@ -622,9 +622,9 @@ test.describe('지점 관리', () => {
   test('지점 목록 테이블에 데이터가 표시된다', async ({ page }) => {
     test.setTimeout(10_000);
     await expect(page.getByText('지점 현황 목록')).toBeVisible();
-    await expect(page.getByText('스포짐 종각점').first()).toBeVisible();
-    await expect(page.getByText('스포짐 강남점').first()).toBeVisible();
-    await expect(page.getByText('스포짐 여의도점').first()).toBeVisible();
+    await expect(page.getByText('FitGenie CRM 종각점').first()).toBeVisible();
+    await expect(page.getByText('FitGenie CRM 강남점').first()).toBeVisible();
+    await expect(page.getByText('FitGenie CRM 여의도점').first()).toBeVisible();
   });
 
   test('통계 카드가 표시된다', async ({ page }) => {
@@ -639,7 +639,7 @@ test.describe('지점 관리', () => {
     test.setTimeout(10_000);
     await page.getByRole('button', { name: '신규 지점 등록' }).click();
     await expect(page.getByText('신규 지점 등록').nth(1)).toBeVisible();
-    await expect(page.getByPlaceholder('예: 스포짐 광화문점')).toBeVisible();
+    await expect(page.getByPlaceholder('예: FitGenie CRM 광화문점')).toBeVisible();
   });
 
   test('지점 이동 신청 버튼 클릭 시 모달이 열린다', async ({ page }) => {
@@ -654,3 +654,4 @@ test.describe('지점 관리', () => {
     await expect(page.locator('span').filter({ hasText: '임시휴업' }).first()).toBeVisible();
   });
 });
+

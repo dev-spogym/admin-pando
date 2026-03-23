@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+﻿import React, { useState, useEffect } from "react";
 import {
   Home,
   Users,
@@ -255,7 +255,7 @@ const AppSidebar: React.FC<AppSidebarProps> = ({
             <div className="h-7 w-7 rounded-lg bg-primary flex items-center justify-center text-white text-[13px] font-bold">
               S
             </div>
-            <span className="text-[16px] font-bold text-content tracking-tight">스포짐</span>
+            <span className="text-[16px] font-bold text-content tracking-tight">FitGenie CRM</span>
           </div>
         ) : (
           <div className="mx-auto h-7 w-7 rounded-lg bg-primary flex items-center justify-center text-white text-[13px] font-bold cursor-pointer" onClick={() => handleNavigate("/", 966)}>
@@ -413,3 +413,4 @@ const AppSidebar: React.FC<AppSidebarProps> = ({
 };
 
 export default AppSidebar;
+

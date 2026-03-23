@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+﻿import { test, expect } from '@playwright/test';
 
 // 로그인 헬퍼
 async function login(page: import('@playwright/test').Page) {
@@ -14,7 +14,7 @@ async function login(page: import('@playwright/test').Page) {
 test('인증 가드: 미로그인 시 /login으로 리다이렉트', async ({ page }) => {
   await page.goto('/');
   await page.waitForURL('**/login', { timeout: 5_000 });
-  await expect(page.getByRole('heading', { name: '스포짐 CRM' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'FitGenie CRM' })).toBeVisible();
 });
 
 test('로그인 후 대시보드 확인', async ({ page }) => {
@@ -54,3 +54,5 @@ test('직원 목록 페이지 확인', async ({ page }) => {
   await page.waitForTimeout(2000);
   await page.screenshot({ path: 'test-results/check-staff.png', fullPage: true });
 });
+
+

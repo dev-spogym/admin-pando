@@ -21,6 +21,7 @@ import ConfirmDialog from "@/components/ConfirmDialog";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/lib/supabase";
 import { toast } from "sonner";
+import { readBranchJson, writeBranchJson } from "@/lib/branchStorage";
 
 /**
  * SCR-053: 운동룸 관리
@@ -394,48 +395,13 @@ function getBranchId() { return localStorage.getItem("branchId") || "1"; }
 function getStorageKey() { return `settings_${getBranchId()}_${SETTINGS_KEY}`; }
 
 async function loadRoomSettings(): Promise<Room[] | null> {
-  try {
-    // Supabase 우선 시도
-    const { data: row } = await supabase
-      .from("settings")
-      .select("value")
-      .eq("branchId", getBranchId())
-      .eq("key", SETTINGS_KEY)
-      .single();
-    if (row?.value) {
-      const parsed = JSON.parse(row.value);
-      if (Array.isArray(parsed)) return parsed;
-    }
-  } catch {
-    // Supabase 실패 시 localStorage fallback
-  }
-  const saved = localStorage.getItem(getStorageKey());
-  if (saved) {
-    try {
-      const parsed = JSON.parse(saved);
-      if (Array.isArray(parsed)) return parsed;
-    } catch {}
-  }
-  return null;
+  const parsed = readBranchJson<Room[] | null>(SETTINGS_KEY, null, getBranchId());
+  return Array.isArray(parsed) ? parsed : null;
 }
 
 async function saveRoomSettings(rooms: Room[]): Promise<boolean> {
-  const jsonValue = JSON.stringify(rooms);
-  // localStorage에 항상 저장 (fallback)
-  localStorage.setItem(getStorageKey(), jsonValue);
-  try {
-    const { error } = await supabase.from("settings").upsert({
-      branchId: getBranchId(),
-      key: SETTINGS_KEY,
-      value: jsonValue,
-      updatedAt: new Date().toISOString(),
-    }, { onConflict: "branchId,key" });
-    if (error) throw error;
-    return true;
-  } catch {
-    // Supabase 실패해도 localStorage에는 저장됨
-    return false;
-  }
+  writeBranchJson(SETTINGS_KEY, rooms, getBranchId());
+  return true;
 }
 
 export default function RoomManagement() {

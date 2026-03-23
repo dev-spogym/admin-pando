@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react";
+﻿import React, { useState, useEffect, useCallback } from "react";
 import {
   Bell,
   Plus,
@@ -637,7 +637,7 @@ export default function AutoAlarm() {
                         <div className="w-5 h-5 rounded-full bg-primary flex items-center justify-center">
                           <Smartphone className="text-white" size={10} />
                         </div>
-                        <span className="text-[9px] font-bold text-content">스포짐 CRM</span>
+                        <span className="text-[9px] font-bold text-content">FitGenie CRM</span>
                         <span className="text-[9px] text-content-secondary ml-auto">방금 전</span>
                       </div>
                       <p className="text-[11px] text-content whitespace-pre-wrap leading-relaxed">
@@ -673,3 +673,5 @@ export default function AutoAlarm() {
     </AppLayout>
   );
 }
+
+

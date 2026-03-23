@@ -1,12 +1,12 @@
-#!/usr/bin/env python3
+﻿#!/usr/bin/env python3
 """
-스포짐 기획문서 v4.xlsx — 새로 추가된 행에 기존 서식 적용
+FitGenie CRM 기획문서 v4.xlsx — 새로 추가된 행에 기존 서식 적용
 """
 
 from copy import copy
 import openpyxl
 
-FILE_PATH = "/Users/simjaehyeong/Desktop/pando/pando-beta/excel/스포짐_기획문서_v4.xlsx"
+FILE_PATH = "/Users/simjaehyeong/Desktop/pando/pando-beta/excel/FitGenie CRM_기획문서_v4.xlsx"
 
 # 각 시트별 설정: (시트 이름 일부, 새 행 시작 행번호, 참조 행번호)
 SHEET_CONFIG = [
@@ -95,3 +95,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+﻿import React, { useState, useEffect } from 'react';
 import { Eye, EyeOff, Lock, User, MapPin, Loader2, ChevronDown, Check } from 'lucide-react';
 import { moveToPage } from '@/internal';
 import { cn } from '@/lib/utils';
@@ -110,7 +110,7 @@ export default function Login() {
           <div className="w-12 h-12 bg-primary rounded-xl flex items-center justify-center text-white">
             <span className="text-[20px] font-bold">S</span>
           </div>
-          <h1 className="text-[20px] font-bold text-content tracking-tight mt-sm">스포짐 CRM</h1>
+          <h1 className="text-[20px] font-bold text-content tracking-tight mt-sm">FitGenie CRM</h1>
           <p className="text-[13px] text-content-secondary">피트니스 센터 통합 관리 솔루션</p>
         </div>
 
@@ -254,8 +254,10 @@ export default function Login() {
       </div>
 
       <div className="fixed bottom-md left-0 w-full text-center text-[11px] text-content-tertiary pointer-events-none">
-        &copy; 2026 스포짐 CRM. All rights reserved.
+        &copy; 2026 FitGenie CRM. All rights reserved.
       </div>
     </div>
   );
 }
+
+

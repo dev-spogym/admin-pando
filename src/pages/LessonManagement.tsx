@@ -14,6 +14,7 @@ import ConfirmDialog from '@/components/ConfirmDialog';
 import SignaturePad from '@/components/SignaturePad';
 import { supabase } from '@/lib/supabase';
 import { bulkUpdateClasses, bulkDeleteClasses } from '@/api/endpoints/classSchedule';
+import { readBranchJson, writeBranchJson } from '@/lib/branchStorage';
 
 // ─── 수업 상태 설정 ────────────────────────────────────────────
 type LessonStatus = 'scheduled' | 'in_progress' | 'completed' | 'no_show' | 'cancelled';
@@ -252,25 +253,15 @@ export default function LessonManagement() {
 
   // ── 노쇼/취소 정책 로드 ──────────────────────────────────────
   const fetchPolicy = async () => {
-    const { data } = await supabase
-      .from('settings')
-      .select('value')
-      .eq('branchId', branchId)
-      .eq('key', 'lesson_policy')
-      .single();
-    if (data?.value) {
-      try {
-        const policy = JSON.parse(data.value);
-        setCancelDeadlineHours(policy.cancelDeadlineHours?.toString() ?? '3');
-        setNoShowDeductsSession(policy.noShowDeductsSession ?? true);
-        setAutoCompleteHours(policy.autoCompleteHours?.toString() ?? '24');
-        setLateCancelPenalty(policy.lateCancelPenalty ?? true);
-        setMaxNoShowCount(policy.maxNoShowCount?.toString() ?? '3');
-        setReservationAutoOpenHours(policy.reservationAutoOpenHours?.toString() ?? '48');
-        setWaitlistEnabled(policy.waitlistEnabled ?? true);
-        setWaitlistAutoPromote(policy.waitlistAutoPromote ?? true);
-      } catch { /* 파싱 실패 시 기본값 유지 */ }
-    }
+    const policy = readBranchJson<Record<string, unknown>>('lesson_policy', {}, branchId);
+    setCancelDeadlineHours(String(policy.cancelDeadlineHours ?? '3'));
+    setNoShowDeductsSession((policy.noShowDeductsSession as boolean | undefined) ?? true);
+    setAutoCompleteHours(String(policy.autoCompleteHours ?? '24'));
+    setLateCancelPenalty((policy.lateCancelPenalty as boolean | undefined) ?? true);
+    setMaxNoShowCount(String(policy.maxNoShowCount ?? '3'));
+    setReservationAutoOpenHours(String(policy.reservationAutoOpenHours ?? '48'));
+    setWaitlistEnabled((policy.waitlistEnabled as boolean | undefined) ?? true);
+    setWaitlistAutoPromote((policy.waitlistAutoPromote as boolean | undefined) ?? true);
   };
 
   const savePolicy = async () => {
@@ -286,24 +277,7 @@ export default function LessonManagement() {
       waitlistAutoPromote,
     });
 
-    // upsert: 있으면 업데이트, 없으면 생성
-    const { data: existing } = await supabase
-      .from('settings')
-      .select('id')
-      .eq('branchId', branchId)
-      .eq('key', 'lesson_policy')
-      .single();
-
-    if (existing) {
-      await supabase
-        .from('settings')
-        .update({ value: policyValue })
-        .eq('id', existing.id);
-    } else {
-      await supabase
-        .from('settings')
-        .insert({ branchId, key: 'lesson_policy', value: policyValue });
-    }
+    writeBranchJson('lesson_policy', JSON.parse(policyValue), branchId);
     setPolicySaving(false);
     toast.success('노쇼/취소 정책이 저장되었습니다.');
     setPolicyOpen(false);

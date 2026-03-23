@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+﻿import { test, expect } from '@playwright/test';
 
 // ============================================================
 // 1. 로그인 페이지 (/login)
@@ -9,9 +9,9 @@ test.describe('로그인 페이지', () => {
     await page.waitForLoadState('networkidle');
   });
 
-  test('페이지 로드 시 스포짐 CRM 텍스트가 표시된다', async ({ page }) => {
+  test('페이지 로드 시 FitGenie CRM 텍스트가 표시된다', async ({ page }) => {
     test.setTimeout(10_000);
-    await expect(page.getByRole('heading', { name: '스포짐 CRM' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'FitGenie CRM' })).toBeVisible();
     await expect(page.getByText('피트니스 센터 통합 관리 솔루션')).toBeVisible();
   });
 
@@ -138,7 +138,7 @@ test.describe('대시보드', () => {
   test('페이지 로드 시 PageHeader에 "대시보드" 텍스트가 표시된다', async ({ page }) => {
     test.setTimeout(15_000);
     await expect(page.getByRole('heading', { name: '대시보드' })).toBeVisible();
-    await expect(page.getByText('스포짐 종각점의 실시간 센터 운영 현황입니다.')).toBeVisible();
+    await expect(page.getByText('FitGenie CRM 종각점의 실시간 센터 운영 현황입니다.')).toBeVisible();
   });
 
   test('기간 필터 버튼 4개가 존재하고 클릭 가능하다', async ({ page }) => {
@@ -284,3 +284,5 @@ test.describe('공통 레이아웃', () => {
     await page.waitForURL('**/members', { timeout: 5_000 });
   });
 });
+
+

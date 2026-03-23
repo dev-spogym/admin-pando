@@ -1,7 +1,7 @@
-# 스포짐 CRM - 기획문서 vs 구현 GAP 분석
+﻿# FitGenie CRM - 기획문서 vs 구현 GAP 분석
 
 > 기준일: 2026-03-11
-> 기획문서: `excel/스포짐_기획문서_v2.xlsx`
+> 기획문서: `excel/FitGenie CRM_기획문서_v2.xlsx`
 > 사이드바: `src/components/AppSidebar.tsx`
 
 ---
@@ -967,3 +967,5 @@
 18. 구독 플랜 결제 연동
 19. 엑셀 다운로드/업로드 실구현
 20. 반응형/접근성 보강
+
+
