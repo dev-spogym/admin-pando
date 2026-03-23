@@ -85,7 +85,7 @@ export default function InstructorStatus() {
       .from('users')
       .select('id, name, role')
       .eq('branchId', branchId)
-      .in('role', ['fc', 'staff', 'manager', 'owner', 'primary']);
+      .in('role', ['ADMIN', 'MANAGER', 'STAFF']);
 
     if (!staff) { setLoading(false); return; }
 

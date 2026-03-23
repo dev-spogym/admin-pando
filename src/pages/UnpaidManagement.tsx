@@ -89,7 +89,7 @@ export default function UnpaidManagement() {
     setIsLoading(true);
     const { data, error } = await supabase
       .from('unpaid')
-      .select('id, memberId, memberName, productName, amount, dueDate, status, memo, createdAt, branchId')
+      .select('id, memberId, memberName, productName, unpaidAmount, dueDate, status, memo, createdAt, branchId')
       .eq('branchId', getBranchId())
       .order('createdAt', { ascending: false });
     setIsLoading(false);
@@ -108,7 +108,7 @@ export default function UnpaidManagement() {
             memberName: (row.memberName as string) ?? '',
             memberId: (row.memberId as number) ?? 0,
             productName: (row.productName as string) ?? '',
-            amount: Number(row.amount) || 0,
+            amount: Number(row.unpaidAmount) || 0,
             dueDate: (row.dueDate as string)?.slice(0, 10) ?? '',
             status: STATUS_KO[statusEn] ?? statusEn,
             memo: (row.memo as string) ?? '',

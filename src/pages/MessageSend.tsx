@@ -271,7 +271,7 @@ export default function MessageSend() {
     supabase
       .from("members")
       .select("id", { count: "exact", head: true })
-      .eq("branch_id", getBranchId())
+      .eq("branchId", getBranchId())
       .then(({ count }) => { if (count !== null) setTotalMemberCount(count); });
   }, []);
 

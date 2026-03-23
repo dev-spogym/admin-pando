@@ -57,7 +57,7 @@ export const getLessonCounts = async (memberId?: number): Promise<ApiResponse<Le
       ...r,
       totalCount: Number(r.totalCount),
       usedCount: Number(r.usedCount),
-      remainCount: Number(r.remainCount),
+      remainCount: Number(r.totalCount) - Number(r.usedCount),
     }));
 
     return { success: true, data: rows as LessonCount[] };
@@ -77,7 +77,6 @@ export const createLessonCount = async (
       .insert({
         ...payload,
         usedCount: 0,
-        remainCount: payload.totalCount,
       })
       .select()
       .single();
@@ -96,7 +95,7 @@ export const deductCount = async (id: number): Promise<ApiResponse<LessonCount>>
     // 현재 횟수 조회
     const { data: current, error: fetchError } = await supabase
       .from('lesson_counts')
-      .select('usedCount, remainCount')
+      .select('usedCount, totalCount')
       .eq('id', id)
       .single();
 
@@ -104,13 +103,13 @@ export const deductCount = async (id: number): Promise<ApiResponse<LessonCount>>
     if (!current) throw new Error('횟수 정보를 찾을 수 없습니다.');
 
     const usedCount = Number(current.usedCount) + 1;
-    const remainCount = Number(current.remainCount) - 1;
+    const remainCount = Number(current.totalCount) - usedCount;
 
     if (remainCount < 0) throw new Error('잔여 횟수가 부족합니다.');
 
     const { data, error } = await supabase
       .from('lesson_counts')
-      .update({ usedCount, remainCount })
+      .update({ usedCount })
       .eq('id', id)
       .select()
       .single();

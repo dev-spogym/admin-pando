@@ -105,7 +105,7 @@ export default function GolfBayManagement() {
         .from('users')
         .select('id, name')
         .eq('branchId', getBranchId())
-        .in('role', ['fc', 'staff', 'manager', 'owner', 'primary']);
+        .in('role', ['ADMIN', 'MANAGER', 'STAFF']);
       if (data) setStaffList(data);
     })();
   }, []);

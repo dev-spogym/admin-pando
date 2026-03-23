@@ -23,7 +23,7 @@ export interface Refund {
   reason?: string;
   processedBy?: number;
   processedByName?: string;
-  refundedAt: string;
+  processedAt: string;
   createdAt?: string;
 }
 
@@ -61,10 +61,10 @@ export const getRefunds = async (
       .from('refunds')
       .select('*')
       .eq('branchId', resolvedBranchId)
-      .order('refundedAt', { ascending: false });
+      .order('processedAt', { ascending: false });
 
-    if (startDate) query = query.gte('refundedAt', startDate);
-    if (endDate) query = query.lte('refundedAt', endDate);
+    if (startDate) query = query.gte('processedAt', startDate);
+    if (endDate) query = query.lte('processedAt', endDate);
 
     const { data, error } = await query;
     if (error) throw new Error(error.message);
@@ -89,7 +89,7 @@ export const createRefund = async (payload: RefundRequest): Promise<ApiResponse<
   try {
     const { data, error } = await supabase
       .from('refunds')
-      .insert({ ...payload, branchId, refundedAt: new Date().toISOString() })
+      .insert({ ...payload, branchId, processedAt: new Date().toISOString() })
       .select()
       .single();
 
@@ -115,8 +115,8 @@ export const getRefundStats = async (
       .select('refundAmount, refundMethod')
       .eq('branchId', resolvedBranchId);
 
-    if (startDate) query = query.gte('refundedAt', startDate);
-    if (endDate) query = query.lte('refundedAt', endDate);
+    if (startDate) query = query.gte('processedAt', startDate);
+    if (endDate) query = query.lte('processedAt', endDate);
 
     const { data, error } = await query;
     if (error) throw new Error(error.message);

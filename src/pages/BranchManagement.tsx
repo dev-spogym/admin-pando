@@ -121,10 +121,10 @@ export default function BranchManagement() {
 
           const { data: salesData } = await supabase
             .from('sales')
-            .select('totalAmount')
+            .select('amount')
             .eq('branchId', b.id);
 
-          const totalSales = salesData?.reduce((sum: number, s: any) => sum + Number(s.totalAmount || 0), 0) ?? 0;
+          const totalSales = salesData?.reduce((sum: number, s: any) => sum + Number(s.amount || 0), 0) ?? 0;
 
           return {
             branch: b.name,

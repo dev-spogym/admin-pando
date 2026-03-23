@@ -77,12 +77,12 @@ export default function RefundManagement() {
     setIsLoading(true);
     let query = supabase
       .from('refunds')
-      .select('id, memberId, memberName, productName, amount, refundDate, method, reason, staffName, status, branchId')
+      .select('id, memberId, memberName, productName, refundAmount, processedAt, refundMethod, reason, processedByName, status, branchId')
       .eq('branchId', getBranchId())
-      .order('refundDate', { ascending: false });
+      .order('processedAt', { ascending: false });
 
-    if (dateStart) query = query.gte('refundDate', dateStart);
-    if (dateEnd) query = query.lte('refundDate', dateEnd);
+    if (dateStart) query = query.gte('processedAt', dateStart);
+    if (dateEnd) query = query.lte('processedAt', dateEnd);
 
     const { data, error } = await query;
     setIsLoading(false);
@@ -97,14 +97,14 @@ export default function RefundManagement() {
         data.map((row: Record<string, unknown>, idx: number) => ({
           id: row.id as number,
           no: data.length - idx,
-          refundDate: (row.refundDate as string)?.slice(0, 10) ?? '',
+          refundDate: (row.processedAt as string)?.slice(0, 10) ?? '',
           memberName: (row.memberName as string) ?? '',
           memberId: (row.memberId as number) ?? 0,
           productName: (row.productName as string) ?? '',
-          amount: Number(row.amount) || 0,
-          method: METHOD_KO[(row.method as string) ?? ''] ?? (row.method as string) ?? '',
+          amount: Number(row.refundAmount) || 0,
+          method: METHOD_KO[(row.refundMethod as string) ?? ''] ?? (row.refundMethod as string) ?? '',
           reason: (row.reason as string) ?? '',
-          staffName: (row.staffName as string) ?? '',
+          staffName: (row.processedByName as string) ?? '',
           status: (row.status as string) ?? '완료',
         }))
       );

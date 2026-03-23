@@ -227,7 +227,7 @@ export default function LessonManagement() {
       .from('users')
       .select('id, name')
       .eq('branchId', branchId)
-      .in('role', ['fc', 'staff', 'manager', 'owner', 'primary']);
+      .in('role', ['ADMIN', 'MANAGER', 'STAFF']);
     if (data) setStaffList(data);
   };
 

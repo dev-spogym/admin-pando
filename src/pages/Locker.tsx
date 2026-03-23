@@ -249,7 +249,7 @@ export default function Locker() {
         // 락커 데이터 (lockers 테이블)
         const { data: lockerData } = await supabase
           .from("lockers")
-          .select("id, number, status, memberId, memberName, assignedAt, expiresAt, branchId, zone, password, memo")
+          .select("id, number, status, memberId, memberName, assignedAt, expiresAt, branchId, password, memo")
           .eq("branchId", branchId);
 
         if (lockerData) {
@@ -570,7 +570,7 @@ export default function Locker() {
                 setLoading(true);
                 supabase
                   .from("lockers")
-                  .select("id, number, status, memberId, memberName, assignedAt, expiresAt, branchId, zone")
+                  .select("id, number, status, memberId, memberName, assignedAt, expiresAt, branchId")
                   .eq("branchId", branchId)
                   .then(({ data }) => {
                     if (data) {

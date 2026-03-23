@@ -162,13 +162,13 @@ export default function BranchReport() {
             // 총 매출 (선택 월)
             const { data: salesData } = await supabase
               .from('sales')
-              .select('totalAmount')
+              .select('amount')
               .eq('branchId', b.id)
               .gte('saleDate', startDate)
               .lte('saleDate', endDateStr);
 
             const totalSales = salesData?.reduce(
-              (sum, s) => sum + Number(s.totalAmount || 0),
+              (sum, s) => sum + Number(s.amount || 0),
               0
             ) ?? 0;
 
