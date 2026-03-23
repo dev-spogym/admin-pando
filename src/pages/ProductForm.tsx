@@ -1,99 +1,228 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import {
-  ArrowLeft,
-  Save,
-  Plus,
-  Trash2,
-  Clock,
-  Lock,
-  CheckCircle2,
-  AlertCircle,
-  Tag as TagIcon,
-  ChevronRight,
-  UserCheck,
-  CreditCard,
-  Banknote,
-  CalendarDays,
-  Settings2,
-} from 'lucide-react';
+import { AlertCircle, Search, X } from 'lucide-react';
 import { toast } from 'sonner';
-import { cn } from '@/lib/utils';
-import { moveToPage } from '@/internal';
 import AppLayout from '@/components/AppLayout';
-import PageHeader from '@/components/PageHeader';
-import FormSection from '@/components/FormSection';
-import StatusBadge from '@/components/StatusBadge';
 import ConfirmDialog from '@/components/ConfirmDialog';
+import { moveToPage } from '@/internal';
 import { supabase } from '@/lib/supabase';
-import {
-  productFormSchema,
-  formatPrice,
-  parsePrice,
-} from '@/lib/validations';
+import { cn } from '@/lib/utils';
+import { formatPrice, parsePrice, productFormSchema } from '@/lib/validations';
 import type { z } from 'zod';
-import { getProductGroups, type ProductGroup } from '@/api/endpoints/productGroups';
 
 type ProductFormData = z.input<typeof productFormSchema>;
+
+type ProductKind = '레슨' | '이용' | '락커' | '판매';
+type UseCategory = '기간' | '횟수' | '포인트';
+
+const PRODUCT_KIND_OPTIONS: ProductKind[] = ['레슨', '이용', '락커', '판매'];
+const USE_CATEGORY_OPTIONS: UseCategory[] = ['기간', '횟수', '포인트'];
+const OCCUPANCY_OPTIONS = ['1명', '2명', '3명', '4명'];
+const LESSON_DURATION_OPTIONS = [
+  '선택',
+  '10분',
+  '20분',
+  '30분',
+  '40분',
+  '50분',
+  '60분',
+  '70분',
+  '80분',
+  '90분',
+  '100분',
+  '110분',
+  '120분',
+];
+const LESSON_VALIDITY_OPTIONS = ['선택', '1개월', '3개월', '6개월', '12개월'];
+const LIMIT_OPTIONS = ['제한없음', '1회', '2회', '3회', '5회', '10회'];
+const DEFAULT_OPTIONS = ['기본', '사용', '선택', '필수'];
+const RESERVATION_DAY_OPTIONS = ['당일', '1일 전', '3일 전', '7일 전', '14일 전', '30일 전'];
+const RESERVATION_INTERVAL_OPTIONS = ['10분', '20분', '30분', '40분', '50분', '60분'];
+const PAUSE_PERIOD_OPTIONS = ['선택', '3일', '7일', '15일', '30일', '60일'];
+
+const WEEKDAY_ROWS = ['월', '화', '수', '목', '금', '토', '일'];
 
 const getBranchId = (): number => {
   const stored = localStorage.getItem('branchId');
   return stored ? Number(stored) : 1;
 };
 
-// 카테고리별 동적 하위 필드 정의 (알려진 카테고리는 설정 유지, 나머지는 기본값)
-const CATEGORY_CONFIG: Record<
-  string,
-  { periodLabel: string; showCount: boolean; countLabel: string; showDays: boolean }
-> = {
-  이용권: { periodLabel: '이용기간 (개월)', showCount: false, countLabel: '', showDays: false },
-  PT: { periodLabel: '유효기간 (일)', showCount: true, countLabel: '총 횟수 (회)', showDays: false },
-  GX: { periodLabel: '유효기간 (개월)', showCount: true, countLabel: '총 횟수 (회)', showDays: true },
-  골프: { periodLabel: '유효기간 (일)', showCount: true, countLabel: '총 횟수 (회)', showDays: false },
-  식품: { periodLabel: '유통기한 (일)', showCount: false, countLabel: '', showDays: false },
-  기타: { periodLabel: '이용기간', showCount: false, countLabel: '', showDays: false },
+const mapKindToCategory = (kind: ProductKind): string => {
+  switch (kind) {
+    case '레슨':
+      return 'PT';
+    case '이용':
+      return '이용권';
+    case '락커':
+      return '기타';
+    case '판매':
+      return '기타';
+    default:
+      return '이용권';
+  }
 };
-// 동적 카테고리용 기본값
-const DEFAULT_CATEGORY_CONFIG = { periodLabel: '이용기간', showCount: false, countLabel: '', showDays: false };
 
-// 기본 카테고리 (분류 관리에서 동적으로 추가 가능)
-const DEFAULT_CATEGORIES = ['이용권', 'PT', 'GX', '골프', '식품', '기타'];
+const mapCategoryToKind = (category: string): ProductKind => {
+  switch (category) {
+    case 'PT':
+    case 'GX':
+      return '레슨';
+    case '이용권':
+      return '이용';
+    case '기타':
+    default:
+      return '판매';
+  }
+};
 
-const PRODUCT_TYPES = [
-  { id: '이용권', label: '이용권', desc: '헬스 등 기간 이용권', icon: UserCheck, color: 'text-primary' },
-  { id: 'PT', label: 'PT', desc: '1:1 개인 레슨 횟수권', icon: CalendarDays, color: 'text-accent' },
-  { id: 'GX', label: 'GX', desc: '그룹 수업 횟수권', icon: CheckCircle2, color: 'text-state-info' },
-  { id: '골프', label: '골프', desc: '타석 이용권, 레슨 등', icon: CalendarDays, color: 'text-green-600' },
-  { id: '식품', label: '식품', desc: '보충제, 음료, 간식 등', icon: TagIcon, color: 'text-orange-600' },
-  { id: '기타', label: '기타', desc: '락커, 운동복, 일반 상품', icon: Lock, color: 'text-content-secondary' },
-];
+const emptyDayRows = () =>
+  WEEKDAY_ROWS.map(day => ({
+    day,
+    enabled: false,
+    from: '',
+    to: '',
+  }));
+
+function ClassicRadio({
+  checked,
+  onChange,
+  label,
+}: {
+  checked: boolean;
+  onChange: () => void;
+  label: string;
+}) {
+  return (
+    <label className="inline-flex items-center gap-1 text-[11px] leading-none text-[#333] cursor-pointer">
+      <span
+        className={cn(
+          'flex h-[12px] w-[12px] items-center justify-center rounded-full border border-[#666] bg-white',
+          checked && 'border-[#2f6db5]'
+        )}
+      >
+        {checked && <span className="h-[4px] w-[4px] rounded-full bg-[#2f6db5]" />}
+      </span>
+      <input type="radio" checked={checked} onChange={onChange} className="hidden" />
+      <span>{label}</span>
+    </label>
+  );
+}
+
+function ClassicCheckbox({
+  checked,
+  onChange,
+  label,
+  disabled = false,
+}: {
+  checked: boolean;
+  onChange: () => void;
+  label: string;
+  disabled?: boolean;
+}) {
+  return (
+    <label
+      className={cn(
+        'inline-flex items-center gap-1 text-[11px] leading-none',
+        disabled ? 'cursor-not-allowed text-[#9a9a9a]' : 'cursor-pointer text-[#4a4a4a]'
+      )}
+    >
+      <span
+        className={cn(
+          'flex h-[12px] w-[12px] items-center justify-center border border-[#9e9e9e] bg-white',
+          disabled && 'bg-[#f1f1f1]'
+        )}
+      >
+        {checked && !disabled && <span className="h-[6px] w-[6px] bg-[#8b8b8b]" />}
+      </span>
+      <input
+        type="checkbox"
+        checked={checked}
+        onChange={onChange}
+        disabled={disabled}
+        className="hidden"
+      />
+      <span>{label}</span>
+    </label>
+  );
+}
+
+function SelectBox({
+  value,
+  onChange,
+  options,
+  disabled = false,
+}: {
+  value: string;
+  onChange: (value: string) => void;
+  options: string[];
+  disabled?: boolean;
+}) {
+  return (
+    <select
+      value={value}
+      onChange={e => onChange(e.target.value)}
+      disabled={disabled}
+      className={cn(
+        'h-5 w-full border border-[#bdbdbd] bg-[#f4f4f4] px-1 text-[11px] text-[#444] outline-none',
+        disabled && 'bg-[#ececec] text-[#9a9a9a]'
+      )}
+    >
+      {options.map(option => (
+        <option key={option} value={option}>
+          {option}
+        </option>
+      ))}
+    </select>
+  );
+}
 
 export default function ProductForm() {
-  // URL 쿼리 파라미터로 수정 모드 감지
   const [searchParams] = useSearchParams();
   const editId = searchParams.get('id');
   const isEditMode = !!editId;
 
-  const [showTypeSelection, setShowTypeSelection] = useState(!isEditMode);
   const [isSaving, setIsSaving] = useState(false);
   const [showCancelConfirm, setShowCancelConfirm] = useState(false);
   const [existingProducts, setExistingProducts] = useState<{ name: string; category: string }[]>([]);
 
-  // 추가 필드 상태 (react-hook-form 외부)
-  const [classType, setClassType] = useState('');         // 1:1 / 그룹 / 혼합
-  const [deductionType, setDeductionType] = useState(''); // 횟수차감 / 기간차감 / 무제한
-  const [suspendLimit, setSuspendLimit] = useState('');   // 기간정지 제한 일수
-  const [dailyUseLimit, setDailyUseLimit] = useState(''); // 일사용 횟수 제한
-  const [productGroupId, setProductGroupId] = useState(''); // 분류 ID
-  const [productGroups, setProductGroups] = useState<ProductGroup[]>([]);
-
-  // useTimeRanges: react-hook-form 외부 별도 state (복잡한 배열 필드)
-  const [useTimeRanges, setUseTimeRanges] = useState([
-    { day: '월~금', startTime: '06:00', endTime: '23:00' },
-    { day: '토~일', startTime: '10:00', endTime: '20:00' },
-  ]);
+  const [productKind, setProductKind] = useState<ProductKind>('이용');
+  const [occupancy, setOccupancy] = useState('1명');
+  const [lessonDuration, setLessonDuration] = useState('선택');
+  const [lessonValidity, setLessonValidity] = useState('선택');
+  const [classMode, setClassMode] = useState<'개인' | '정규클래스'>('개인');
+  const [useCategory, setUseCategory] = useState<UseCategory>('기간');
+  const [useAmount, setUseAmount] = useState('');
+  const [countLimitEnabled, setCountLimitEnabled] = useState(false);
+  const [useLimit, setUseLimit] = useState('제한없음');
+  const [countLimitValue, setCountLimitValue] = useState('1회');
+  const [dayRows, setDayRows] = useState(emptyDayRows);
+  const [optionStates, setOptionStates] = useState({
+    lockerAvailable: false,
+    reservationAvailable: false,
+    memberDirectTransfer: false,
+    instructorReview: false,
+    reservationRoomRequired: false,
+    transferable: false,
+    staffAddition: false,
+    unusedPauseAvailable: false,
+    autoExtendUseTime: false,
+    kioskUsage: false,
+    lessonReservationRequired: false,
+  });
+  const [footerSelects, setFooterSelects] = useState({
+    facilityUseTime: '기본',
+    reservationOpenDate: '당일',
+    reservationTimeGap: '10분',
+    pauseCount: '선택',
+    pausePeriod: '선택',
+  });
+  const [classType, setClassType] = useState('');
+  const [deductionType, setDeductionType] = useState('');
+  const [suspendLimit, setSuspendLimit] = useState('');
+  const [dailyUseLimit, setDailyUseLimit] = useState('');
+  const [productGroupId, setProductGroupId] = useState('');
 
   const {
     register,
@@ -106,7 +235,7 @@ export default function ProductForm() {
   } = useForm<ProductFormData>({
     resolver: zodResolver(productFormSchema),
     defaultValues: {
-      category: '',
+      category: '이용권',
       name: '',
       priceCash: '',
       priceCard: '',
@@ -127,11 +256,7 @@ export default function ProductForm() {
   const watchedName = watch('name');
   const watchedPriceCash = watch('priceCash');
   const watchedPriceCard = watch('priceCard');
-  const watchedIsUsed = watch('isUsed');
-  const watchedIsKioskExposed = watch('isKioskExposed');
-  const watchedIsHoldingEnabled = watch('isHoldingEnabled');
 
-  // 기존 상품 목록 로드 (중복 체크용)
   useEffect(() => {
     const fetchExisting = async () => {
       const { data, error } = await supabase
@@ -145,91 +270,96 @@ export default function ProductForm() {
     fetchExisting();
   }, []);
 
-  // 상품 분류 목록 로드
-  useEffect(() => {
-    getProductGroups().then(({ data }) => {
-      if (data) setProductGroups(data);
-    });
-  }, []);
-
-  // 수정 모드: URL의 id로 기존 상품 데이터 로드
   useEffect(() => {
     if (!editId) return;
+
     const fetchProduct = async () => {
-      const { data, error } = await supabase
-        .from('products')
-        .select('*')
-        .eq('id', editId)
-        .single();
+      const { data, error } = await supabase.from('products').select('*').eq('id', editId).single();
       if (error || !data) {
         toast.error('상품 정보를 불러오지 못했습니다.');
         return;
       }
-      // DB category enum → 폼 카테고리 문자열 매핑
-      const CAT_MAP: Record<string, string> = {
+
+      const categoryMap: Record<string, string> = {
         MEMBERSHIP: '이용권',
         PT: 'PT',
         GX: 'GX',
         PRODUCT: '기타',
         SERVICE: '기타',
       };
-      const cat = CAT_MAP[data.category] ?? data.category;
-      setShowTypeSelection(false);
-      setValue('category', cat);
+
+      const category = categoryMap[data.category] ?? data.category ?? '이용권';
+      setValue('category', category);
+      setProductKind(mapCategoryToKind(category));
       setValue('name', data.name ?? '');
-      // cashPrice/cardPrice가 있으면 우선 사용, 없으면 price 폴백
-      const cashVal = data.cashPrice ?? data.price;
-      const cardVal = data.cardPrice ?? data.price;
-      setValue('priceCash', cashVal ? Number(cashVal).toLocaleString() : '');
-      setValue('priceCard', cardVal ? Number(cardVal).toLocaleString() : '');
+      setValue('priceCash', data.cashPrice ? Number(data.cashPrice).toLocaleString() : '');
+      setValue('priceCard', data.cardPrice ? Number(data.cardPrice).toLocaleString() : '');
       setValue('period', data.duration?.toString() ?? '');
       setValue('count', data.sessions?.toString() ?? '');
       setValue('description', data.description ?? '');
       setValue('isUsed', data.isActive ?? true);
+      setValue('isKioskExposed', data.kioskVisible ?? true);
+      setValue('tags', data.tag ?? '');
+      setClassType(data.classType ?? '');
+      setDeductionType(data.deductionType ?? '');
+      setSuspendLimit(data.suspendLimit?.toString() ?? '');
+      setDailyUseLimit(data.dailyUseLimit?.toString() ?? '');
+      setProductGroupId(data.productGroupId?.toString() ?? '');
     };
+
     fetchProduct();
   }, [editId, setValue]);
 
-  // 현재 카테고리 설정 (동적 카테고리도 기본값 적용)
-  const categoryConfig = CATEGORY_CONFIG[watchedCategory] ?? (watchedCategory ? DEFAULT_CATEGORY_CONFIG : null);
-
-  // 중복 체크
   const checkDuplicate = (name: string, category: string): boolean => {
     const originalName = isEditMode ? watchedName : null;
     return existingProducts.some(
-      p => p.category === category && p.name === name && p.name !== originalName
+      product => product.category === category && product.name === name && product.name !== originalName
     );
   };
 
-  // 가격 입력 (천단위 콤마 자동 포맷)
   const handlePriceChange = (field: 'priceCash' | 'priceCard', value: string) => {
-    const MAX = 99999999;
     const raw = value.replace(/[^0-9]/g, '');
-    const num = Math.min(parseInt(raw) || 0, MAX);
-    const formatted = formatPrice(num.toString());
+    const formatted = formatPrice(raw);
     setValue(field, formatted, { shouldValidate: true });
-    if (num === 0) {
+    if (!formatted) {
       setError(field, { message: '가격은 1원 이상이어야 합니다.' });
-    } else {
-      clearErrors(field);
+      return;
     }
+    clearErrors(field);
   };
 
-  // 상품명 변경 + 즉시 중복 체크
   const handleNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
     setValue('name', value, { shouldValidate: false });
+
     if (!value) {
       setError('name', { message: '상품명을 입력해주세요.' });
-    } else if (checkDuplicate(value, watchedCategory)) {
+      return;
+    }
+
+    if (checkDuplicate(value, watchedCategory)) {
       setError('name', { message: `'${value}' 상품명이 이미 존재합니다.` });
-    } else {
-      clearErrors('name');
+      return;
+    }
+
+    clearErrors('name');
+  };
+
+  const handleKindChange = (kind: ProductKind) => {
+    setProductKind(kind);
+    setValue('category', mapKindToCategory(kind), { shouldValidate: true });
+    if (kind === '레슨') {
+      setUseCategory('횟수');
     }
   };
 
+  const handleDayRowChange = (index: number, key: 'enabled' | 'from' | 'to', value: boolean | string) => {
+    setDayRows(prev =>
+      prev.map((row, rowIndex) => (rowIndex === index ? { ...row, [key]: value } : row))
+    );
+  };
+
   const onSubmit = async (data: ProductFormData) => {
-    // 상품명 중복 체크 (submit 시점)
     if (checkDuplicate(data.name, data.category)) {
       setError('name', { message: `'${data.name}' 상품명이 이미 존재합니다.` });
       return;
@@ -237,627 +367,471 @@ export default function ProductForm() {
 
     setIsSaving(true);
 
-    // 폼 카테고리 문자열 → DB enum 매핑
-    const CAT_DB_MAP: Record<string, string> = {
-      '이용권': 'MEMBERSHIP',
-      'PT': 'PT',
-      'GX': 'GX',
-      '기타': 'PRODUCT',
+    const categoryMap: Record<string, string> = {
+      이용권: 'MEMBERSHIP',
+      PT: 'PT',
+      GX: 'GX',
+      기타: 'PRODUCT',
     };
 
-    // 카테고리 → productType 매핑
-    const TYPE_MAP: Record<string, string> = {
-      '이용권': 'MEMBERSHIP',
-      'PT':    'LESSON',
-      'GX':    'LESSON',
-      '기타':  'GENERAL',
+    const typeMap: Record<string, string> = {
+      이용권: 'MEMBERSHIP',
+      PT: 'LESSON',
+      GX: 'LESSON',
+      기타: 'GENERAL',
     };
 
     const productData = {
       branchId: getBranchId(),
       name: data.name,
-      category: CAT_DB_MAP[data.category] ?? 'PRODUCT',
-      // 대표 price는 현금가로 저장 (기존 호환)
+      category: categoryMap[data.category] ?? 'PRODUCT',
       price: parsePrice(data.priceCash),
-      // 현금가/카드가 별도 저장
       cashPrice: parsePrice(data.priceCash),
       cardPrice: parsePrice(data.priceCard),
-      // 상품 타입
-      productType: TYPE_MAP[data.category] ?? 'GENERAL',
-      // 횟수제 총 횟수 (count 필드 재활용)
+      productType: typeMap[data.category] ?? 'GENERAL',
       totalCount: data.count ? Number(data.count) : null,
       duration: data.period ? Number(data.period) : null,
       sessions: data.count ? Number(data.count) : null,
       description: data.description || null,
       isActive: data.isUsed,
-      // 키오스크 노출
       kioskVisible: data.isKioskExposed ?? true,
-      // 태그
       tag: data.tags || null,
-      // 추가 필드
-      classType: classType || null,
-      deductionType: deductionType || null,
+      classType: classType || classMode,
+      deductionType: deductionType || useCategory,
       suspendLimit: suspendLimit ? Number(suspendLimit) : null,
       dailyUseLimit: dailyUseLimit ? Number(dailyUseLimit) : null,
       productGroupId: productGroupId ? Number(productGroupId) : null,
     };
 
-    if (isEditMode) {
-      const { error } = await supabase
-        .from('products')
-        .update(productData)
-        .eq('id', editId);
-      setIsSaving(false);
-      if (error) { toast.error('수정에 실패했습니다.'); return; }
-      toast.success('상품이 수정되었습니다.');
-    } else {
-      const { error } = await supabase
-        .from('products')
-        .insert(productData);
-      setIsSaving(false);
-      if (error) { toast.error('등록에 실패했습니다.'); return; }
-      toast.success('상품이 등록되었습니다.');
+    const query = isEditMode
+      ? supabase.from('products').update(productData).eq('id', editId)
+      : supabase.from('products').insert(productData);
+
+    const { error } = await query;
+    setIsSaving(false);
+
+    if (error) {
+      toast.error(isEditMode ? '수정에 실패했습니다.' : '등록에 실패했습니다.');
+      return;
     }
+
+    toast.success(isEditMode ? '상품이 수정되었습니다.' : '상품이 등록되었습니다.');
     moveToPage(972);
   };
 
-  // 이용 시간 구간 삭제
-  const removeTimeRange = (idx: number) => {
-    setUseTimeRanges(prev => prev.filter((_, i) => i !== idx));
-  };
-
-  // 이용 시간 구간 추가
-  const addTimeRange = () => {
-    setUseTimeRanges(prev => [
-      ...prev,
-      { day: '추가요일', startTime: '09:00', endTime: '18:00' },
-    ]);
-  };
-
-  // --- 유형 선택 화면 ---
-  if (showTypeSelection && !isEditMode) {
-    return (
-      <AppLayout>
-        <div className="flex flex-col items-center justify-center py-xxl animate-in fade-in slide-in-from-bottom-4 duration-400">
-          <div className="text-center mb-xl">
-            <h1 className="text-[22px] font-bold text-content">새 상품 등록</h1>
-            <p className="mt-sm text-[14px] text-content-secondary">등록할 상품의 유형을 선택해주세요.</p>
-          </div>
-
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-md w-full max-w-[800px]">
-            {PRODUCT_TYPES.map(type => (
-              <button
-                key={type.id}
-                onClick={() => {
-                  setValue('category', type.id);
-                  setShowTypeSelection(false);
-                }}
-                className="group flex flex-col items-start p-lg bg-surface rounded-xl border border-line shadow-card hover:border-primary hover:shadow-md transition-all text-left"
-              >
-                <div className={cn('p-sm rounded-xl mb-md bg-surface-tertiary group-hover:bg-primary-light transition-colors')}>
-                  <type.icon className={cn('w-6 h-6', type.color)} />
-                </div>
-                <h3 className="text-[15px] font-bold text-content group-hover:text-primary transition-colors">
-                  {type.label}
-                </h3>
-                <p className="mt-xs text-[12px] text-content-tertiary">{type.desc}</p>
-                <div className="mt-md flex items-center text-[12px] font-bold text-primary opacity-0 group-hover:opacity-100 transition-opacity">
-                  선택하기 <ChevronRight className="ml-xs" size={14} />
-                </div>
-              </button>
-            ))}
-          </div>
-
-          <button
-            onClick={() => moveToPage(972)}
-            className="mt-xxl text-[13px] text-content-tertiary hover:text-content flex items-center gap-xs transition-colors"
-          >
-            <ArrowLeft size={14} /> 취소하고 목록으로
-          </button>
-        </div>
-      </AppLayout>
-    );
-  }
-
-  // --- 메인 폼 화면 ---
   return (
     <AppLayout>
-      <PageHeader
-        title={isEditMode ? '상품 정보 수정' : `${watchedCategory} 등록`}
-        description={
-          isEditMode
-            ? '상품의 상세 정보를 수정하고 저장합니다.'
-            : '새로운 상품 정보를 입력하여 등록을 완료하세요.'
-        }
-        actions={
-          <div className="flex items-center gap-sm">
+      <div className="flex min-h-[calc(100vh-96px)] items-start justify-center bg-[#ececec] px-3 py-5 font-['Malgun_Gothic']">
+        <div className="w-full max-w-[472px] overflow-hidden rounded-[3px] border border-[#9a9a9a] bg-[#d7d7d7] shadow-[0_10px_20px_rgba(0,0,0,0.18)]">
+          <div className="h-[3px] bg-[#4aa7df]" />
+          <div className="flex h-7 items-center justify-between border-b border-[#b8b8b8] bg-[linear-gradient(to_bottom,#f7f7f7,#dfdfdf)] px-2">
+            <div className="flex items-center gap-2 text-[11px] font-bold text-[#2f2f2f]">
+              <div className="h-[16px] w-[16px] rounded-full border border-[#909090] bg-white" />
+              <span>{isEditMode ? '상품수정' : '상품등록'}</span>
+            </div>
             <button
+              type="button"
               onClick={() => setShowCancelConfirm(true)}
-              className="flex items-center gap-xs px-lg py-sm rounded-button border border-line bg-surface text-content-secondary hover:bg-surface-tertiary transition-colors text-[13px]"
+              className="text-[#555] transition-colors hover:text-[#111]"
+              aria-label="닫기"
             >
-              취소
-            </button>
-            <button
-              onClick={handleSubmit(onSubmit)}
-              disabled={isSaving}
-              className="flex items-center gap-xs px-lg py-sm rounded-button bg-primary text-surface hover:bg-primary-dark shadow-sm transition-colors text-[13px] font-bold disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {isSaving ? (
-                <div className="h-4 w-4 border-2 border-surface/30 border-t-surface rounded-full animate-spin" />
-              ) : (
-                <Save size={16} />
-              )}
-              {isEditMode ? '수정 저장' : '등록 완료'}
+              <X size={14} />
             </button>
           </div>
-        }
-      />
 
-      <div className="space-y-xl pb-[100px]">
-        {/* 섹션 01: 기본 정보 */}
-        <FormSection
-          title="기본 정보"
-          description="상품의 카테고리, 이름, 가격 등 기본 정보를 입력합니다."
-          columns={2}
-        >
-          {/* UI-085 카테고리 선택 */}
-          <div className="flex flex-col gap-sm">
-            <label className="text-[13px] font-semibold text-content">
-              카테고리 <span className="text-state-error">*</span>
-            </label>
-            <select
-              {...register('category')}
-              aria-required="true"
-              aria-invalid={!!errors.category}
-              className={cn(
-                'w-full px-md py-sm rounded-input border border-line bg-surface-secondary text-[14px] focus:border-primary focus:outline-none transition-colors',
-                errors.category && 'border-state-error'
-              )}
-            >
-              <option value="">선택해주세요</option>
-              {[...DEFAULT_CATEGORIES, ...productGroups.map(g => g.name).filter(n => !DEFAULT_CATEGORIES.includes(n))].map(cat => (
-                <option key={cat} value={cat}>{cat}</option>
-              ))}
-            </select>
-            {errors.category && (
-              <p role="alert" className="text-[12px] text-state-error flex items-center gap-xs">
-                <AlertCircle size={12} />{errors.category.message}
-              </p>
-            )}
-          </div>
-
-          {/* UI-086 상품명 */}
-          <div className="flex flex-col gap-sm">
-            <label className="text-[13px] font-semibold text-content">
-              상품명 <span className="text-state-error">*</span>
-            </label>
-            <input
-              type="text"
-              {...register('name')}
-              onChange={handleNameChange}
-              placeholder="예: 헬스 12개월권"
-              aria-required="true"
-              aria-invalid={!!errors.name}
-              className={cn(
-                'w-full px-md py-sm rounded-input border border-line bg-surface-secondary text-[14px] focus:border-primary focus:outline-none transition-colors',
-                errors.name && 'border-state-error'
-              )}
-            />
-            {errors.name ? (
-              <p role="alert" className="text-[12px] text-state-error flex items-center gap-xs">
-                <AlertCircle size={12} />{errors.name.message}
-              </p>
-            ) : watchedName && !checkDuplicate(watchedName, watchedCategory) && watchedCategory ? (
-              <p className="text-[12px] text-state-success flex items-center gap-xs">
-                <CheckCircle2 size={12} />사용 가능한 상품명입니다.
-              </p>
-            ) : null}
-          </div>
-
-          {/* UI-087 현금가 */}
-          <div className="flex flex-col gap-sm">
-            <label className="text-[13px] font-semibold text-content">
-              현금가 <span className="text-state-error">*</span>
-            </label>
-            <div className="relative">
-              <Banknote className="absolute left-md top-1/2 -translate-y-1/2 text-content-tertiary" size={16} />
-              <input
-                type="text"
-                inputMode="numeric"
-                value={watchedPriceCash}
-                onChange={e => handlePriceChange('priceCash', e.target.value)}
-                placeholder="0"
-                aria-required="true"
-                aria-invalid={!!errors.priceCash}
-                className={cn(
-                  'w-full pl-10 pr-10 py-sm rounded-input border border-line bg-surface-secondary text-[14px] tabular-nums focus:border-primary focus:outline-none transition-colors',
-                  errors.priceCash && 'border-state-error'
-                )}
-              />
-              <span className="absolute right-md top-1/2 -translate-y-1/2 text-[13px] text-content-tertiary">원</span>
-            </div>
-            {errors.priceCash && (
-              <p role="alert" className="text-[12px] text-state-error flex items-center gap-xs">
-                <AlertCircle size={12} />{errors.priceCash.message}
-              </p>
-            )}
-          </div>
-
-          {/* UI-087 카드가 */}
-          <div className="flex flex-col gap-sm">
-            <label className="text-[13px] font-semibold text-content">
-              카드가 <span className="text-state-error">*</span>
-            </label>
-            <div className="relative">
-              <CreditCard className="absolute left-md top-1/2 -translate-y-1/2 text-content-tertiary" size={16} />
-              <input
-                type="text"
-                inputMode="numeric"
-                value={watchedPriceCard}
-                onChange={e => handlePriceChange('priceCard', e.target.value)}
-                placeholder="0"
-                aria-required="true"
-                aria-invalid={!!errors.priceCard}
-                className={cn(
-                  'w-full pl-10 pr-10 py-sm rounded-input border border-line bg-surface-secondary text-[14px] tabular-nums focus:border-primary focus:outline-none transition-colors',
-                  errors.priceCard && 'border-state-error'
-                )}
-              />
-              <span className="absolute right-md top-1/2 -translate-y-1/2 text-[13px] text-content-tertiary">원</span>
-            </div>
-            {errors.priceCard && (
-              <p role="alert" className="text-[12px] text-state-error flex items-center gap-xs">
-                <AlertCircle size={12} />{errors.priceCard.message}
-              </p>
-            )}
-          </div>
-
-          {/* 상품 설명 */}
-          <div className="flex flex-col gap-sm md:col-span-2">
-            <label className="text-[13px] font-semibold text-content">상품 설명</label>
-            <textarea
-              {...register('description')}
-              rows={3}
-              placeholder="회원에게 노출될 상품 설명을 입력하세요."
-              className="w-full px-md py-sm rounded-input border border-line bg-surface-secondary text-[14px] focus:border-primary focus:outline-none transition-colors resize-none"
-            />
-          </div>
-
-          {/* 태그 */}
-          <div className="flex flex-col gap-sm">
-            <label className="text-[13px] font-semibold text-content">태그</label>
-            <div className="relative">
-              <TagIcon className="absolute left-md top-1/2 -translate-y-1/2 text-content-tertiary" size={15} />
-              <input
-                type="text"
-                {...register('tags')}
-                placeholder="#인기 #이벤트"
-                className="w-full pl-10 pr-md py-sm rounded-input border border-line bg-surface-secondary text-[14px] focus:border-primary focus:outline-none transition-colors"
-              />
-            </div>
-          </div>
-
-          {/* 상품 분류 선택 */}
-          <div className="flex flex-col gap-sm">
-            <label className="text-[13px] font-semibold text-content">상품 분류</label>
-            <select
-              className="w-full px-md py-sm rounded-input border border-line bg-surface-secondary text-[14px] focus:border-primary focus:outline-none transition-colors"
-              value={productGroupId}
-              onChange={e => setProductGroupId(e.target.value)}
-            >
-              <option value="">분류 없음</option>
-              {productGroups.map(g => (
-                <option key={g.id} value={String(g.id)}>{g.name}</option>
-              ))}
-            </select>
-          </div>
-
-          {/* PT/GX 전용 추가 필드 */}
-          {(watchedCategory === 'PT' || watchedCategory === 'GX') && (
-            <>
-              <div className="flex flex-col gap-sm">
-                <label className="text-[13px] font-semibold text-content">수업 유형</label>
-                <select
-                  className="w-full px-md py-sm rounded-input border border-line bg-surface-secondary text-[14px] focus:border-primary focus:outline-none transition-colors"
-                  value={classType}
-                  onChange={e => setClassType(e.target.value)}
-                >
-                  <option value="">선택</option>
-                  <option value="1:1">1:1</option>
-                  <option value="그룹">그룹</option>
-                  <option value="혼합">혼합</option>
-                </select>
-              </div>
-              <div className="flex flex-col gap-sm">
-                <label className="text-[13px] font-semibold text-content">차감 방식</label>
-                <select
-                  className="w-full px-md py-sm rounded-input border border-line bg-surface-secondary text-[14px] focus:border-primary focus:outline-none transition-colors"
-                  value={deductionType}
-                  onChange={e => setDeductionType(e.target.value)}
-                >
-                  <option value="">선택</option>
-                  <option value="횟수차감">횟수차감</option>
-                  <option value="기간차감">기간차감</option>
-                  <option value="무제한">무제한</option>
-                </select>
-              </div>
-              <div className="flex flex-col gap-sm">
-                <label className="text-[13px] font-semibold text-content">기간정지 제한 (일)</label>
-                <input
-                  type="number"
-                  min={0}
-                  className="w-full px-md py-sm rounded-input border border-line bg-surface-secondary text-[14px] focus:border-primary focus:outline-none transition-colors"
-                  placeholder="예: 30"
-                  value={suspendLimit}
-                  onChange={e => setSuspendLimit(e.target.value)}
-                />
-              </div>
-              <div className="flex flex-col gap-sm">
-                <label className="text-[13px] font-semibold text-content">일사용 횟수 제한</label>
-                <input
-                  type="number"
-                  min={0}
-                  className="w-full px-md py-sm rounded-input border border-line bg-surface-secondary text-[14px] focus:border-primary focus:outline-none transition-colors"
-                  placeholder="예: 2"
-                  value={dailyUseLimit}
-                  onChange={e => setDailyUseLimit(e.target.value)}
-                />
-              </div>
-            </>
-          )}
-        </FormSection>
-
-        {/* 섹션 02: 이용기간 / 횟수 (카테고리에 따라 동적 변경) */}
-        <FormSection
-          title="이용기간 / 횟수 설정"
-          description="카테고리에 따라 기간 또는 횟수 항목이 표시됩니다."
-          columns={2}
-        >
-          {/* 이용기간 */}
-          <div className="flex flex-col gap-sm">
-            <label className="text-[13px] font-semibold text-content">
-              {categoryConfig?.periodLabel ?? '이용기간'} <span className="text-state-error">*</span>
-            </label>
-            <div className="flex gap-sm">
-              <input
-                type="number"
-                min={1}
-                {...register('period')}
-                placeholder="예: 12"
-                aria-required="true"
-                aria-invalid={!!errors.period}
-                className={cn(
-                  'flex-1 px-md py-sm rounded-input border border-line bg-surface-secondary text-[14px] focus:border-primary focus:outline-none transition-colors',
-                  errors.period && 'border-state-error'
-                )}
-              />
-              <span className="flex items-center text-[13px] text-content-secondary px-sm">
-                {watchedCategory === 'PT' ? '일' : '개월'}
-              </span>
-            </div>
-            {errors.period && (
-              <p role="alert" className="text-[12px] text-state-error flex items-center gap-xs">
-                <AlertCircle size={12} />{errors.period.message}
-              </p>
-            )}
-          </div>
-
-          {/* 횟수 (PT / GX일 때만 표시) */}
-          {categoryConfig?.showCount && (
-            <div className="flex flex-col gap-sm">
-              <label className="text-[13px] font-semibold text-content">
-                {categoryConfig.countLabel}
-              </label>
-              <div className="flex gap-sm">
-                <input
-                  type="number"
-                  min={1}
-                  {...register('count')}
-                  placeholder="예: 20"
-                  className="flex-1 px-md py-sm rounded-input border border-line bg-surface-secondary text-[14px] focus:border-primary focus:outline-none transition-colors"
-                />
-                <span className="flex items-center text-[13px] text-content-secondary px-sm">회</span>
-              </div>
-            </div>
-          )}
-
-          {/* 요일 안내 (GX일 때만 표시) */}
-          {categoryConfig?.showDays && (
-            <div className="md:col-span-2 p-md bg-surface-secondary rounded-xl border border-line">
-              <p className="text-[13px] text-content-secondary">
-                GX 수업은 수강 가능 요일을 이용 시간 구간에서 설정하세요.
-              </p>
-            </div>
-          )}
-        </FormSection>
-
-        {/* 섹션 03: 추가 설정 */}
-        <FormSection
-          title="추가 설정"
-          description="홀딩, 이용 시간, 판매 노출 등 세부 정책을 설정합니다."
-          columns={1}
-          collapsible
-          defaultOpen={false}
-        >
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-lg">
-
-            {/* 홀딩 설정 */}
-            <div className="p-md bg-surface-secondary rounded-xl border border-line">
-              <div className="flex items-center justify-between mb-md">
-                <div className="flex items-center gap-sm">
-                  <CalendarDays className="text-primary" size={18} />
-                  <h4 className="text-[14px] font-bold text-content">홀딩 설정</h4>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setValue('isHoldingEnabled', !watchedIsHoldingEnabled)}
-                  className={cn(
-                    'relative inline-flex h-5 w-9 items-center rounded-full transition-colors',
-                    watchedIsHoldingEnabled ? 'bg-accent' : 'bg-line'
-                  )}
-                >
-                  <span className={cn(
-                    'inline-block h-4 w-4 transform rounded-full bg-surface shadow transition-transform',
-                    watchedIsHoldingEnabled ? 'translate-x-4' : 'translate-x-0.5'
-                  )} />
-                </button>
-              </div>
-              <div className={cn('space-y-md transition-opacity', !watchedIsHoldingEnabled && 'opacity-40 pointer-events-none')}>
-                <div className="flex items-center justify-between gap-md">
-                  <label className="text-[13px] text-content-secondary">최대 홀딩 일수</label>
-                  <div className="flex items-center gap-xs">
-                    <input
-                      type="number"
-                      {...register('holdingMaxDays')}
-                      className="w-[72px] px-sm py-xs border border-line rounded-button text-right text-[13px] bg-surface focus:border-primary focus:outline-none"
+          <div className="bg-[#efefef] p-[8px] text-[11px] text-[#333]">
+            <div className="space-y-[6px] border border-[#c7c7c7] bg-[#f5f5f5] p-[10px]">
+              <div className="grid gap-x-[6px] gap-y-[4px] md:grid-cols-[44px_1fr_52px_78px] md:items-center">
+                <div className="font-bold text-[#555]">상품구분</div>
+                <div className="flex flex-wrap items-center gap-3">
+                  {PRODUCT_KIND_OPTIONS.map(kind => (
+                    <ClassicRadio
+                      key={kind}
+                      checked={productKind === kind}
+                      onChange={() => handleKindChange(kind)}
+                      label={kind}
                     />
-                    <span className="text-[12px] text-content-tertiary">일</span>
+                  ))}
+                </div>
+                <div className="justify-self-end font-bold text-[#555]">사용인원</div>
+                <SelectBox value={occupancy} onChange={setOccupancy} options={OCCUPANCY_OPTIONS} />
+              </div>
+
+              <div className="grid gap-x-[6px] gap-y-[4px] md:grid-cols-[44px_1fr] md:items-center">
+                <div className="font-bold text-[#555]">상품명</div>
+                <div>
+                  <input
+                    type="text"
+                    {...register('name')}
+                    onChange={handleNameChange}
+                    className={cn(
+                      'h-5 w-full border bg-[#fff8c9] px-2 text-[11px] outline-none',
+                      errors.name ? 'border-[#df6b6b]' : 'border-[#bdbdbd]'
+                    )}
+                  />
+                  {errors.name && <p className="mt-1 text-[11px] text-[#cc3b3b]">{errors.name.message}</p>}
+                </div>
+              </div>
+
+              <div className="grid gap-x-[6px] gap-y-[4px] md:grid-cols-[44px_60px_54px_90px_78px_96px] md:items-center">
+                <div className="font-bold text-[#555]">금액</div>
+                <div className="flex items-center border border-[#bdbdbd] bg-[#efefef]">
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    value={watchedPriceCash}
+                    onChange={e => handlePriceChange('priceCash', e.target.value)}
+                    className="h-5 w-full bg-transparent px-1 text-right text-[11px] outline-none"
+                  />
+                  <span className="pr-1 text-[11px]">원</span>
+                </div>
+
+                <div className="justify-self-end font-bold text-[#555]">레슨시간</div>
+                <SelectBox value={lessonDuration} onChange={setLessonDuration} options={LESSON_DURATION_OPTIONS} />
+
+                <div className="justify-self-end font-bold text-[#555]">레슨유효기간</div>
+                <SelectBox value={lessonValidity} onChange={setLessonValidity} options={LESSON_VALIDITY_OPTIONS} />
+              </div>
+
+              <div className="grid gap-x-[6px] gap-y-[4px] md:grid-cols-[44px_124px_54px_1fr] md:items-center">
+                <div className="font-bold text-[#555]">수업구분</div>
+                <div className="flex flex-wrap items-center gap-3">
+                  <ClassicRadio
+                    checked={classMode === '개인'}
+                    onChange={() => setClassMode('개인')}
+                    label="개인"
+                  />
+                  <ClassicRadio
+                    checked={classMode === '정규클래스'}
+                    onChange={() => setClassMode('정규클래스')}
+                    label="정규클래스"
+                  />
+                </div>
+
+                <div className="justify-self-end font-bold text-[#555]">이용구분</div>
+                <div className="flex flex-wrap items-center gap-2">
+                  {USE_CATEGORY_OPTIONS.map(option => (
+                    <ClassicRadio
+                      key={option}
+                      checked={useCategory === option}
+                      onChange={() => setUseCategory(option)}
+                      label={option}
+                    />
+                  ))}
+                </div>
+              </div>
+
+              <div className="grid gap-x-[6px] gap-y-[4px] md:grid-cols-[66px_90px_1fr] md:items-center">
+                <div className="font-bold text-[#555]">횟수/포인트</div>
+                <input
+                  type="text"
+                  value={useAmount}
+                  onChange={e => setUseAmount(e.target.value)}
+                  placeholder={useCategory === '포인트' ? '포인트 입력' : '횟수 입력'}
+                  className="h-5 border border-[#bdbdbd] bg-white px-2 text-[11px] outline-none"
+                />
+                <div className="text-[10px] text-[#666]">
+                  현재 이용구분: {useCategory}
+                </div>
+              </div>
+
+              <div className="grid gap-x-[6px] gap-y-[4px] md:grid-cols-[66px_1fr]">
+                <div className="font-bold text-[#555] md:pt-[2px]">세부설정</div>
+                <div className="space-y-[6px]">
+                  <div className="grid gap-x-[6px] gap-y-[4px] md:grid-cols-[76px_100px_86px_1fr] md:items-center">
+                    <ClassicCheckbox
+                      checked={countLimitEnabled}
+                      onChange={() => setCountLimitEnabled(prev => !prev)}
+                      label="횟수 제한"
+                    />
+                    <SelectBox
+                      value={useLimit}
+                      onChange={setUseLimit}
+                      options={LIMIT_OPTIONS}
+                      disabled={!countLimitEnabled}
+                    />
+                    <SelectBox
+                      value={countLimitValue}
+                      onChange={setCountLimitValue}
+                      options={['1회', '2회', '3회', '5회', '10회']}
+                      disabled={!countLimitEnabled || useLimit === '제한없음'}
+                    />
+                    <div className="text-[10px] text-[#777]">
+                      {countLimitEnabled ? '횟수 제한 사용' : '제한 없음'}
+                    </div>
                   </div>
-                </div>
-                <div className="flex items-center justify-between gap-md">
-                  <label className="text-[13px] text-content-secondary">최대 홀딩 횟수</label>
-                  <div className="flex items-center gap-xs">
-                    <input
-                      type="number"
-                      {...register('holdingMaxCount')}
-                      className="w-[72px] px-sm py-xs border border-line rounded-button text-right text-[13px] bg-surface focus:border-primary focus:outline-none"
-                    />
-                    <span className="text-[12px] text-content-tertiary">회</span>
+
+                  <div className="border border-[#4d95e6] bg-[#f8fbff] p-[8px]">
+                    <div className="grid gap-3 lg:grid-cols-[1.08fr_0.92fr]">
+                      <div>
+                        <div className="mb-[4px] flex items-center gap-2 text-[11px]">
+                          <ClassicCheckbox checked label="요일/시간설정" onChange={() => undefined} />
+                        </div>
+                        <div className="space-y-[2px]">
+                          {dayRows.map((row, index) => (
+                            <div key={row.day} className="grid grid-cols-[14px_12px_1fr_8px_1fr] items-center gap-1">
+                              <ClassicCheckbox
+                                checked={row.enabled}
+                                onChange={() => handleDayRowChange(index, 'enabled', !row.enabled)}
+                                label=""
+                              />
+                              <span className="text-[11px] text-[#555]">{row.day}</span>
+                              <input
+                                type="time"
+                                value={row.from}
+                                disabled={!row.enabled}
+                                onChange={e => handleDayRowChange(index, 'from', e.target.value)}
+                                className={cn(
+                                  'h-5 border border-[#bdbdbd] px-1 text-[11px] outline-none',
+                                  row.enabled ? 'bg-white text-[#333]' : 'bg-[#ececec] text-[#999]'
+                                )}
+                              />
+                              <span className="text-center text-[11px] text-[#666]">~</span>
+                              <input
+                                type="time"
+                                value={row.to}
+                                disabled={!row.enabled}
+                                onChange={e => handleDayRowChange(index, 'to', e.target.value)}
+                                className={cn(
+                                  'h-5 border border-[#bdbdbd] px-1 text-[11px] outline-none',
+                                  row.enabled ? 'bg-white text-[#333]' : 'bg-[#ececec] text-[#999]'
+                                )}
+                              />
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-1 gap-y-[4px]">
+                        <ClassicCheckbox
+                          checked={optionStates.instructorReview}
+                          onChange={() =>
+                            setOptionStates(prev => ({ ...prev, instructorReview: !prev.instructorReview }))
+                          }
+                          label="강사변경가능"
+                        />
+                        <ClassicCheckbox
+                          checked={optionStates.lessonReservationRequired}
+                          onChange={() =>
+                            setOptionStates(prev => ({
+                              ...prev,
+                              lessonReservationRequired: !prev.lessonReservationRequired,
+                            }))
+                          }
+                          label="레슨예약시 시설선택 필수"
+                        />
+                        <ClassicCheckbox
+                          checked={optionStates.transferable}
+                          onChange={() => setOptionStates(prev => ({ ...prev, transferable: !prev.transferable }))}
+                          label="양도가능"
+                        />
+                        <ClassicCheckbox
+                          checked={optionStates.memberDirectTransfer}
+                          onChange={() =>
+                            setOptionStates(prev => ({ ...prev, memberDirectTransfer: !prev.memberDirectTransfer }))
+                          }
+                          label="매출기대가능"
+                        />
+                        <ClassicCheckbox
+                          checked={optionStates.staffAddition}
+                          onChange={() => setOptionStates(prev => ({ ...prev, staffAddition: !prev.staffAddition }))}
+                          label="재추가점 이용가능"
+                        />
+                        <ClassicCheckbox
+                          checked={optionStates.autoExtendUseTime}
+                          onChange={() =>
+                            setOptionStates(prev => ({ ...prev, autoExtendUseTime: !prev.autoExtendUseTime }))
+                          }
+                          label="이용시간 자동연장"
+                        />
+                        <ClassicCheckbox
+                          checked={optionStates.kioskUsage}
+                          onChange={() => setOptionStates(prev => ({ ...prev, kioskUsage: !prev.kioskUsage }))}
+                          label="키오스크 예약판매 가능"
+                        />
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>
-            </div>
 
-            {/* 이용 가능 시간 */}
-            <div className="p-md bg-surface-secondary rounded-xl border border-line">
-              <div className="flex items-center justify-between mb-md">
-                <div className="flex items-center gap-sm">
-                  <Clock className="text-state-info" size={18} />
-                  <h4 className="text-[14px] font-bold text-content">이용 가능 시간</h4>
-                </div>
-                <button
-                  type="button"
-                  onClick={addTimeRange}
-                  className="text-[12px] font-bold text-primary flex items-center gap-xs hover:text-primary-dark transition-colors"
-                >
-                  <Plus size={13} /> 구간 추가
-                </button>
-              </div>
-              <div className="space-y-sm">
-                {useTimeRanges.map((range, idx) => (
-                  <div key={idx} className="flex items-center gap-sm bg-surface p-sm rounded-button border border-line">
-                    <span className="text-[11px] bg-surface-tertiary px-sm py-[2px] rounded-full w-[52px] text-center text-content-secondary shrink-0">
-                      {range.day}
-                    </span>
-                    <div className="flex items-center gap-xs text-[13px] flex-1">
-                      <input
-                        type="time"
-                        defaultValue={range.startTime}
-                        className="border-none p-0 w-[60px] outline-none text-[13px] bg-transparent"
-                      />
-                      <span className="text-content-tertiary">~</span>
-                      <input
-                        type="time"
-                        defaultValue={range.endTime}
-                        className="border-none p-0 w-[60px] outline-none text-[13px] bg-transparent"
+              <div className="grid gap-x-[10px] gap-y-[4px] md:grid-cols-2">
+                <div className="space-y-[4px]">
+                  <div className="flex items-center gap-2">
+                    <ClassicCheckbox
+                      checked={optionStates.lockerAvailable}
+                      onChange={() =>
+                        setOptionStates(prev => ({ ...prev, lockerAvailable: !prev.lockerAvailable }))
+                      }
+                      label="시설이용가능"
+                    />
+                    <div className="grid flex-1 grid-cols-[66px_1fr] items-center gap-1">
+                      <span className="font-bold text-[#555]">시설이용시간</span>
+                      <SelectBox
+                        value={footerSelects.facilityUseTime}
+                        onChange={value => setFooterSelects(prev => ({ ...prev, facilityUseTime: value }))}
+                        options={['기본', '오전', '오후', '종일']}
                       />
                     </div>
-                    <button
-                      type="button"
-                      onClick={() => removeTimeRange(idx)}
-                      className="text-content-tertiary hover:text-state-error transition-colors"
-                    >
-                      <Trash2 size={14} />
-                    </button>
                   </div>
-                ))}
+
+                  <div className="flex items-center gap-2">
+                    <ClassicCheckbox
+                      checked={optionStates.reservationAvailable}
+                      onChange={() =>
+                        setOptionStates(prev => ({ ...prev, reservationAvailable: !prev.reservationAvailable }))
+                      }
+                      label="시설예약가능"
+                    />
+                    <div className="grid flex-1 grid-cols-[78px_1fr] items-center gap-1">
+                      <span className="font-bold text-[#555]">시설예약가능일</span>
+                      <SelectBox
+                        value={footerSelects.reservationOpenDate}
+                        onChange={value => setFooterSelects(prev => ({ ...prev, reservationOpenDate: value }))}
+                        options={RESERVATION_DAY_OPTIONS}
+                      />
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <ClassicCheckbox
+                      checked={optionStates.memberDirectTransfer}
+                      onChange={() =>
+                        setOptionStates(prev => ({ ...prev, memberDirectTransfer: !prev.memberDirectTransfer }))
+                      }
+                      label="회원직접휴회가능"
+                    />
+                    <div className="grid flex-1 grid-cols-[52px_1fr] items-center gap-1">
+                      <span className="font-bold text-[#555]">휴회횟수</span>
+                      <SelectBox
+                        value={footerSelects.pauseCount}
+                        onChange={value => setFooterSelects(prev => ({ ...prev, pauseCount: value }))}
+                        options={['선택', '1회', '2회', '3회']}
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="space-y-[4px]">
+                  <div className="grid grid-cols-[66px_1fr] items-center gap-1">
+                    <span className="font-bold text-[#555]">예약시간간격</span>
+                    <SelectBox
+                      value={footerSelects.reservationTimeGap}
+                      onChange={value => setFooterSelects(prev => ({ ...prev, reservationTimeGap: value }))}
+                      options={RESERVATION_INTERVAL_OPTIONS}
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-[52px_1fr] items-center gap-1">
+                    <span className="font-bold text-[#555]">휴회기간</span>
+                    <SelectBox
+                      value={footerSelects.pausePeriod}
+                      onChange={value => setFooterSelects(prev => ({ ...prev, pausePeriod: value }))}
+                      options={PAUSE_PERIOD_OPTIONS}
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div className="grid gap-x-[10px] gap-y-[4px] border-t border-[#d5d5d5] pt-[6px] md:grid-cols-2">
+                <div className="grid gap-1 md:grid-cols-[52px_1fr] md:items-center">
+                  <div className="font-bold text-[#555]">유효기간</div>
+                  <input
+                    type="text"
+                    {...register('period')}
+                    placeholder="예: 30"
+                    className={cn(
+                      'h-5 border bg-white px-2 text-[11px] outline-none',
+                      errors.period ? 'border-[#df6b6b]' : 'border-[#bdbdbd]'
+                    )}
+                  />
+                </div>
+
+                <div className="grid gap-1 md:grid-cols-[52px_1fr] md:items-center">
+                  <div className="font-bold text-[#555]">이용횟수</div>
+                  <input
+                    type="text"
+                    {...register('count')}
+                    placeholder="예: 10"
+                    className="h-5 border border-[#bdbdbd] bg-white px-2 text-[11px] outline-none"
+                  />
+                </div>
+
+                <div className="grid gap-1 md:grid-cols-[52px_1fr] md:items-center">
+                  <div className="font-bold text-[#555]">설명</div>
+                  <input
+                    type="text"
+                    {...register('description')}
+                    className="h-5 border border-[#bdbdbd] bg-white px-2 text-[11px] outline-none"
+                  />
+                </div>
+
+                <div className="grid gap-1 md:grid-cols-[52px_1fr] md:items-center">
+                  <div className="font-bold text-[#555]">태그</div>
+                  <input
+                    type="text"
+                    {...register('tags')}
+                    className="h-5 border border-[#bdbdbd] bg-white px-2 text-[11px] outline-none"
+                  />
+                </div>
+              </div>
+
+              <div className="hidden">
+                <input type="text" {...register('category')} readOnly />
+                <input type="checkbox" {...register('isUsed')} readOnly checked />
+                <input type="checkbox" {...register('isKioskExposed')} readOnly checked={optionStates.kioskUsage} />
+                <input type="checkbox" {...register('isHoldingEnabled')} readOnly checked={false} />
+                <input type="text" {...register('holdingMaxDays')} readOnly value={suspendLimit} />
+                <input type="text" {...register('holdingMaxCount')} readOnly value={dailyUseLimit} />
               </div>
             </div>
 
-            {/* 판매 노출 설정 */}
-            <div className="md:col-span-2 grid grid-cols-1 sm:grid-cols-3 gap-md">
-              {[
-                {
-                  label: '키오스크 판매 노출',
-                  desc: '키오스크 상품 목록에 카드가로 노출됩니다.',
-                  key: 'isKioskExposed' as const,
-                  value: watchedIsKioskExposed,
-                },
-                {
-                  label: '상품 사용 여부',
-                  desc: '미사용 시 상품 목록에서 숨겨집니다.',
-                  key: 'isUsed' as const,
-                  value: watchedIsUsed,
-                },
-              ].map(item => (
-                <div key={item.key} className="p-md bg-surface border border-line rounded-xl shadow-card">
-                  <div className="flex items-center justify-between mb-xs">
-                    <span className="text-[13px] font-semibold text-content">{item.label}</span>
-                    <button
-                      type="button"
-                      onClick={() => setValue(item.key, !item.value)}
-                      className={cn(
-                        'relative inline-flex h-5 w-9 items-center rounded-full transition-colors',
-                        item.value ? 'bg-accent' : 'bg-line'
-                      )}
-                    >
-                      <span className={cn(
-                        'inline-block h-4 w-4 transform rounded-full bg-surface shadow transition-transform',
-                        item.value ? 'translate-x-4' : 'translate-x-0.5'
-                      )} />
-                    </button>
-                  </div>
-                  <p className="text-[11px] text-content-tertiary">{item.desc}</p>
-                </div>
-              ))}
-              <div className="p-md bg-surface border border-line rounded-xl shadow-card flex items-center gap-sm">
-                <Settings2 className="text-content-tertiary shrink-0" size={18} />
-                <div>
-                  <p className="text-[13px] font-semibold text-content">현재 상태</p>
-                  <div className="flex gap-xs mt-xs">
-                    <StatusBadge variant={watchedIsUsed ? 'mint' : 'default'} dot={watchedIsUsed}>
-                      {watchedIsUsed ? '판매중' : '판매중지'}
-                    </StatusBadge>
-                    {watchedIsKioskExposed && (
-                      <StatusBadge variant="info">키오스크</StatusBadge>
-                    )}
-                  </div>
+            {(errors.priceCash || errors.priceCard || errors.period) && (
+              <div className="mt-2 flex items-start gap-2 border border-[#efb0b0] bg-[#fff3f3] px-2 py-1.5 text-[10px] text-[#ba3a3a]">
+                <AlertCircle size={14} className="mt-[1px] shrink-0" />
+                <div className="space-y-0.5">
+                  {errors.priceCash && <p>{errors.priceCash.message}</p>}
+                  {errors.priceCard && <p>{errors.priceCard.message}</p>}
+                  {errors.period && <p>{errors.period.message}</p>}
                 </div>
               </div>
+            )}
+          </div>
+
+          <div className="flex items-center justify-between border-t border-[#bfbfbf] bg-[#ececec] px-2 py-2">
+            <button
+              type="button"
+              className="inline-flex items-center gap-1 border border-[#a8a8a8] bg-[linear-gradient(to_bottom,#ffffff,#dcdcdc)] px-2 py-[3px] text-[11px] text-[#444]"
+            >
+              <Search size={12} />
+              상품정보가져오기
+            </button>
+
+            <div className="flex items-center gap-1.5">
+              <button
+                type="button"
+                onClick={() => setShowCancelConfirm(true)}
+                className="border border-[#d8a075] bg-[linear-gradient(to_bottom,#fff8f3,#ffd1ac)] px-3 py-[3px] text-[11px] font-bold text-[#d96e18]"
+              >
+                신규
+              </button>
+              <button
+                type="button"
+                onClick={handleSubmit(onSubmit)}
+                disabled={isSaving}
+                className="border border-[#d26e2d] bg-[linear-gradient(to_bottom,#fff3ec,#ff9b5a)] px-3 py-[3px] text-[11px] font-bold text-[#c04d00] disabled:opacity-60"
+              >
+                {isSaving ? '저장중...' : '등록2'}
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowCancelConfirm(true)}
+                className="border border-[#b8b8b8] bg-[linear-gradient(to_bottom,#ffffff,#dddddd)] px-3 py-[3px] text-[11px] font-bold text-[#666]"
+              >
+                종료
+              </button>
             </div>
           </div>
-        </FormSection>
-      </div>
-
-      {/* 하단 고정 액션 바 */}
-      <div className="fixed bottom-0 left-0 right-0 md:left-[260px] bg-surface/90 backdrop-blur-sm border-t border-line p-md px-lg flex items-center justify-between z-10 shadow-lg">
-        <div className="hidden md:flex items-center gap-md">
-          <StatusBadge variant={watchedIsUsed ? 'mint' : 'default'} dot={watchedIsUsed}>
-            {watchedIsUsed ? '판매중' : '판매중지'}
-          </StatusBadge>
-          <span className="text-[13px] text-content-tertiary">
-            {watchedCategory || '카테고리 미선택'}
-          </span>
-        </div>
-        <div className="flex items-center gap-sm w-full md:w-auto">
-          <button
-            type="button"
-            className="flex-1 md:flex-none px-xl py-sm rounded-button border border-line text-content-secondary font-semibold hover:bg-surface-secondary transition-colors text-[13px]"
-            onClick={() => setShowCancelConfirm(true)}
-          >
-            취소
-          </button>
-          <button
-            type="button"
-            className="flex-1 md:flex-none flex items-center justify-center gap-sm px-xxl py-sm rounded-button bg-primary text-surface font-bold hover:bg-primary-dark shadow-md transition-colors text-[13px] disabled:opacity-50"
-            onClick={handleSubmit(onSubmit)}
-            disabled={isSaving}
-          >
-            {isSaving && (
-              <div className="h-4 w-4 border-2 border-surface/30 border-t-surface rounded-full animate-spin" />
-            )}
-            {isEditMode ? '상품 수정하기' : '상품 등록하기'}
-          </button>
         </div>
       </div>
 

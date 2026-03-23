@@ -80,6 +80,7 @@ const MENU_ITEMS: MenuItem[] = [
     children: [
       { label: "매출 현황", path: "/sales", viewId: 970 },
       { label: "매출 통계", path: "/sales/stats" },
+      { label: "통계 관리", path: "/sales/statistics-management" },
       { label: "선수익금", path: "/deferred-revenue" },
       { label: "POS 결제", path: "/pos", viewId: 971 },
       { label: "현장 판매", path: "/pos/payment", viewId: 982 },
