@@ -27,25 +27,25 @@ export async function getStaffAttendance(branchId?: number, date?: string): Prom
   let query = supabase
     .from('staff_attendance')
     .select('*')
-    .eq('branchId', bid);
+    .eq('branch_id', bid);
 
-  if (date) query = query.eq('date', date);
+  if (date) query = query.gte('clock_in', `${date}T00:00:00`).lte('clock_in', `${date}T23:59:59`);
 
-  const { data, error } = await query.order('staffName', { ascending: true });
+  const { data, error } = await query.order('staff_name', { ascending: true });
 
   if (error) return { data: null, error: error.message };
   return {
     data: (data ?? []).map((row: Record<string, unknown>) => ({
       id: row.id as number,
-      staffId: row.staffId as number,
-      staffName: (row.staffName as string) ?? '',
-      date: (row.date as string)?.slice(0, 10) ?? '',
-      clockIn: row.clockIn ? (row.clockIn as string).slice(11, 16) : null,
-      clockOut: row.clockOut ? (row.clockOut as string).slice(11, 16) : null,
-      workMinutes: row.workMinutes != null ? Number(row.workMinutes) : null,
+      staffId: row.staff_id as number,
+      staffName: (row.staff_name as string) ?? '',
+      date: row.clock_in ? (row.clock_in as string).slice(0, 10) : (date ?? ''),
+      clockIn: row.clock_in ? (row.clock_in as string).slice(11, 16) : null,
+      clockOut: row.clock_out ? (row.clock_out as string).slice(11, 16) : null,
+      workMinutes: row.work_hours != null ? Number(row.work_hours) * 60 : null,
       status: (row.status as AttendanceStatus) ?? '정상',
-      memo: (row.memo as string) ?? '',
-      branchId: row.branchId as number,
+      memo: (row.notes as string) ?? '',
+      branchId: row.branch_id as number,
     })),
     error: null,
   };
@@ -57,11 +57,10 @@ export async function clockIn(staffId: number, staffName: string, date: string):
   const { data, error } = await supabase
     .from('staff_attendance')
     .insert({
-      staffId,
-      staffName,
-      date,
-      clockIn: now,
-      branchId: getBranchId(),
+      staff_id: staffId,
+      staff_name: staffName,
+      clock_in: now,
+      branch_id: getBranchId(),
       status: '정상',
     })
     .select('id')
@@ -75,17 +74,17 @@ export async function clockIn(staffId: number, staffName: string, date: string):
 export async function clockOut(staffId: number, attendanceId: number): Promise<{ error: string | null }> {
   const { data: existing } = await supabase
     .from('staff_attendance')
-    .select('clockIn')
+    .select('clock_in')
     .eq('id', attendanceId)
     .single();
 
   const now = new Date();
-  const clockInTime = existing?.clockIn ? new Date(existing.clockIn as string) : null;
-  const workMinutes = clockInTime ? Math.round((now.getTime() - clockInTime.getTime()) / 60000) : null;
+  const clockInTime = existing?.clock_in ? new Date(existing.clock_in as string) : null;
+  const workHours = clockInTime ? Math.round((now.getTime() - clockInTime.getTime()) / 3600000 * 100) / 100 : null;
 
   const { error } = await supabase
     .from('staff_attendance')
-    .update({ clockOut: now.toISOString(), workMinutes })
+    .update({ clock_out: now.toISOString(), work_hours: workHours })
     .eq('id', attendanceId);
 
   return { error: error?.message ?? null };
@@ -98,6 +97,13 @@ export async function updateStaffAttendance(id: number, data: Partial<{
   status: AttendanceStatus;
   memo: string;
 }>): Promise<{ error: string | null }> {
-  const { error } = await supabase.from('staff_attendance').update(data).eq('id', id);
+  // camelCase → snake_case 변환
+  const payload: Record<string, unknown> = {};
+  if (data.clockIn !== undefined) payload.clock_in = data.clockIn;
+  if (data.clockOut !== undefined) payload.clock_out = data.clockOut;
+  if (data.status !== undefined) payload.status = data.status;
+  if (data.memo !== undefined) payload.notes = data.memo;
+
+  const { error } = await supabase.from('staff_attendance').update(payload).eq('id', id);
   return { error: error?.message ?? null };
 }
