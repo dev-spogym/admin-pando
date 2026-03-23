@@ -202,6 +202,7 @@ const PATH_TO_TAB: Record<string, string> = {
   "/lessons": "classes",
   "/lesson-counts": "counts",
   "/penalties": "penalty",
+  "/valid-lessons": "valid",
 };
 
 const TAB_TO_PATH: Record<string, string> = {
@@ -209,6 +210,7 @@ const TAB_TO_PATH: Record<string, string> = {
   classes: "/lessons",
   counts: "/lesson-counts",
   penalty: "/penalties",
+  valid: "/valid-lessons",
 };
 
 // --- 수업 편집 가능 여부 체크 ---
@@ -722,10 +724,6 @@ export default function Calendar() {
   }, [location.pathname, location.search]);
 
   const handleTabChange = useCallback((tab: string) => {
-    if (tab === "valid") {
-      navigate("/calendar?tab=valid");
-      return;
-    }
     const nextPath = TAB_TO_PATH[tab] ?? "/calendar";
     navigate(nextPath);
   }, [navigate]);
