@@ -3,7 +3,8 @@ import AppHeader from "@/components/AppHeader";
 import AppSidebar from "@/components/AppSidebar";
 import RightQuickPanel from "@/components/RightQuickPanel";
 import { cn } from "@/lib/utils";
-import { moveToPage } from "@/internal";
+import { moveToPage, setNavigate } from "@/internal";
+import { useNavigate } from "react-router-dom";
 import { useAuthStore } from "@/stores/authStore";
 
 interface AppLayoutProps {
@@ -18,6 +19,7 @@ const AppLayout = ({ children }: AppLayoutProps) => {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(() => window.innerWidth < MOBILE_BREAKPOINT);
   const [activePath, setActivePath] = useState(() => window.location.pathname);
+  const navigate = useNavigate();
   const authUser = useAuthStore((s) => s.user);
 
   // 화면 크기 감지
@@ -84,8 +86,12 @@ const AppLayout = ({ children }: AppLayoutProps) => {
       "/temp-member-form": 997,
     };
     const targetViewId = viewMap[path];
-    if (targetViewId) moveToPage(targetViewId);
-  }, [isMobile]);
+    if (targetViewId) {
+      moveToPage(targetViewId);
+    } else {
+      navigate(path);
+    }
+  }, [isMobile, navigate]);
 
   const handleToggleSidebar = useCallback(() => {
     if (isMobile) {
