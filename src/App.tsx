@@ -64,6 +64,7 @@ const ScheduleRequests = React.lazy(() => import('@/pages/ScheduleRequests'));
 const RefundManagement = React.lazy(() => import('@/pages/RefundManagement'));
 const UnpaidManagement = React.lazy(() => import('@/pages/UnpaidManagement'));
 const SalesStats = React.lazy(() => import('@/pages/SalesStats'));
+const StatisticsManagement = React.lazy(() => import('@/pages/StatisticsManagement'));
 const ClothingManagement = React.lazy(() => import('@/pages/ClothingManagement'));
 
 // --- Sprint 4: 수업 관리 강화 ---
@@ -181,6 +182,7 @@ export default function App() {
       <Route path="/refunds" element={<PrivateRoute><RefundManagement /></PrivateRoute>} />
       <Route path="/unpaid" element={<PrivateRoute><UnpaidManagement /></PrivateRoute>} />
       <Route path="/sales/stats" element={<PrivateRoute><SalesStats /></PrivateRoute>} />
+      <Route path="/sales/statistics-management" element={<PrivateRoute><StatisticsManagement /></PrivateRoute>} />
 
       {/* Sprint 5: 매출/설정/공통 */}
       <Route path="/deferred-revenue" element={<PrivateRoute><DeferredRevenue /></PrivateRoute>} />

@@ -220,10 +220,11 @@ export default function PayrollStatement() {
     {
       key: "name",
       header: "직원명",
+      width: 180,
       render: (val: string, row: typeof tableData[0]) => (
-        <div className="flex flex-col">
+        <div className="flex items-center gap-2 whitespace-nowrap">
           <span className="font-bold text-content">{val}</span>
-          <span className="text-[12px] text-content-secondary">{row.position}</span>
+          <span className="text-[12px] text-content-secondary">/ {row.position || "-"}</span>
         </div>
       )
     },
@@ -232,45 +233,51 @@ export default function PayrollStatement() {
       key: "baseSalary",
       header: "기본급",
       align: "right" as const,
-      render: (val: number) => val ? `${val.toLocaleString()}원` : "-"
+      width: 130,
+      render: (val: number) => val ? <span className="inline-block whitespace-nowrap">{val.toLocaleString()}원</span> : "-"
     },
     {
       key: "totalEarnings",
       header: "지급총액",
       align: "right" as const,
-      render: (val: number) => val ? `${val.toLocaleString()}원` : "-"
+      width: 140,
+      render: (val: number) => val ? <span className="inline-block whitespace-nowrap">{val.toLocaleString()}원</span> : "-"
     },
     {
       key: "totalDeductions",
       header: "공제총액",
       align: "right" as const,
-      render: (val: number) => val ? <span className="text-error">-{val.toLocaleString()}원</span> : "-"
+      width: 140,
+      render: (val: number) => val ? <span className="inline-block whitespace-nowrap text-error">-{val.toLocaleString()}원</span> : "-"
     },
     {
       key: "netPay",
       header: "실지급액",
       align: "right" as const,
-      render: (val: number) => val ? <span className="font-bold text-primary">{val.toLocaleString()}원</span> : "-"
+      width: 140,
+      render: (val: number) => val ? <span className="inline-block whitespace-nowrap font-bold text-primary">{val.toLocaleString()}원</span> : "-"
     },
     {
       key: "status",
       header: "상태",
       align: "center" as const,
-      width: 110,
+      width: 120,
       render: (val: string) => (
-        <StatusBadge variant={val === "paid" ? "success" : "warning"} dot={true}>
-          {val === "paid" ? "지급완료" : "미지급"}
-        </StatusBadge>
+        <span className="inline-flex whitespace-nowrap">
+          <StatusBadge variant={val === "paid" ? "success" : "warning"} dot={true}>
+            {val === "paid" ? "지급완료" : "미지급"}
+          </StatusBadge>
+        </span>
       )
     },
     {
       key: "id",
       header: "명세서",
       align: "center" as const,
-      width: 90,
+      width: 110,
       render: (_: number, row: typeof tableData[0]) => (
         <button
-          className="text-primary text-Label font-semibold hover:underline"
+          className="whitespace-nowrap text-primary text-Label font-semibold hover:underline"
           onClick={() => {
             const rec = payrollRecords.find(r => r.staffId === row.id);
             if (rec) {
@@ -363,14 +370,16 @@ export default function PayrollStatement() {
                 {/* 직원 정보 헤더 */}
                 <div className="flex items-center justify-between p-lg bg-primary-light rounded-xl border border-primary/10">
                   <div>
-                    <p className="text-Heading-2 font-bold text-content">{selectedStaff.name}</p>
-                    <p className="text-Body-2 text-primary font-medium">{selectedStaff.position}</p>
+                    <p className="text-Heading-2 font-bold text-content whitespace-nowrap">{selectedStaff.name}</p>
+                    <p className="text-Body-2 text-primary font-medium whitespace-nowrap">{selectedStaff.position}</p>
                   </div>
-                  <div className="text-right">
-                    <StatusBadge variant={statement.status === "paid" ? "success" : "warning"} dot={true}>
-                      {statement.status === "paid" ? "지급완료" : "미지급"}
-                    </StatusBadge>
-                    <p className="mt-xs text-Label text-content-secondary">지급일: {statement.paymentDate}</p>
+                  <div className="text-right whitespace-nowrap">
+                    <span className="inline-flex">
+                      <StatusBadge variant={statement.status === "paid" ? "success" : "warning"} dot={true}>
+                        {statement.status === "paid" ? "지급완료" : "미지급"}
+                      </StatusBadge>
+                    </span>
+                    <p className="mt-xs text-Label text-content-secondary whitespace-nowrap">지급일: {statement.paymentDate}</p>
                   </div>
                 </div>
 
@@ -427,13 +436,13 @@ export default function PayrollStatement() {
                 {/* UI-129 PDF 다운로드 버튼 */}
                 <div className="flex gap-sm pt-sm">
                   <button
-                    className="flex-1 flex items-center justify-center gap-xs px-md py-sm border border-line rounded-button text-Label text-content-secondary hover:bg-primary-light hover:text-primary hover:border-primary transition-all"
+                    className="flex-1 flex items-center justify-center gap-xs whitespace-nowrap px-md py-sm border border-line rounded-button text-Label text-content-secondary hover:bg-primary-light hover:text-primary hover:border-primary transition-all"
                     onClick={() => toast.info("이메일 발송 기능은 추후 지원 예정입니다.")}
                   >
                     <Mail size={16} />이메일 발송
                   </button>
                   <button
-                    className="flex-1 flex items-center justify-center gap-xs px-md py-sm border border-line rounded-button text-Label text-content-secondary hover:bg-accent-light hover:text-accent hover:border-accent transition-all"
+                    className="flex-1 flex items-center justify-center gap-xs whitespace-nowrap px-md py-sm border border-line rounded-button text-Label text-content-secondary hover:bg-accent-light hover:text-accent hover:border-accent transition-all"
                     onClick={() => window.print()}
                   >
                     <Download size={16} />PDF 다운로드
@@ -498,7 +507,7 @@ export default function PayrollStatement() {
                 </div>
                 <div>
                   <h2 className="text-Heading-2 text-content font-bold">급여 명세서</h2>
-                  <p className="text-Body-2 text-content-secondary">{modalStaffName} · {modalStatement.paymentDate} 지급분</p>
+                  <p className="text-Body-2 text-content-secondary whitespace-nowrap">{modalStaffName} · {modalStatement.paymentDate} 지급분</p>
                 </div>
               </div>
               <button className="p-sm text-content-secondary hover:text-content transition-colors" onClick={() => setIsModalOpen(false)}>
@@ -557,13 +566,13 @@ export default function PayrollStatement() {
             <div className="p-xl border-t border-line bg-surface-secondary/10 flex justify-between items-center">
               <div className="flex gap-sm">
                 <button
-                  className="flex items-center gap-xs px-md py-sm border border-line rounded-button text-Label text-content-secondary hover:bg-primary-light hover:text-primary transition-all"
+                  className="flex items-center gap-xs whitespace-nowrap px-md py-sm border border-line rounded-button text-Label text-content-secondary hover:bg-primary-light hover:text-primary transition-all"
                   onClick={() => toast.info("이메일 발송 기능은 추후 지원 예정입니다.")}
                 >
                   <Mail size={14} />이메일
                 </button>
                 <button
-                  className="flex items-center gap-xs px-md py-sm border border-line rounded-button text-Label text-content-secondary hover:bg-accent-light hover:text-accent transition-all"
+                  className="flex items-center gap-xs whitespace-nowrap px-md py-sm border border-line rounded-button text-Label text-content-secondary hover:bg-accent-light hover:text-accent transition-all"
                   onClick={() => window.print()}
                 >
                   <Download size={14} />PDF 다운로드
