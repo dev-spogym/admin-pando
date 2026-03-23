@@ -185,7 +185,7 @@ export default function SalesStats() {
     setIsLoading(true);
     let query = supabase
       .from('sales')
-      .select('id, saleDate, productName, type, category, salePrice, amount, paymentMethod, status, branchId, staffName, staffRole')
+      .select('id, saleDate, productName, type, salePrice, amount, paymentMethod, status, branchId, staffName')
       .eq('branchId', getBranchId())
       .neq('status', 'REFUNDED');
 

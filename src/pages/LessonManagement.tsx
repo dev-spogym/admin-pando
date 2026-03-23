@@ -207,14 +207,14 @@ export default function LessonManagement() {
     setLoading(true);
     const { data, error } = await supabase
       .from('lessons')
-      .select('*, users(name)')
+      .select('*')
       .eq('branchId', branchId)
       .order('id');
     if (!error && data) {
       setLessons(
         data.map((l: any) => ({
           ...l,
-          instructorName: l.users?.name ?? '-',
+          instructorName: l.instructorName ?? '-',
         }))
       );
     }

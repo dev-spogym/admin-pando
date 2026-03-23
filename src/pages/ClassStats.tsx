@@ -70,11 +70,11 @@ export default function ClassStats() {
     // 수업 목록 + 예약(출석) 수 조회
     const { data: classes } = await supabase
       .from('classes')
-      .select('id, title, room, capacity, startAt')
+      .select('id, title, room, capacity, startTime')
       .eq('branchId', branchId)
-      .gte('startAt', `${start}T00:00:00`)
-      .lte('startAt', `${end}T23:59:59`)
-      .order('startAt');
+      .gte('startTime', `${start}T00:00:00`)
+      .lte('startTime', `${end}T23:59:59`)
+      .order('startTime');
 
     if (!classes) { setLoading(false); return; }
 
@@ -113,9 +113,9 @@ export default function ClassStats() {
     // 월별 수업 수 (최근 6개월)
     const { data: monthly } = await supabase
       .from('classes')
-      .select('startAt')
+      .select('startTime')
       .eq('branchId', branchId)
-      .gte('startAt', (() => {
+      .gte('startTime', (() => {
         const d = new Date();
         d.setMonth(d.getMonth() - 5);
         return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-01T00:00:00`;
@@ -124,7 +124,7 @@ export default function ClassStats() {
     if (monthly) {
       const countMap: Record<string, number> = {};
       for (const row of monthly as any[]) {
-        const key = (row.startAt as string).slice(0, 7); // YYYY-MM
+        const key = (row.startTime as string).slice(0, 7); // YYYY-MM
         countMap[key] = (countMap[key] ?? 0) + 1;
       }
       const bars: MonthlyBar[] = Object.entries(countMap)

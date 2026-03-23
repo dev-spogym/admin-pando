@@ -91,20 +91,7 @@ interface IotSettingsData {
 }
 
 async function loadIotSettings(): Promise<IotSettingsData | null> {
-  try {
-    const { data: row } = await supabase
-      .from("settings")
-      .select("value")
-      .eq("branchId", getBranchId())
-      .eq("key", IOT_SETTINGS_KEY)
-      .single();
-    if (row?.value) {
-      const parsed = JSON.parse(row.value);
-      if (parsed?.devices) return parsed;
-    }
-  } catch (err) {
-    console.error('IoT 설정 로드 실패:', err);
-  }
+  // settings 테이블에 key/value 컬럼 없음 → localStorage만 사용
   const saved = localStorage.getItem(getIotStorageKey());
   if (saved) {
     try {
@@ -118,18 +105,7 @@ async function loadIotSettings(): Promise<IotSettingsData | null> {
 async function saveIotSettings(data: IotSettingsData): Promise<boolean> {
   const jsonValue = JSON.stringify(data);
   localStorage.setItem(getIotStorageKey(), jsonValue);
-  try {
-    const { error } = await supabase.from("settings").upsert({
-      branchId: getBranchId(),
-      key: IOT_SETTINGS_KEY,
-      value: jsonValue,
-      updatedAt: new Date().toISOString(),
-    }, { onConflict: "branchId,key" });
-    if (error) throw error;
-    return true;
-  } catch {
-    return false;
-  }
+  return true;
 }
 
 export default function IotSettings() {

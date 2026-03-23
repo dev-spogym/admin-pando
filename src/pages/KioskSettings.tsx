@@ -182,18 +182,7 @@ function getBranchId() { return localStorage.getItem("branchId") || "1"; }
 function getKioskStorageKey() { return `settings_${getBranchId()}_${KIOSK_SETTINGS_KEY}`; }
 
 async function loadKioskSettings(): Promise<SettingsData | null> {
-  try {
-    const { data: row } = await supabase
-      .from("settings")
-      .select("value")
-      .eq("branchId", getBranchId())
-      .eq("key", KIOSK_SETTINGS_KEY)
-      .single();
-    if (row?.value) {
-      const parsed = JSON.parse(row.value);
-      if (parsed?.kioskType) return parsed;
-    }
-  } catch {}
+  // settings 테이블에 key/value 컬럼 없음 → localStorage만 사용
   const saved = localStorage.getItem(getKioskStorageKey());
   if (saved) {
     try {
@@ -207,18 +196,7 @@ async function loadKioskSettings(): Promise<SettingsData | null> {
 async function saveKioskSettings(data: SettingsData): Promise<boolean> {
   const jsonValue = JSON.stringify(data);
   localStorage.setItem(getKioskStorageKey(), jsonValue);
-  try {
-    const { error } = await supabase.from("settings").upsert({
-      branchId: getBranchId(),
-      key: KIOSK_SETTINGS_KEY,
-      value: jsonValue,
-      updatedAt: new Date().toISOString(),
-    }, { onConflict: "branchId,key" });
-    if (error) throw error;
-    return true;
-  } catch {
-    return false;
-  }
+  return true;
 }
 
 export default function KioskSettings() {

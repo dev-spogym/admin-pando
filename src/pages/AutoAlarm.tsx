@@ -256,18 +256,7 @@ interface AlarmSettingsData {
 }
 
 async function loadAlarmSettings(): Promise<AlarmSettingsData | null> {
-  try {
-    const { data: row } = await supabase
-      .from("settings")
-      .select("value")
-      .eq("branchId", getBranchId())
-      .eq("key", ALARM_SETTINGS_KEY)
-      .single();
-    if (row?.value) {
-      const parsed = JSON.parse(row.value);
-      if (parsed?.rules) return parsed;
-    }
-  } catch {}
+  // settings 테이블에 key/value 컬럼 없음 → localStorage만 사용
   const saved = localStorage.getItem(getAlarmStorageKey());
   if (saved) {
     try {
@@ -281,18 +270,7 @@ async function loadAlarmSettings(): Promise<AlarmSettingsData | null> {
 async function saveAlarmSettings(data: AlarmSettingsData): Promise<boolean> {
   const jsonValue = JSON.stringify(data);
   localStorage.setItem(getAlarmStorageKey(), jsonValue);
-  try {
-    const { error } = await supabase.from("settings").upsert({
-      branchId: getBranchId(),
-      key: ALARM_SETTINGS_KEY,
-      value: jsonValue,
-      updatedAt: new Date().toISOString(),
-    }, { onConflict: "branchId,key" });
-    if (error) throw error;
-    return true;
-  } catch {
-    return false;
-  }
+  return true;
 }
 
 export default function AutoAlarm() {

@@ -25,8 +25,8 @@ interface InstructorStat {
 interface ClassDetail {
   id: number;
   title: string;
-  startAt: string;
-  endAt: string;
+  startTime: string;
+  endTime: string;
   room: string | null;
   capacity: number;
 }
@@ -92,10 +92,10 @@ export default function InstructorStatus() {
     // 기간 내 수업 조회
     const { data: classes } = await supabase
       .from('classes')
-      .select('id, instructorId, startAt, endAt, capacity')
+      .select('id, staffId, startTime, endTime, capacity')
       .eq('branchId', branchId)
-      .gte('startAt', `${start}T00:00:00`)
-      .lte('startAt', `${end}T23:59:59`);
+      .gte('startTime', `${start}T00:00:00`)
+      .lte('startTime', `${end}T23:59:59`);
 
     // 예약 수 집계 (강사별 담당 회원 수)
     const classIds = (classes ?? []).map((c: any) => c.id);
@@ -109,13 +109,13 @@ export default function InstructorStatus() {
         .neq('status', 'CANCELLED');
 
       if (bookings) {
-        // 수업별 instructorId 매핑
-        const classInstructorMap: Record<number, number | null> = {};
+        // 수업별 staffId 매핑
+        const classStaffMap: Record<number, number | null> = {};
         for (const c of (classes ?? []) as any[]) {
-          classInstructorMap[c.id] = c.instructorId;
+          classStaffMap[c.id] = c.staffId;
         }
         for (const b of bookings as any[]) {
-          const instrId = classInstructorMap[b.scheduleId];
+          const instrId = classStaffMap[b.scheduleId];
           if (!instrId) continue;
           if (!memberCountMap[instrId]) memberCountMap[instrId] = new Set();
           memberCountMap[instrId].add(b.memberId);
@@ -126,12 +126,12 @@ export default function InstructorStatus() {
     // 강사별 수업 수 + 근무시간 집계
     const classCountMap: Record<number, { count: number; minutes: number }> = {};
     for (const c of (classes ?? []) as any[]) {
-      if (!c.instructorId) continue;
-      const prev = classCountMap[c.instructorId] ?? { count: 0, minutes: 0 };
-      const start_ = new Date(c.startAt);
-      const end_ = new Date(c.endAt);
+      if (!c.staffId) continue;
+      const prev = classCountMap[c.staffId] ?? { count: 0, minutes: 0 };
+      const start_ = new Date(c.startTime);
+      const end_ = new Date(c.endTime);
       const min = Math.round((end_.getTime() - start_.getTime()) / 60000);
-      classCountMap[c.instructorId] = { count: prev.count + 1, minutes: prev.minutes + (min > 0 ? min : 0) };
+      classCountMap[c.staffId] = { count: prev.count + 1, minutes: prev.minutes + (min > 0 ? min : 0) };
     }
 
     const stats: InstructorStat[] = (staff as any[]).map((s) => ({
@@ -165,12 +165,12 @@ export default function InstructorStatus() {
     const { start, end } = getPeriodRange(period, customStart, customEnd);
     const { data } = await supabase
       .from('classes')
-      .select('id, title, startAt, endAt, room, capacity')
+      .select('id, title, startTime, endTime, room, capacity')
       .eq('branchId', branchId)
-      .eq('instructorId', instr.id)
-      .gte('startAt', `${start}T00:00:00`)
-      .lte('startAt', `${end}T23:59:59`)
-      .order('startAt');
+      .eq('staffId', instr.id)
+      .gte('startTime', `${start}T00:00:00`)
+      .lte('startTime', `${end}T23:59:59`)
+      .order('startTime');
     setDetailClasses((data ?? []) as ClassDetail[]);
     setDetailLoading(false);
   };
@@ -305,8 +305,8 @@ export default function InstructorStatus() {
         ) : (
           <div className="flex flex-col gap-xs max-h-96 overflow-y-auto">
             {detailClasses.map((cls) => {
-              const start_ = new Date(cls.startAt);
-              const end_ = new Date(cls.endAt);
+              const start_ = new Date(cls.startTime);
+              const end_ = new Date(cls.endTime);
               const dateStr = start_.toLocaleDateString('ko-KR', { month: 'short', day: 'numeric', weekday: 'short' });
               const startStr = start_.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', hour12: false });
               const endStr = end_.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', hour12: false });

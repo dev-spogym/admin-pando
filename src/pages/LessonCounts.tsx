@@ -96,9 +96,8 @@ export default function LessonCounts() {
         startDate,
         endDate,
         status,
-        members!inner(name, branchId)
+        members(name, branchId)
       `)
-      .eq('members.branchId', branchId)
       .order('id', { ascending: false });
 
     if (filterMemberId) query = query.eq('memberId', Number(filterMemberId));
@@ -110,17 +109,19 @@ export default function LessonCounts() {
 
     if (!error && data) {
       setCounts(
-        data.map((r: any) => ({
-          id: r.id,
-          memberId: r.memberId,
-          memberName: r.members?.name ?? '-',
-          productName: r.productName ?? '-',
-          totalCount: r.totalCount ?? 0,
-          usedCount: r.usedCount ?? 0,
-          startDate: r.startDate,
-          endDate: r.endDate,
-          status: r.status ?? 'ACTIVE',
-        }))
+        (data as any[])
+          .filter((r) => !r.members || r.members.branchId === branchId)
+          .map((r: any) => ({
+            id: r.id,
+            memberId: r.memberId,
+            memberName: r.members?.name ?? '-',
+            productName: r.productName ?? '-',
+            totalCount: r.totalCount ?? 0,
+            usedCount: r.usedCount ?? 0,
+            startDate: r.startDate,
+            endDate: r.endDate,
+            status: r.status ?? 'ACTIVE',
+          }))
       );
     }
     setLoading(false);
