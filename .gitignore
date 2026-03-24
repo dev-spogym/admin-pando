@@ -19,8 +19,12 @@ Thumbs.db
 .omc/
 .claude/
 
-# Excel 임시 스크립트
-excel/*.py
+# 내부 작업물 (공유 제외)
+excel/
+e2e/
+qa-reports/
+scripts/
+.env.cpgz
 
 # fry cache
 .fry/parse-cache.json
