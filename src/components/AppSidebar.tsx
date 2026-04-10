@@ -16,6 +16,8 @@ import {
   BarChart3,
   Shield,
   CreditCard,
+  Target,
+  ClipboardList,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuthStore } from "@/stores/authStore";
@@ -49,6 +51,8 @@ const SUPER_ADMIN_MENU_ITEMS: MenuItem[] = [
 
 const MENU_ITEMS: MenuItem[] = [
   { label: "대시보드", icon: Home, path: "/", viewId: 966 },
+  { label: "KPI 센터", icon: Target, path: "/kpi-preview" },
+  { label: "Today Tasks", icon: ClipboardList, path: "/today-tasks" },
   {
     label: "회원",
     icon: Users,

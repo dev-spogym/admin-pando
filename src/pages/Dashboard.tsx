@@ -50,6 +50,9 @@ interface DashboardStats {
   expiredMembers: number;
   todayAttendance: number;
   monthlyRevenue: number;
+  monthlyAttendance: number;
+  monthlyRefundCount: number;
+  unpaidTotal: number;
 }
 
 interface GenderDist {
@@ -139,6 +142,9 @@ export default function Dashboard() {
     expiredMembers: 0,
     todayAttendance: 0,
     monthlyRevenue: 0,
+    monthlyAttendance: 0,
+    monthlyRefundCount: 0,
+    unpaidTotal: 0,
   });
 
   const [genderDist, setGenderDist] = useState<GenderDist>({ male: 0, female: 0 });
@@ -173,9 +179,12 @@ export default function Dashboard() {
         expiringRes,
         expiredRes,
         attendanceRes,
+        monthlyAttendanceRes,
         revenueRes,
+        refundedRes,
         birthdayRes,
         unpaidRes,
+        unpaidTotalRes,
         holdingRes,
         genderRes,
       ] = await Promise.all([
@@ -194,12 +203,27 @@ export default function Dashboard() {
           .eq("branchId", branchId)
           .gte("checkInAt", `${todayStr}T00:00:00`)
           .lte("checkInAt", `${todayStr}T23:59:59`),
+        // 이번달 출석
+        supabase
+          .from("attendance")
+          .select("id", { count: "exact", head: true })
+          .eq("branchId", branchId)
+          .gte("checkInAt", monthStart)
+          .lte("checkInAt", monthEnd),
         // 이번달 매출
         supabase
           .from("sales")
           .select("amount")
           .eq("branchId", branchId)
           .eq("status", "COMPLETED")
+          .gte("saleDate", monthStart)
+          .lte("saleDate", monthEnd),
+        // 이번달 환불 건수
+        supabase
+          .from("sales")
+          .select("id", { count: "exact", head: true })
+          .eq("branchId", branchId)
+          .eq("status", "REFUNDED")
           .gte("saleDate", monthStart)
           .lte("saleDate", monthEnd),
         // 오늘 생일자 회원 (soft delete 제외)
@@ -217,6 +241,12 @@ export default function Dashboard() {
           .eq("status", "UNPAID")
           .order("saleDate", { ascending: true })
           .limit(5),
+        // 전체 미수금 합계
+        supabase
+          .from("sales")
+          .select("amount, unpaid")
+          .eq("branchId", branchId)
+          .eq("status", "UNPAID"),
         // 홀딩 중인 회원 (soft delete 제외)
         supabase
           .from("members")
@@ -312,6 +342,11 @@ export default function Dashboard() {
       // === 이번달 매출 합계 ===
       const revenueRows = revenueRes.data ?? [];
       const monthlyRevenue = revenueRows.reduce((sum: number, r: { amount: unknown }) => sum + (Number(r.amount) || 0), 0);
+      const unpaidRows = unpaidTotalRes.data ?? [];
+      const unpaidTotal = unpaidRows.reduce(
+        (sum: number, r: { unpaid: unknown; amount: unknown }) => sum + (Number(r.unpaid) || Number(r.amount) || 0),
+        0
+      );
 
       // === 성별/연령 분포 (실 데이터) ===
       const genderData = genderRes.data ?? [];
@@ -347,6 +382,9 @@ export default function Dashboard() {
         expiredMembers: expiredRes.count ?? 0,
         todayAttendance: attendanceRes.count ?? 0,
         monthlyRevenue,
+        monthlyAttendance: monthlyAttendanceRes.count ?? 0,
+        monthlyRefundCount: refundedRes.count ?? 0,
+        unpaidTotal,
       });
 
       // 생일자 가공
@@ -511,6 +549,39 @@ export default function Dashboard() {
       icon: <DollarSign />,
       change: { value: 0, label: "목표 대비" },
       variant: "default" as const,
+      pageId: 970,
+    },
+    {
+      label: "활성 회원 비율",
+      value: `${stats.totalMembers > 0 ? ((stats.activeMembers / stats.totalMembers) * 100).toFixed(1) : "0.0"}%`,
+      icon: <TrendingUp />,
+      change: {
+        value: 0,
+        label: `${stats.activeMembers.toLocaleString("ko-KR")} / ${stats.totalMembers.toLocaleString("ko-KR")}명`,
+      },
+      variant: "mint" as const,
+      pageId: 967,
+    },
+    {
+      label: "월 방문 빈도",
+      value: `${stats.activeMembers > 0 ? (stats.monthlyAttendance / stats.activeMembers).toFixed(1) : "0.0"}회`,
+      icon: <RefreshCw />,
+      change: {
+        value: 0,
+        label: `이번달 출석 ${stats.monthlyAttendance.toLocaleString("ko-KR")}건`,
+      },
+      variant: "default" as const,
+      pageId: 968,
+    },
+    {
+      label: "미수금 총액",
+      value: `${formatAmount(stats.unpaidTotal)}원`,
+      icon: <AlertCircle />,
+      change: {
+        value: 0,
+        label: `환불 ${stats.monthlyRefundCount.toLocaleString("ko-KR")}건`,
+      },
+      variant: "peach" as const,
       pageId: 970,
     },
   ];
