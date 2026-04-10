@@ -82,6 +82,8 @@ const DiscountSettings = React.lazy(() => import('@/pages/DiscountSettings'));
 const StaffAttendancePage = React.lazy(() => import('@/pages/StaffAttendance'));
 const ExerciseProgramManagement = React.lazy(() => import('@/pages/ExerciseProgramManagement'));
 const Notices = React.lazy(() => import('@/pages/Notices'));
+const KpiPreviewCenter = React.lazy(() => import('@/pages/KpiPreviewCenter'));
+const TodayTasks = React.lazy(() => import('@/pages/TodayTasks'));
 
 export default function App() {
   const navigate = useNavigate();
@@ -163,6 +165,8 @@ export default function App() {
       <Route path="/subscription" element={<PrivateRoute><Subscription /></PrivateRoute>} />
       <Route path="/branches" element={<PrivateRoute><BranchManagement /></PrivateRoute>} />
       <Route path="/branch-report" element={<PrivateRoute><BranchReport /></PrivateRoute>} />
+      <Route path="/kpi-preview" element={<PrivateRoute><KpiPreviewCenter /></PrivateRoute>} />
+      <Route path="/today-tasks" element={<PrivateRoute><TodayTasks /></PrivateRoute>} />
 
       {/* 수업 관리 (BROJ CRM) */}
       <Route path="/lessons" element={<PrivateRoute><Calendar /></PrivateRoute>} />

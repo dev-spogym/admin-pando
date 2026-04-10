@@ -1,0 +1,129 @@
+{
+  "meta": {
+    "date": "2026-03-17",
+    "target": "대시보드",
+    "tester": "Claude (Chrome Extension)",
+    "startTime": "14:29",
+    "endTime": "14:43"
+  },
+  "roleTests": {
+    "primary": {
+      "account": "admin",
+      "menuAccess": true,
+      "pageLoad": true,
+      "dataDisplay": true,
+      "sidebarMenus": ["대시보드", "회원", "수업/캘린더", "매출", "상품", "시설", "급여", "메시지/쿠폰", "설정"],
+      "steps": [
+        { "action": "페이지 로드", "result": "pass" },
+        { "action": "통계 카드 6개 확인", "result": "pass", "detail": "전체23, 활성13, 만료임박0, 만료4, 출석1, 매출586만" },
+        { "action": "운영현황 섹션 확인", "result": "pass", "detail": "회원분포, 주간출석, 매출추이, 생일자, 미수금, 홀딩, 만료임박" },
+        { "action": "갱신 버튼 클릭", "result": "pass", "detail": "14:29→14:32 시간 업데이트" },
+        { "action": "회원 신규 등록 클릭", "result": "pass", "detail": "/members/new 이동 정상" }
+      ]
+    },
+    "owner": {
+      "account": "owner1",
+      "menuAccess": true,
+      "pageLoad": true,
+      "dataDisplay": true,
+      "sidebarMenus": ["대시보드", "회원", "수업/캘린더", "매출", "상품", "시설", "급여", "메시지/쿠폰", "설정"],
+      "steps": [
+        { "action": "로그인", "result": "pass" },
+        { "action": "대시보드 로드", "result": "pass" },
+        { "action": "사이드바 전체 메뉴 확인", "result": "pass" },
+        { "action": "사용자 정보 확인", "result": "pass", "detail": "[강남 본점] 박센터장 / 센터장" }
+      ]
+    },
+    "manager": {
+      "account": "manager1",
+      "menuAccess": true,
+      "pageLoad": true,
+      "dataDisplay": true,
+      "sidebarMenus": ["대시보드", "회원", "수업/캘린더", "매출", "상품", "시설", "급여", "메시지/쿠폰"],
+      "hiddenMenus": ["설정"],
+      "steps": [
+        { "action": "로그인", "result": "pass" },
+        { "action": "대시보드 로드", "result": "pass" },
+        { "action": "사이드바 8개 메뉴 확인 (설정 미노출)", "result": "pass" }
+      ]
+    },
+    "fc": {
+      "account": "trainer1",
+      "menuAccess": true,
+      "pageLoad": true,
+      "dataDisplay": true,
+      "sidebarMenus": ["대시보드", "회원", "수업/캘린더", "급여"],
+      "hiddenMenus": ["매출", "상품", "시설", "메시지/쿠폰", "설정"],
+      "steps": [
+        { "action": "로그인", "result": "pass" },
+        { "action": "대시보드 로드", "result": "pass" },
+        { "action": "사이드바 4개 메뉴 확인", "result": "pass" },
+        { "action": "회원 서브메뉴: 마일리지,전자계약 미노출", "result": "pass" }
+      ]
+    },
+    "staff": {
+      "account": "staff1",
+      "menuAccess": true,
+      "pageLoad": true,
+      "dataDisplay": true,
+      "sidebarMenus": ["대시보드", "회원", "매출", "상품", "시설", "급여"],
+      "hiddenMenus": ["수업/캘린더", "메시지/쿠폰", "설정"],
+      "steps": [
+        { "action": "로그인", "result": "pass" },
+        { "action": "대시보드 로드", "result": "pass" },
+        { "action": "사이드바 6개 메뉴 확인", "result": "pass" }
+      ]
+    },
+    "readonly": {
+      "account": "readonly1",
+      "menuAccess": false,
+      "pageLoad": false,
+      "dataDisplay": false,
+      "sidebarMenus": ["급여"],
+      "steps": [
+        { "action": "로그인", "result": "pass" },
+        { "action": "대시보드 접근", "result": "fail", "detail": "403 /forbidden 리다이렉트" },
+        { "action": "403 페이지 확인", "result": "pass", "detail": "접근 권한이 없습니다" },
+        { "action": "/payroll/statements 접근", "result": "pass" },
+        { "action": "사이드바: 급여 > 급여명세서만 표시", "result": "pass" }
+      ]
+    }
+  },
+  "branchIsolation": {
+    "manager2": {
+      "account": "manager2",
+      "branch": "서초점",
+      "branchId": 2,
+      "menuAccess": true,
+      "pageLoad": true,
+      "dataIsolated": true,
+      "comparisonData": {
+        "강남본점": { "전체회원": 23, "활성회원": 13, "이번달매출": "586만" },
+        "서초점": { "전체회원": 10, "활성회원": 8, "이번달매출": "184만" }
+      },
+      "steps": [
+        { "action": "서초점 선택 + 로그인", "result": "pass" },
+        { "action": "헤더 지점명 확인", "result": "pass", "detail": "서초점" },
+        { "action": "대시보드 제목 확인", "result": "pass", "detail": "서초점의 실시간 센터 운영 현황" },
+        { "action": "통계 데이터 분리 확인", "result": "pass", "detail": "전체10≠23, 매출184만≠586만" }
+      ]
+    }
+  },
+  "issues": {
+    "bugs": [
+      { "id": "BUG-13", "severity": "Medium", "description": "헤더 '+ 회원등록' 버튼이 readonly에게 표시됨", "path": "readonly1 → /payroll/statements → 헤더" },
+      { "id": "BUG-14", "severity": "Medium", "description": "readonly1이 직원 선택으로 다른 직원 급여 조회 가능", "path": "readonly1 → /payroll/statements → 직원 선택" }
+    ],
+    "ux": [
+      { "id": "UX-13", "severity": "Medium", "description": "403 페이지 '대시보드로 이동' 버튼 → readonly 무한 루프", "path": "readonly1 → /forbidden → 대시보드로 이동 클릭" }
+    ]
+  },
+  "summary": {
+    "totalSteps": 28,
+    "passed": 27,
+    "failed": 1,
+    "passRate": "96.4%",
+    "rolesTestCount": 7,
+    "branchIsolationVerified": true
+  }
+}

@@ -15,7 +15,9 @@ import {
   type Consultation,
   type ConsultationType,
   type ConsultationStatus,
+  type ConsultationResult,
 } from "@/api/endpoints/consultations";
+import { getSales, type Sale } from "@/api/endpoints/sales";
 
 interface Props {
   memberId: number;
@@ -23,6 +25,7 @@ interface Props {
 
 const CONSULTATION_TYPES: ConsultationType[] = ["상담", "OT", "체험", "재등록상담"];
 const CONSULTATION_STATUSES: ConsultationStatus[] = ["예정", "완료", "취소", "노쇼"];
+const CONSULTATION_RESULTS: ConsultationResult[] = ["등록", "미등록", "보류"];
 
 // 상태 배지 색상
 function statusVariant(status: ConsultationStatus): "success" | "info" | "default" | "error" {
@@ -41,10 +44,14 @@ const EMPTY_FORM = {
   staffName: "",
   content: "",
   status: "완료" as ConsultationStatus,
+  result: "" as ConsultationResult | "",
+  nextAction: "",
+  linkedSaleId: "",
 };
 
 export default function TabConsultation({ memberId }: Props) {
   const [records, setRecords] = useState<Consultation[]>([]);
+  const [sales, setSales] = useState<Sale[]>([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [editTarget, setEditTarget] = useState<Consultation | null>(null);
@@ -55,9 +62,16 @@ export default function TabConsultation({ memberId }: Props) {
   useEffect(() => {
     const load = async () => {
       setLoading(true);
-      const data = await getConsultations(memberId);
-      setRecords(data);
-      setLoading(false);
+      try {
+        const [consultationData, salesResponse] = await Promise.all([
+          getConsultations(memberId),
+          getSales({ memberId, page: 1, size: 50 }),
+        ]);
+        setRecords(consultationData);
+        setSales(salesResponse.data.data);
+      } finally {
+        setLoading(false);
+      }
     };
     load();
   }, [memberId]);
@@ -76,6 +90,9 @@ export default function TabConsultation({ memberId }: Props) {
       staffName: rec.staffName ?? "",
       content: rec.content ?? "",
       status: rec.status,
+      result: rec.result ?? "",
+      nextAction: rec.nextAction ?? "",
+      linkedSaleId: rec.linkedSaleId ? String(rec.linkedSaleId) : "",
     });
     setShowModal(true);
   };
@@ -91,6 +108,9 @@ export default function TabConsultation({ memberId }: Props) {
         staffName: form.staffName || null,
         content: form.content || null,
         status: form.status,
+        result: form.result || null,
+        nextAction: form.nextAction || null,
+        linkedSaleId: form.linkedSaleId ? Number(form.linkedSaleId) : null,
       };
       if (editTarget) {
         await updateConsultation(editTarget.id, payload);
@@ -126,11 +146,21 @@ export default function TabConsultation({ memberId }: Props) {
   const totalCount = records.length;
   const completedCount = records.filter(r => r.status === "완료").length;
   const noShowCount = records.filter(r => r.status === "노쇼").length;
+  const convertedCount = records.filter(r => r.result === "등록").length;
+  const conversionRate = completedCount > 0 ? Math.round((convertedCount / completedCount) * 100) : 0;
+
+  const saleLabelMap = new Map(sales.map((sale) => [
+    sale.id,
+    `${sale.productName || sale.type || "매출"} · ${Number(sale.amount ?? 0).toLocaleString()}원`,
+  ]));
 
   const columns = [
     { key: "consultedAt", header: "일시", render: (v: string) => <span className="font-mono text-[12px]">{v ? v.slice(0, 16).replace("T", " ") : "-"}</span> },
     { key: "type", header: "유형", render: (v: string) => <StatusBadge variant="info">{v}</StatusBadge> },
     { key: "staffName", header: "담당자", render: (v: string | null) => <span className="text-[13px]">{v || "-"}</span> },
+    { key: "result", header: "결과", render: (v: ConsultationResult | null) => v ? <StatusBadge variant={v === "등록" ? "success" : v === "보류" ? "info" : "default"}>{v}</StatusBadge> : <span className="text-content-tertiary">-</span> },
+    { key: "linkedSaleId", header: "연결 매출", render: (v: number | null) => <span className="text-[12px] text-content-secondary">{v ? saleLabelMap.get(v) ?? `#${v}` : "-"}</span> },
+    { key: "nextAction", header: "후속조치", render: (v: string | null) => <span className="text-[12px] text-content truncate max-w-[180px] block">{v || "-"}</span> },
     { key: "content", header: "내용", render: (v: string | null) => <span className="text-[12px] text-content truncate max-w-[200px] block">{v || "-"}</span> },
     { key: "status", header: "상태", align: "center" as const, render: (v: ConsultationStatus) => <StatusBadge variant={statusVariant(v)} dot>{v}</StatusBadge> },
     {
@@ -157,10 +187,11 @@ export default function TabConsultation({ memberId }: Props) {
   return (
     <div className="space-y-lg">
       {/* 통계 */}
-      <div className="grid grid-cols-3 gap-md">
+      <div className="grid grid-cols-2 gap-md lg:grid-cols-4">
         <StatCard label="전체 상담" value={`${totalCount}건`} icon={<MessageSquare size={18} />} variant="default" />
         <StatCard label="완료" value={`${completedCount}건`} icon={<MessageSquare size={18} />} variant="mint" />
         <StatCard label="노쇼" value={`${noShowCount}건`} icon={<MessageSquare size={18} />} variant="peach" />
+        <StatCard label="등록 전환율" value={`${conversionRate}%`} description={`등록 ${convertedCount}건`} icon={<MessageSquare size={18} />} variant="default" />
       </div>
 
       {/* 테이블 */}
@@ -228,10 +259,49 @@ export default function TabConsultation({ memberId }: Props) {
                   ))}
                 </div>
               </div>
+              {/* 결과 */}
+              <div className="flex items-center gap-md">
+                <label className="text-[13px] text-content-secondary w-[90px] shrink-0">결과</label>
+                <select
+                  className="flex-1 px-md py-sm rounded-input border border-line bg-surface-secondary text-[13px] outline-none focus:ring-2 focus:ring-primary/30"
+                  value={form.result}
+                  onChange={e => setForm(p => ({ ...p, result: e.target.value as ConsultationResult | "" }))}
+                >
+                  <option value="">미선택</option>
+                  {CONSULTATION_RESULTS.map(result => <option key={result} value={result}>{result}</option>)}
+                </select>
+              </div>
+              {/* 연결 매출 */}
+              <div className="flex items-center gap-md">
+                <label className="text-[13px] text-content-secondary w-[90px] shrink-0">연결 매출</label>
+                <select
+                  className="flex-1 px-md py-sm rounded-input border border-line bg-surface-secondary text-[13px] outline-none focus:ring-2 focus:ring-primary/30"
+                  value={form.linkedSaleId}
+                  onChange={e => setForm(p => ({ ...p, linkedSaleId: e.target.value }))}
+                >
+                  <option value="">선택 안함</option>
+                  {sales.map((sale) => (
+                    <option key={sale.id} value={sale.id}>
+                      {`${sale.productName || sale.type || "매출"} · ${Number(sale.amount ?? 0).toLocaleString()}원 · ${sale.saleDate.slice(0, 10)}`}
+                    </option>
+                  ))}
+                </select>
+              </div>
               {/* 내용 */}
               <div className="flex items-start gap-md">
                 <label className="text-[13px] text-content-secondary w-[90px] shrink-0 pt-sm">내용</label>
                 <textarea className="flex-1 px-md py-sm rounded-input border border-line bg-surface-secondary text-[13px] outline-none focus:ring-2 focus:ring-primary/30 resize-none" rows={3} placeholder="상담 내용을 입력하세요" value={form.content} onChange={e => setForm(p => ({ ...p, content: e.target.value }))} />
+              </div>
+              {/* 후속조치 */}
+              <div className="flex items-start gap-md">
+                <label className="text-[13px] text-content-secondary w-[90px] shrink-0 pt-sm">후속조치</label>
+                <textarea
+                  className="flex-1 px-md py-sm rounded-input border border-line bg-surface-secondary text-[13px] outline-none focus:ring-2 focus:ring-primary/30 resize-none"
+                  rows={2}
+                  placeholder="재연락 일정, 후속 액션, 보류 사유 등을 입력하세요"
+                  value={form.nextAction}
+                  onChange={e => setForm(p => ({ ...p, nextAction: e.target.value }))}
+                />
               </div>
             </div>
             <div className="flex justify-end gap-sm px-lg py-md border-t border-line">

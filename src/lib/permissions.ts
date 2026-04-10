@@ -48,6 +48,8 @@ const ROLE_HIERARCHY: Record<UserRole, number> = {
 export const ROUTE_PERMISSIONS: Record<string, UserRole[]> = {
   // 대시보드 - readonly 제외
   '/': ['primary', 'owner', 'manager', 'fc', 'staff'],
+  '/kpi-preview': ['primary', 'owner', 'manager', 'fc', 'staff'],
+  '/today-tasks': ['primary', 'owner', 'manager', 'fc', 'staff'],
 
   // 회원
   '/members': ['primary', 'owner', 'manager', 'fc', 'staff'],
@@ -117,6 +119,8 @@ export const ROUTE_PERMISSIONS: Record<string, UserRole[]> = {
 // 사이드바 메뉴 표시 권한 (상위 그룹 단위)
 export const MENU_PERMISSIONS: Record<string, UserRole[]> = {
   '대시보드': ['primary', 'owner', 'manager', 'fc', 'staff'],
+  'KPI 센터': ['primary', 'owner', 'manager', 'fc', 'staff'],
+  'Today Tasks': ['primary', 'owner', 'manager', 'fc', 'staff'],
   '회원': ['primary', 'owner', 'manager', 'fc', 'staff'],
   '수업/캘린더': ['primary', 'owner', 'manager', 'fc'],
   '매출': ['primary', 'owner', 'manager', 'staff'],

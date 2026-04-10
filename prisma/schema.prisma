@@ -756,6 +756,9 @@ model Consultation {
   staffName   String    // 비정규화
   type        String    // 상담, OT, 체험, 재등록상담
   content     String
+  result      String?   // 등록, 미등록, 보류
+  nextAction  String?   // 후속 액션 메모
+  linkedSaleId Int?     // 연결된 매출 ID
   scheduledAt DateTime? // 예정 일시
   completedAt DateTime? // 완료 일시
   status      String    @default("scheduled") // scheduled, completed, cancelled, no_show

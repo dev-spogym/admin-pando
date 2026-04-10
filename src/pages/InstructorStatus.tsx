@@ -3,7 +3,7 @@ import AppLayout from '@/components/AppLayout';
 import PageHeader from '@/components/PageHeader';
 import StatCard from '@/components/StatCard';
 import Modal from '@/components/Modal';
-import { Users, Clock, CalendarCheck, BookOpen } from 'lucide-react';
+import { Users, Clock, CalendarCheck, BookOpen, Activity, AlertTriangle } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 
 // 기간 필터
@@ -20,6 +20,11 @@ interface InstructorStat {
   classCount: number;
   totalMinutes: number;
   memberCount: number;
+  bookingCount: number;
+  attendedCount: number;
+  noShowCount: number;
+  attendanceRate: number;
+  noShowRate: number;
 }
 
 interface ClassDetail {
@@ -100,6 +105,7 @@ export default function InstructorStatus() {
     // 예약 수 집계 (강사별 담당 회원 수)
     const classIds = (classes ?? []).map((c: any) => c.id);
     let memberCountMap: Record<number, Set<number>> = {};
+    const bookingStatsMap: Record<number, { bookingCount: number; attendedCount: number; noShowCount: number }> = {};
 
     if (classIds.length > 0) {
       const { data: bookings } = await supabase
@@ -119,6 +125,12 @@ export default function InstructorStatus() {
           if (!instrId) continue;
           if (!memberCountMap[instrId]) memberCountMap[instrId] = new Set();
           memberCountMap[instrId].add(b.memberId);
+
+          const prev = bookingStatsMap[instrId] ?? { bookingCount: 0, attendedCount: 0, noShowCount: 0 };
+          prev.bookingCount += 1;
+          if (b.status === 'ATTENDED') prev.attendedCount += 1;
+          if (b.status === 'NOSHOW' || b.status === 'NO_SHOW') prev.noShowCount += 1;
+          bookingStatsMap[instrId] = prev;
         }
       }
     }
@@ -141,6 +153,15 @@ export default function InstructorStatus() {
       classCount: classCountMap[s.id]?.count ?? 0,
       totalMinutes: classCountMap[s.id]?.minutes ?? 0,
       memberCount: memberCountMap[s.id]?.size ?? 0,
+      bookingCount: bookingStatsMap[s.id]?.bookingCount ?? 0,
+      attendedCount: bookingStatsMap[s.id]?.attendedCount ?? 0,
+      noShowCount: bookingStatsMap[s.id]?.noShowCount ?? 0,
+      attendanceRate: bookingStatsMap[s.id]?.bookingCount
+        ? Math.round(((bookingStatsMap[s.id]?.attendedCount ?? 0) / bookingStatsMap[s.id].bookingCount) * 100)
+        : 0,
+      noShowRate: bookingStatsMap[s.id]?.bookingCount
+        ? Math.round(((bookingStatsMap[s.id]?.noShowCount ?? 0) / bookingStatsMap[s.id].bookingCount) * 100)
+        : 0,
     }));
 
     setInstructors(stats);
@@ -180,7 +201,12 @@ export default function InstructorStatus() {
     const totalInstructors = instructors.length;
     const totalClasses = instructors.reduce((s, i) => s + i.classCount, 0);
     const totalHours = Math.round(instructors.reduce((s, i) => s + i.totalMinutes, 0) / 60);
-    return { totalInstructors, totalClasses, totalHours };
+    const totalBookings = instructors.reduce((s, i) => s + i.bookingCount, 0);
+    const totalAttended = instructors.reduce((s, i) => s + i.attendedCount, 0);
+    const totalNoShow = instructors.reduce((s, i) => s + i.noShowCount, 0);
+    const avgAttendanceRate = totalBookings > 0 ? Math.round((totalAttended / totalBookings) * 100) : 0;
+    const avgNoShowRate = totalBookings > 0 ? Math.round((totalNoShow / totalBookings) * 100) : 0;
+    return { totalInstructors, totalClasses, totalHours, avgAttendanceRate, avgNoShowRate };
   }, [instructors]);
 
   return (
@@ -233,10 +259,12 @@ export default function InstructorStatus() {
       />
 
       {/* 요약 통계 카드 */}
-      <div className="grid grid-cols-2 lg:grid-cols-3 gap-md mb-lg">
+      <div className="grid grid-cols-2 lg:grid-cols-5 gap-md mb-lg">
         <StatCard label="총 강사 수" value={`${summary.totalInstructors}명`} icon={<Users />} />
         <StatCard label="총 수업 수" value={`${summary.totalClasses}회`} icon={<CalendarCheck />} variant="mint" />
         <StatCard label="총 근무시간" value={`${summary.totalHours}h`} icon={<Clock />} variant="peach" />
+        <StatCard label="평균 출석률" value={`${summary.avgAttendanceRate}%`} icon={<Activity />} description="예약 대비 참석" />
+        <StatCard label="평균 노쇼율" value={`${summary.avgNoShowRate}%`} icon={<AlertTriangle />} description="예약 대비 미참석" variant="peach" />
       </div>
 
       {/* 강사 카드 그리드 */}
@@ -282,6 +310,19 @@ export default function InstructorStatus() {
                 <div className="flex flex-col items-center p-xs bg-surface-secondary rounded-lg">
                   <span className="text-[16px] font-bold text-content">{instr.memberCount}</span>
                   <span className="text-[10px] text-content-tertiary mt-0.5">회원 수</span>
+                </div>
+              </div>
+
+              <div className="mt-sm grid grid-cols-2 gap-xs">
+                <div className="rounded-lg border border-line bg-surface px-sm py-xs">
+                  <p className="text-[10px] text-content-tertiary">출석률</p>
+                  <p className="text-[13px] font-semibold text-content">{instr.attendanceRate}%</p>
+                  <p className="text-[10px] text-content-tertiary">{instr.attendedCount}/{instr.bookingCount}건</p>
+                </div>
+                <div className="rounded-lg border border-line bg-surface px-sm py-xs">
+                  <p className="text-[10px] text-content-tertiary">노쇼율</p>
+                  <p className="text-[13px] font-semibold text-content">{instr.noShowRate}%</p>
+                  <p className="text-[10px] text-content-tertiary">{instr.noShowCount}/{instr.bookingCount}건</p>
                 </div>
               </div>
             </button>
