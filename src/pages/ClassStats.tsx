@@ -18,7 +18,9 @@ interface ClassStat {
   title: string;
   room: string | null;
   capacity: number;
+  bookedCount: number;
   attendeeCount: number;
+  bookingRate: number;
   attendRate: number;
 }
 
@@ -81,22 +83,27 @@ export default function ClassStats() {
     // 예약/출석 수 집계 (classes 테이블에 bookedCount 또는 lesson_bookings 조인)
     const ids = classes.map((c: any) => c.id);
     let attendMap: Record<number, number> = {};
+    let bookedMap: Record<number, number> = {};
 
     if (ids.length > 0) {
       const { data: bookings } = await supabase
         .from('lesson_bookings')
         .select('scheduleId, status')
         .in('scheduleId', ids)
-        .eq('status', 'ATTENDED');
+        .in('status', ['BOOKED', 'ATTENDED']);
       if (bookings) {
         for (const b of bookings as any[]) {
-          attendMap[b.scheduleId] = (attendMap[b.scheduleId] ?? 0) + 1;
+          bookedMap[b.scheduleId] = (bookedMap[b.scheduleId] ?? 0) + 1;
+          if (b.status === 'ATTENDED') {
+            attendMap[b.scheduleId] = (attendMap[b.scheduleId] ?? 0) + 1;
+          }
         }
       }
     }
 
     // 수업별 통계
     const stats: ClassStat[] = classes.map((c: any) => {
+      const bookedCount = bookedMap[c.id] ?? 0;
       const attendeeCount = attendMap[c.id] ?? 0;
       const cap = Number(c.capacity) || 1;
       return {
@@ -104,8 +111,10 @@ export default function ClassStats() {
         title: c.title ?? '-',
         room: c.room,
         capacity: cap,
+        bookedCount,
         attendeeCount,
-        attendRate: Math.round((attendeeCount / cap) * 100),
+        bookingRate: Math.round((bookedCount / cap) * 100),
+        attendRate: bookedCount > 0 ? Math.round((attendeeCount / bookedCount) * 100) : 0,
       };
     });
     setClassStats(stats);
@@ -143,14 +152,17 @@ export default function ClassStats() {
   // 요약 통계
   const summary = useMemo(() => {
     const total = classStats.length;
+    const totalBooked = classStats.reduce((s, c) => s + c.bookedCount, 0);
     const totalAttendees = classStats.reduce((s, c) => s + c.attendeeCount, 0);
-    const avgRate =
+    const avgBookingRate =
+      total === 0 ? 0 : Math.round(classStats.reduce((s, c) => s + c.bookingRate, 0) / total);
+    const avgAttendRate =
       total === 0 ? 0 : Math.round(classStats.reduce((s, c) => s + c.attendRate, 0) / total);
     const top3 = [...classStats]
       .sort((a, b) => b.attendeeCount - a.attendeeCount)
       .slice(0, 3)
       .map((c) => c.title);
-    return { total, totalAttendees, avgRate, top3 };
+    return { total, totalBooked, totalAttendees, avgBookingRate, avgAttendRate, top3 };
   }, [classStats]);
 
   // 검색 필터
@@ -169,14 +181,33 @@ export default function ClassStats() {
     { key: 'title', header: '수업명', render: (v: string) => <span className="font-medium text-content">{v}</span> },
     { key: 'room', header: '장소', render: (v: string | null) => v ?? '-' },
     { key: 'capacity', header: '정원', align: 'center' as const, render: (v: number) => `${v}명` },
-    { key: 'attendeeCount', header: '참여자', align: 'center' as const, render: (v: number) => `${v}명` },
+    { key: 'bookedCount', header: '예약자', align: 'center' as const, render: (v: number) => `${v}명` },
+    {
+      key: 'bookingRate',
+      header: '예약률',
+      align: 'center' as const,
+      render: (v: number) => (
+        <div className="flex items-center justify-center gap-2">
+          <div className="w-16 h-1.5 bg-surface-secondary rounded-full overflow-hidden">
+            <div
+              className="h-full rounded-full bg-accent transition-all"
+              style={{ width: `${Math.min(v, 100)}%` }}
+            />
+          </div>
+          <span className={v >= 80 ? 'text-state-success font-semibold' : v >= 50 ? 'text-amber-600' : 'text-content-secondary'}>
+            {v}%
+          </span>
+        </div>
+      ),
+    },
+    { key: 'attendeeCount', header: '출석자', align: 'center' as const, render: (v: number) => `${v}명` },
     {
       key: 'attendRate',
       header: '출석률',
       align: 'center' as const,
       render: (v: number) => (
         <div className="flex items-center justify-center gap-2">
-          <div className="w-20 h-1.5 bg-surface-secondary rounded-full overflow-hidden">
+          <div className="w-16 h-1.5 bg-surface-secondary rounded-full overflow-hidden">
             <div
               className="h-full rounded-full bg-primary transition-all"
               style={{ width: `${Math.min(v, 100)}%` }}
@@ -215,15 +246,12 @@ export default function ClassStats() {
       />
 
       {/* 통계 카드 */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-md mb-lg">
+      <div className="grid grid-cols-2 lg:grid-cols-5 gap-md mb-lg">
         <StatCard label="총 수업 수" value={summary.total} icon={<CalendarCheck />} />
-        <StatCard label="총 참여자" value={`${summary.totalAttendees}명`} icon={<Users />} variant="mint" />
-        <StatCard label="평균 출석률" value={`${summary.avgRate}%`} icon={<TrendingUp />} variant="peach" />
-        <StatCard
-          label="인기 수업 TOP"
-          value={summary.top3[0] ?? '-'}
-          icon={<BarChart3 />}
-        />
+        <StatCard label="총 예약자" value={`${summary.totalBooked}명`} icon={<Users />} variant="mint" />
+        <StatCard label="총 출석자" value={`${summary.totalAttendees}명`} icon={<Users />} />
+        <StatCard label="평균 예약률" value={`${summary.avgBookingRate}%`} icon={<TrendingUp />} variant="peach" />
+        <StatCard label="평균 출석률" value={`${summary.avgAttendRate}%`} icon={<BarChart3 />} />
       </div>
 
       {/* 월별 트렌드 바 차트 */}

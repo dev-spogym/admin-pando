@@ -53,6 +53,9 @@ interface KpiData {
   totalRevenue: number;
   todayAttendance: number;
   totalStaff: number;
+  newMembers: number;
+  expiringMembers: number;
+  expiredMembers: number;
 }
 
 interface BranchStats {
@@ -175,6 +178,9 @@ export default function SuperDashboard() {
     totalRevenue: 0,
     todayAttendance: 0,
     totalStaff: 0,
+    newMembers: 0,
+    expiringMembers: 0,
+    expiredMembers: 0,
   });
 
   const [branches, setBranches] = useState<Branch[]>([]);
@@ -257,7 +263,51 @@ export default function SuperDashboard() {
     );
     const todayAttendance = attendanceResults.reduce((s, r) => s + (r.count ?? 0), 0);
 
-    setKpiData({ totalMembers, totalRevenue, todayAttendance, totalStaff });
+    // 신규/만료예정/만료 회원 전 지점 합산
+    const newMemberResults = await Promise.all(
+      branchList.map((branch) =>
+        supabase
+          .from('members')
+          .select('id', { count: 'exact', head: true })
+          .eq('branchId', branch.id)
+          .is('deletedAt', null)
+          .gte('registeredAt', monthStart)
+          .lte('registeredAt', monthEnd)
+      )
+    );
+    const newMembers = newMemberResults.reduce((s, r) => s + (r.count ?? 0), 0);
+
+    const in30Days = new Date(today);
+    in30Days.setDate(today.getDate() + 30);
+    const in30DaysStr = in30Days.toISOString().slice(0, 10);
+
+    const expiringResults = await Promise.all(
+      branchList.map((branch) =>
+        supabase
+          .from('members')
+          .select('id', { count: 'exact', head: true })
+          .eq('branchId', branch.id)
+          .is('deletedAt', null)
+          .eq('status', 'ACTIVE')
+          .gte('membershipExpiry', todayStr)
+          .lte('membershipExpiry', in30DaysStr)
+      )
+    );
+    const expiringMembers = expiringResults.reduce((s, r) => s + (r.count ?? 0), 0);
+
+    const expiredResults = await Promise.all(
+      branchList.map((branch) =>
+        supabase
+          .from('members')
+          .select('id', { count: 'exact', head: true })
+          .eq('branchId', branch.id)
+          .is('deletedAt', null)
+          .eq('status', 'EXPIRED')
+      )
+    );
+    const expiredMembers = expiredResults.reduce((s, r) => s + (r.count ?? 0), 0);
+
+    setKpiData({ totalMembers, totalRevenue, todayAttendance, totalStaff, newMembers, expiringMembers, expiredMembers });
   }, []);
 
   // ─── 전체 데이터 로드 ────────────────────────────────────────────────────
@@ -362,8 +412,29 @@ export default function SuperDashboard() {
       label: '전체 직원',
       value: kpiData.totalStaff.toLocaleString('ko-KR') + '명',
       icon: <LayoutDashboard size={18} />,
-      change: 0, // TODO: 통합 API 구현 시 전월 대비 실데이터 교체
+      change: 0,
       changeLabel: '전월 대비',
+    },
+    {
+      label: '이번달 신규',
+      value: kpiData.newMembers.toLocaleString('ko-KR') + '명',
+      icon: <ArrowUpRight size={18} />,
+      change: 0,
+      changeLabel: '이번달',
+    },
+    {
+      label: '만료 예정 (30일)',
+      value: kpiData.expiringMembers.toLocaleString('ko-KR') + '명',
+      icon: <Clock size={18} />,
+      change: 0,
+      changeLabel: '30일 이내',
+    },
+    {
+      label: '만료 회원',
+      value: kpiData.expiredMembers.toLocaleString('ko-KR') + '명',
+      icon: <ShieldAlert size={18} />,
+      change: 0,
+      changeLabel: '현재',
     },
   ];
 

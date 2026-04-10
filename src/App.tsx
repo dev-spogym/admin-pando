@@ -38,6 +38,7 @@ const Payroll = React.lazy(() => import('@/pages/Payroll'));
 const PayrollStatement = React.lazy(() => import('@/pages/PayrollStatement'));
 const MessageSend = React.lazy(() => import('@/pages/MessageSend'));
 const AutoAlarm = React.lazy(() => import('@/pages/AutoAlarm'));
+const LeadManagement = React.lazy(() => import('@/pages/LeadManagement'));
 const CouponManagement = React.lazy(() => import('@/pages/CouponManagement'));
 const MileageManagement = React.lazy(() => import('@/pages/MileageManagement'));
 const ContractWizard = React.lazy(() => import('@/pages/ContractWizard'));
@@ -56,6 +57,9 @@ const Forbidden = React.lazy(() => import('@/pages/Forbidden'));
 const SuperDashboard = React.lazy(() => import('@/pages/SuperDashboard'));
 const AuditLog = React.lazy(() => import('@/pages/AuditLog'));
 const MemberTransfer = React.lazy(() => import('@/pages/MemberTransfer'));
+
+const KpiDashboard = React.lazy(() => import('@/pages/KpiDashboard'));
+const OnboardingDashboard = React.lazy(() => import('@/pages/OnboardingDashboard'));
 
 // --- Sprint 3 신규 페이지 ---
 const ScheduleRequests = React.lazy(() => import('@/pages/ScheduleRequests'));
@@ -151,6 +155,7 @@ export default function App() {
       <Route path="/payroll/statements" element={<PrivateRoute><PayrollStatement /></PrivateRoute>} />
 
       {/* 메시지/마케팅 */}
+      <Route path="/leads" element={<PrivateRoute><LeadManagement /></PrivateRoute>} />
       <Route path="/message" element={<PrivateRoute><MessageSend /></PrivateRoute>} />
       <Route path="/message/auto-alarm" element={<PrivateRoute><AutoAlarm /></PrivateRoute>} />
       <Route path="/message/coupon" element={<PrivateRoute><CouponManagement /></PrivateRoute>} />
@@ -198,6 +203,8 @@ export default function App() {
 
       {/* 멀티테넌트 */}
       <Route path="/super-dashboard" element={<PrivateRoute><SuperDashboard /></PrivateRoute>} />
+      <Route path="/kpi" element={<PrivateRoute><KpiDashboard /></PrivateRoute>} />
+      <Route path="/onboarding" element={<PrivateRoute><OnboardingDashboard /></PrivateRoute>} />
       <Route path="/audit-log" element={<PrivateRoute><AuditLog /></PrivateRoute>} />
 
       {/* 존재하지 않는 경로 → 404 페이지 */}

@@ -86,6 +86,8 @@ const MENU_ITEMS: MenuItem[] = [
       { label: "매출 현황", path: "/sales", viewId: 970 },
       { label: "매출 통계", path: "/sales/stats" },
       { label: "통계 관리", path: "/sales/statistics-management" },
+      { label: "KPI 대시보드", path: "/kpi" },
+      { label: "온보딩 현황", path: "/onboarding" },
       { label: "선수익금", path: "/deferred-revenue" },
       { label: "POS 결제", path: "/pos", viewId: 971 },
       { label: "현장 판매", path: "/pos/payment", viewId: 982 },
@@ -119,9 +121,10 @@ const MENU_ITEMS: MenuItem[] = [
     ],
   },
   {
-    label: "메시지/쿠폰",
+    label: "영업/마케팅",
     icon: MessageSquare,
     children: [
+      { label: "리드 관리", path: "/leads" },
       { label: "메시지 발송", path: "/message", viewId: 980 },
       { label: "자동 알림", path: "/message/auto-alarm", viewId: 992 },
       { label: "쿠폰 관리", path: "/message/coupon", viewId: 993 },

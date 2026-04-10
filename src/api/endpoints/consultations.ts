@@ -33,12 +33,16 @@ export type ConsultationStatus = '예정' | '완료' | '취소' | '노쇼';
 /** 상담 결과 */
 export type ConsultationResult = '등록' | '미등록' | '보류';
 
+/** 상담 채널 */
+export type ConsultationChannel = '방문' | '전화' | '카카오톡' | 'DM' | 'SNS' | '기타';
+
 /** 상담 이력 */
 export interface Consultation {
   id: number;
   memberId: number;
   consultedAt: string;
   type: ConsultationType;
+  channel: ConsultationChannel | null;
   staffName: string | null;
   content: string | null;
   status: ConsultationStatus;
@@ -53,6 +57,7 @@ export interface CreateConsultationInput {
   memberId: number;
   consultedAt: string;
   type: ConsultationType;
+  channel?: ConsultationChannel | null;
   staffName?: string | null;
   content?: string | null;
   status: ConsultationStatus;
@@ -78,6 +83,7 @@ function rowToConsultation(row: Record<string, any>): Consultation {
     memberId: row.memberId ?? row.member_id,
     consultedAt,
     type: row.type,
+    channel: row.channel ?? null,
     staffName: row.staffName ?? row.staff_name ?? null,
     content: row.content ?? null,
     status: row.status,

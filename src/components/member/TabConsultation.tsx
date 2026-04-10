@@ -16,6 +16,7 @@ import {
   type ConsultationType,
   type ConsultationStatus,
   type ConsultationResult,
+  type ConsultationChannel,
 } from "@/api/endpoints/consultations";
 import { getSales, type Sale } from "@/api/endpoints/sales";
 
@@ -24,6 +25,7 @@ interface Props {
 }
 
 const CONSULTATION_TYPES: ConsultationType[] = ["상담", "OT", "체험", "재등록상담"];
+const CONSULTATION_CHANNELS: ConsultationChannel[] = ["방문", "전화", "카카오톡", "DM", "SNS", "기타"];
 const CONSULTATION_STATUSES: ConsultationStatus[] = ["예정", "완료", "취소", "노쇼"];
 const CONSULTATION_RESULTS: ConsultationResult[] = ["등록", "미등록", "보류"];
 
@@ -41,6 +43,7 @@ function statusVariant(status: ConsultationStatus): "success" | "info" | "defaul
 const EMPTY_FORM = {
   consultedAt: new Date().toISOString().slice(0, 16),
   type: "상담" as ConsultationType,
+  channel: "방문" as ConsultationChannel,
   staffName: "",
   content: "",
   status: "완료" as ConsultationStatus,
@@ -87,6 +90,7 @@ export default function TabConsultation({ memberId }: Props) {
     setForm({
       consultedAt: rec.consultedAt.slice(0, 16),
       type: rec.type,
+      channel: rec.channel ?? "방문",
       staffName: rec.staffName ?? "",
       content: rec.content ?? "",
       status: rec.status,
@@ -105,6 +109,7 @@ export default function TabConsultation({ memberId }: Props) {
         memberId,
         consultedAt: form.consultedAt,
         type: form.type,
+        channel: form.channel,
         staffName: form.staffName || null,
         content: form.content || null,
         status: form.status,
@@ -157,6 +162,7 @@ export default function TabConsultation({ memberId }: Props) {
   const columns = [
     { key: "consultedAt", header: "일시", render: (v: string) => <span className="font-mono text-[12px]">{v ? v.slice(0, 16).replace("T", " ") : "-"}</span> },
     { key: "type", header: "유형", render: (v: string) => <StatusBadge variant="info">{v}</StatusBadge> },
+    { key: "channel", header: "채널", render: (v: string | null) => <span className="text-[12px] text-content-secondary">{v || "-"}</span> },
     { key: "staffName", header: "담당자", render: (v: string | null) => <span className="text-[13px]">{v || "-"}</span> },
     { key: "result", header: "결과", render: (v: ConsultationResult | null) => v ? <StatusBadge variant={v === "등록" ? "success" : v === "보류" ? "info" : "default"}>{v}</StatusBadge> : <span className="text-content-tertiary">-</span> },
     { key: "linkedSaleId", header: "연결 매출", render: (v: number | null) => <span className="text-[12px] text-content-secondary">{v ? saleLabelMap.get(v) ?? `#${v}` : "-"}</span> },
@@ -232,6 +238,13 @@ export default function TabConsultation({ memberId }: Props) {
                 <label className="text-[13px] text-content-secondary w-[90px] shrink-0">유형 <span className="text-state-error">*</span></label>
                 <select className="flex-1 px-md py-sm rounded-input border border-line bg-surface-secondary text-[13px] outline-none focus:ring-2 focus:ring-primary/30" value={form.type} onChange={e => setForm(p => ({ ...p, type: e.target.value as ConsultationType }))}>
                   {CONSULTATION_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
+                </select>
+              </div>
+              {/* 채널 */}
+              <div className="flex items-center gap-md">
+                <label className="text-[13px] text-content-secondary w-[90px] shrink-0">채널</label>
+                <select className="flex-1 px-md py-sm rounded-input border border-line bg-surface-secondary text-[13px] outline-none focus:ring-2 focus:ring-primary/30" value={form.channel} onChange={e => setForm(p => ({ ...p, channel: e.target.value as ConsultationChannel }))}>
+                  {CONSULTATION_CHANNELS.map(c => <option key={c} value={c}>{c}</option>)}
                 </select>
               </div>
               {/* 담당자 */}
