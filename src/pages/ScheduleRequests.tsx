@@ -8,6 +8,8 @@ import {
   Loader2,
   CalendarDays,
   Bell,
+  CalendarClock,
+  X,
 } from "lucide-react";
 import AppLayout from "@/components/AppLayout";
 import PageHeader from "@/components/PageHeader";
@@ -47,6 +49,12 @@ export default function ScheduleRequests() {
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
   const [processingId, setProcessingId] = useState<number | null>(null);
+
+  // 대안 제시 모달
+  const [alternativeModal, setAlternativeModal] = useState<{ open: boolean; requestId: number | null }>({ open: false, requestId: null });
+  const [altDate, setAltDate] = useState('');
+  const [altTime, setAltTime] = useState('');
+  const [altMemo, setAltMemo] = useState('');
 
   const branchId = Number(localStorage.getItem('branchId') ?? 1);
 
@@ -89,6 +97,22 @@ export default function ScheduleRequests() {
     } finally {
       setProcessingId(null);
     }
+  };
+
+  const openAlternativeModal = (id: number) => {
+    setAltDate('');
+    setAltTime('');
+    setAltMemo('');
+    setAlternativeModal({ open: true, requestId: id });
+  };
+
+  const handleAlternativeSubmit = () => {
+    if (!altDate || !altTime) {
+      toast.error('대안 날짜와 시간을 입력해주세요.');
+      return;
+    }
+    toast.success(`대안 일정(${altDate} ${altTime})을 제시했습니다.`);
+    setAlternativeModal({ open: false, requestId: null });
   };
 
   const handleReject = async (id: number) => {
@@ -227,6 +251,14 @@ export default function ScheduleRequests() {
             </button>
             <button
               disabled={isProcessing}
+              className="flex items-center gap-xs px-sm py-[4px] rounded-md text-[11px] font-semibold bg-information/10 text-information border border-information/30 hover:bg-information/20 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+              onClick={() => openAlternativeModal(row.id)}
+            >
+              <CalendarClock size={11} />
+              대안 제시
+            </button>
+            <button
+              disabled={isProcessing}
               className="flex items-center gap-xs px-sm py-[4px] rounded-md text-[11px] font-semibold bg-state-error/10 text-state-error border border-state-error/30 hover:bg-state-error/20 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
               onClick={() => handleReject(row.id)}
             >
@@ -332,6 +364,77 @@ export default function ScheduleRequests() {
           />
         )}
       </div>
+
+      {/* 대안 제시 모달 */}
+      {alternativeModal.open && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
+          <div className="bg-surface rounded-xl shadow-lg w-full max-w-[420px] mx-md overflow-hidden border border-line">
+            <div className="flex items-center justify-between px-lg py-md border-b border-line bg-surface-secondary">
+              <h2 className="text-[15px] font-bold text-content flex items-center gap-sm">
+                <CalendarClock className="text-information" size={17} />
+                대안 일정 제시
+              </h2>
+              <button
+                onClick={() => setAlternativeModal({ open: false, requestId: null })}
+                className="p-xs rounded-full hover:bg-surface-tertiary text-content-secondary transition-colors"
+              >
+                <X size={17} />
+              </button>
+            </div>
+            <div className="p-lg space-y-md">
+              <p className="text-[12px] text-content-secondary">
+                회원에게 제안할 대안 날짜와 시간을 입력하세요.
+              </p>
+              <div className="space-y-xs">
+                <label className="text-[12px] font-semibold text-content">
+                  대안 날짜 <span className="text-state-error">*</span>
+                </label>
+                <input
+                  type="date"
+                  value={altDate}
+                  onChange={e => setAltDate(e.target.value)}
+                  className="w-full px-3 py-2 border border-line rounded-lg text-[13px] text-content bg-surface focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary/20"
+                />
+              </div>
+              <div className="space-y-xs">
+                <label className="text-[12px] font-semibold text-content">
+                  대안 시간 <span className="text-state-error">*</span>
+                </label>
+                <input
+                  type="time"
+                  value={altTime}
+                  onChange={e => setAltTime(e.target.value)}
+                  className="w-full px-3 py-2 border border-line rounded-lg text-[13px] text-content bg-surface focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary/20"
+                />
+              </div>
+              <div className="space-y-xs">
+                <label className="text-[12px] font-semibold text-content">메모 (선택)</label>
+                <textarea
+                  rows={2}
+                  value={altMemo}
+                  onChange={e => setAltMemo(e.target.value)}
+                  placeholder="대안 제시 사유나 안내 메시지를 입력하세요"
+                  className="w-full px-3 py-2 border border-line rounded-lg text-[13px] text-content bg-surface focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary/20 resize-none"
+                />
+              </div>
+            </div>
+            <div className="flex justify-end gap-sm px-lg py-md border-t border-line">
+              <button
+                className="px-4 py-2 rounded-lg border border-line text-[13px] text-content-secondary hover:bg-surface-secondary transition-colors"
+                onClick={() => setAlternativeModal({ open: false, requestId: null })}
+              >
+                취소
+              </button>
+              <button
+                className="px-4 py-2 rounded-lg bg-information text-white text-[13px] font-medium hover:opacity-90 transition-opacity"
+                onClick={handleAlternativeSubmit}
+              >
+                대안 제시
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </AppLayout>
   );
 }

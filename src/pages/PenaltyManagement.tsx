@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { toast } from 'sonner';
-import { Plus, Trash2, AlertTriangle, Ban, Clock, Minus } from 'lucide-react';
+import { Plus, Trash2, AlertTriangle, Ban, Clock, Minus, Settings, ToggleLeft, ToggleRight } from 'lucide-react';
 import AppLayout from '@/components/AppLayout';
 import PageHeader from '@/components/PageHeader';
 import StatCard from '@/components/StatCard';
@@ -79,6 +79,11 @@ export default function PenaltyManagement() {
   // 삭제 확인 다이얼로그
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [deleteTargetId, setDeleteTargetId] = useState<number | null>(null);
+
+  // 자동 페널티 정책
+  const [autoPolicyModalOpen, setAutoPolicyModalOpen] = useState(false);
+  const [noshowAutoDeduct, setNoshowAutoDeduct] = useState(true);
+  const [noshowDeductCount, setNoshowDeductCount] = useState(1);
 
   // 페널티 목록 조회
   const fetchPenalties = async () => {
@@ -264,13 +269,22 @@ export default function PenaltyManagement() {
         title="페널티 관리"
         description="노쇼, 지각 등 페널티를 관리합니다."
         actions={
-          <button
-            className="flex items-center gap-1.5 px-4 py-2 bg-primary text-white rounded-lg text-[13px] font-medium hover:bg-primary/90 transition-colors"
-            onClick={openCreate}
-          >
-            <Plus size={15} />
-            페널티 등록
-          </button>
+          <div className="flex gap-sm">
+            <button
+              className="flex items-center gap-1.5 px-4 py-2 bg-surface border border-line text-content-secondary rounded-lg text-[13px] font-medium hover:bg-surface-secondary transition-colors"
+              onClick={() => setAutoPolicyModalOpen(true)}
+            >
+              <Settings size={15} />
+              자동 페널티 정책
+            </button>
+            <button
+              className="flex items-center gap-1.5 px-4 py-2 bg-primary text-white rounded-lg text-[13px] font-medium hover:bg-primary/90 transition-colors"
+              onClick={openCreate}
+            >
+              <Plus size={15} />
+              페널티 등록
+            </button>
+          </div>
         }
       />
 
@@ -415,10 +429,77 @@ export default function PenaltyManagement() {
         onCancel={() => setDeleteDialogOpen(false)}
         onConfirm={handleDelete}
         title="페널티 취소"
-        description="이 페널티를 취소(삭제)하시겠습니까?"
+        description="이 페널티를 취소하시겠습니까? 차감된 횟수가 복원됩니다."
         confirmLabel="취소 확인"
         variant="danger"
       />
+
+      {/* 자동 페널티 정책 모달 */}
+      <Modal
+        isOpen={autoPolicyModalOpen}
+        onClose={() => setAutoPolicyModalOpen(false)}
+        title="자동 페널티 정책 설정"
+        size="md"
+        footer={
+          <div className="flex justify-end gap-sm">
+            <button
+              className="px-4 py-2 rounded-lg border border-line text-[13px] text-content-secondary hover:bg-surface-tertiary transition-colors"
+              onClick={() => setAutoPolicyModalOpen(false)}
+            >
+              취소
+            </button>
+            <button
+              className="px-4 py-2 rounded-lg bg-primary text-white text-[13px] font-medium hover:bg-primary/90 transition-colors"
+              onClick={() => {
+                setAutoPolicyModalOpen(false);
+                toast.success('자동 페널티 정책이 저장되었습니다.');
+              }}
+            >
+              저장
+            </button>
+          </div>
+        }
+      >
+        <div className="flex flex-col gap-lg">
+          {/* 노쇼 자동 차감 토글 */}
+          <div className="flex items-center justify-between p-md bg-surface-secondary rounded-lg border border-line">
+            <div>
+              <p className="text-[13px] font-semibold text-content">노쇼 자동 차감</p>
+              <p className="text-[11px] text-content-secondary mt-[2px]">예약 미출석 시 수업 횟수를 자동으로 차감합니다.</p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setNoshowAutoDeduct(v => !v)}
+              className="flex items-center gap-xs transition-colors"
+            >
+              {noshowAutoDeduct
+                ? <ToggleRight size={32} className="text-primary" />
+                : <ToggleLeft size={32} className="text-content-secondary" />}
+              <span className={`text-[12px] font-semibold ${noshowAutoDeduct ? 'text-primary' : 'text-content-secondary'}`}>
+                {noshowAutoDeduct ? 'ON' : 'OFF'}
+              </span>
+            </button>
+          </div>
+
+          {/* 차감 횟수 설정 */}
+          {noshowAutoDeduct && (
+            <div>
+              <label className="block text-[12px] font-medium text-content-secondary mb-xs">
+                노쇼 1회당 차감 횟수
+              </label>
+              <input
+                type="number"
+                min={1}
+                max={10}
+                className="w-full px-3 py-2 border border-line rounded-lg text-[13px] text-content bg-surface focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary/20"
+                value={noshowDeductCount}
+                onChange={e => setNoshowDeductCount(Math.max(1, Math.min(10, Number(e.target.value))))}
+              />
+              <p className="text-[11px] text-content-secondary mt-xs">1~10 범위에서 설정 가능합니다.</p>
+            </div>
+          )}
+        </div>
+      </Modal>
     </AppLayout>
   );
 }

@@ -46,6 +46,16 @@ interface ClassTemplate {
   isActive: boolean;
 }
 
+const WEEKDAYS = [
+  { value: 0, label: '일' },
+  { value: 1, label: '월' },
+  { value: 2, label: '화' },
+  { value: 3, label: '수' },
+  { value: 4, label: '목' },
+  { value: 5, label: '금' },
+  { value: 6, label: '토' },
+];
+
 interface TemplateForm {
   name: string;
   type: string;
@@ -54,6 +64,7 @@ interface TemplateForm {
   description: string;
   color: string;
   isActive: boolean;
+  repeatDays: number[]; // 반복 요일 (0=일, 1=월, ... 6=토)
 }
 
 const DEFAULT_FORM: TemplateForm = {
@@ -64,6 +75,7 @@ const DEFAULT_FORM: TemplateForm = {
   description: '',
   color: '#6366f1',
   isActive: true,
+  repeatDays: [],
 };
 
 export default function ClassTemplates() {
@@ -143,6 +155,7 @@ export default function ClassTemplates() {
       description: t.description ?? '',
       color: t.color,
       isActive: t.isActive,
+      repeatDays: (t as ClassTemplate & { repeatDays?: number[] }).repeatDays ?? [],
     });
     setModalOpen(true);
   };
@@ -163,6 +176,7 @@ export default function ClassTemplates() {
       color: form.color,
       is_active: form.isActive,
       branch_id: branchId,
+      repeat_days: form.repeatDays,
     };
 
     if (editTarget) {
@@ -411,6 +425,37 @@ export default function ClassTemplates() {
                   title={color}
                 />
               ))}
+            </div>
+          </div>
+
+          {/* 반복 요일 */}
+          <div>
+            <label className="block text-[12px] font-medium text-content-secondary mb-xs">반복 요일</label>
+            <div className="flex gap-2 flex-wrap">
+              {WEEKDAYS.map((day) => {
+                const checked = form.repeatDays.includes(day.value);
+                return (
+                  <button
+                    key={day.value}
+                    type="button"
+                    onClick={() =>
+                      setForm((f) => ({
+                        ...f,
+                        repeatDays: checked
+                          ? f.repeatDays.filter((d) => d !== day.value)
+                          : [...f.repeatDays, day.value].sort((a, b) => a - b),
+                      }))
+                    }
+                    className={`w-9 h-9 rounded-full text-[13px] font-semibold border transition-colors ${
+                      checked
+                        ? 'bg-primary text-white border-primary'
+                        : 'bg-surface text-content-secondary border-line hover:border-primary hover:text-primary'
+                    }`}
+                  >
+                    {day.label}
+                  </button>
+                );
+              })}
             </div>
           </div>
 

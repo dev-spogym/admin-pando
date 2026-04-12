@@ -397,6 +397,9 @@ export default function BodyComposition() {
   const [showOverwriteDialog, setShowOverwriteDialog] = useState(false);
   const [pendingEntry, setPendingEntry] = useState<Omit<Measurement, "id"> | null>(null);
 
+  // 상세 보기 모달
+  const [detailModal, setDetailModal] = useState<{ open: boolean; record: Measurement | null }>({ open: false, record: null });
+
   // 목표 관리
   const [showGoalModal, setShowGoalModal] = useState(false);
   const [goals, setGoals] = useState({ weight: 0, pbf: 0 });
@@ -644,7 +647,12 @@ export default function BodyComposition() {
           <div className="p-lg">
             {/* 기록 목록 탭 */}
             {activeTab === "list" && (
-              <DataTable columns={columns} data={measurements} title="체성분 측정 히스토리" />
+              <DataTable
+                columns={columns}
+                data={measurements}
+                title="체성분 측정 히스토리"
+                onRowClick={(row: Measurement) => setDetailModal({ open: true, record: row })}
+              />
             )}
 
             {/* UI-122 변화 그래프 탭 */}
@@ -994,6 +1002,50 @@ export default function BodyComposition() {
                 }}
               >
                 저장
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 체성분 측정 상세 모달 */}
+      {detailModal.open && detailModal.record && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
+          <div className="bg-surface rounded-xl shadow-lg w-full max-w-[420px] mx-md overflow-hidden border border-line">
+            <div className="flex items-center justify-between px-lg py-md border-b border-line bg-surface-secondary">
+              <h2 className="text-[15px] font-bold text-content flex items-center gap-sm">
+                <Activity className="text-accent" size={17} />
+                체성분 측정 상세
+              </h2>
+              <button
+                onClick={() => setDetailModal({ open: false, record: null })}
+                className="p-xs rounded-full hover:bg-surface-tertiary text-content-secondary transition-colors"
+              >
+                <X size={17} />
+              </button>
+            </div>
+            <div className="p-lg space-y-sm">
+              {[
+                { label: "측정일", value: detailModal.record.date?.slice(0, 10) ?? '-' },
+                { label: "체중", value: `${detailModal.record.weight} kg` },
+                { label: "골격근량", value: `${detailModal.record.muscle} kg` },
+                { label: "체지방률", value: `${detailModal.record.pbf} %` },
+                { label: "BMI", value: detailModal.record.bmi && isFinite(detailModal.record.bmi) ? `${detailModal.record.bmi} kg/m²` : '-' },
+                { label: "체수분", value: detailModal.record.bodyWater != null ? `${detailModal.record.bodyWater} %` : '-' },
+                { label: "기초대사량", value: `${detailModal.record.bmr} kcal` },
+              ].map(item => (
+                <div key={item.label} className="flex justify-between items-center py-sm border-b border-line last:border-0">
+                  <span className="text-[12px] text-content-secondary">{item.label}</span>
+                  <span className="text-[13px] font-semibold text-content">{item.value}</span>
+                </div>
+              ))}
+            </div>
+            <div className="flex justify-end px-lg py-md border-t border-line">
+              <button
+                className="px-lg py-sm rounded-button bg-surface-secondary border border-line text-[13px] text-content-secondary hover:bg-surface-tertiary transition-colors"
+                onClick={() => setDetailModal({ open: false, record: null })}
+              >
+                닫기
               </button>
             </div>
           </div>

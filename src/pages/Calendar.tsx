@@ -1045,6 +1045,37 @@ export default function Calendar() {
     [filteredEvents, lessonScheduleEvents]
   );
 
+  // --- 날짜별 수업 건수 맵 (월간뷰 배지용) ---
+  const dateCountMap = useMemo(() => {
+    const map = new Map<string, number>();
+    calendarEvents.forEach(ev => {
+      const start = typeof ev.start === 'string' ? ev.start : null;
+      if (!start) return;
+      const dateKey = start.slice(0, 10);
+      map.set(dateKey, (map.get(dateKey) ?? 0) + 1);
+    });
+    return map;
+  }, [calendarEvents]);
+
+  // --- 월간뷰 날짜 셀 커스텀 렌더 (수업 건수 배지) ---
+  const dayCellContent = useCallback((info: { date: Date; view: { type: string }; dayNumberText: string }) => {
+    if (info.view.type !== 'dayGridMonth') return undefined;
+    const dateKey = info.date.getFullYear() +
+      '-' + String(info.date.getMonth() + 1).padStart(2, '0') +
+      '-' + String(info.date.getDate()).padStart(2, '0');
+    const count = dateCountMap.get(dateKey) ?? 0;
+    return (
+      <div className="flex items-center justify-between w-full px-[2px]">
+        <span className="fc-daygrid-day-number text-[12px]">{info.dayNumberText}</span>
+        {count > 0 && (
+          <span className="inline-flex items-center justify-center min-w-[16px] h-[16px] px-[4px] rounded-full bg-primary text-white text-[10px] font-bold leading-none">
+            {count}
+          </span>
+        )}
+      </div>
+    );
+  }, [dateCountMap]);
+
   // --- ScheduleEvent 조회 헬퍼 ---
   const findScheduleEvent = useCallback(
     (id: string): ScheduleEvent | undefined => allEvents.find(e => e.id === id),
@@ -1752,6 +1783,7 @@ export default function Calendar() {
                   eventDrop={handleEventDrop}
                   eventResize={handleEventResize}
                   eventContent={renderEventContent}
+                  dayCellContent={dayCellContent}
                   businessHours={{
                     daysOfWeek: [0, 1, 2, 3, 4, 5, 6],
                     startTime: "06:00",

@@ -898,13 +898,22 @@ export default function MemberForm() {
         <div className="mt-xl flex items-center justify-between">
           <div>
             {currentStep === "step2" && (
-              <button
-                className="flex items-center gap-xs px-lg py-md rounded-button text-content-secondary hover:bg-surface-secondary border border-line transition-all text-[13px]"
-                onClick={handlePrev}
-              >
-                <ArrowLeft size={18} />
-                이전 단계로
-              </button>
+              <div className="flex gap-sm">
+                <button
+                  className="flex items-center gap-xs px-lg py-md rounded-button text-content-secondary hover:bg-surface-secondary border border-line transition-all text-[13px]"
+                  onClick={handlePrev}
+                >
+                  <ArrowLeft size={18} />
+                  이전 단계로
+                </button>
+                <button
+                  className="flex items-center gap-xs px-md py-md rounded-button text-content-secondary hover:bg-surface-secondary border border-line transition-all text-[13px]"
+                  onClick={handleResetClick}
+                >
+                  <RotateCcw size={15} />
+                  초기화
+                </button>
+              </div>
             )}
           </div>
 

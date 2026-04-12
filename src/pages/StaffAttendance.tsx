@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { toast } from 'sonner';
-import { LogIn, LogOut, Calendar, Users, CheckCircle, AlertCircle } from 'lucide-react';
+import { LogIn, LogOut, Calendar, Users, CheckCircle, AlertCircle, List } from 'lucide-react';
 import AppLayout from '@/components/AppLayout';
 import PageHeader from '@/components/PageHeader';
 import StatCard from '@/components/StatCard';
@@ -33,10 +33,14 @@ const STATUS_VARIANT: Record<AttendanceStatus, 'mint' | 'warning' | 'error' | 'd
 };
 
 export default function StaffAttendance() {
+  const [viewMode, setViewMode] = useState<'daily' | 'monthly'>('daily');
   const [selectedDate, setSelectedDate] = useState(fmtLocal(new Date()));
+  const [selectedMonth, setSelectedMonth] = useState(fmtLocal(new Date()).slice(0, 7)); // YYYY-MM
   const [attendances, setAttendances] = useState<StaffAttendanceItem[]>([]);
+  const [monthlyAttendances, setMonthlyAttendances] = useState<StaffAttendanceItem[]>([]);
   const [staffList, setStaffList] = useState<{ id: number; name: string; role?: string }[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isMonthlyLoading, setIsMonthlyLoading] = useState(false);
 
   const getBranchId = () => Number(localStorage.getItem('branchId')) || 1;
 
@@ -48,6 +52,35 @@ export default function StaffAttendance() {
     setAttendances(data ?? []);
   };
 
+  const fetchMonthlyAttendances = async () => {
+    setIsMonthlyLoading(true);
+    const startDate = `${selectedMonth}-01`;
+    const year = parseInt(selectedMonth.slice(0, 4));
+    const month = parseInt(selectedMonth.slice(5, 7));
+    const lastDay = new Date(year, month, 0).getDate();
+    const endDate = `${selectedMonth}-${String(lastDay).padStart(2, '0')}`;
+    const { data, error } = await supabase
+      .from('staff_attendance')
+      .select('*')
+      .eq('branchId', getBranchId())
+      .gte('date', startDate)
+      .lte('date', endDate);
+    setIsMonthlyLoading(false);
+    if (error) { toast.error('월별 근태 데이터를 불러오지 못했습니다.'); return; }
+    setMonthlyAttendances((data ?? []).map((r: Record<string, unknown>) => ({
+      id: r.id as number,
+      staffId: r.staffId as number,
+      staffName: r.staffName as string,
+      date: r.date as string,
+      clockIn: r.clockIn as string | null,
+      clockOut: r.clockOut as string | null,
+      workMinutes: r.workMinutes as number | null,
+      status: r.status as AttendanceStatus,
+      memo: r.memo as string,
+      branchId: r.branchId as number,
+    })));
+  };
+
   // 직원 목록 로드
   useEffect(() => {
     supabase.from('staff').select('id, name, role').eq('branchId', getBranchId()).then(({ data }) => {
@@ -56,6 +89,7 @@ export default function StaffAttendance() {
   }, []);
 
   useEffect(() => { fetchAttendances(); }, [selectedDate]);
+  useEffect(() => { if (viewMode === 'monthly') fetchMonthlyAttendances(); }, [selectedMonth, viewMode]);
 
   // 직원별 근태 데이터 병합 (근태 기록 없는 직원도 포함)
   const mergedData = useMemo(() => {
@@ -85,6 +119,18 @@ export default function StaffAttendance() {
     const absent = staffList.length - attendances.length;
     return { total: attendances.length, normal, late, earlyLeave, absent: Math.max(0, absent) };
   }, [attendances, staffList]);
+
+  // 월별 요약: 직원별 출근일수, 지각횟수, 결근횟수, 연차 사용일수
+  const monthlyStaffSummary = useMemo(() => {
+    return staffList.map(staff => {
+      const records = monthlyAttendances.filter(a => a.staffId === staff.id);
+      const workDays = records.filter(a => ['정상', '지각', '조퇴'].includes(a.status)).length;
+      const lateCnt = records.filter(a => a.status === '지각').length;
+      const absentCnt = records.filter(a => a.status === '결근').length;
+      const annualCnt = records.filter(a => a.status === '연차').length;
+      return { staffId: staff.id, staffName: staff.name, role: staff.role, workDays, lateCnt, absentCnt, annualCnt };
+    });
+  }, [staffList, monthlyAttendances]);
 
   const handleClockIn = async (staffId: number, staffName: string) => {
     const { id, error } = await clockIn(staffId, staffName, selectedDate);
@@ -167,6 +213,30 @@ export default function StaffAttendance() {
     },
   ];
 
+  const monthlyColumns = [
+    { key: 'staffName', header: '직원명', width: 120 },
+    {
+      key: 'role', header: '직급', width: 100, align: 'center' as const,
+      render: (v: string | undefined) => v ? <span className="text-[12px] text-content-secondary">{v}</span> : <span className="text-content-tertiary text-[12px]">-</span>,
+    },
+    {
+      key: 'workDays', header: '출근일수', width: 100, align: 'center' as const,
+      render: (v: number) => <span className="tabular-nums font-semibold text-state-success">{v}일</span>,
+    },
+    {
+      key: 'lateCnt', header: '지각횟수', width: 100, align: 'center' as const,
+      render: (v: number) => <span className={cn('tabular-nums font-semibold', v > 0 ? 'text-amber-500' : 'text-content-tertiary')}>{v}회</span>,
+    },
+    {
+      key: 'absentCnt', header: '결근횟수', width: 100, align: 'center' as const,
+      render: (v: number) => <span className={cn('tabular-nums font-semibold', v > 0 ? 'text-state-error' : 'text-content-tertiary')}>{v}회</span>,
+    },
+    {
+      key: 'annualCnt', header: '연차사용', width: 100, align: 'center' as const,
+      render: (v: number) => <span className={cn('tabular-nums font-semibold', v > 0 ? 'text-info' : 'text-content-tertiary')}>{v}일</span>,
+    },
+  ];
+
   return (
     <AppLayout>
       <PageHeader
@@ -182,43 +252,99 @@ export default function StaffAttendance() {
         <StatCard label="결근" value={monthlySummary.absent} icon={<Users />} />
       </div>
 
-      {/* 날짜 선택 */}
-      <div className="bg-surface rounded-xl border border-line p-lg mb-xl flex items-center gap-md">
-        <Calendar size={16} className="text-content-tertiary" />
-        <span className="text-[13px] font-semibold text-content-secondary">날짜 선택</span>
-        <input
-          type="date"
-          value={selectedDate}
-          onChange={e => setSelectedDate(e.target.value)}
-          className="px-sm py-[5px] border border-line rounded-lg text-[13px] text-content bg-surface focus:outline-none focus:border-primary transition-all"
-        />
-        {/* 월간 요약 */}
-        <div className="ml-auto flex items-center gap-lg">
-          {([
-            { label: '정상', value: monthlySummary.normal, color: 'text-state-success' },
-            { label: '지각', value: monthlySummary.late, color: 'text-amber-500' },
-            { label: '조퇴', value: monthlySummary.earlyLeave, color: 'text-orange-500' },
-            { label: '결근', value: monthlySummary.absent, color: 'text-state-error' },
-          ]).map(item => (
-            <div key={item.label} className="text-center">
-              <p className="text-[10px] text-content-tertiary mb-[2px]">{item.label}</p>
-              <p className={cn('text-[16px] font-bold tabular-nums', item.color)}>{item.value}</p>
-            </div>
-          ))}
-        </div>
+      {/* 뷰 모드 토글 */}
+      <div className="flex items-center gap-xs mb-lg">
+        <button
+          onClick={() => setViewMode('daily')}
+          className={cn(
+            'flex items-center gap-xs px-md py-sm rounded-button text-[13px] font-semibold border transition-all',
+            viewMode === 'daily'
+              ? 'bg-primary text-surface border-primary'
+              : 'bg-surface text-content-secondary border-line hover:border-primary hover:text-primary'
+          )}
+        >
+          <Calendar size={14} />
+          일별 뷰
+        </button>
+        <button
+          onClick={() => setViewMode('monthly')}
+          className={cn(
+            'flex items-center gap-xs px-md py-sm rounded-button text-[13px] font-semibold border transition-all',
+            viewMode === 'monthly'
+              ? 'bg-primary text-surface border-primary'
+              : 'bg-surface text-content-secondary border-line hover:border-primary hover:text-primary'
+          )}
+        >
+          <List size={14} />
+          월별 요약
+        </button>
       </div>
 
-      {/* 테이블 */}
-      <div className="bg-surface rounded-xl border border-line shadow-card overflow-hidden">
-        <DataTable
-          columns={columns}
-          data={mergedData}
-          loading={isLoading}
-          title={`${selectedDate} 근태 현황`}
-          emptyMessage="직원 목록이 없습니다."
-          pagination={{ page: 1, pageSize: 50, total: mergedData.length }}
-        />
-      </div>
+      {viewMode === 'daily' && <>
+        {/* 날짜 선택 */}
+        <div className="bg-surface rounded-xl border border-line p-lg mb-xl flex items-center gap-md">
+          <Calendar size={16} className="text-content-tertiary" />
+          <span className="text-[13px] font-semibold text-content-secondary">날짜 선택</span>
+          <input
+            type="date"
+            value={selectedDate}
+            onChange={e => setSelectedDate(e.target.value)}
+            className="px-sm py-[5px] border border-line rounded-lg text-[13px] text-content bg-surface focus:outline-none focus:border-primary transition-all"
+          />
+          {/* 일별 요약 */}
+          <div className="ml-auto flex items-center gap-lg">
+            {([
+              { label: '정상', value: monthlySummary.normal, color: 'text-state-success' },
+              { label: '지각', value: monthlySummary.late, color: 'text-amber-500' },
+              { label: '조퇴', value: monthlySummary.earlyLeave, color: 'text-orange-500' },
+              { label: '결근', value: monthlySummary.absent, color: 'text-state-error' },
+            ]).map(item => (
+              <div key={item.label} className="text-center">
+                <p className="text-[10px] text-content-tertiary mb-[2px]">{item.label}</p>
+                <p className={cn('text-[16px] font-bold tabular-nums', item.color)}>{item.value}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* 일별 테이블 */}
+        <div className="bg-surface rounded-xl border border-line shadow-card overflow-hidden">
+          <DataTable
+            columns={columns}
+            data={mergedData}
+            loading={isLoading}
+            title={`${selectedDate} 근태 현황`}
+            emptyMessage="직원 목록이 없습니다."
+            pagination={{ page: 1, pageSize: 50, total: mergedData.length }}
+          />
+        </div>
+      </>}
+
+      {viewMode === 'monthly' && <>
+        {/* 월 선택 */}
+        <div className="bg-surface rounded-xl border border-line p-lg mb-xl flex items-center gap-md">
+          <Calendar size={16} className="text-content-tertiary" />
+          <span className="text-[13px] font-semibold text-content-secondary">월 선택</span>
+          <input
+            type="month"
+            value={selectedMonth}
+            onChange={e => setSelectedMonth(e.target.value)}
+            className="px-sm py-[5px] border border-line rounded-lg text-[13px] text-content bg-surface focus:outline-none focus:border-primary transition-all"
+          />
+        </div>
+
+        {/* 월별 요약 테이블 */}
+        <div className="bg-surface rounded-xl border border-line shadow-card overflow-hidden">
+          <DataTable
+            columns={monthlyColumns}
+            data={monthlyStaffSummary as unknown as Record<string, unknown>[]}
+            loading={isMonthlyLoading}
+            title={`${selectedMonth} 직원별 근태 요약`}
+            emptyMessage="직원 목록이 없습니다."
+            pagination={{ page: 1, pageSize: 50, total: monthlyStaffSummary.length }}
+          />
+        </div>
+      </>}
     </AppLayout>
   );
 }

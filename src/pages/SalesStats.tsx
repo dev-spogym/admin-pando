@@ -206,6 +206,9 @@ export default function SalesStats() {
   const [activeTab, setActiveTab] = useState('product');
   // 최상위 탭 (전체 통계 / 직군별 / 담당자별)
   const [topTab, setTopTab] = useState<'all' | 'role' | 'staff'>('all');
+  // 전월 대비 비교 모드
+  const [compareMode, setCompareMode] = useState(false);
+  const [prevSalesData, setPrevSalesData] = useState<SalesRow[]>([]);
 
   // 날짜 필터 (이번달 기본)
   const today = new Date();
@@ -253,9 +256,40 @@ export default function SalesStats() {
     }
   }, [dateStart, dateEnd]);
 
+  // 전월 데이터 로드
+  const fetchPrevSales = useCallback(async () => {
+    if (!dateStart) return;
+    const start = new Date(dateStart);
+    const prevStart = new Date(start.getFullYear(), start.getMonth() - 1, 1);
+    const prevEnd = new Date(start.getFullYear(), start.getMonth(), 0);
+    const { data } = await supabase
+      .from('sales')
+      .select('id, saleDate, productName, type, salePrice, amount, paymentMethod, status, branchId, staffName')
+      .eq('branchId', getBranchId())
+      .neq('status', 'REFUNDED')
+      .gte('saleDate', fmtLocal(prevStart))
+      .lte('saleDate', fmtLocal(prevEnd));
+    if (data) {
+      setPrevSalesData(data.map((row: Record<string, unknown>) => ({
+        id: row.id as number,
+        saleDate: (row.saleDate as string)?.slice(0, 10) ?? '',
+        productName: (row.productName as string) ?? '(미지정)',
+        type: deriveSaleType((row.type as string) ?? null, (row.productName as string) ?? null),
+        category: deriveCategory((row.type as string) ?? null, (row.productName as string) ?? null),
+        salePrice: Number(row.salePrice) || Number(row.amount) || 0,
+        paymentMethod: PAYMENT_KO[(row.paymentMethod as string) ?? ''] ?? (row.paymentMethod as string) ?? '기타',
+        status: (row.status as string) ?? '',
+      })));
+    }
+  }, [dateStart]);
+
   useEffect(() => {
     fetchSales();
   }, [fetchSales]);
+
+  useEffect(() => {
+    if (compareMode) fetchPrevSales();
+  }, [compareMode, fetchPrevSales]);
 
   // 날짜 프리셋
   const PRESETS = [
@@ -382,6 +416,34 @@ export default function SalesStats() {
   const current = tabConfig[activeTab];
   const grandTotal = current.rows.reduce((s, r) => s + r.total, 0);
 
+  // 전월 집계 (compareMode ON 시)
+  const prevAggregated = useMemo((): AggRow[] => {
+    if (!compareMode || prevSalesData.length === 0) return [];
+    const keyFns: Record<string, (row: SalesRow) => string> = {
+      product: r => r.productName,
+      type: r => r.type,
+      payment: r => r.paymentMethod,
+      category: r => r.category,
+    };
+    const keyFn = keyFns[activeTab] ?? (r => r.productName);
+    const map = new Map<string, { count: number; total: number }>();
+    prevSalesData.forEach(row => {
+      const key = keyFn(row) || '(미지정)';
+      const prev = map.get(key) ?? { count: 0, total: 0 };
+      prev.count += 1;
+      prev.total += row.salePrice;
+      map.set(key, prev);
+    });
+    const grandTotalPrev = Array.from(map.values()).reduce((s, v) => s + v.total, 0) || 1;
+    return Array.from(map.entries())
+      .map(([label, v]) => ({ label, ...v, pct: (v.total / grandTotalPrev) * 100 }))
+      .sort((a, b) => b.total - a.total);
+  }, [compareMode, prevSalesData, activeTab]);
+
+  const prevGrandTotal = prevAggregated.reduce((s, r) => s + r.total, 0);
+  const diffTotal = grandTotal - prevGrandTotal;
+  const diffPct = prevGrandTotal > 0 ? ((diffTotal / prevGrandTotal) * 100) : 0;
+
   // 직군별/담당자별 테이블 컬럼
   const roleColumns = [
     { key: 'label', header: '직군', width: 160 },
@@ -507,12 +569,47 @@ export default function SalesStats() {
         <div className="flex items-center gap-md p-lg border-b border-line">
           <TabNav tabs={tabs} activeTab={activeTab} onTabChange={setActiveTab} />
           <div className="ml-auto flex items-center gap-sm">
+            {/* 전월 대비 토글 */}
+            <button
+              onClick={() => setCompareMode(v => !v)}
+              className={cn(
+                'flex items-center gap-xs px-md py-[5px] rounded-button text-[12px] font-semibold border transition-all',
+                compareMode
+                  ? 'bg-primary text-surface border-primary'
+                  : 'bg-surface text-content-secondary border-line hover:border-primary hover:text-primary'
+              )}
+            >
+              전월 대비 {compareMode ? 'ON' : 'OFF'}
+            </button>
             <BarChart2 size={15} className="text-content-tertiary" />
             <span className="text-[13px] text-content-secondary">
               총 매출: <span className="font-bold text-content tabular-nums">₩{grandTotal.toLocaleString()}</span>
             </span>
           </div>
         </div>
+
+        {/* 전월 대비 요약 (compareMode ON) */}
+        {compareMode && (
+          <div className="px-lg py-sm border-b border-line-light bg-surface-secondary flex items-center gap-xl flex-wrap">
+            <div className="flex items-center gap-sm">
+              <span className="text-[12px] text-content-secondary">이번 기간:</span>
+              <span className="text-[13px] font-bold tabular-nums text-content">₩{grandTotal.toLocaleString()}</span>
+            </div>
+            <div className="flex items-center gap-sm">
+              <span className="text-[12px] text-content-secondary">전월 동기:</span>
+              <span className="text-[13px] font-bold tabular-nums text-content-secondary">₩{prevGrandTotal.toLocaleString()}</span>
+            </div>
+            <div className="flex items-center gap-sm">
+              <span className="text-[12px] text-content-secondary">차이:</span>
+              <span className={cn('text-[13px] font-bold tabular-nums', diffTotal >= 0 ? 'text-state-success' : 'text-state-error')}>
+                {diffTotal >= 0 ? '+' : ''}₩{diffTotal.toLocaleString()}
+              </span>
+              <span className={cn('text-[12px] font-semibold tabular-nums', diffTotal >= 0 ? 'text-state-success' : 'text-state-error')}>
+                ({diffTotal >= 0 ? '+' : ''}{diffPct.toFixed(1)}%)
+              </span>
+            </div>
+          </div>
+        )}
 
         {/* 차트 영역 */}
         <div className="px-xl pt-lg pb-md border-b border-line-light">
@@ -539,6 +636,22 @@ export default function SalesStats() {
           pagination={{ page: 1, pageSize: 20, total: current.rows.length }}
           emptyMessage="집계된 데이터가 없습니다."
         />
+
+        {/* 전월 비교 테이블 */}
+        {compareMode && prevAggregated.length > 0 && (
+          <div className="border-t border-line">
+            <div className="px-lg py-sm bg-surface-secondary border-b border-line">
+              <span className="text-[12px] font-bold text-content-secondary">전월 동기 데이터</span>
+            </div>
+            <DataTable
+              columns={aggColumns(current.labelHeader)}
+              data={prevAggregated as unknown as Record<string, unknown>[]}
+              loading={false}
+              pagination={{ page: 1, pageSize: 20, total: prevAggregated.length }}
+              emptyMessage="전월 데이터가 없습니다."
+            />
+          </div>
+        )}
       </div>
       </>}
     </AppLayout>
