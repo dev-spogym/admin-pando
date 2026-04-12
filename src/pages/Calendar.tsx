@@ -62,6 +62,9 @@ const SCHEDULE_COLORS: Record<string, string> = {
 // #17 일정 분류 목록
 const SCHEDULE_CATEGORIES = ['상담', 'OT', '체성분', '방문', '수업', 'PT', '기타'] as const;
 
+// 수업 블록 색상 팔레트
+const LESSON_COLORS = ['#6366f1', '#8b5cf6', '#ec4899', '#f43f5e', '#f97316', '#eab308', '#22c55e', '#10b981', '#06b6d4', '#3b82f6'];
+
 // --- 하드코딩 유지 (DB 테이블 없음) ---
 const ROOMS = [
   { id: "R1", name: "GX룸" },
@@ -111,6 +114,8 @@ interface ScheduleEvent {
   targetPhone?: string | null;
   // #18 미승인 처리
   approvalStatus?: "pending" | "approved" | "rejected" | null;
+  // 수업 블록 색상
+  color?: string | null;
 }
 
 interface Instructor {
@@ -684,6 +689,8 @@ export default function Calendar() {
   const [formMemo, setFormMemo] = useState("");
   // 반복 설정 요일 토글 상태 (월~일, 인덱스 0=월 ... 6=일)
   const [selectedDays, setSelectedDays] = useState<boolean[]>(Array(7).fill(false));
+  // 수업 블록 색상
+  const [formColor, setFormColor] = useState(LESSON_COLORS[9]);
 
   // --- FN-034: 예약 오픈 설정 폼 상태 ---
   const [formMaxCapacity, setFormMaxCapacity] = useState(0);
@@ -1074,6 +1081,8 @@ export default function Calendar() {
     setFormTargetName("");
     setFormTargetPhone("");
     setFormTargetStaff("");
+    // 색상 초기화
+    setFormColor(LESSON_COLORS[9]);
   };
 
   // --- 수업 등록 제출 핸들러 ---
@@ -1148,6 +1157,7 @@ export default function Calendar() {
         targetType: formTargetType,
         targetName: resolvedTargetName,
         approvalStatus: null,
+        color: formColor,
       };
 
       setLocalEvents(prev => [...prev, newEvent]);
@@ -2228,6 +2238,34 @@ export default function Calendar() {
                     </select>
                   </div>
                 )}
+              </div>
+
+              {/* 수업 색상 */}
+              <div className="border border-line rounded-xl p-lg space-y-md">
+                <h3 className="text-[13px] font-bold text-content">수업 색상</h3>
+                <div className="flex flex-wrap gap-sm">
+                  {LESSON_COLORS.map(color => (
+                    <button
+                      key={color}
+                      type="button"
+                      onClick={() => setFormColor(color)}
+                      className="w-8 h-8 rounded-full flex items-center justify-center transition-all"
+                      style={{
+                        backgroundColor: color,
+                        border: formColor === color ? `3px solid ${color}` : '3px solid transparent',
+                        outline: formColor === color ? '2px solid #fff' : 'none',
+                        boxShadow: formColor === color ? `0 0 0 3px ${color}` : 'none',
+                      }}
+                      title={color}
+                    >
+                      {formColor === color && (
+                        <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+                          <path d="M2.5 7L5.5 10L11.5 4" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                        </svg>
+                      )}
+                    </button>
+                  ))}
+                </div>
               </div>
 
               <div>

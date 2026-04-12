@@ -43,6 +43,8 @@ import {
   Target,
   Megaphone,
   LogIn,
+  ArrowRightLeft,
+  UserMinus,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { moveToPage } from "@/internal";
@@ -1413,6 +1415,10 @@ export default function MemberDetail() {
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [isFavorite, setIsFavorite] = useState(false);
   const [isHoldingModalOpen, setIsHoldingModalOpen] = useState(false);
+  const [isWithdrawModalOpen, setIsWithdrawModalOpen] = useState(false);
+  const [withdrawReason, setWithdrawReason] = useState('');
+  const canTransfer = hasFeature(authUser?.role ?? '', 'memberTransfer', authUser?.isSuperAdmin);
+  const canWithdraw = hasFeature(authUser?.role ?? '', 'memberWithdraw', authUser?.isSuperAdmin);
 
   // 즐겨찾기 DB 연동 (settings 테이블, key='favorites')
   useEffect(() => {
@@ -1561,6 +1567,22 @@ export default function MemberDetail() {
     }
     toast.success("회원이 삭제되었습니다.");
     setIsDeleteDialogOpen(false);
+    moveToPage(967);
+  };
+
+  const confirmWithdraw = async () => {
+    if (!memberId) return;
+    const { error } = await supabase
+      .from('members')
+      .update({ status: 'WITHDRAWN', withdrawReason: withdrawReason.trim() || null, withdrawnAt: new Date().toISOString() })
+      .eq('id', memberId);
+    if (error) {
+      toast.error(`탈퇴 처리 실패: ${error.message}`);
+      return;
+    }
+    toast.success("회원이 탈퇴 처리되었습니다.");
+    setIsWithdrawModalOpen(false);
+    setWithdrawReason('');
     moveToPage(967);
   };
 
@@ -1729,6 +1751,26 @@ export default function MemberDetail() {
                   <MessageSquare size={15} />
                   메시지 발송
                 </button>
+                {/* 지점이관 버튼 */}
+                {canTransfer && (
+                  <button
+                    className="flex items-center gap-xs px-md py-sm bg-surface-secondary text-content rounded-button font-semibold text-[13px] border border-line hover:bg-surface-tertiary transition-all"
+                    onClick={() => moveToPage(968, { id: memberId ?? '' })}
+                  >
+                    <ArrowRightLeft size={15} />
+                    지점이관
+                  </button>
+                )}
+                {/* 탈퇴 버튼 */}
+                {canWithdraw && (
+                  <button
+                    className="flex items-center gap-xs px-md py-sm border border-state-warning/40 text-state-warning rounded-button font-semibold text-[13px] hover:bg-state-warning hover:text-white transition-all"
+                    onClick={() => setIsWithdrawModalOpen(true)}
+                  >
+                    <UserMinus size={15} />
+                    탈퇴
+                  </button>
+                )}
               </div>
             </div>
 
@@ -1952,6 +1994,44 @@ export default function MemberDetail() {
                 className="flex-[2] py-sm rounded-button bg-state-info text-white text-[14px] font-bold hover:opacity-90"
               >
                 홀딩 시작
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 탈퇴 모달 */}
+      {isWithdrawModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-md">
+          <div className="w-full max-w-sm bg-surface rounded-xl shadow-lg overflow-hidden">
+            <div className="px-xl py-lg border-b border-line">
+              <h3 className="text-[16px] font-bold text-content">회원 탈퇴 처리</h3>
+              <p className="text-[12px] text-content-secondary mt-xs">탈퇴 처리 시 회원 상태가 WITHDRAWN으로 변경됩니다.</p>
+            </div>
+            <div className="p-xl space-y-md">
+              <div className="space-y-xs">
+                <label className="text-[13px] font-semibold text-content-secondary">탈퇴 사유 (선택)</label>
+                <textarea
+                  rows={3}
+                  value={withdrawReason}
+                  onChange={e => setWithdrawReason(e.target.value)}
+                  placeholder="탈퇴 사유를 입력하세요."
+                  className="w-full rounded-input border border-line bg-surface-secondary px-md py-sm text-[13px] text-content outline-none focus:ring-2 focus:ring-state-warning/30 resize-none"
+                />
+              </div>
+            </div>
+            <div className="px-xl py-lg border-t border-line flex gap-md">
+              <button
+                onClick={() => { setIsWithdrawModalOpen(false); setWithdrawReason(''); }}
+                className="flex-1 py-sm rounded-button border border-line text-[14px] font-semibold text-content-secondary hover:bg-surface-secondary"
+              >
+                취소
+              </button>
+              <button
+                onClick={confirmWithdraw}
+                className="flex-[2] py-sm rounded-button bg-state-warning text-white text-[14px] font-bold hover:opacity-90"
+              >
+                탈퇴 처리
               </button>
             </div>
           </div>

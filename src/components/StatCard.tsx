@@ -11,6 +11,7 @@ interface StatCardProps {
   onClick?: () => void;
   className?: string;
   variant?: "default" | "peach" | "mint";
+  loading?: boolean;
 }
 
 export default function StatCard({
@@ -22,8 +23,29 @@ export default function StatCard({
   onClick,
   className = "",
   variant = "default",
+  loading = false,
 }: StatCardProps) {
   const isPositive = change && change.value >= 0;
+
+  if (loading) {
+    return (
+      <div
+        className={cn(
+          "rounded-xl border border-line bg-surface p-lg transition-all",
+          className
+        )}
+      >
+        <div className="flex items-start justify-between">
+          <div className="flex-1">
+            <div className="h-[14px] w-16 rounded bg-surface-tertiary animate-pulse mb-[6px]" />
+            <div className="h-[28px] w-20 rounded bg-surface-tertiary animate-pulse" />
+            <div className="mt-[6px] h-[11px] w-24 rounded bg-surface-tertiary animate-pulse" />
+          </div>
+          <div className="w-9 h-9 rounded-lg bg-surface-tertiary animate-pulse shrink-0" />
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div

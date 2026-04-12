@@ -134,6 +134,7 @@ export default function Dashboard() {
   const [showBanner, setShowBanner] = useState(true);
   const [lastRefreshed, setLastRefreshed] = useState<Date>(() => new Date());
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
 
   const [stats, setStats] = useState<DashboardStats>({
     totalMembers: 0,
@@ -449,6 +450,8 @@ export default function Dashboard() {
     } catch (err) {
       console.error("[Dashboard] 데이터 로드 실패:", err);
       toast.error("대시보드 데이터를 불러오지 못했습니다.");
+    } finally {
+      setIsLoading(false);
     }
   }, []);
 
@@ -579,7 +582,18 @@ export default function Dashboard() {
       icon: <AlertCircle />,
       change: {
         value: 0,
-        label: `환불 ${stats.monthlyRefundCount.toLocaleString("ko-KR")}건`,
+        label: "미납 합계",
+      },
+      variant: "peach" as const,
+      pageId: 970,
+    },
+    {
+      label: "이번달 환불",
+      value: `${stats.monthlyRefundCount.toLocaleString("ko-KR")}건`,
+      icon: <RefreshCw />,
+      change: {
+        value: 0,
+        label: "REFUNDED 기준",
       },
       variant: "peach" as const,
       pageId: 970,
@@ -649,7 +663,7 @@ export default function Dashboard() {
       {/* 통계 카드 */}
       <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-6 gap-md mb-xl">
         {memberStats.map((stat, idx) => (
-          <StatCard key={idx} {...stat} onClick={() => moveToPage(stat.pageId)} />
+          <StatCard key={idx} {...stat} loading={isLoading} onClick={() => moveToPage(stat.pageId)} />
         ))}
       </div>
 

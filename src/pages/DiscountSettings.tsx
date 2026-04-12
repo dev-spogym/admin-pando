@@ -121,11 +121,11 @@ export default function DiscountSettings() {
       ),
     },
     {
-      key: 'minDuration', header: '최소기간', width: 100, align: 'center' as const,
-      render: (v: number | null) => v != null ? `${v}일` : '-',
+      key: 'minDuration', header: '조건', width: 100, align: 'center' as const,
+      render: (v: number | null) => v != null ? `${v}일 이상` : '-',
     },
     {
-      key: 'maxDiscount', header: '최대할인', width: 120, align: 'right' as const,
+      key: 'maxDiscount', header: '한도', width: 120, align: 'right' as const,
       render: (v: number | null) => v != null ? `₩${v.toLocaleString()}` : '-',
     },
     {
