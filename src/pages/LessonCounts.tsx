@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { toast } from 'sonner';
-import { Minus, Eye, Hash, Users, CheckCircle } from 'lucide-react';
+import { Minus, Eye, Hash, Users, CheckCircle, Pencil } from 'lucide-react';
 import AppLayout from '@/components/AppLayout';
 import PageHeader from '@/components/PageHeader';
 import StatCard from '@/components/StatCard';
@@ -81,6 +81,15 @@ export default function LessonCounts() {
   // 세션 상세 뷰 모달
   const [sessionOpen, setSessionOpen] = useState(false);
   const [sessionTarget, setSessionTarget] = useState<LessonCount | null>(null);
+
+  // 횟수 조정 모달 상태
+  const [adjustOpen, setAdjustOpen] = useState(false);
+  const [adjustTarget, setAdjustTarget] = useState<LessonCount | null>(null);
+  const [adjustType, setAdjustType] = useState<'add' | 'deduct'>('add');
+  const [adjustCount, setAdjustCount] = useState(1);
+  const [adjustReason, setAdjustReason] = useState('');
+  const [adjustConfirm, setAdjustConfirm] = useState(false);
+  const [adjustLoading, setAdjustLoading] = useState(false);
 
   // 횟수권 목록 조회 (members 조인으로 branchId 필터)
   const fetchCounts = async () => {
@@ -192,6 +201,56 @@ export default function LessonCounts() {
     }
   };
 
+  // 조정 모달 열기
+  const handleOpenAdjust = (row: LessonCount) => {
+    setAdjustTarget(row);
+    setAdjustType('add');
+    setAdjustCount(1);
+    setAdjustReason('');
+    setAdjustConfirm(false);
+    setAdjustOpen(true);
+  };
+
+  // 조정 적용
+  const handleAdjustApply = async () => {
+    if (!adjustTarget || !adjustReason.trim()) return;
+    if (!adjustConfirm) {
+      setAdjustConfirm(true);
+      return;
+    }
+    setAdjustLoading(true);
+    const delta = adjustType === 'add' ? adjustCount : -adjustCount;
+    const newUsed = adjustType === 'add'
+      ? adjustTarget.usedCount - adjustCount  // 추가 = usedCount 감소 (잔여 증가)
+      : adjustTarget.usedCount + adjustCount; // 차감 = usedCount 증가 (잔여 감소)
+
+    if (newUsed < 0) {
+      toast.error('사용 횟수가 0 미만이 될 수 없습니다.');
+      setAdjustLoading(false);
+      return;
+    }
+    if (newUsed > adjustTarget.totalCount) {
+      toast.error('사용 횟수가 총 횟수를 초과할 수 없습니다.');
+      setAdjustLoading(false);
+      return;
+    }
+
+    const { error } = await supabase
+      .from('lesson_counts')
+      .update({ usedCount: newUsed })
+      .eq('id', adjustTarget.id);
+
+    if (error) {
+      toast.error('횟수 조정에 실패했습니다.');
+    } else {
+      const remain = adjustTarget.totalCount - newUsed;
+      toast.success(`${adjustTarget.memberName} - ${adjustType === 'add' ? `${adjustCount}회 추가` : `${adjustCount}회 차감`} 완료 (잔여: ${remain}회)`);
+      setAdjustOpen(false);
+      fetchCounts();
+    }
+    setAdjustLoading(false);
+  };
+
   // 차감 이력 조회
   const handleViewHistory = async (row: LessonCount) => {
     setHistoryTarget(row);
@@ -264,6 +323,14 @@ export default function LessonCounts() {
           >
             <Minus size={12} />
             차감
+          </button>
+          <button
+            className="flex items-center gap-1 px-2 py-1 rounded-md border border-amber-300 text-amber-600 text-[12px] hover:bg-amber-50 transition-colors"
+            onClick={() => handleOpenAdjust(row)}
+            title="횟수 조정"
+          >
+            <Pencil size={12} />
+            조정
           </button>
           <button
             className="flex items-center gap-1 px-2 py-1 rounded-md border border-line text-content-secondary text-[12px] hover:bg-surface-tertiary transition-colors"
@@ -495,6 +562,122 @@ export default function LessonCounts() {
                 <span className="text-content-secondary truncate">{log.lessonName ?? log.note ?? '-'}</span>
               </div>
             ))}
+          </div>
+        )}
+      </Modal>
+
+      {/* 횟수 조정 모달 */}
+      <Modal
+        isOpen={adjustOpen}
+        onClose={() => { setAdjustOpen(false); setAdjustConfirm(false); }}
+        title="횟수 조정"
+        size="sm"
+      >
+        {adjustTarget && (
+          <div className="flex flex-col gap-md">
+            {/* 기본 정보 */}
+            <div className="bg-surface-secondary rounded-lg p-md flex flex-col gap-xs">
+              <div className="flex justify-between text-[13px]">
+                <span className="text-content-secondary">회원명</span>
+                <span className="text-content font-medium">{adjustTarget.memberName}</span>
+              </div>
+              <div className="flex justify-between text-[13px]">
+                <span className="text-content-secondary">상품명</span>
+                <span className="text-content">{adjustTarget.productName}</span>
+              </div>
+              <div className="flex justify-between text-[13px]">
+                <span className="text-content-secondary">현재 잔여</span>
+                <span className={`font-semibold ${adjustTarget.totalCount - adjustTarget.usedCount <= 0 ? 'text-state-error' : 'text-state-success'}`}>
+                  {adjustTarget.totalCount - adjustTarget.usedCount}회
+                </span>
+              </div>
+            </div>
+
+            {/* 조정 유형 */}
+            <div className="flex flex-col gap-xs">
+              <label className="text-[12px] font-medium text-content-secondary">조정 유형</label>
+              <div className="flex gap-lg">
+                <label className="flex items-center gap-xs text-[13px] cursor-pointer">
+                  <input
+                    type="radio"
+                    name="adjustType"
+                    value="add"
+                    checked={adjustType === 'add'}
+                    onChange={() => setAdjustType('add')}
+                    className="accent-primary"
+                  />
+                  <span className="text-state-success font-medium">추가</span>
+                </label>
+                <label className="flex items-center gap-xs text-[13px] cursor-pointer">
+                  <input
+                    type="radio"
+                    name="adjustType"
+                    value="deduct"
+                    checked={adjustType === 'deduct'}
+                    onChange={() => setAdjustType('deduct')}
+                    className="accent-primary"
+                  />
+                  <span className="text-state-error font-medium">차감</span>
+                </label>
+              </div>
+            </div>
+
+            {/* 조정 횟수 */}
+            <div className="flex flex-col gap-xs">
+              <label className="text-[12px] font-medium text-content-secondary">조정 횟수</label>
+              <input
+                type="number"
+                min={1}
+                value={adjustCount}
+                onChange={(e) => setAdjustCount(Math.max(1, Number(e.target.value)))}
+                className="px-3 py-2 border border-line rounded-lg text-[13px] text-content bg-surface focus:outline-none focus:border-primary w-full"
+              />
+            </div>
+
+            {/* 사유 */}
+            <div className="flex flex-col gap-xs">
+              <label className="text-[12px] font-medium text-content-secondary">
+                사유 <span className="text-state-error">*</span>
+              </label>
+              <input
+                type="text"
+                placeholder="조정 사유를 입력하세요"
+                value={adjustReason}
+                onChange={(e) => setAdjustReason(e.target.value)}
+                className="px-3 py-2 border border-line rounded-lg text-[13px] text-content bg-surface focus:outline-none focus:border-primary w-full"
+              />
+            </div>
+
+            {/* 확인 메시지 */}
+            {adjustConfirm && (
+              <div className="bg-amber-50 border border-amber-200 rounded-lg px-md py-sm text-[12px] text-amber-700">
+                {adjustTarget.memberName}의 잔여 횟수를{' '}
+                <strong>
+                  {adjustType === 'add'
+                    ? `${adjustTarget.totalCount - adjustTarget.usedCount} → ${adjustTarget.totalCount - adjustTarget.usedCount + adjustCount}회`
+                    : `${adjustTarget.totalCount - adjustTarget.usedCount} → ${adjustTarget.totalCount - adjustTarget.usedCount - adjustCount}회`}
+                </strong>
+                로 조정합니다. 계속하시겠습니까?
+              </div>
+            )}
+
+            {/* 버튼 */}
+            <div className="flex justify-end gap-sm pt-xs">
+              <button
+                className="px-4 py-2 border border-line text-content-secondary rounded-lg text-[13px] hover:bg-surface-tertiary transition-colors"
+                onClick={() => { setAdjustOpen(false); setAdjustConfirm(false); }}
+                disabled={adjustLoading}
+              >
+                취소
+              </button>
+              <button
+                className="px-4 py-2 bg-primary text-white rounded-lg text-[13px] font-medium hover:bg-primary/90 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                onClick={handleAdjustApply}
+                disabled={!adjustReason.trim() || adjustLoading}
+              >
+                {adjustLoading ? '처리 중...' : adjustConfirm ? '확인' : '적용'}
+              </button>
+            </div>
           </div>
         )}
       </Modal>

@@ -68,6 +68,12 @@ export default function ClothingManagement() {
   const [qrInput, setQrInput] = useState('');
   const [qrResult, setQrResult] = useState<ClothingItem | null>(null);
 
+  // 회원 검색 (QR 대여 처리용)
+  const [showMemberSearch, setShowMemberSearch] = useState(false);
+  const [memberQuery, setMemberQuery] = useState('');
+  const [memberResults, setMemberResults] = useState<{ id: number; name: string; phone?: string }[]>([]);
+  const [selectedMember, setSelectedMember] = useState<{ id: number; name: string } | null>(null);
+
   // QR 코드로 운동복 검색 + 상태 토글 (대여/반납)
   const handleQrLookup = async () => {
     if (!qrInput.trim()) { toast.error('QR 코드를 입력하세요.'); return; }
@@ -83,6 +89,11 @@ export default function ClothingManagement() {
       return;
     }
     setQrResult(data[0] as ClothingItem);
+    // 새 조회 시 회원 검색 초기화
+    setShowMemberSearch(false);
+    setMemberQuery('');
+    setMemberResults([]);
+    setSelectedMember(null);
   };
 
   // QR 스캔으로 빠른 반납
@@ -92,6 +103,40 @@ export default function ClothingManagement() {
     setQrResult(null);
     setQrInput('');
     toast.success(`${qrResult.number}번 운동복이 반납되었습니다.`);
+  };
+
+  // 회원 검색 (대여 처리용)
+  const handleMemberSearch = async (query: string) => {
+    setMemberQuery(query);
+    setSelectedMember(null);
+    if (!query.trim()) { setMemberResults([]); return; }
+    const { data } = await supabase
+      .from('members')
+      .select('id, name, phone')
+      .eq('branchId', getBranchId())
+      .ilike('name', `%${query.trim()}%`)
+      .limit(10);
+    setMemberResults((data ?? []) as { id: number; name: string; phone?: string }[]);
+  };
+
+  // 대여 확정
+  const handleRentConfirm = async () => {
+    if (!qrResult || !selectedMember) return;
+    const { error } = await supabase.from('clothing').update({
+      status: 'RENTED',
+      memberId: selectedMember.id,
+      memberName: selectedMember.name,
+      rentedAt: new Date().toISOString().slice(0, 10),
+    }).eq('id', qrResult.id);
+    if (error) { toast.error('대여 처리에 실패했습니다.'); return; }
+    toast.success(`${selectedMember.name}님에게 대여되었습니다.`);
+    setQrResult(null);
+    setQrInput('');
+    setShowMemberSearch(false);
+    setMemberQuery('');
+    setMemberResults([]);
+    setSelectedMember(null);
+    fetchItems();
   };
 
   // ─── 데이터 조회 ──────────────────────────────────────────────────────────
@@ -486,9 +531,7 @@ export default function ClothingManagement() {
                   )}
                   {qrResult.status === 'AVAILABLE' && (
                     <button
-                      onClick={() => {
-                        toast.info('회원 선택 후 대여 처리를 진행하세요.');
-                      }}
+                      onClick={() => setShowMemberSearch(v => !v)}
                       className="flex-1 flex items-center justify-center gap-xs px-md py-sm bg-primary text-white rounded-lg text-[13px] font-medium hover:bg-primary-dark"
                     >
                       <Shirt size={14} /> 대여 처리
@@ -508,6 +551,43 @@ export default function ClothingManagement() {
                     </button>
                   )}
                 </div>
+
+                {/* 회원 검색 영역 */}
+                {showMemberSearch && qrResult.status === 'AVAILABLE' && (
+                  <div className="pt-sm space-y-xs">
+                    <p className="text-[12px] font-medium text-content-secondary">대여할 회원 검색</p>
+                    <input
+                      type="text"
+                      value={memberQuery}
+                      onChange={e => handleMemberSearch(e.target.value)}
+                      placeholder="회원명 입력..."
+                      className="w-full px-sm py-[7px] border border-line rounded-lg text-[13px] bg-surface focus:outline-none focus:border-primary"
+                      autoFocus
+                    />
+                    {memberResults.length > 0 && !selectedMember && (
+                      <ul className="border border-line rounded-lg overflow-hidden">
+                        {memberResults.map(m => (
+                          <li
+                            key={m.id}
+                            onClick={() => { setSelectedMember(m); setMemberResults([]); setMemberQuery(m.name); }}
+                            className="px-sm py-[7px] text-[13px] hover:bg-surface-secondary cursor-pointer border-b border-line last:border-b-0"
+                          >
+                            {m.name}
+                            {m.phone && <span className="ml-sm text-[11px] text-content-tertiary">{m.phone}</span>}
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                    {selectedMember && (
+                      <button
+                        onClick={handleRentConfirm}
+                        className="w-full py-sm bg-primary text-white rounded-lg text-[13px] font-semibold hover:bg-primary-dark"
+                      >
+                        {selectedMember.name}님에게 대여 확정
+                      </button>
+                    )}
+                  </div>
+                )}
               </div>
             )}
 

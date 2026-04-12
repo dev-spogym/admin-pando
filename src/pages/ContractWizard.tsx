@@ -162,6 +162,8 @@ export default function ContractWizard() {
   const [discountError, setDiscountError] = useState('');
 
   const [paymentMethod, setPaymentMethod] = useState('card');
+  const [paymentAmounts, setPaymentAmounts] = useState<Record<string, number>>({ card: 0, cash: 0, mileage: 0, transfer: 0 });
+  const [selectedMethods, setSelectedMethods] = useState<Set<string>>(new Set(['card']));
   const [showCompleteDialog, setShowCompleteDialog] = useState(false);
   const [stepErrors, setStepErrors] = useState<Record<number, string>>({});
   const [customerSignatureDataUrl, setCustomerSignatureDataUrl] = useState<string | null>(null);
@@ -323,7 +325,7 @@ export default function ContractWizard() {
       amount: finalPrice,
       originalPrice: totalPrice,
       discountPrice: discountAmount,
-      paymentMethod: paymentMethodMap[paymentMethod] ?? 'CARD',
+      paymentMethod: Array.from(selectedMethods).map(id => paymentMethodMap[id] ?? id.toUpperCase()).join('+') || 'CARD',
       saleDate: new Date().toISOString(),
       status: 'COMPLETED',
       memo: discountReason || null,
@@ -342,7 +344,7 @@ export default function ContractWizard() {
     }
 
     // 마일리지 자동 적립 (결제금액의 1%)
-    if (paymentMethod !== 'mileage') {
+    if (!selectedMethods.has('mileage') || selectedMethods.size > 1) {
       const pointResult = await accruePoints(selectedMember.id, finalPrice);
       if (pointResult.success && pointResult.accrued > 0) {
         toast.info(`${pointResult.accrued}P 마일리지가 적립되었습니다.`);
@@ -710,18 +712,42 @@ export default function ContractWizard() {
   );
 
   // ── Step 4: 결제 ──
+  const paymentTotal = Array.from(selectedMethods).reduce((sum, id) => sum + (paymentAmounts[id] || 0), 0);
+  const paymentMatchesLabel = selectedMethods.size === 0
+    ? null
+    : paymentTotal === finalPrice
+      ? '금액이 일치합니다 ✓'
+      : '금액 합계가 일치하지 않습니다';
+  const paymentMatchesOk = paymentTotal === finalPrice && selectedMethods.size > 0;
+
+  const toggleMethod = (id: string) => {
+    setSelectedMethods(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+        // 선택 해제 시 금액 초기화
+        setPaymentAmounts(a => ({ ...a, [id]: 0 }));
+      } else {
+        next.add(id);
+      }
+      // 단일 선택이면 기존 paymentMethod도 동기화
+      if (next.size === 1) setPaymentMethod([...next][0]);
+      return next;
+    });
+  };
+
   const renderStep4 = () => (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-xl animate-in fade-in slide-in-from-bottom-4 duration-300">
       <div className="space-y-xl">
-        <FormSection title="결제 수단 선택" columns={1}>
+        <FormSection title="결제 수단 선택 (복수 선택 가능)" columns={1}>
           <div className="grid grid-cols-2 gap-md">
             {PAYMENT_METHODS.map(method => (
               <button
                 key={method.id}
-                onClick={() => setPaymentMethod(method.id)}
+                onClick={() => toggleMethod(method.id)}
                 className={cn(
                   "flex items-center gap-md p-lg rounded-xl border-2 transition-all text-left",
-                  paymentMethod === method.id
+                  selectedMethods.has(method.id)
                     ? "border-accent bg-accent-light text-accent"
                     : "border-line bg-surface text-content-secondary hover:border-accent/50"
                 )}
@@ -731,6 +757,39 @@ export default function ContractWizard() {
               </button>
             ))}
           </div>
+
+          {/* 선택된 수단별 금액 입력 */}
+          {selectedMethods.size > 0 && (
+            <div className="mt-md space-y-sm">
+              {PAYMENT_METHODS.filter(m => selectedMethods.has(m.id)).map(method => (
+                <div key={method.id} className="flex items-center gap-md">
+                  <span className="text-Body-2 text-content-secondary w-[72px] shrink-0">{method.label}</span>
+                  <div className="relative flex-1">
+                    <input
+                      type="number"
+                      min={0}
+                      value={paymentAmounts[method.id] || ''}
+                      onChange={e => setPaymentAmounts(a => ({ ...a, [method.id]: Number(e.target.value) || 0 }))}
+                      placeholder="0"
+                      className="w-full border border-line rounded-lg px-md py-sm text-Body-1 text-right pr-[32px] focus:outline-none focus:border-accent"
+                    />
+                    <span className="absolute right-md top-1/2 -translate-y-1/2 text-Body-2 text-content-secondary">원</span>
+                  </div>
+                </div>
+              ))}
+
+              {/* 합계 검증 */}
+              <div className="pt-sm border-t border-line flex justify-between items-center">
+                <span className="text-Body-2 text-content-secondary">입력 합계</span>
+                <span className="text-Body-1 font-bold">{paymentTotal.toLocaleString()}원</span>
+              </div>
+              {paymentMatchesLabel && (
+                <p className={cn("text-Body-2 font-medium text-right", paymentMatchesOk ? "text-green-600" : "text-state-error")}>
+                  {paymentMatchesLabel}
+                </p>
+              )}
+            </div>
+          )}
         </FormSection>
 
         <FormSection title="결제 금액" columns={1}>
@@ -812,7 +871,7 @@ export default function ContractWizard() {
               </div>
               <div className="flex justify-between text-Body-2">
                 <span className="text-content-secondary">결제 수단</span>
-                <span>{{ card: '카드', cash: '현금', mileage: '마일리지', transfer: '계좌이체' }[paymentMethod]}</span>
+                <span>{Array.from(selectedMethods).map(id => ({ card: '카드', cash: '현금', mileage: '마일리지', transfer: '계좌이체' }[id] ?? id)).join(' + ')}</span>
               </div>
             </div>
           </div>

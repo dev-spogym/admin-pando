@@ -137,17 +137,38 @@ export default function GolfBayManagement() {
 
   // ─── 타석 시작 ────────────────────────────────────────────────
   const handleStart = (bayId: number) => {
+    const memberName = window.prompt('이용 회원명을 입력하세요');
+    if (!memberName?.trim()) return;
     setBays(prev => prev.map(b =>
       b.id === bayId ? {
         ...b,
         status: 'in_use' as BayStatus,
+        memberName: memberName.trim(),
         startedAt: new Date().toISOString(),
         remainingMin: b.durationMin,
         projectorOn: b.hasProjector,
       } : b
     ));
-    toast.success('타석 이용이 시작되었습니다.');
+    setSelectedBay(prev => prev ? {
+      ...prev,
+      status: 'in_use',
+      memberName: memberName.trim(),
+      startedAt: new Date().toISOString(),
+      remainingMin: prev.durationMin,
+      projectorOn: prev.hasProjector,
+    } : prev);
+    toast.success(`${memberName.trim()}님 타석 이용이 시작되었습니다.`);
     setDetailOpen(false);
+  };
+
+  // ─── 점검 처리/해제 ───────────────────────────────────────────
+  const handleMaintenance = (bayId: number, toMaintenance: boolean) => {
+    const nextStatus: BayStatus = toMaintenance ? 'maintenance' : 'available';
+    setBays(prev => prev.map(b =>
+      b.id === bayId ? { ...b, status: nextStatus } : b
+    ));
+    setSelectedBay(prev => prev ? { ...prev, status: nextStatus } : prev);
+    toast.success(toMaintenance ? '점검 처리되었습니다.' : '점검이 해제되었습니다.');
   };
 
   // ─── 타석 종료 ────────────────────────────────────────────────
@@ -493,6 +514,22 @@ export default function GolfBayManagement() {
                   className="flex items-center gap-xs px-md py-sm bg-primary text-white rounded-lg text-[13px] font-medium hover:bg-primary-dark"
                 >
                   <Play size={14} /> 이용 시작
+                </button>
+              )}
+              {(selectedBay.status === 'available' || selectedBay.status === 'in_use') && (
+                <button
+                  onClick={() => handleMaintenance(selectedBay.id, true)}
+                  className="flex items-center gap-xs px-md py-sm border border-line text-content-secondary rounded-lg text-[13px] font-medium hover:bg-surface-tertiary"
+                >
+                  <AlertTriangle size={14} /> 점검 처리
+                </button>
+              )}
+              {selectedBay.status === 'maintenance' && (
+                <button
+                  onClick={() => handleMaintenance(selectedBay.id, false)}
+                  className="flex items-center gap-xs px-md py-sm border border-green-300 text-green-700 bg-green-50 rounded-lg text-[13px] font-medium hover:bg-green-100"
+                >
+                  <RefreshCw size={14} /> 점검 해제
                 </button>
               )}
               {selectedBay.status === 'in_use' && (
