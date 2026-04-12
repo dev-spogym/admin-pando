@@ -17,6 +17,7 @@ import TabNav from '@/components/TabNav';
 import DataTable from '@/components/DataTable';
 import StatusBadge from '@/components/StatusBadge';
 import AppLayout from '@/components/AppLayout';
+import Modal from '@/components/Modal';
 import { supabase } from '@/lib/supabase';
 import { exportToExcel } from '@/lib/exportExcel';
 
@@ -419,6 +420,17 @@ export default function Sales() {
       render: (val: string) => <span className="text-content-tertiary text-[12px]">{val}</span> },
   ];
 
+  // 매출 상세 모달 상태
+  const [selectedSale, setSelectedSale] = useState<SaleItem | null>(null);
+  const [showDetailModal, setShowDetailModal] = useState(false);
+
+  const handleRowClick = (row: SaleItem) => {
+    if (!['TAB-002', 'TAB-003', 'TAB-004', 'TAB-005'].includes(activeTab)) {
+      setSelectedSale(row);
+      setShowDetailModal(true);
+    }
+  };
+
   // round 필터 상태
   const [roundFilter, setRoundFilter] = useState<string>('');
 
@@ -629,6 +641,7 @@ export default function Sales() {
           columns={tableColumns}
           data={tableData}
           pagination={{ page: 1, pageSize: 20, total: tableData.length }}
+          onRowClick={!isAggregateTab ? (row) => handleRowClick(row as SaleItem) : undefined}
         />
       </div>
 
@@ -672,6 +685,184 @@ export default function Sales() {
           </div>
         </div>
       </div>
+      {/* 매출 상세 모달 */}
+      {selectedSale && (
+        <Modal
+          isOpen={showDetailModal}
+          onClose={() => setShowDetailModal(false)}
+          title="매출 상세"
+          size="lg"
+          footer={
+            <div className="flex justify-end gap-sm">
+              <button
+                onClick={() => {
+                  setShowDetailModal(false);
+                  moveToPage(985, { id: selectedSale.buyerId });
+                }}
+                className="px-md py-sm bg-primary text-surface rounded-button text-[13px] font-semibold hover:bg-primary-dark transition-colors"
+              >
+                회원 상세 보기
+              </button>
+              <button
+                onClick={() => setShowDetailModal(false)}
+                className="px-md py-sm bg-surface border border-line text-content-secondary rounded-button text-[13px] font-semibold hover:bg-surface-tertiary transition-colors"
+              >
+                닫기
+              </button>
+            </div>
+          }
+        >
+          <div className="space-y-lg">
+            {/* 결제일 + 상태 */}
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-[11px] text-content-tertiary mb-xs">결제일</p>
+                <p className="text-[15px] font-semibold text-content">{selectedSale.purchaseDate}</p>
+              </div>
+              <StatusBadge variant={statusVariant(selectedSale.status)} dot>
+                {selectedSale.status}
+              </StatusBadge>
+            </div>
+
+            <div className="h-px bg-line" />
+
+            {/* 구매 정보 */}
+            <div>
+              <p className="text-[12px] font-semibold text-content-secondary mb-sm">구매 정보</p>
+              <div className="grid grid-cols-2 gap-sm">
+                <div>
+                  <p className="text-[11px] text-content-tertiary mb-xs">구매자</p>
+                  <p className="text-[13px] font-medium text-content">{selectedSale.buyer || '-'}</p>
+                </div>
+                <div>
+                  <p className="text-[11px] text-content-tertiary mb-xs">담당자</p>
+                  <p className="text-[13px] font-medium text-content">{selectedSale.manager || '-'}</p>
+                </div>
+                <div>
+                  <p className="text-[11px] text-content-tertiary mb-xs">상품명</p>
+                  <p className="text-[13px] font-medium text-content">{selectedSale.productName || '-'}</p>
+                </div>
+                <div>
+                  <p className="text-[11px] text-content-tertiary mb-xs">구분</p>
+                  <div className="flex items-center gap-xs">
+                    <StatusBadge variant="secondary">{selectedSale.type || '-'}</StatusBadge>
+                    {selectedSale.round && roundBadge(selectedSale.round)}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="h-px bg-line" />
+
+            {/* 금액 정보 */}
+            <div>
+              <p className="text-[12px] font-semibold text-content-secondary mb-sm">금액 정보</p>
+              <div className="grid grid-cols-3 gap-sm">
+                <div>
+                  <p className="text-[11px] text-content-tertiary mb-xs">정가</p>
+                  <p className="text-[13px] tabular-nums text-content">₩{selectedSale.originalPrice.toLocaleString()}</p>
+                </div>
+                <div>
+                  <p className="text-[11px] text-content-tertiary mb-xs">할인</p>
+                  <p className="text-[13px] tabular-nums text-state-error">
+                    {selectedSale.discountPrice > 0 ? `-₩${selectedSale.discountPrice.toLocaleString()}` : '-'}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-[11px] text-content-tertiary mb-xs">판매가</p>
+                  <p className="text-[14px] font-bold tabular-nums text-primary">₩{selectedSale.salePrice.toLocaleString()}</p>
+                </div>
+              </div>
+            </div>
+
+            <div className="h-px bg-line" />
+
+            {/* 결제 내역 */}
+            <div>
+              <p className="text-[12px] font-semibold text-content-secondary mb-sm">결제 내역</p>
+              <div className="grid grid-cols-2 gap-sm">
+                <div>
+                  <p className="text-[11px] text-content-tertiary mb-xs">카드</p>
+                  <p className="text-[13px] tabular-nums text-content">₩{selectedSale.card.toLocaleString()}</p>
+                </div>
+                <div>
+                  <p className="text-[11px] text-content-tertiary mb-xs">현금</p>
+                  <p className="text-[13px] tabular-nums text-content">₩{selectedSale.cash.toLocaleString()}</p>
+                </div>
+                <div>
+                  <p className="text-[11px] text-content-tertiary mb-xs">마일리지</p>
+                  <p className="text-[13px] tabular-nums text-content">₩{selectedSale.mileage.toLocaleString()}</p>
+                </div>
+                <div>
+                  <p className="text-[11px] text-content-tertiary mb-xs">미수금</p>
+                  <p className={cn('text-[13px] tabular-nums font-semibold', selectedSale.unpaid > 0 ? 'text-state-error' : 'text-content')}>
+                    ₩{selectedSale.unpaid.toLocaleString()}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* 카드 승인 정보 */}
+            {(selectedSale.cardCompany || selectedSale.cardNumber || selectedSale.approvalNo) && (
+              <>
+                <div className="h-px bg-line" />
+                <div>
+                  <p className="text-[12px] font-semibold text-content-secondary mb-sm">카드 승인 정보</p>
+                  <div className="grid grid-cols-3 gap-sm">
+                    <div>
+                      <p className="text-[11px] text-content-tertiary mb-xs">카드사</p>
+                      <p className="text-[13px] text-content">{selectedSale.cardCompany || '-'}</p>
+                    </div>
+                    <div>
+                      <p className="text-[11px] text-content-tertiary mb-xs">카드번호</p>
+                      <p className="text-[13px] tabular-nums text-content">{selectedSale.cardNumber || '-'}</p>
+                    </div>
+                    <div>
+                      <p className="text-[11px] text-content-tertiary mb-xs">승인번호</p>
+                      <p className="text-[13px] tabular-nums text-content">{selectedSale.approvalNo || '-'}</p>
+                    </div>
+                  </div>
+                </div>
+              </>
+            )}
+
+            {/* 서비스 */}
+            {(selectedSale.serviceDays > 0 || selectedSale.serviceCount > 0) && (
+              <>
+                <div className="h-px bg-line" />
+                <div>
+                  <p className="text-[12px] font-semibold text-content-secondary mb-sm">서비스</p>
+                  <div className="flex gap-lg">
+                    {selectedSale.serviceDays > 0 && (
+                      <div>
+                        <p className="text-[11px] text-content-tertiary mb-xs">서비스 일수</p>
+                        <p className="text-[13px] tabular-nums text-content">{selectedSale.serviceDays}일</p>
+                      </div>
+                    )}
+                    {selectedSale.serviceCount > 0 && (
+                      <div>
+                        <p className="text-[11px] text-content-tertiary mb-xs">서비스 횟수</p>
+                        <p className="text-[13px] tabular-nums text-content">{selectedSale.serviceCount}회</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </>
+            )}
+
+            {/* 메모 */}
+            {selectedSale.memo && (
+              <>
+                <div className="h-px bg-line" />
+                <div>
+                  <p className="text-[12px] font-semibold text-content-secondary mb-sm">메모</p>
+                  <p className="text-[13px] text-content-secondary whitespace-pre-wrap">{selectedSale.memo}</p>
+                </div>
+              </>
+            )}
+          </div>
+        </Modal>
+      )}
     </AppLayout>
   );
 }

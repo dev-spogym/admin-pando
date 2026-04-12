@@ -42,6 +42,7 @@ interface DataTableProps<T> {
   onSearch?: (value: string) => void;
   searchValue?: string;
   searchPlaceholder?: string;
+  onRowClick?: (row: T, index: number) => void;
 }
 
 export default function DataTable<T extends Record<string, any>>({
@@ -62,6 +63,7 @@ export default function DataTable<T extends Record<string, any>>({
   onSearch,
   searchValue = "",
   searchPlaceholder = "검색어를 입력하세요...",
+  onRowClick,
 }: DataTableProps<T>) {
   const handleSelectAll = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.checked) {
@@ -214,8 +216,10 @@ export default function DataTable<T extends Record<string, any>>({
                   key={idx}
                   className={cn(
                     "transition-colors",
-                    selectedRows.has(idx) ? "bg-primary-light/40" : "hover:bg-surface-secondary"
+                    selectedRows.has(idx) ? "bg-primary-light/40" : "hover:bg-surface-secondary",
+                    onRowClick && "cursor-pointer"
                   )}
+                  onClick={onRowClick ? () => onRowClick(row, idx) : undefined}
                 >
                   {selectable && (
                     <td className="px-3 py-2.5 text-center sticky left-0 z-10 bg-[inherit]">

@@ -311,7 +311,7 @@ export default function Locker() {
   }, [branchId]);
 
   /** 액션 버튼 클릭 — 모달 열기 */
-  const openAction = (action: LockerAction, locker: LockerData, e: React.MouseEvent) => {
+  const openAction = async (action: LockerAction, locker: LockerData, e: React.MouseEvent) => {
     e.stopPropagation();
     if (action === "history" || action === "move" || action === "reclaim" || action === "broken" || action === "assign") {
       if (action === "move") setMoveTargetNumber("");
@@ -319,6 +319,23 @@ export default function Locker() {
         setMemberSearch("");
         setSelectedMemberForAssign(null);
         setBulkAssignExpiryDate("");
+      }
+      if (action === "history") {
+        // audit_logs에서 해당 락커 이력 조회
+        const { data } = await supabase
+          .from("audit_logs")
+          .select("created_at, action, details")
+          .eq("target_type", "locker")
+          .eq("target_id", locker.id)
+          .order("created_at", { ascending: false });
+
+        const history = (data ?? []).map((row: { created_at: string; action: string; details: Record<string, unknown> }) => ({
+          date: new Date(row.created_at).toLocaleDateString("ko-KR"),
+          action: row.action === "assign" ? "배정" : row.action === "reclaim" ? "회수" : row.action === "broken" ? "고장" : row.action,
+          member: (row.details as Record<string, unknown>)?.memberName as string ?? "-",
+        }));
+        setActionModal({ action, locker: { ...locker, history } });
+        return;
       }
       setActionModal({ action, locker });
     }

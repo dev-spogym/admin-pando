@@ -155,6 +155,7 @@ export default function Notices() {
           title={`총 ${notices.length}건`}
           emptyMessage="등록된 공지사항이 없습니다."
           pagination={{ page: 1, pageSize: 20, total: notices.length }}
+          onRowClick={(row) => setDetailNotice(row as unknown as Notice)}
         />
       </div>
 
@@ -248,7 +249,7 @@ export default function Notices() {
               <p className="text-[14px] text-content whitespace-pre-wrap leading-relaxed">{detailNotice.content}</p>
             </div>
             <div className="px-lg py-md border-t border-line flex justify-end gap-sm">
-              <button onClick={() => { setDetailNotice(null); openEdit(detailNotice); }} className="px-md py-xs text-[13px] border border-line rounded-button text-content-secondary hover:bg-surface-secondary transition-colors">수정</button>
+              <button onClick={() => { const n = detailNotice; setDetailNotice(null); openEdit(n); }} className="px-md py-xs text-[13px] border border-line rounded-button text-content-secondary hover:bg-surface-secondary transition-colors">수정</button>
               <button onClick={() => setDetailNotice(null)} className="px-md py-xs text-[13px] bg-primary text-surface rounded-button hover:bg-primary-dark transition-colors">닫기</button>
             </div>
           </div>

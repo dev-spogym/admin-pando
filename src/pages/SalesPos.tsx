@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import {
   Plus,
   Trash2,
@@ -8,6 +8,7 @@ import {
   X,
   Calendar,
   Clock,
+  User,
 } from 'lucide-react';
 import AppLayout from '@/components/AppLayout';
 import PageHeader from '@/components/PageHeader';
@@ -142,12 +143,25 @@ const ProductCard = ({
   );
 };
 
+interface Member {
+  id: number;
+  name: string;
+  phone: string;
+}
+
 // --- 메인 컴포넌트 ---
 export default function SalesPos() {
   const [activeTab, setActiveTab] = useState('이용권');
   const [searchQuery, setSearchQuery] = useState('');
   const [cart, setCart] = useState<CartItem[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
+
+  // 구매자 관련 상태
+  const [buyer, setBuyer] = useState<Member | null>(null);
+  const [showBuyerModal, setShowBuyerModal] = useState(false);
+  const [buyerQuery, setBuyerQuery] = useState('');
+  const [buyerResults, setBuyerResults] = useState<Member[]>([]);
+  const buyerInputRef = useRef<HTMLInputElement>(null);
 
   // 상품 목록 로드
   useEffect(() => {
@@ -240,6 +254,32 @@ export default function SalesPos() {
     setCart(prev => prev.filter(item => item.cartId !== cartId));
   };
 
+  // 구매자 검색
+  const handleBuyerSearch = async (query: string) => {
+    setBuyerQuery(query);
+    if (!query.trim()) { setBuyerResults([]); return; }
+    const { data, error } = await supabase
+      .from('members')
+      .select('id, name, phone')
+      .eq('branchId', getBranchId())
+      .or(`name.ilike.%${query}%,phone.ilike.%${query}%`)
+      .limit(10);
+    if (!error && data) {
+      setBuyerResults(data.map((m: Record<string, unknown>) => ({
+        id: m.id as number,
+        name: m.name as string,
+        phone: m.phone as string,
+      })));
+    }
+  };
+
+  const openBuyerModal = () => {
+    setBuyerQuery('');
+    setBuyerResults([]);
+    setShowBuyerModal(true);
+    setTimeout(() => buyerInputRef.current?.focus(), 50);
+  };
+
   // 탭별 상품 수
   const tabsWithCount = CATEGORY_TABS.map(tab => ({
     ...tab,
@@ -324,6 +364,32 @@ export default function SalesPos() {
                 >
                   <Trash2 size={13} />
                   전체 삭제
+                </button>
+              )}
+            </div>
+
+            {/* 구매자 연결 */}
+            <div className="px-lg py-sm border-b border-line flex items-center gap-sm">
+              <User size={14} className="text-content-tertiary shrink-0" />
+              <span className="text-[12px] text-content-secondary shrink-0">구매자</span>
+              {buyer ? (
+                <div className="flex items-center gap-xs flex-1 min-w-0">
+                  <span className="text-[12px] font-semibold text-content truncate">
+                    {buyer.name} ({buyer.phone})
+                  </span>
+                  <button
+                    onClick={() => setBuyer(null)}
+                    className="text-content-tertiary hover:text-state-error transition-colors shrink-0"
+                  >
+                    <X size={13} />
+                  </button>
+                </div>
+              ) : (
+                <button
+                  onClick={openBuyerModal}
+                  className="text-[12px] text-primary hover:underline"
+                >
+                  [회원 검색]
                 </button>
               )}
             </div>
@@ -426,6 +492,11 @@ export default function SalesPos() {
                     quantity: item.quantity,
                   }));
                   sessionStorage.setItem('posCart', JSON.stringify(cartData));
+                  if (buyer) {
+                    sessionStorage.setItem('posBuyer', JSON.stringify(buyer));
+                  } else {
+                    sessionStorage.removeItem('posBuyer');
+                  }
                   moveToPage(982);
                 }}
                 className={cn(
@@ -442,6 +513,51 @@ export default function SalesPos() {
           </div>
         </div>
       </div>
+      {/* 구매자 검색 모달 */}
+      {showBuyerModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+          <div className="bg-surface rounded-xl shadow-xl w-full max-w-sm mx-md overflow-hidden">
+            <div className="flex items-center justify-between px-lg py-md border-b border-line">
+              <span className="text-[14px] font-bold text-content">구매자 검색</span>
+              <button onClick={() => setShowBuyerModal(false)} className="text-content-tertiary hover:text-content transition-colors">
+                <X size={18} />
+              </button>
+            </div>
+            <div className="p-md">
+              <div className="relative mb-sm">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-content-tertiary" size={15} />
+                <input
+                  ref={buyerInputRef}
+                  type="text"
+                  placeholder="이름 또는 전화번호 검색..."
+                  value={buyerQuery}
+                  onChange={e => handleBuyerSearch(e.target.value)}
+                  className="w-full pl-9 pr-3 py-2 bg-surface-secondary border border-line rounded-button text-[13px] text-content placeholder:text-content-tertiary focus:border-primary focus:outline-none"
+                />
+              </div>
+              <div className="space-y-xs max-h-[260px] overflow-y-auto scrollbar-hide">
+                {buyerResults.length > 0 ? (
+                  buyerResults.map(m => (
+                    <button
+                      key={m.id}
+                      onClick={() => { setBuyer(m); setShowBuyerModal(false); }}
+                      className="w-full text-left px-md py-sm rounded-lg hover:bg-surface-secondary transition-colors flex items-center gap-sm"
+                    >
+                      <User size={14} className="text-content-tertiary shrink-0" />
+                      <span className="text-[13px] font-semibold text-content">{m.name}</span>
+                      <span className="text-[12px] text-content-tertiary">{m.phone}</span>
+                    </button>
+                  ))
+                ) : buyerQuery.trim() ? (
+                  <p className="text-center text-[13px] text-content-tertiary py-lg">검색 결과가 없습니다.</p>
+                ) : (
+                  <p className="text-center text-[13px] text-content-tertiary py-lg">이름 또는 전화번호를 입력하세요.</p>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </AppLayout>
   );
 }
