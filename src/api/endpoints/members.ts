@@ -75,6 +75,7 @@ export interface MemberStats {
   suspended: number;
   expiredThisMonth: number;
   newThisMonth: number;
+  expiringCount: number;
 }
 
 /** Supabase row → Member 변환 */
@@ -351,10 +352,11 @@ export const getMemberStats = async (): Promise<ApiResponse<MemberStats>> => {
   const now = new Date();
   const firstOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
   const lastOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString();
+  const in30Days = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000).toISOString();
 
   const base = () => supabase.from('members').select('id', { count: 'exact', head: true }).eq('branchId', branchId).is('deletedAt', null);
 
-  const [totalRes, activeRes, inactiveRes, expiredRes, holdingRes, suspendedRes, expiredMonthRes, newRes] = await Promise.all([
+  const [totalRes, activeRes, inactiveRes, expiredRes, holdingRes, suspendedRes, expiredMonthRes, newRes, expiringRes] = await Promise.all([
     base(),
     base().eq('status', 'ACTIVE'),
     base().eq('status', 'INACTIVE'),
@@ -363,6 +365,7 @@ export const getMemberStats = async (): Promise<ApiResponse<MemberStats>> => {
     base().eq('status', 'SUSPENDED'),
     base().eq('status', 'EXPIRED').gte('membershipExpiry', firstOfMonth).lte('membershipExpiry', lastOfMonth),
     base().gte('registeredAt', firstOfMonth),
+    base().eq('status', 'ACTIVE').gte('membershipExpiry', now.toISOString()).lte('membershipExpiry', in30Days),
   ]);
 
   return {
@@ -376,6 +379,7 @@ export const getMemberStats = async (): Promise<ApiResponse<MemberStats>> => {
       suspended: suspendedRes.count ?? 0,
       expiredThisMonth: expiredMonthRes.count ?? 0,
       newThisMonth: newRes.count ?? 0,
+      expiringCount: expiringRes.count ?? 0,
     },
   };
 };

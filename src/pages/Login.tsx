@@ -199,15 +199,15 @@ export default function Login() {
             </div>
           </div>
 
-          {/* 아이디 */}
+          {/* 이메일 */}
           <div>
-            <label className="text-[12px] font-medium text-content-secondary mb-[4px] block">아이디 또는 이메일</label>
+            <label className="text-[12px] font-medium text-content-secondary mb-[4px] block">이메일</label>
             <div className="relative">
               <User className="absolute left-[12px] top-1/2 -translate-y-1/2 text-content-tertiary" size={16} />
               <input
                 className="w-full pl-9 pr-md h-[44px] bg-surface-secondary rounded-lg text-[13px] text-content placeholder:text-content-tertiary border border-line focus:border-primary focus:ring-1 focus:ring-primary/20 outline-none transition-all"
-                type="text"
-                placeholder="아이디를 입력하세요"
+                type="email"
+                placeholder="이메일을 입력하세요"
                 value={id}
                 onChange={(e) => { setId(e.target.value); setError(''); }}
                 disabled={isLoading}

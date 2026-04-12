@@ -472,7 +472,7 @@ export default function MemberList() {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-md mb-lg">
         <StatCard label="전체 회원" value={stats?.total?.toLocaleString() ?? '-'} icon={<Users size={20} />} variant="default" />
         <StatCard label="활성 회원" value={stats?.active?.toLocaleString() ?? '-'} icon={<UserCheck size={20} />} variant="mint" />
-        <StatCard label="이번달 신규" value={stats?.newThisMonth?.toLocaleString() ?? '-'} icon={<Clock size={20} />} variant="peach" />
+        <StatCard label="만료 예정(D-30)" value={stats?.expiringCount?.toLocaleString() ?? '-'} icon={<Clock size={20} />} variant="peach" />
         <StatCard label="이번달 만료" value={stats?.expiredThisMonth?.toLocaleString() ?? '-'} icon={<AlertTriangle size={20} />} variant="default" />
       </div>
 
