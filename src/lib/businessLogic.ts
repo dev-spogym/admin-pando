@@ -869,7 +869,16 @@ export const runDailySync = async (): Promise<{
   expiredCoupons: number;
   autoCompletedClasses: number;
   autoOpenedReservations: number;
+  skipped?: boolean;
 }> => {
+  // 하루 1번만 실행 (중복 방지)
+  const STORAGE_KEY = 'daily_sync_last_run';
+  const today = new Date().toISOString().slice(0, 10);
+  const lastRun = localStorage.getItem(STORAGE_KEY);
+  if (lastRun === today) {
+    return { expiredMembers: 0, expiredLockers: 0, expiredCoupons: 0, autoCompletedClasses: 0, autoOpenedReservations: 0, skipped: true };
+  }
+
   const [expiredMembers, expiredLockers, expiredCoupons, autoCompletedClasses, autoOpenedReservations] = await Promise.all([
     syncExpiredMembers(),
     syncExpiredLockers(),
@@ -878,6 +887,7 @@ export const runDailySync = async (): Promise<{
     syncAutoOpenReservations(),
   ]);
 
+  localStorage.setItem(STORAGE_KEY, today);
   return { expiredMembers, expiredLockers, expiredCoupons, autoCompletedClasses, autoOpenedReservations };
 };
 

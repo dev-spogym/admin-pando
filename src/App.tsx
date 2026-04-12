@@ -3,7 +3,9 @@ import { Routes, Route, useNavigate } from 'react-router-dom';
 import { setNavigate } from '@/internal';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import PrivateRoute from '@/components/PrivateRoute';
+import GlobalSearch from '@/components/GlobalSearch';
 import { initAuthListener, restoreSupabaseSession } from '@/stores/authStore';
+import { runDailySync } from '@/lib/businessLogic';
 
 // --- 로딩 스피너 ---
 function PageLoader() {
@@ -106,8 +108,14 @@ export default function App() {
     return unsubscribe;
   }, []);
 
+  // 일일 동기화 (하루 1번, 만료 회원 상태 전환 등)
+  useEffect(() => {
+    runDailySync().catch(console.error);
+  }, []);
+
   return (
     <ErrorBoundary>
+    <GlobalSearch />
     <Suspense fallback={<PageLoader />}>
     <Routes>
       <Route path="/login" element={<Login />} />
