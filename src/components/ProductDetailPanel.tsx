@@ -487,10 +487,12 @@ export default function ProductDetailPanel({ product, isNew, onSave, onDelete, o
                   </label>
                 ))}
               </div>
-              <div className="flex items-center gap-2">
-                <div className="text-right font-semibold text-[#404040]">사용인원</div>
-                <input value="1" readOnly className="h-6 w-[46px] border border-[#d0a400] bg-[#fff46b] px-1 text-center text-[11px]" />
-              </div>
+              {productKind === '레슨' && (
+                <div className="flex items-center gap-2">
+                  <div className="text-right font-semibold text-[#404040]">사용인원</div>
+                  <input value="1" readOnly className="h-6 w-[46px] border border-[#d0a400] bg-[#fff46b] px-1 text-center text-[11px]" />
+                </div>
+              )}
             </div>
 
             <div className={rowClass}>
@@ -512,103 +514,136 @@ export default function ProductDetailPanel({ product, isNew, onSave, onDelete, o
                 </div>
               </div>
 
-              <div className={rowClass}>
-                <RowLabel>레슨시간</RowLabel>
-                <select value={lessonTime} onChange={e => setLessonTime(e.target.value)} className={selectClass}>
-                  {LESSON_TIME_OPTIONS.map(option => (
-                    <option key={option}>{option}</option>
-                  ))}
-                </select>
-              </div>
-
-              <div className={rowClass}>
-                <RowLabel>레슨유효기간</RowLabel>
-                <select value={lessonValidity} onChange={e => setLessonValidity(e.target.value)} className={selectClass}>
-                  {LESSON_VALIDITY_OPTIONS.map(option => (
-                    <option key={option}>{option}</option>
-                  ))}
-                </select>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-1.5">
-              <div className={cn(rowClass, 'min-w-0')}>
-                <RowLabel>수업구분</RowLabel>
-                <div className="flex flex-wrap gap-3">
-                  {(['개인', '정규클래스'] as const).map(option => (
-                    <label key={option} className={radioLabelClass}>
-                      <input
-                        type="radio"
-                        name="classMode"
-                        checked={classMode === option}
-                        onChange={() => setClassMode(option)}
-                        className="h-3.5 w-3.5 accent-[#4f8fe6]"
-                      />
-                      {option}
-                    </label>
-                  ))}
-                </div>
-              </div>
-
-              <div className={rowClass}>
-                <RowLabel>태그</RowLabel>
-                <input value={tag} onChange={e => setTag(e.target.value)} className={fieldClass} />
-              </div>
-
-            </div>
-
-            <div className="grid grid-cols-2 gap-1.5">
-              <div className={cn(rowClass, 'min-w-0')}>
-                <RowLabel>이용구분</RowLabel>
-                <div className="flex flex-wrap gap-3">
-                  {USE_TYPE_OPTIONS.map(option => (
-                    <label key={option} className={radioLabelClass}>
-                      <input
-                        type="radio"
-                        name="useType"
-                        checked={useType === option}
-                        onChange={() => setUseType(option)}
-                        className="h-3.5 w-3.5 accent-[#4f8fe6]"
-                      />
-                      {option}
-                    </label>
-                  ))}
-                </div>
-              </div>
-
-              <div className={rowClass}>
-                <RowLabel>{useType === '기간' ? '기간' : '횟수/포인트'}</RowLabel>
-                <input
-                  value={useAmount}
-                  onChange={e => {
-                    setUseAmount(e.target.value);
-                    setSessions(e.target.value);
-                  }}
-                  className={fieldClass}
-                />
-              </div>
-            </div>
-
-            <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)] gap-1.5">
-              <div className={cn(rowClass, 'min-w-0')}>
-                <RowLabel>횟수제한</RowLabel>
-                <div className="flex min-w-0 items-center gap-2">
-                  <label className={checkLabelClass}>
-                    <ClassicCheckbox checked={limitEnabled} onChange={() => setLimitEnabled(prev => !prev)} />
-                    
-                  </label>
-                  <select
-                    value={limitCount}
-                    onChange={e => setLimitCount(e.target.value)}
-                    disabled={!limitEnabled}
-                    className={cn(selectClass, !limitEnabled && 'bg-[#ebebeb] text-[#999]')}
-                  >
-                    {LIMIT_COUNT_OPTIONS.map(option => (
+              {productKind === '레슨' && (
+                <div className={rowClass}>
+                  <RowLabel>레슨시간</RowLabel>
+                  <select value={lessonTime} onChange={e => setLessonTime(e.target.value)} className={selectClass}>
+                    {LESSON_TIME_OPTIONS.map(option => (
                       <option key={option}>{option}</option>
                     ))}
                   </select>
                 </div>
+              )}
+
+              {productKind === '레슨' && (
+                <div className={rowClass}>
+                  <RowLabel>레슨유효기간</RowLabel>
+                  <select value={lessonValidity} onChange={e => setLessonValidity(e.target.value)} className={selectClass}>
+                    {LESSON_VALIDITY_OPTIONS.map(option => (
+                      <option key={option}>{option}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
+            </div>
+
+            {productKind === '레슨' && (
+              <div className="grid grid-cols-2 gap-1.5">
+                <div className={cn(rowClass, 'min-w-0')}>
+                  <RowLabel>수업구분</RowLabel>
+                  <div className="flex flex-wrap gap-3">
+                    {(['개인', '정규클래스'] as const).map(option => (
+                      <label key={option} className={radioLabelClass}>
+                        <input
+                          type="radio"
+                          name="classMode"
+                          checked={classMode === option}
+                          onChange={() => setClassMode(option)}
+                          className="h-3.5 w-3.5 accent-[#4f8fe6]"
+                        />
+                        {option}
+                      </label>
+                    ))}
+                  </div>
+                </div>
+
+                <div className={rowClass}>
+                  <RowLabel>태그</RowLabel>
+                  <input value={tag} onChange={e => setTag(e.target.value)} className={fieldClass} />
+                </div>
               </div>
+            )}
+
+            {productKind !== '레슨' && (
+              <div className={rowClass}>
+                <RowLabel>태그</RowLabel>
+                <input value={tag} onChange={e => setTag(e.target.value)} className={fieldClass} />
+              </div>
+            )}
+
+            {(productKind === '이용' || productKind === '락커') && (
+              <div className="grid grid-cols-2 gap-1.5">
+                {productKind === '이용' && (
+                  <div className={cn(rowClass, 'min-w-0')}>
+                    <RowLabel>이용구분</RowLabel>
+                    <div className="flex flex-wrap gap-3">
+                      {USE_TYPE_OPTIONS.map(option => (
+                        <label key={option} className={radioLabelClass}>
+                          <input
+                            type="radio"
+                            name="useType"
+                            checked={useType === option}
+                            onChange={() => setUseType(option)}
+                            className="h-3.5 w-3.5 accent-[#4f8fe6]"
+                          />
+                          {option}
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {(productKind === '락커' || (productKind === '이용' && useType === '기간')) && (
+                  <div className={rowClass}>
+                    <RowLabel>기간</RowLabel>
+                    <input
+                      value={useAmount}
+                      onChange={e => {
+                        setUseAmount(e.target.value);
+                        setSessions(e.target.value);
+                      }}
+                      className={fieldClass}
+                    />
+                  </div>
+                )}
+
+                {productKind === '이용' && useType === '횟수' && (
+                  <div className={rowClass}>
+                    <RowLabel>횟수</RowLabel>
+                    <input
+                      value={useAmount}
+                      onChange={e => {
+                        setUseAmount(e.target.value);
+                        setSessions(e.target.value);
+                      }}
+                      className={fieldClass}
+                    />
+                  </div>
+                )}
+              </div>
+            )}
+
+            <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)] gap-1.5">
+              {productKind === '이용' && useType === '횟수' && (
+                <div className={cn(rowClass, 'min-w-0')}>
+                  <RowLabel>횟수제한</RowLabel>
+                  <div className="flex min-w-0 items-center gap-2">
+                    <label className={checkLabelClass}>
+                      <ClassicCheckbox checked={limitEnabled} onChange={() => setLimitEnabled(prev => !prev)} />
+                    </label>
+                    <select
+                      value={limitCount}
+                      onChange={e => setLimitCount(e.target.value)}
+                      disabled={!limitEnabled}
+                      className={cn(selectClass, !limitEnabled && 'bg-[#ebebeb] text-[#999]')}
+                    >
+                      {LIMIT_COUNT_OPTIONS.map(option => (
+                        <option key={option}>{option}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+              )}
 
               <div className={rowClass}>
                 <RowLabel>설명</RowLabel>

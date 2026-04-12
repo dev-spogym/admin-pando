@@ -1642,6 +1642,9 @@ export default function MemberDetail() {
           <span className="text-content font-medium">{member.name} 회원 상세</span>
         </nav>
 
+        {/* 고정 영역: 프로필 카드 + 탭 네비게이션 */}
+        <div className="sticky top-0 z-10 bg-surface-secondary -mx-lg px-lg -mt-lg pt-lg pb-0">
+
         {/* UI-022 프로필 카드 */}
         <div className="bg-surface rounded-xl border border-line p-xl mb-lg shadow-card">
           {dDay !== null && dDay <= 7 && dDay >= 0 && (
@@ -1799,6 +1802,11 @@ export default function MemberDetail() {
         {/* 탭 네비게이션 */}
         <div className="bg-surface rounded-xl border border-line shadow-card overflow-hidden">
           <TabNav tabs={tabs} activeTab={activeTab} onTabChange={setActiveTab} />
+        </div>
+        </div>{/* /고정 영역 */}
+
+        {/* 탭 콘텐츠 */}
+        <div className="bg-surface rounded-b-xl border-x border-b border-line shadow-card">
           <div className="p-xl bg-surface-secondary/5 min-h-[500px]">
             {activeTab === "info" && <TabInfo member={member} />}
             {activeTab === "tickets" && (
