@@ -8,8 +8,8 @@ import { supabase } from '@/lib/supabase';
 
 // 기간 필터
 const PERIOD_OPTIONS = [
-  { key: 'week', label: '이번 주' },
   { key: 'month', label: '이번 달' },
+  { key: 'lastMonth', label: '지난달' },
   { key: 'custom', label: '커스텀' },
 ];
 
@@ -25,6 +25,7 @@ interface InstructorStat {
   noShowCount: number;
   attendanceRate: number;
   noShowRate: number;
+  salesAmount: number;
 }
 
 interface ClassDetail {
@@ -51,13 +52,10 @@ const getPeriodRange = (key: string, customStart: string, customEnd: string) => 
   const fmt = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 
   if (key === 'custom') return { start: customStart, end: customEnd };
-  if (key === 'week') {
-    const day = now.getDay();
-    const mon = new Date(now);
-    mon.setDate(now.getDate() - (day === 0 ? 6 : day - 1));
-    const sun = new Date(mon);
-    sun.setDate(mon.getDate() + 6);
-    return { start: fmt(mon), end: fmt(sun) };
+  if (key === 'lastMonth') {
+    const start = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+    const end = new Date(now.getFullYear(), now.getMonth(), 0);
+    return { start: fmt(start), end: fmt(end) };
   }
   // month
   const start = new Date(now.getFullYear(), now.getMonth(), 1);
@@ -146,6 +144,21 @@ export default function InstructorStatus() {
       classCountMap[c.staffId] = { count: prev.count + 1, minutes: prev.minutes + (min > 0 ? min : 0) };
     }
 
+    // 강사별 매출 기여 집계
+    const salesAmountMap: Record<string, number> = {};
+    const { data: salesData } = await supabase
+      .from('sales')
+      .select('staffName, amount')
+      .eq('branchId', branchId)
+      .gte('saleDate', start)
+      .lte('saleDate', end);
+    if (salesData) {
+      for (const sale of salesData as any[]) {
+        if (!sale.staffName) continue;
+        salesAmountMap[sale.staffName] = (salesAmountMap[sale.staffName] ?? 0) + (sale.amount ?? 0);
+      }
+    }
+
     const stats: InstructorStat[] = (staff as any[]).map((s) => ({
       id: s.id,
       name: s.name,
@@ -162,6 +175,7 @@ export default function InstructorStatus() {
       noShowRate: bookingStatsMap[s.id]?.bookingCount
         ? Math.round(((bookingStatsMap[s.id]?.noShowCount ?? 0) / bookingStatsMap[s.id].bookingCount) * 100)
         : 0,
+      salesAmount: salesAmountMap[s.name] ?? 0,
     }));
 
     setInstructors(stats);
@@ -324,6 +338,13 @@ export default function InstructorStatus() {
                   <p className="text-[13px] font-semibold text-content">{instr.noShowRate}%</p>
                   <p className="text-[10px] text-content-tertiary">{instr.noShowCount}/{instr.bookingCount}건</p>
                 </div>
+              </div>
+
+              <div className="mt-sm rounded-lg border border-line bg-surface px-sm py-xs">
+                <p className="text-[10px] text-content-tertiary">매출 기여</p>
+                <p className="text-[13px] font-semibold text-content">
+                  ₩{(instr.salesAmount / 10000).toFixed(1)}만
+                </p>
               </div>
             </button>
           ))}

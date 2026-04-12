@@ -173,7 +173,11 @@ export default function ClassSchedule() {
     if (!templateId) { toast.error('템플릿을 선택하세요.'); return; }
     if (weekdays.length === 0) { toast.error('요일을 하나 이상 선택하세요.'); return; }
     if (!periodStart || !periodEnd) { toast.error('적용 기간을 입력하세요.'); return; }
+    if (periodStart > periodEnd) { toast.error('종료일은 시작일 이후여야 합니다.'); return; }
     if (!startTime || !endTime) { toast.error('시작/종료 시간을 입력하세요.'); return; }
+
+    const confirmed = window.confirm(`${previewRows.length}건의 수업을 생성하시겠습니까?`);
+    if (!confirmed) return;
 
     setCreating(true);
     try {
