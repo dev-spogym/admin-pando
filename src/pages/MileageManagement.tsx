@@ -230,6 +230,7 @@ export default function MileageManagement() {
   const [members, setMembers] = useState<any[]>([]);
   const [summary, setSummary] = useState(INITIAL_SUMMARY);
   const [isLoading, setIsLoading] = useState(true);
+  const [mileageLogs, setMileageLogs] = useState<any[]>([]);
 
   useEffect(() => {
     const fetchMembers = async () => {
@@ -271,6 +272,118 @@ export default function MileageManagement() {
     };
     fetchMembers();
   }, []);
+
+  useEffect(() => {
+    const fetchMileageLogs = async () => {
+      const branchId = getBranchId();
+
+      // 1차 시도: mileage_logs 테이블 직접 조회
+      const { data: logData, error: logError } = await supabase
+        .from('mileage_logs')
+        .select('id, memberId, type, amount, balance, reason, createdAt, admin')
+        .eq('branchId', branchId)
+        .order('createdAt', { ascending: false });
+
+      if (!logError && logData) {
+        // mileage_logs 테이블 조회 성공 시 회원명 매핑
+        const memberMap: Record<number, string> = {};
+        members.forEach((m: any) => { memberMap[m.id] = m.name; });
+
+        const TYPE_MAP: Record<string, string> = { earn: '적립', use: '사용', expire: '만료' };
+        const mapped = logData.map((row: any) => ({
+          ...row,
+          name: memberMap[row.memberId] ?? '-',
+          type: TYPE_MAP[row.type] ?? row.type,
+          expiryDate: '-',
+        }));
+        setMileageLogs(mapped);
+        return;
+      }
+
+      // 테이블이 없거나 쿼리 실패 시 sales 테이블 fallback
+      console.warn('[MileageManagement] mileage_logs 테이블 조회 실패, sales fallback 시도:', logError?.message);
+
+      const { data: salesData, error: salesError } = await supabase
+        .from('sales')
+        .select('id, memberId, memberName, amount, mileageEarned, mileageUsed, saleDate, staffName')
+        .eq('branchId', branchId)
+        .order('saleDate', { ascending: false });
+
+      if (salesError || !salesData) {
+        console.warn('[MileageManagement] sales fallback도 실패:', salesError?.message);
+        return;
+      }
+
+      // sales 데이터에서 적립/사용 이력 추정 구성
+      const logs: any[] = [];
+      salesData.forEach((s: any) => {
+        if (s.mileageEarned && s.mileageEarned > 0) {
+          logs.push({
+            id: `earn-${s.id}`,
+            memberId: s.memberId,
+            name: s.memberName ?? '-',
+            type: '적립',
+            amount: s.mileageEarned,
+            balance: 0,
+            reason: '결제 적립',
+            createdAt: s.saleDate ?? '-',
+            admin: s.staffName ?? '-',
+            expiryDate: '-',
+          });
+        }
+        if (s.mileageUsed && s.mileageUsed > 0) {
+          logs.push({
+            id: `use-${s.id}`,
+            memberId: s.memberId,
+            name: s.memberName ?? '-',
+            type: '사용',
+            amount: -s.mileageUsed,
+            balance: 0,
+            reason: '결제 사용',
+            createdAt: s.saleDate ?? '-',
+            admin: s.staffName ?? '-',
+            expiryDate: '-',
+          });
+        }
+      });
+
+      // 날짜 내림차순 정렬
+      logs.sort((a, b) => (b.createdAt > a.createdAt ? 1 : -1));
+      setMileageLogs(logs);
+    };
+
+    fetchMileageLogs();
+  }, [members]);
+
+  // 이력 탭 필터 적용
+  const filteredLogs = useMemo(() => {
+    let list = mileageLogs;
+
+    // 검색어 필터
+    if (historySearch.trim()) {
+      const q = historySearch.trim().toLowerCase();
+      list = list.filter((row: any) =>
+        (row.name ?? '').toLowerCase().includes(q)
+      );
+    }
+
+    // 유형 필터
+    const typeFilter = (historyFilters as any).type;
+    if (typeFilter && typeFilter !== '전체') {
+      list = list.filter((row: any) => row.type === typeFilter);
+    }
+
+    // 기간 필터
+    const dateRange = (historyFilters as any).dateRange;
+    if (dateRange?.start) {
+      list = list.filter((row: any) => row.createdAt >= dateRange.start);
+    }
+    if (dateRange?.end) {
+      list = list.filter((row: any) => row.createdAt <= dateRange.end + 'T23:59:59');
+    }
+
+    return list;
+  }, [mileageLogs, historySearch, historyFilters]);
 
   // Modal states
   const [isManualModalOpen, setIsManualModalOpen] = useState(false);
@@ -438,7 +551,7 @@ export default function MileageManagement() {
                       { key: 'admin', header: '처리자' },
                       { key: 'expiryDate', header: '만료 예정일' },
                     ];
-                    exportToExcel([] as Record<string, unknown>[], historyExportColumns, { filename: '마일리지이력' });
+                    exportToExcel(filteredLogs as Record<string, unknown>[], historyExportColumns, { filename: '마일리지이력' });
                     toast.success('마일리지 이력 엑셀 다운로드 완료');
                   }
                 }}
@@ -533,8 +646,8 @@ export default function MileageManagement() {
                 />
                 <DataTable
                   columns={historyColumns}
-                  data={[]}
-                  pagination={{ page: 1, pageSize: 20, total: 0 }}
+                  data={filteredLogs}
+                  pagination={{ page: 1, pageSize: 20, total: filteredLogs.length }}
                   title="전체 마일리지 이력"
                   emptyMessage="이력 데이터 없음"
                 />

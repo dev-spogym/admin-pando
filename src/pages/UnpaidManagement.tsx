@@ -230,6 +230,29 @@ export default function UnpaidManagement() {
     fetchUnpaid();
   };
 
+  // 상태 변경 처리
+  const handleChangeStatus = async (id: number, newStatusKo: string) => {
+    const koToEn: Record<string, string> = { 미결제: 'PENDING', 일부결제: 'PARTIAL', 연체: 'OVERDUE', 완료: 'PAID' };
+    const { error } = await supabase
+      .from('unpaid')
+      .update({ status: koToEn[newStatusKo] ?? newStatusKo })
+      .eq('id', id);
+    if (error) {
+      toast.error('상태 변경에 실패했습니다.');
+      return;
+    }
+    toast.success('상태가 변경되었습니다.');
+    fetchUnpaid();
+  };
+
+  // 상태별 전환 가능 옵션
+  const getNextStatuses = (current: string): string[] => {
+    if (current === '미결제') return ['일부결제', '완료'];
+    if (current === '일부결제') return ['완료'];
+    if (current === '연체') return ['일부결제', '완료'];
+    return [];
+  };
+
   // 메모 저장
   const handleSaveMemo = async () => {
     const { error } = await supabase
@@ -296,27 +319,36 @@ export default function UnpaidManagement() {
     },
     { key: 'createdAt', header: '등록일', width: 120 },
     {
-      key: 'id', header: '액션', width: 180, align: 'center' as const,
-      render: (_val: unknown, row: UnpaidItem) => (
-        <div className="flex items-center justify-center gap-xs">
-          {row.status !== '완료' && (
+      key: 'id', header: '액션', width: 220, align: 'center' as const,
+      render: (_val: unknown, row: UnpaidItem) => {
+        const nextStatuses = getNextStatuses(row.status);
+        return (
+          <div className="flex items-center justify-center gap-xs">
+            {nextStatuses.length > 0 && (
+              <select
+                defaultValue=""
+                onChange={e => {
+                  if (e.target.value) handleChangeStatus(row.id, e.target.value);
+                  e.target.value = '';
+                }}
+                className="px-sm py-[3px] bg-surface border border-line text-content-secondary rounded-md text-[11px] font-semibold hover:bg-surface-tertiary transition-colors cursor-pointer focus:outline-none"
+              >
+                <option value="" disabled>상태변경</option>
+                {nextStatuses.map(s => (
+                  <option key={s} value={s}>{s}</option>
+                ))}
+              </select>
+            )}
             <button
-              onClick={() => handleMarkPaid(row.id)}
-              className="flex items-center gap-[4px] px-sm py-[3px] bg-emerald-50 text-state-success border border-emerald-200 rounded-md text-[11px] font-semibold hover:bg-emerald-100 transition-colors"
+              onClick={() => setMemoModal({ open: true, id: row.id, memo: row.memo })}
+              className="flex items-center gap-[4px] px-sm py-[3px] bg-surface border border-line text-content-secondary rounded-md text-[11px] font-semibold hover:bg-surface-tertiary transition-colors"
             >
-              <CheckCircle size={11} />
-              결제완료
+              <Pencil size={11} />
+              메모
             </button>
-          )}
-          <button
-            onClick={() => setMemoModal({ open: true, id: row.id, memo: row.memo })}
-            className="flex items-center gap-[4px] px-sm py-[3px] bg-surface border border-line text-content-secondary rounded-md text-[11px] font-semibold hover:bg-surface-tertiary transition-colors"
-          >
-            <Pencil size={11} />
-            메모
-          </button>
-        </div>
-      ),
+          </div>
+        );
+      },
     },
   ];
 

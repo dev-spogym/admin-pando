@@ -158,13 +158,19 @@ export default function IotSettings() {
     if (!ok) toast.error("저장에 실패했습니다. 로컬에 임시 저장되었습니다.");
   }, [accessRules]);
 
+  const [openingGateName, setOpeningGateName] = useState<string | null>(null);
+
   const handleRemoteOpen = (gateName: string) => {
     setConfirmConfig({
       title: "원격 게이트 개방",
       description: `"${gateName}" 게이트를 원격으로 개방하시겠습니까?`,
       onConfirm: () => {
         setConfirmOpen(false);
-        setTimeout(() => toast.success(`${gateName} 게이트가 개방되었습니다.`), 400);
+        setOpeningGateName(gateName);
+        setTimeout(() => {
+          toast.success(`${gateName} 게이트가 개방되었습니다.`);
+          setTimeout(() => setOpeningGateName(null), 3000);
+        }, 400);
       },
     });
     setConfirmOpen(true);
@@ -379,11 +385,16 @@ export default function IotSettings() {
               <Edit2 size={16} />
             </button>
             <button
-              className="p-xs text-content-secondary hover:text-accent transition-colors"
+              className="p-xs text-content-secondary hover:text-accent transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               title="원격 개방"
               onClick={() => handleRemoteOpen(row.name)}
+              disabled={openingGateName === row.name}
             >
-              <DoorOpen size={16} />
+              {openingGateName === row.name ? (
+                <span className="text-xs">개방 중...</span>
+              ) : (
+                <DoorOpen size={16} />
+              )}
             </button>
             <button
               className="p-xs text-content-secondary hover:text-state-error transition-colors"

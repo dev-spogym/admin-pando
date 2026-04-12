@@ -205,6 +205,10 @@ export default function KioskSettings() {
   const [isSaving, setIsSaving] = useState(false);
   const [status, setStatus] = useState<KioskStatus>("online");
   const [isLoading, setIsLoading] = useState(true);
+  const [clothesRental, setClothesRental] = useState(false);
+  const [lockerAssign, setLockerAssign] = useState(false);
+  const [attendanceRanking, setAttendanceRanking] = useState(false);
+  const [promotionPopup, setPromotionPopup] = useState(false);
 
   // 초기 로딩: settings 테이블에서 데이터 조회
   useEffect(() => {
@@ -397,6 +401,25 @@ export default function KioskSettings() {
                 />
                 <Lock className="absolute left-md top-1/2 -translate-y-1/2 text-content-secondary" size={16} />
               </div>
+            </div>
+          </FormSection>
+
+          <FormSection title="기능 설정" description="키오스크에서 사용할 부가 기능을 설정합니다." columns={1}>
+            <div className="col-span-full space-y-md">
+              {[
+                { label: "운동복 대여", desc: "키오스크에서 운동복 대여 기능을 활성화합니다", value: clothesRental, onChange: () => setClothesRental(v => !v) },
+                { label: "사물함 배정", desc: "키오스크에서 사물함 배정 기능을 활성화합니다", value: lockerAssign, onChange: () => setLockerAssign(v => !v) },
+                { label: "출석 랭킹 표시", desc: "체크인 화면에 출석 랭킹을 표시합니다", value: attendanceRanking, onChange: () => setAttendanceRanking(v => !v) },
+                { label: "프로모션 팝업", desc: "체크인 후 프로모션 팝업을 표시합니다", value: promotionPopup, onChange: () => setPromotionPopup(v => !v) },
+              ].map(item => (
+                <div key={item.label} className="flex items-center justify-between p-md rounded-xl bg-surface-secondary">
+                  <div>
+                    <p className="text-Body-2 font-medium text-content">{item.label}</p>
+                    <p className="text-Label text-content-secondary">{item.desc}</p>
+                  </div>
+                  <ToggleSwitch checked={item.value} onChange={item.onChange} />
+                </div>
+              ))}
             </div>
           </FormSection>
         </div>
