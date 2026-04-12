@@ -579,7 +579,7 @@ export default function Sales() {
           searchPlaceholder="구매자 또는 상품명 검색..."
           filters={filters}
           filterValues={filterValues}
-          onFilterChange={(k, v) => setFilterValues(prev => ({ ...prev, [k]: v }))}
+          onFilterChange={(k, v) => { setFilterValues(prev => ({ ...prev, [k]: v })); if (k === 'dateRangeStart' || k === 'dateRangeEnd') setActivePreset(null); }}
           onReset={() => {
             setSearchValue('');
             setDebouncedSearch('');
