@@ -322,7 +322,20 @@ export default function StatisticsManagement() {
               통계관리
             </div>
             <div className="flex items-center gap-1">
-              <button type="button" className="border border-[#6d7d8b] bg-[#778493] px-2 py-[2px] text-[11px] font-bold text-white">
+              <button
+                type="button"
+                onClick={() => {
+                  setDateFrom(defaultFrom);
+                  setDateTo(defaultTo);
+                  setLessonType('전체');
+                  setManager('전체');
+                  setClassType('전체');
+                  setMemberStatus('전체');
+                  setActiveTab('매출현황');
+                  setRows([]);
+                }}
+                className="border border-[#6d7d8b] bg-[#778493] px-2 py-[2px] text-[11px] font-bold text-white"
+              >
                 신규(F1)
               </button>
               <button
@@ -332,10 +345,37 @@ export default function StatisticsManagement() {
               >
                 조회(F2)
               </button>
-              <button type="button" className="border border-[#62855a] bg-[#7ba36f] px-2 py-[2px] text-[11px] font-bold text-white">
+              <button
+                type="button"
+                onClick={() => {
+                  if (filteredRows.length === 0) { toast.error('내보낼 데이터가 없습니다.'); return; }
+                  const headers = columns.map(c => c.label).join(',');
+                  const csvRows = filteredRows.map(row =>
+                    columns.map(c => {
+                      const val = row[c.key as keyof StatRow];
+                      const str = val == null ? '' : String(val);
+                      return str.includes(',') ? `"${str}"` : str;
+                    }).join(',')
+                  );
+                  const csv = [headers, ...csvRows].join('\n');
+                  const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
+                  const url = URL.createObjectURL(blob);
+                  const a = document.createElement('a');
+                  a.href = url;
+                  a.download = `통계관리_${activeTab}_${dateFrom}_${dateTo}.csv`;
+                  a.click();
+                  URL.revokeObjectURL(url);
+                  toast.success('CSV 파일이 다운로드됩니다.');
+                }}
+                className="border border-[#62855a] bg-[#7ba36f] px-2 py-[2px] text-[11px] font-bold text-white"
+              >
                 엑셀(F9)
               </button>
-              <button type="button" className="border border-[#8a705a] bg-[#ae7d52] px-2 py-[2px] text-[11px] font-bold text-white">
+              <button
+                type="button"
+                onClick={() => window.history.back()}
+                className="border border-[#8a705a] bg-[#ae7d52] px-2 py-[2px] text-[11px] font-bold text-white"
+              >
                 종료(F10)
               </button>
             </div>

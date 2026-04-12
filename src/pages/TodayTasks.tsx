@@ -331,13 +331,34 @@ export default function TodayTasks() {
                 )}
                 <button
                   className={cn(
-                    "rounded-button border px-md py-sm text-[13px] font-medium",
+                    "rounded-button border px-md py-sm text-[13px] font-medium transition-colors",
                     task.status === "완료"
-                      ? "border-line text-content-tertiary"
+                      ? "border-line text-content-tertiary cursor-default"
+                      : task.status === "진행중"
+                      ? "border-state-success/40 text-state-success hover:bg-state-success hover:text-white"
                       : "border-primary/30 text-primary hover:bg-primary hover:text-white"
                   )}
+                  disabled={task.status === "완료"}
+                  onClick={() => {
+                    if (task.status === "완료") return;
+                    const nextStatus: TodayTask["status"] = task.status === "대기" ? "진행중" : "완료";
+                    if ("source" in task) {
+                      setCustomTasks(prev =>
+                        prev.map(t => t.id === task.id ? { ...t, status: nextStatus } : t)
+                      );
+                    } else {
+                      // 랜덤 배정 태스크는 로컬 상태로 오버라이드
+                      setCustomTasks(prev => {
+                        const exists = prev.find(t => t.id === task.id);
+                        if (exists) {
+                          return prev.map(t => t.id === task.id ? { ...t, status: nextStatus } : t);
+                        }
+                        return [{ ...task, status: nextStatus, source: "hq" as const }, ...prev];
+                      });
+                    }
+                  }}
                 >
-                  {task.status === "완료" ? "완료됨" : "처리 시작"}
+                  {task.status === "완료" ? "완료됨" : task.status === "진행중" ? "완료 처리" : "처리 시작"}
                 </button>
               </div>
             </div>

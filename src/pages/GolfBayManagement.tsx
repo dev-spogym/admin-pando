@@ -480,6 +480,32 @@ export default function GolfBayManagement() {
                   <p className="text-content-tertiary">프로</p>
                   <p className="font-semibold text-content">{selectedBay.proName ?? '배정 없음'}</p>
                 </div>
+                {selectedBay.status === 'reserved' && (
+                  <>
+                    <div className="p-sm bg-surface-secondary rounded-lg">
+                      <p className="text-content-tertiary">타석 번호</p>
+                      <p className="font-semibold text-content">{selectedBay.name}</p>
+                    </div>
+                    <div className="p-sm bg-surface-secondary rounded-lg">
+                      <p className="text-content-tertiary">예약 상태</p>
+                      <p className="font-semibold text-yellow-700">입장 대기 중</p>
+                    </div>
+                  </>
+                )}
+                {selectedBay.status === 'in_use' && selectedBay.startedAt && (
+                  <>
+                    <div className="p-sm bg-surface-secondary rounded-lg">
+                      <p className="text-content-tertiary">이용 시작</p>
+                      <p className="font-semibold text-content">
+                        {new Date(selectedBay.startedAt).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })}
+                      </p>
+                    </div>
+                    <div className="p-sm bg-surface-secondary rounded-lg">
+                      <p className="text-content-tertiary">타석 번호</p>
+                      <p className="font-semibold text-content">{selectedBay.name}</p>
+                    </div>
+                  </>
+                )}
               </div>
             )}
 

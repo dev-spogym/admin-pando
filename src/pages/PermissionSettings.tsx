@@ -523,17 +523,27 @@ export default function PermissionSettings() {
                                   key={type}
                                 >
                                   {isAvailable ? (
-                                    <button
-                                      className={cn(
-                                        "mx-auto flex h-8 w-8 items-center justify-center rounded-full transition-all",
-                                        isOn
-                                          ? "bg-primary-light text-primary shadow-0"
-                                          : "bg-surface-secondary text-line hover:bg-line",
-                                        isPrimary ? "cursor-default" : "cursor-pointer",
-                                        changed && "ring-2 ring-amber-600"
-                                      )} disabled={isPrimary} onClick={() => handleToggle(menuId, type)}>
-                                      {isOn ? <Check size={16} strokeWidth={3}/> : <X size={16}/>}
-                                    </button>
+                                    <div className="relative group/perm inline-flex mx-auto">
+                                      <button
+                                        className={cn(
+                                          "flex h-8 w-8 items-center justify-center rounded-full transition-all",
+                                          isOn
+                                            ? "bg-primary-light text-primary shadow-0"
+                                            : "bg-surface-secondary text-line hover:bg-line",
+                                          isPrimary ? "cursor-default" : "cursor-pointer",
+                                          changed && "ring-2 ring-amber-600"
+                                        )} disabled={isPrimary} onClick={() => handleToggle(menuId, type)}>
+                                        {isOn ? <Check size={16} strokeWidth={3}/> : <X size={16}/>}
+                                      </button>
+                                      {isPrimary && (
+                                        <div className="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-xs hidden group-hover/perm:block z-50">
+                                          <div className="whitespace-nowrap rounded-lg bg-content px-sm py-xs text-[11px] text-surface shadow-md">
+                                            최고 관리자 권한은 변경할 수 없습니다
+                                          </div>
+                                          <div className="mx-auto mt-[2px] h-0 w-0 border-x-4 border-x-transparent border-t-4 border-t-content" />
+                                        </div>
+                                      )}
+                                    </div>
                                   ) : (
                                     <span className="text-line" >-</span>
                                   )}

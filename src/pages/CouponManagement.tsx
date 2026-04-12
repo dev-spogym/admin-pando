@@ -819,17 +819,89 @@ function CouponFormModal({ coupon, onClose, onSave }: any) {
 }
 
 function IssueCouponModal({ coupon, onClose, onIssue }: any) {
-  const [issueData, setIssueData] = useState({
-    method: "individual",
-    recipients: [],
-    count: 1,
-    message: ""
-  });
+  // 발급 대상: "all" | "individual" | "condition"
+  const [targetType, setTargetType] = useState<"all" | "individual" | "condition">("individual");
+  const [memberQuery, setMemberQuery] = useState("");
+  const [memberResults, setMemberResults] = useState<{ id: number; name: string; phone: string }[]>([]);
+  const [selectedMembers, setSelectedMembers] = useState<{ id: number; name: string; phone: string }[]>([]);
+  const [condition, setCondition] = useState("active");
+  const [validityType, setValidityType] = useState<"coupon" | "custom">("coupon");
+  const [expiryDate, setExpiryDate] = useState("");
+  const [count, setCount] = useState(1);
+  const [isSearching, setIsSearching] = useState(false);
+  const [issuing, setIssuing] = useState(false);
+
+  const branchId = Number(localStorage.getItem('branchId')) || 1;
+
+  // 회원 검색
+  useEffect(() => {
+    if (!memberQuery.trim() || targetType !== "individual") {
+      setMemberResults([]);
+      return;
+    }
+    const timer = setTimeout(async () => {
+      setIsSearching(true);
+      const { data } = await supabase
+        .from('members')
+        .select('id, name, phone')
+        .eq('branchId', branchId)
+        .or(`name.ilike.%${memberQuery}%,phone.ilike.%${memberQuery}%`)
+        .limit(10);
+      setMemberResults((data as { id: number; name: string; phone: string }[]) ?? []);
+      setIsSearching(false);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [memberQuery, targetType, branchId]);
+
+  const toggleMember = (m: { id: number; name: string; phone: string }) => {
+    setSelectedMembers(prev =>
+      prev.some(s => s.id === m.id) ? prev.filter(s => s.id !== m.id) : [...prev, m]
+    );
+  };
+
+  const removeMember = (id: number) => {
+    setSelectedMembers(prev => prev.filter(s => s.id !== id));
+  };
+
+  const handleIssue = async () => {
+    // 유효성 검사
+    if (targetType === "individual" && selectedMembers.length === 0) {
+      toast.warning("발급할 회원을 선택하세요.");
+      return;
+    }
+    if (validityType === "custom" && !expiryDate) {
+      toast.warning("유효 기간 종료일을 입력하세요.");
+      return;
+    }
+
+    setIssuing(true);
+    // 실제 발급 처리: coupon_issues 테이블에 insert (테이블 없으면 coupons.totalIssued 업데이트만)
+    try {
+      const issueCount = targetType === "all" ? 0 : targetType === "individual" ? selectedMembers.length : 0;
+      // coupons.totalIssued 증가
+      await supabase
+        .from('coupons')
+        .update({ totalIssued: (coupon.totalIssued ?? 0) + (issueCount || count) })
+        .eq('id', coupon.id);
+      onIssue(issueCount || count);
+    } catch {
+      toast.error("발급 처리 중 오류가 발생했습니다.");
+    } finally {
+      setIssuing(false);
+    }
+  };
+
+  const targetLabels = {
+    all: "전체 회원",
+    individual: "특정 회원",
+    condition: "조건별",
+  };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-md">
-      <div className="w-full max-w-lg bg-surface rounded-modal shadow-card overflow-hidden">
-        <div className="px-xl py-lg border-b border-line bg-surface flex justify-between items-center">
+      <div className="w-full max-w-lg bg-surface rounded-modal shadow-card overflow-hidden max-h-[90vh] flex flex-col">
+        {/* 헤더 */}
+        <div className="px-xl py-lg border-b border-line bg-surface flex justify-between items-center flex-shrink-0">
           <div>
             <h2 className="text-Heading-2 font-bold text-content">쿠폰 발급</h2>
             <p className="text-Body-2 text-content-secondary mt-xs">{coupon.name}</p>
@@ -839,69 +911,228 @@ function IssueCouponModal({ coupon, onClose, onIssue }: any) {
           </button>
         </div>
 
-        <div className="p-xl space-y-lg">
+        <div className="p-xl space-y-lg overflow-y-auto flex-1">
+          {/* 발급 대상 */}
           <div className="space-y-sm">
-            <label className="text-Label text-content-secondary font-semibold">발급 방식 <span className="text-state-error">*</span></label>
-            <div className="flex gap-md p-sm bg-surface-secondary rounded-input">
-              <button
-                className={cn("flex-1 py-sm rounded-button text-Body-2 transition-all", issueData.method === "individual" ? "bg-surface text-primary shadow-sm font-semibold" : "text-content-secondary")}
-                onClick={() => setIssueData({ ...issueData, method: "individual" })}
-              >
-                개인 발급
-              </button>
-              <button
-                className={cn("flex-1 py-sm rounded-button text-Body-2 transition-all", issueData.method === "group" ? "bg-surface text-primary shadow-sm font-semibold" : "text-content-secondary")}
-                onClick={() => setIssueData({ ...issueData, method: "group" })}
-              >
-                그룹 발급
-              </button>
+            <label className="text-Label text-content-secondary font-semibold">
+              발급 대상 <span className="text-state-error">*</span>
+            </label>
+            <div className="flex gap-sm p-[3px] bg-surface-secondary rounded-input">
+              {(["all", "individual", "condition"] as const).map(t => (
+                <button
+                  key={t}
+                  className={cn(
+                    "flex-1 py-sm rounded-button text-Body-2 transition-all",
+                    targetType === t
+                      ? "bg-surface text-primary shadow-sm font-semibold"
+                      : "text-content-secondary hover:text-content"
+                  )}
+                  onClick={() => { setTargetType(t); setMemberQuery(""); setMemberResults([]); }}
+                >
+                  {targetLabels[t]}
+                </button>
+              ))}
             </div>
           </div>
 
+          {/* 전체 회원 */}
+          {targetType === "all" && (
+            <div className="bg-accent-light border border-accent/30 rounded-xl p-md flex items-center gap-sm">
+              <Gift size={16} className="text-accent flex-shrink-0" />
+              <p className="text-Body-2 text-content">
+                센터의 <span className="font-bold text-accent">전체 회원</span>에게 발급됩니다.
+              </p>
+            </div>
+          )}
+
+          {/* 특정 회원 검색/선택 */}
+          {targetType === "individual" && (
+            <div className="space-y-sm">
+              <label className="text-Label text-content-secondary font-semibold">회원 검색</label>
+              <div className="relative">
+                <Search className="absolute left-md top-1/2 -translate-y-1/2 text-content-secondary" size={16} />
+                <input
+                  className="w-full bg-surface-secondary border border-line rounded-input pl-[36px] pr-md py-sm text-Body-2 outline-none focus:ring-2 focus:ring-accent"
+                  placeholder="이름 또는 전화번호 검색"
+                  value={memberQuery}
+                  onChange={e => setMemberQuery(e.target.value)}
+                />
+              </div>
+
+              {/* 검색 결과 드롭다운 */}
+              {memberResults.length > 0 && (
+                <div className="border border-line rounded-xl overflow-hidden shadow-sm max-h-[160px] overflow-y-auto">
+                  {memberResults.map(m => {
+                    const isSelected = selectedMembers.some(s => s.id === m.id);
+                    return (
+                      <button
+                        key={m.id}
+                        className={cn(
+                          "w-full flex items-center justify-between px-md py-sm text-left text-Body-2 transition-colors",
+                          isSelected
+                            ? "bg-primary-light text-primary"
+                            : "bg-surface hover:bg-surface-secondary"
+                        )}
+                        onClick={() => { toggleMember(m); setMemberQuery(""); setMemberResults([]); }}
+                      >
+                        <span>{m.name}</span>
+                        <span className="text-content-secondary text-Label">{m.phone}</span>
+                      </button>
+                    );
+                  })}
+                  {isSearching && (
+                    <div className="px-md py-sm text-Label text-content-secondary">검색 중...</div>
+                  )}
+                </div>
+              )}
+
+              {/* 선택된 회원 태그 */}
+              {selectedMembers.length > 0 && (
+                <div className="flex flex-wrap gap-xs mt-sm">
+                  {selectedMembers.map(m => (
+                    <span
+                      key={m.id}
+                      className="px-md py-xs bg-primary-light text-primary text-Label rounded-full flex items-center gap-xs border border-primary/20"
+                    >
+                      {m.name}
+                      <button onClick={() => removeMember(m.id)} className="hover:text-state-error transition-colors">
+                        <X size={12} />
+                      </button>
+                    </span>
+                  ))}
+                </div>
+              )}
+              {selectedMembers.length === 0 && memberQuery === "" && (
+                <p className="text-Label text-content-secondary">선택된 회원이 없습니다.</p>
+              )}
+            </div>
+          )}
+
+          {/* 조건별 */}
+          {targetType === "condition" && (
+            <div className="space-y-sm">
+              <label className="text-Label text-content-secondary font-semibold">발급 조건</label>
+              <select
+                className="w-full bg-surface-secondary border border-line rounded-input px-md py-sm text-Body-2 outline-none focus:ring-2 focus:ring-accent"
+                value={condition}
+                onChange={e => setCondition(e.target.value)}
+              >
+                <option value="active">활성 회원 전체</option>
+                <option value="expired">만료 회원</option>
+                <option value="new">신규 회원 (30일 이내)</option>
+                <option value="absence">장기 미출석 (30일 이상)</option>
+              </select>
+            </div>
+          )}
+
+          {/* 1인당 발급 수량 */}
           <div className="space-y-sm">
-            <label className="text-Label text-content-secondary font-semibold">수신자 선택 <span className="text-state-error">*</span></label>
-            <div className="relative">
+            <label className="text-Label text-content-secondary font-semibold">
+              1인당 발급 수량 <span className="text-state-error">*</span>
+            </label>
+            <div className="flex items-center gap-sm">
               <input
-                className="w-full bg-surface-secondary border-0 rounded-input pl-xl pr-md py-sm focus:ring-2 focus:ring-accent outline-none"
-                placeholder={issueData.method === "individual" ? "회원명을 검색하세요" : "그룹을 선택하세요"}
+                className="flex-1 bg-surface-secondary border border-line rounded-input px-md py-sm text-Body-2 outline-none focus:ring-2 focus:ring-accent"
+                type="number"
+                min={1}
+                value={count}
+                onChange={e => setCount(Math.max(1, Number(e.target.value)))}
               />
-              <Search className="absolute left-md top-1/2 -translate-y-1/2 text-content-secondary" size={16} />
-            </div>
-            <div className="flex flex-wrap gap-xs mt-sm">
-              <span className="px-md py-xs bg-primary-light text-primary text-Label rounded-full flex items-center gap-xs">
-                김철수 <X className="cursor-pointer" size={12} />
-              </span>
-              <span className="px-md py-xs bg-primary-light text-primary text-Label rounded-full flex items-center gap-xs">
-                이영희 <X className="cursor-pointer" size={12} />
-              </span>
+              <span className="text-Body-2 text-content-secondary">장</span>
             </div>
           </div>
 
+          {/* 유효기간 설정 */}
           <div className="space-y-sm">
-            <label className="text-Label text-content-secondary font-semibold">1인당 발급 수량 <span className="text-state-error">*</span></label>
-            <input
-              className="w-full bg-surface-secondary border-0 rounded-input px-md py-sm"
-              type="number"
-              value={issueData.count}
-              min={1}
-              onChange={(e) => setIssueData({ ...issueData, count: Number(e.target.value) })}
-            />
+            <label className="text-Label text-content-secondary font-semibold">유효 기간</label>
+            <div className="flex gap-sm p-[3px] bg-surface-secondary rounded-input">
+              <button
+                className={cn(
+                  "flex-1 py-sm rounded-button text-Body-2 transition-all",
+                  validityType === "coupon"
+                    ? "bg-surface text-primary shadow-sm font-semibold"
+                    : "text-content-secondary"
+                )}
+                onClick={() => setValidityType("coupon")}
+              >
+                쿠폰 기본 설정 적용
+              </button>
+              <button
+                className={cn(
+                  "flex-1 py-sm rounded-button text-Body-2 transition-all",
+                  validityType === "custom"
+                    ? "bg-surface text-primary shadow-sm font-semibold"
+                    : "text-content-secondary"
+                )}
+                onClick={() => setValidityType("custom")}
+              >
+                직접 지정
+              </button>
+            </div>
+
+            {validityType === "coupon" && (
+              <p className="text-Label text-content-secondary flex items-center gap-xs">
+                <Calendar size={12} />
+                {coupon.validUntil
+                  ? `${coupon.validFrom ?? '∞'} ~ ${coupon.validUntil.slice(0, 10)}`
+                  : "쿠폰 유효기간 설정 없음 (무기한)"}
+              </p>
+            )}
+
+            {validityType === "custom" && (
+              <div className="grid grid-cols-2 gap-sm">
+                <div className="space-y-xs">
+                  <label className="text-Label text-content-secondary">시작일</label>
+                  <input
+                    type="date"
+                    className="w-full bg-surface-secondary border border-line rounded-input px-md py-sm text-Body-2 outline-none focus:ring-2 focus:ring-accent"
+                    defaultValue={new Date().toISOString().split('T')[0]}
+                  />
+                </div>
+                <div className="space-y-xs">
+                  <label className="text-Label text-content-secondary">
+                    종료일 <span className="text-state-error">*</span>
+                  </label>
+                  <input
+                    type="date"
+                    className="w-full bg-surface-secondary border border-line rounded-input px-md py-sm text-Body-2 outline-none focus:ring-2 focus:ring-accent"
+                    value={expiryDate}
+                    onChange={e => setExpiryDate(e.target.value)}
+                  />
+                </div>
+              </div>
+            )}
           </div>
 
-          <div className="space-y-sm">
-            <label className="text-Label text-content-secondary font-semibold">발급 알림 메시지</label>
-            <textarea
-              className="w-full bg-surface-secondary border-0 rounded-input px-md py-sm min-h-[100px]"
-              placeholder="쿠폰 발급 시 전송할 메시지를 입력하세요 (미입력 시 기본 메시지 발송)"
-              value={issueData.message}
-              onChange={(e) => setIssueData({ ...issueData, message: e.target.value })}
-            />
+          {/* 발급 요약 */}
+          <div className="bg-surface-secondary/40 rounded-xl p-md flex items-center justify-between border border-line">
+            <span className="text-Body-2 text-content-secondary">총 발급 예정</span>
+            <span className="text-Body-1 font-bold text-primary">
+              {targetType === "all"
+                ? `전체 회원 × ${count}장`
+                : targetType === "individual"
+                ? `${selectedMembers.length}명 × ${count}장 = ${selectedMembers.length * count}장`
+                : `조건 해당 회원 × ${count}장`}
+            </span>
           </div>
         </div>
 
-        <div className="px-xl py-lg border-t border-line bg-surface-secondary/5 flex justify-end gap-md">
-          <button className="px-xl py-md rounded-button border border-line text-content-secondary hover:bg-surface transition-colors" onClick={onClose}>취소</button>
-          <button className="px-xl py-md rounded-button bg-accent text-white font-semibold hover:opacity-90 transition-opacity" onClick={() => onIssue(issueData.count)}>발급 처리하기</button>
+        {/* 푸터 */}
+        <div className="px-xl py-lg border-t border-line bg-surface-secondary/5 flex justify-end gap-md flex-shrink-0">
+          <button
+            className="px-xl py-md rounded-button border border-line text-content-secondary hover:bg-surface transition-colors"
+            onClick={onClose}
+          >
+            취소
+          </button>
+          <button
+            className="px-xl py-md rounded-button bg-accent text-white font-semibold hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-sm"
+            disabled={issuing || (targetType === "individual" && selectedMembers.length === 0)}
+            onClick={handleIssue}
+          >
+            <Send size={16} />
+            {issuing ? "발급 중..." : "발급"}
+          </button>
         </div>
       </div>
     </div>

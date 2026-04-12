@@ -75,17 +75,21 @@ export default function DeferredRevenue() {
     { key: 'endDate', header: '종료일', width: 110, align: 'center' as const },
     {
       key: 'progressPct', header: '진행률', width: 120, align: 'center' as const,
-      render: (v: number) => (
-        <div className="flex items-center gap-sm">
-          <div className="flex-1 h-[8px] bg-surface-tertiary rounded-full overflow-hidden">
-            <div
-              className="h-full bg-primary rounded-full transition-all"
-              style={{ width: `${v}%` }}
-            />
+      render: (v: number) => {
+        const barColor = v > 80 ? 'bg-red-500' : v >= 50 ? 'bg-amber-500' : 'bg-green-500';
+        const textColor = v > 80 ? 'text-red-600' : v >= 50 ? 'text-amber-600' : 'text-green-600';
+        return (
+          <div className="flex items-center gap-sm">
+            <div className="flex-1 h-[8px] bg-surface-tertiary rounded-full overflow-hidden">
+              <div
+                className={`h-full rounded-full transition-all ${barColor}`}
+                style={{ width: `${v}%` }}
+              />
+            </div>
+            <span className={`text-[11px] tabular-nums w-[36px] text-right font-semibold ${textColor}`}>{v}%</span>
           </div>
-          <span className="text-[11px] tabular-nums text-content-secondary w-[36px] text-right">{v}%</span>
-        </div>
-      ),
+        );
+      },
     },
   ];
 

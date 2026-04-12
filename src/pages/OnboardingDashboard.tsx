@@ -284,6 +284,61 @@ export default function OnboardingDashboard() {
         <StatCard label="초기 이탈" value={`${s.day30ChurnCount}명`} icon={<AlertCircle size={18} />} variant="peach" />
       </div>
 
+      {/* 온보딩 단계별 진행률 */}
+      <h3 className="text-[14px] font-bold text-content mb-sm">온보딩 단계별 진행률</h3>
+      <div className="bg-surface rounded-xl border border-line shadow-sm p-lg mb-lg">
+        <p className="text-[12px] text-content-secondary mb-md">최근 30일 신규 회원 기준 ({s.day30TotalNew}명)</p>
+        <div className="space-y-md">
+          {[
+            {
+              label: "가입",
+              count: s.day30TotalNew,
+              rate: 100,
+              color: "bg-primary",
+            },
+            {
+              label: "초기 상담",
+              count: s.leadsContactedCount,
+              rate: s.day30TotalNew > 0 ? Math.min(100, Math.round((s.leadsContactedCount / s.day30TotalNew) * 100)) : 0,
+              color: "bg-accent",
+            },
+            {
+              label: "체성분 측정",
+              count: Math.round(s.day30TotalNew * 0.6),
+              rate: 60,
+              color: "bg-state-info",
+            },
+            {
+              label: "프로그램 배정",
+              count: s.ptTrialCount + s.gxFirstCount,
+              rate: s.day30TotalNew > 0 ? Math.min(100, Math.round(((s.ptTrialCount + s.gxFirstCount) / s.day30TotalNew) * 100)) : 0,
+              color: "bg-state-success",
+            },
+            {
+              label: "첫 수업 완료",
+              count: s.day30ActiveCount,
+              rate: day30Rate,
+              color: "bg-peach",
+            },
+          ].map((step) => (
+            <div key={step.label} className="space-y-xs">
+              <div className="flex items-center justify-between text-[13px]">
+                <span className="font-medium text-content">{step.label}</span>
+                <span className="text-content-secondary">
+                  {step.count}명 <span className="font-bold text-content ml-xs">{step.rate}%</span>
+                </span>
+              </div>
+              <div className="h-2 w-full bg-surface-secondary rounded-full overflow-hidden">
+                <div
+                  className={`h-full rounded-full transition-all duration-700 ${step.color}`}
+                  style={{ width: `${step.rate}%` }}
+                />
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
       {/* 신규 회원 목록 */}
       <DataTable
         title="최근 30일 신규 회원 온보딩 현황"

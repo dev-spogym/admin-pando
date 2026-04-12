@@ -3,6 +3,7 @@ import { toast } from 'sonner';
 import { CalendarPlus, Eye } from 'lucide-react';
 import AppLayout from '@/components/AppLayout';
 import PageHeader from '@/components/PageHeader';
+import Modal from '@/components/Modal';
 import { supabase } from '@/lib/supabase';
 import { bulkCreateClasses } from '@/api/endpoints/classSchedule';
 
@@ -92,6 +93,7 @@ export default function ClassSchedule() {
   const [loading, setLoading] = useState(false);
   const [creating, setCreating] = useState(false);
   const [showPreview, setShowPreview] = useState(false);
+  const [confirmOpen, setConfirmOpen] = useState(false);
 
   // 폼 상태
   const [templateId, setTemplateId] = useState('');
@@ -176,9 +178,11 @@ export default function ClassSchedule() {
     if (periodStart > periodEnd) { toast.error('종료일은 시작일 이후여야 합니다.'); return; }
     if (!startTime || !endTime) { toast.error('시작/종료 시간을 입력하세요.'); return; }
 
-    const confirmed = window.confirm(`${previewRows.length}건의 수업을 생성하시겠습니까?`);
-    if (!confirmed) return;
+    setConfirmOpen(true);
+  };
 
+  const handleBulkCreateConfirmed = async () => {
+    setConfirmOpen(false);
     setCreating(true);
     try {
       const result = await bulkCreateClasses(
@@ -420,6 +424,67 @@ export default function ClassSchedule() {
           )}
         </div>
       </div>
+
+      {/* 일괄 생성 확인 모달 */}
+      <Modal
+        isOpen={confirmOpen}
+        onClose={() => setConfirmOpen(false)}
+        title="일괄 생성 확인"
+        size="md"
+        footer={
+          <div className="flex justify-end gap-sm">
+            <button
+              className="px-4 py-2 rounded-lg border border-line text-[13px] text-content-secondary hover:bg-surface-tertiary transition-colors"
+              onClick={() => setConfirmOpen(false)}
+            >
+              취소
+            </button>
+            <button
+              className="px-4 py-2 rounded-lg bg-primary text-white text-[13px] font-medium hover:bg-primary/90 transition-colors"
+              onClick={handleBulkCreateConfirmed}
+            >
+              생성
+            </button>
+          </div>
+        }
+      >
+        <div className="flex flex-col gap-md">
+          <p className="text-[14px] text-content">
+            <span className="font-bold text-primary">{previewRows.length}개</span>의 수업이 생성됩니다. 진행하시겠습니까?
+          </p>
+          {previewRows.length > 0 && (
+            <div className="max-h-60 overflow-y-auto rounded-lg border border-line">
+              <table className="w-full text-[12px]">
+                <thead className="bg-surface-secondary sticky top-0">
+                  <tr>
+                    <th className="px-3 py-2 text-left text-content-secondary font-medium">날짜</th>
+                    <th className="px-3 py-2 text-left text-content-secondary font-medium">요일</th>
+                    <th className="px-3 py-2 text-left text-content-secondary font-medium">시간</th>
+                    <th className="px-3 py-2 text-left text-content-secondary font-medium">강사</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-line">
+                  {previewRows.slice(0, 20).map((row, idx) => (
+                    <tr key={idx} className="hover:bg-surface-secondary/50">
+                      <td className="px-3 py-1.5 text-content">{row.date}</td>
+                      <td className="px-3 py-1.5 text-content-secondary">{row.weekday}</td>
+                      <td className="px-3 py-1.5 text-content">{row.startTime} ~ {row.endTime}</td>
+                      <td className="px-3 py-1.5 text-content-secondary">{row.instructor}</td>
+                    </tr>
+                  ))}
+                  {previewRows.length > 20 && (
+                    <tr>
+                      <td colSpan={4} className="px-3 py-2 text-center text-[11px] text-content-tertiary">
+                        외 {previewRows.length - 20}개 더...
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      </Modal>
     </AppLayout>
   );
 }

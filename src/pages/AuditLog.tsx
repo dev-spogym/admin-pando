@@ -38,11 +38,11 @@ const ACTION_BADGE: Record<
   string,
   { label: string; className: string }
 > = {
-  LOGIN:         { label: '로그인',    className: 'bg-gray-100 text-gray-600 border border-gray-300' },
+  LOGIN:         { label: '로그인',    className: 'bg-green-50 text-green-700 border border-green-200' },
   LOGOUT:        { label: '로그아웃',  className: 'bg-gray-100 text-gray-500 border border-gray-200' },
   LOGIN_FAILED:  { label: '로그인실패', className: 'bg-red-50 text-red-600 border border-red-200' },
-  CREATE:        { label: '생성',      className: 'bg-green-50 text-green-700 border border-green-200' },
-  UPDATE:        { label: '수정',      className: 'bg-blue-50 text-blue-700 border border-blue-200' },
+  CREATE:        { label: '생성',      className: 'bg-blue-50 text-blue-700 border border-blue-200' },
+  UPDATE:        { label: '수정',      className: 'bg-yellow-50 text-yellow-700 border border-yellow-200' },
   DELETE:        { label: '삭제',      className: 'bg-red-50 text-red-600 border border-red-200' },
   BRANCH_SWITCH: { label: '지점전환',  className: 'bg-purple-50 text-purple-700 border border-purple-200' },
   ROLE_CHANGE:   { label: '권한변경',  className: 'bg-purple-50 text-purple-700 border border-purple-200' },
@@ -122,7 +122,7 @@ const TARGET_OPTIONS = [
   { value: 'branch', label: '지점' },
 ];
 
-const PAGE_SIZE = 50;
+const PAGE_SIZE = 20;
 
 export default function AuditLog() {
   const authUser = useAuthStore((s) => s.user);
@@ -192,7 +192,7 @@ export default function AuditLog() {
   useEffect(() => {
     setCurrentPage(1);
     fetchLogs(1);
-  }, [fromDate, toDate, actionFilter, targetTypeFilter, branchFilter]);
+  }, [fromDate, toDate, actionFilter, targetTypeFilter, branchFilter, userSearch]);
 
   const handleSearch = () => {
     setCurrentPage(1);

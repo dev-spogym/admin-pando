@@ -112,9 +112,16 @@ export default function StaffAttendance() {
     { key: 'staffName', header: '직원명', width: 120 },
     {
       key: 'role', header: '직급', width: 100, align: 'center' as const,
-      render: (v: string | undefined) => v
-        ? <span className="inline-flex items-center px-sm py-[2px] rounded-full text-[11px] font-semibold bg-primary/10 text-primary">{v}</span>
-        : <span className="text-content-tertiary text-[12px]">-</span>,
+      render: (v: string | undefined) => {
+        if (!v) return <span className="text-content-tertiary text-[12px]">-</span>;
+        const lower = v.toLowerCase();
+        let cls = 'bg-gray-100 text-gray-600';
+        if (lower === 'manager' || lower === '매니저' || lower === '원장') cls = 'bg-blue-100 text-blue-700';
+        else if (lower === 'fc' || lower === '프론트' || lower === 'staff' || lower === '직원') cls = 'bg-green-100 text-green-700';
+        else if (lower === 'trainer' || lower === '트레이너' || lower === '강사') cls = 'bg-purple-100 text-purple-700';
+        else if (lower === 'owner' || lower === '대표' || lower === 'primary') cls = 'bg-amber-100 text-amber-700';
+        return <span className={`inline-flex items-center px-sm py-[2px] rounded-full text-[11px] font-semibold ${cls}`}>{v}</span>;
+      },
     },
     {
       key: 'clockIn', header: '출근 시간', width: 110, align: 'center' as const,

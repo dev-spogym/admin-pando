@@ -257,6 +257,23 @@ export default function KioskSettings() {
   // ── 기본 설정 ──
   const renderBasic = () => (
     <div className="flex flex-col gap-lg">
+      {/* 키오스크 활성화 토글 */}
+      <div className={cn(
+        "flex items-center justify-between p-lg rounded-xl border-2 transition-colors",
+        settings.isActive ? "border-accent/40 bg-accent-light/30" : "border-state-error/30 bg-state-error/5"
+      )}>
+        <div>
+          <p className="text-Body-1 font-bold text-content">키오스크 체크인 활성화</p>
+          <p className="text-Label text-content-secondary mt-xs">
+            {settings.isActive ? "현재 키오스크 체크인이 활성화되어 있습니다." : "현재 키오스크 체크인이 비활성화되어 있습니다."}
+          </p>
+        </div>
+        <ToggleSwitch
+          checked={settings.isActive}
+          onChange={() => setSettings({ ...settings, isActive: !settings.isActive })}
+        />
+      </div>
+
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-xl">
         {/* 설정 영역 */}
         <div className="lg:col-span-2 space-y-lg">

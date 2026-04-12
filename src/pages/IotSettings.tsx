@@ -176,6 +176,7 @@ export default function IotSettings() {
     setConfirmOpen(true);
   };
 
+
   const handleConnectionTest = (deviceId: number) => {
     setTestResults(prev => ({ ...prev, [deviceId]: { deviceId, status: "loading" } }));
     setTimeout(() => {

@@ -293,10 +293,19 @@ export default function LessonCounts() {
       align: 'center' as const,
       render: (_: any, row: LessonCount) => {
         const remain = row.totalCount - row.usedCount;
+        const pct = row.totalCount > 0 ? Math.round((remain / row.totalCount) * 100) : 0;
+        const barColor = pct <= 20 ? 'bg-red-500' : pct <= 50 ? 'bg-amber-500' : 'bg-green-500';
+        const textColor = remain <= 0 ? 'text-state-error' : remain <= 3 ? 'text-amber-600' : 'text-content';
         return (
-          <span className={remain <= 0 ? 'text-state-error font-semibold' : remain <= 3 ? 'text-amber-600 font-semibold' : 'text-content'}>
-            {remain}회
-          </span>
+          <div className="flex flex-col items-center gap-[3px] min-w-[70px]">
+            <span className={`font-semibold text-[12px] ${textColor}`}>{remain}회</span>
+            <div className="w-full h-[5px] bg-surface-secondary rounded-full overflow-hidden">
+              <div
+                className={`h-full rounded-full transition-all ${barColor}`}
+                style={{ width: `${Math.min(pct, 100)}%` }}
+              />
+            </div>
+          </div>
         );
       },
     },

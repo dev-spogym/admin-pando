@@ -654,6 +654,137 @@ function renderEventContent(eventInfo: EventContentArg) {
   );
 }
 
+// 유효 수업 탭 — 수업 유형/강사 필터 포함
+function ValidLessonsTab({ lessons }: { lessons: Lesson[] }) {
+  const [typeFilter, setTypeFilter] = useState('전체');
+  const [instructorFilter, setInstructorFilter] = useState('전체');
+
+  const types = ['전체', ...Array.from(new Set(lessons.map(l => l.type).filter(Boolean)))];
+  const instructors = ['전체', ...Array.from(new Set(lessons.map(l => l.instructorName).filter((n): n is string => !!n)))];
+
+  const filtered = lessons.filter(l => {
+    if (typeFilter !== '전체' && l.type !== typeFilter) return false;
+    if (instructorFilter !== '전체' && l.instructorName !== instructorFilter) return false;
+    return true;
+  });
+
+  return (
+    <div className="space-y-md">
+      <div className="flex flex-wrap items-center justify-between gap-md">
+        <h3 className="text-[15px] font-bold text-content">
+          유효 수업 목록
+          <span className="ml-sm text-[13px] font-normal text-content-secondary">({filtered.length}/{lessons.length}개)</span>
+        </h3>
+        <div className="flex flex-wrap items-center gap-sm">
+          <div className="flex items-center gap-xs">
+            <Filter size={13} className="text-content-secondary" />
+            <span className="text-[12px] text-content-secondary">유형</span>
+            <div className="flex gap-xs">
+              {types.map(t => (
+                <button
+                  key={t}
+                  type="button"
+                  onClick={() => setTypeFilter(t)}
+                  className={cn(
+                    'h-7 px-sm rounded-full text-[11px] font-semibold border transition-all',
+                    typeFilter === t
+                      ? 'bg-primary text-white border-primary'
+                      : 'bg-surface border-line text-content-secondary hover:border-primary hover:text-primary'
+                  )}
+                >
+                  {t}
+                </button>
+              ))}
+            </div>
+          </div>
+          {instructors.length > 2 && (
+            <div className="flex items-center gap-xs">
+              <span className="text-[12px] text-content-secondary">강사</span>
+              <select
+                value={instructorFilter}
+                onChange={e => setInstructorFilter(e.target.value)}
+                className="h-7 rounded-lg bg-surface-secondary border border-line px-sm text-[12px] outline-none focus:border-primary transition-colors"
+              >
+                {instructors.map(i => (
+                  <option key={i} value={i}>{i}</option>
+                ))}
+              </select>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {lessons.length === 0 ? (
+        <div className="bg-surface rounded-xl border border-line p-xxl text-center shadow-xs">
+          <div className="w-16 h-16 bg-surface-tertiary rounded-full flex items-center justify-center mx-auto mb-lg">
+            <BookOpen size={32} className="text-content-secondary" />
+          </div>
+          <h3 className="text-[15px] font-bold text-content mb-xs">등록된 유효 수업이 없습니다</h3>
+          <p className="text-[13px] text-content-secondary">수업 관리 페이지에서 수업을 등록해주세요.</p>
+        </div>
+      ) : filtered.length === 0 ? (
+        <div className="bg-surface rounded-xl border border-line p-xl text-center shadow-xs">
+          <p className="text-[13px] text-content-secondary">선택한 필터에 해당하는 수업이 없습니다.</p>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-md">
+          {filtered.map(lesson => {
+            const color = lesson.color ?? "#3b82f6";
+            return (
+              <div
+                key={lesson.id}
+                className="bg-surface rounded-xl border border-line shadow-xs hover:shadow-card transition-shadow overflow-hidden"
+              >
+                <div className="h-1.5" style={{ backgroundColor: color }} />
+                <div className="p-md space-y-sm">
+                  <div className="flex items-start justify-between gap-xs">
+                    <h4 className="text-[14px] font-bold text-content leading-tight">{lesson.name}</h4>
+                    <span
+                      className="text-[10px] font-semibold px-xs py-[2px] rounded-full flex-shrink-0"
+                      style={{ backgroundColor: color + "20", color }}
+                    >
+                      {lesson.type}
+                    </span>
+                  </div>
+                  <div className="space-y-xs text-[12px] text-content-secondary">
+                    {lesson.instructorName && (
+                      <div className="flex items-center gap-xs">
+                        <Users size={12} className="flex-shrink-0" />
+                        <span>{lesson.instructorName}</span>
+                      </div>
+                    )}
+                    <div className="flex items-center gap-xs">
+                      <Users size={12} className="flex-shrink-0" />
+                      <span>정원 {lesson.capacity}명</span>
+                    </div>
+                    {lesson.duration > 0 && (
+                      <div className="flex items-center gap-xs">
+                        <Clock size={12} className="flex-shrink-0" />
+                        <span>{lesson.duration}분</span>
+                      </div>
+                    )}
+                  </div>
+                  <div className="pt-xs border-t border-line flex items-center justify-between">
+                    <span className="text-[11px] font-semibold text-state-success flex items-center gap-xs">
+                      <span className="w-1.5 h-1.5 rounded-full bg-state-success inline-block" />
+                      활성
+                    </span>
+                    <div
+                      className="w-4 h-4 rounded-full border-2 border-white shadow-sm"
+                      style={{ backgroundColor: color }}
+                      title="수업 색상"
+                    />
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function Calendar() {
   const location = useLocation();
   const navigate = useNavigate();
@@ -942,6 +1073,12 @@ export default function Calendar() {
     setSelectedEvent(null);
     resetForm();
     setFormDate(dateStr);
+
+    // 월간 뷰에서 날짜 클릭 → 일간 뷰 전환
+    if (info.view.type === "dayGridMonth") {
+      calendarRef.current?.getApi().changeView("timeGridDay", dateStr);
+      return;
+    }
 
     // 시간 뷰에서 클릭 시 시간도 사전 입력
     if (info.view.type === "timeGridWeek" || info.view.type === "timeGridDay") {
@@ -1842,78 +1979,7 @@ export default function Calendar() {
           )}
 
           {activeTab === "valid" && (
-            <div className="space-y-md">
-              <div className="flex items-center justify-between">
-                <h3 className="text-[15px] font-bold text-content">
-                  유효 수업 목록
-                  <span className="ml-sm text-[13px] font-normal text-content-secondary">({lessons.length}개)</span>
-                </h3>
-              </div>
-              {lessons.length === 0 ? (
-                <div className="bg-surface rounded-xl border border-line p-xxl text-center shadow-xs">
-                  <div className="w-16 h-16 bg-surface-tertiary rounded-full flex items-center justify-center mx-auto mb-lg">
-                    <BookOpen size={32} className="text-content-secondary" />
-                  </div>
-                  <h3 className="text-[15px] font-bold text-content mb-xs">등록된 유효 수업이 없습니다</h3>
-                  <p className="text-[13px] text-content-secondary">수업 관리 페이지에서 수업을 등록해주세요.</p>
-                </div>
-              ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-md">
-                  {lessons.map(lesson => {
-                    const color = lesson.color ?? "#3b82f6";
-                    return (
-                      <div
-                        key={lesson.id}
-                        className="bg-surface rounded-xl border border-line shadow-xs hover:shadow-card transition-shadow overflow-hidden"
-                      >
-                        {/* 색상 헤더 바 */}
-                        <div className="h-1.5" style={{ backgroundColor: color }} />
-                        <div className="p-md space-y-sm">
-                          <div className="flex items-start justify-between gap-xs">
-                            <h4 className="text-[14px] font-bold text-content leading-tight">{lesson.name}</h4>
-                            <span
-                              className="text-[10px] font-semibold px-xs py-[2px] rounded-full flex-shrink-0"
-                              style={{ backgroundColor: color + "20", color }}
-                            >
-                              {lesson.type}
-                            </span>
-                          </div>
-                          <div className="space-y-xs text-[12px] text-content-secondary">
-                            {lesson.instructorName && (
-                              <div className="flex items-center gap-xs">
-                                <Users size={12} className="flex-shrink-0" />
-                                <span>{lesson.instructorName}</span>
-                              </div>
-                            )}
-                            <div className="flex items-center gap-xs">
-                              <Users size={12} className="flex-shrink-0" />
-                              <span>정원 {lesson.capacity}명</span>
-                            </div>
-                            {lesson.duration > 0 && (
-                              <div className="flex items-center gap-xs">
-                                <Clock size={12} className="flex-shrink-0" />
-                                <span>{lesson.duration}분</span>
-                              </div>
-                            )}
-                          </div>
-                          <div className="pt-xs border-t border-line flex items-center justify-between">
-                            <span className="text-[11px] font-semibold text-state-success flex items-center gap-xs">
-                              <span className="w-1.5 h-1.5 rounded-full bg-state-success inline-block" />
-                              활성
-                            </span>
-                            <div
-                              className="w-4 h-4 rounded-full border-2 border-white shadow-sm"
-                              style={{ backgroundColor: color }}
-                              title="수업 색상"
-                            />
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
+            <ValidLessonsTab lessons={lessons} />
           )}
         </div>
       )}
