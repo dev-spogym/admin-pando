@@ -294,7 +294,7 @@ export default function KioskSettings() {
                   { value: "qr", label: "QR 코드" },
                   { value: "rfid", label: "RFID/NFC" },
                   { value: "face", label: "얼굴 인식" },
-                  { value: "pin", label: "번호 입력" },
+                  { value: "pin", label: "전화번호 입력" },
                   { value: "barcode", label: "바코드" },
                 ].map(method => {
                   const active = settings.checkInMethods.includes(method.value);

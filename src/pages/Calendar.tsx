@@ -705,6 +705,12 @@ export default function Calendar() {
   const [formTargetName, setFormTargetName] = useState("");
   const [formTargetPhone, setFormTargetPhone] = useState("");
   const [formTargetStaff, setFormTargetStaff] = useState("");
+  // 참여자 목록
+  const [participants, setParticipants] = useState<{ id: string; name: string; phone: string }[]>([]);
+  const [participantSearch, setParticipantSearch] = useState("");
+  const [participantResults, setParticipantResults] = useState<{ id: string; name: string; phone: string }[]>([]);
+  const [showParticipantDropdown, setShowParticipantDropdown] = useState(false);
+  const participantSearchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   // --- #17 카테고리 필터 ---
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
   // --- #18 미승인 처리 ---
@@ -1081,6 +1087,11 @@ export default function Calendar() {
     setFormTargetName("");
     setFormTargetPhone("");
     setFormTargetStaff("");
+    // 참여자 초기화
+    setParticipants([]);
+    setParticipantSearch("");
+    setParticipantResults([]);
+    setShowParticipantDropdown(false);
     // 색상 초기화
     setFormColor(LESSON_COLORS[9]);
   };
@@ -1161,6 +1172,10 @@ export default function Calendar() {
       };
 
       setLocalEvents(prev => [...prev, newEvent]);
+      // 참여자 데이터 (lesson_bookings INSERT 연동 시 교체)
+      if (participants.length > 0) {
+        console.log("참여자 목록:", participants);
+      }
       toast.success("수업이 등록되었습니다.");
       setIsAddModalOpen(false);
       resetForm();
@@ -2238,6 +2253,84 @@ export default function Calendar() {
                     </select>
                   </div>
                 )}
+                {/* 참여자 목록 */}
+                <div>
+                  <div className="flex items-center justify-between mb-sm">
+                    <label className="text-[12px] font-semibold text-content-secondary">참여자 목록</label>
+                    <button
+                      type="button"
+                      onClick={() => setShowParticipantDropdown(v => !v)}
+                      className="text-[12px] font-semibold text-primary hover:text-primary/80 transition-colors"
+                    >
+                      + 참여자 추가
+                    </button>
+                  </div>
+                  {showParticipantDropdown && (
+                    <div className="relative mb-sm">
+                      <input
+                        className="w-full h-10 rounded-lg bg-surface-secondary border border-line px-md text-[13px] focus:border-primary outline-none transition-all"
+                        placeholder="이름 또는 전화번호 검색"
+                        value={participantSearch}
+                        onChange={e => {
+                          const q = e.target.value;
+                          setParticipantSearch(q);
+                          if (participantSearchTimer.current) clearTimeout(participantSearchTimer.current);
+                          if (!q.trim()) { setParticipantResults([]); return; }
+                          participantSearchTimer.current = setTimeout(async () => {
+                            const { data } = await supabase
+                              .from("members")
+                              .select("id, name, phone")
+                              .ilike("name", `%${q}%`)
+                              .limit(5);
+                            setParticipantResults((data ?? []).map((m: any) => ({ id: String(m.id), name: m.name ?? "", phone: m.phone ?? "" })));
+                          }, 300);
+                        }}
+                        autoFocus
+                      />
+                      {participantResults.length > 0 && (
+                        <div className="absolute z-50 w-full mt-1 bg-surface border border-line rounded-lg shadow-lg overflow-hidden">
+                          {participantResults.map(m => (
+                            <button
+                              key={m.id}
+                              type="button"
+                              className="w-full flex items-center justify-between px-md py-sm hover:bg-surface-secondary transition-colors text-left"
+                              onClick={() => {
+                                if (!participants.find(p => p.id === m.id)) {
+                                  setParticipants(prev => [...prev, m]);
+                                }
+                                setParticipantSearch("");
+                                setParticipantResults([]);
+                                setShowParticipantDropdown(false);
+                              }}
+                            >
+                              <span className="text-[13px] font-semibold text-content">{m.name}</span>
+                              <span className="text-[12px] text-content-secondary">{m.phone}</span>
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                  {participants.length > 0 && (
+                    <div className="space-y-xs">
+                      {participants.map(p => (
+                        <div key={p.id} className="flex items-center justify-between h-9 px-md rounded-lg bg-surface-secondary border border-line">
+                          <span className="text-[13px] font-semibold text-content">{p.name}</span>
+                          <div className="flex items-center gap-sm">
+                            <span className="text-[12px] text-content-secondary">{p.phone}</span>
+                            <button
+                              type="button"
+                              onClick={() => setParticipants(prev => prev.filter(x => x.id !== p.id))}
+                              className="text-content-secondary hover:text-danger transition-colors leading-none"
+                            >
+                              ✕
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
               </div>
 
               {/* 수업 색상 */}

@@ -34,10 +34,23 @@ export default function Modal({
 }: ModalProps) {
   const panelRef = useRef<HTMLDivElement>(null);
 
-  // ESC 키로 닫기
+  // ESC 키로 닫기 + 포커스 트랩 (Tab 키 모달 내부 순환)
   const handleKeyDown = useCallback(
     (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
+      if (e.key === "Escape") { onClose(); return; }
+      if (e.key === "Tab" && panelRef.current) {
+        const focusable = panelRef.current.querySelectorAll<HTMLElement>(
+          'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+        );
+        if (focusable.length === 0) return;
+        const first = focusable[0];
+        const last = focusable[focusable.length - 1];
+        if (e.shiftKey) {
+          if (document.activeElement === first) { e.preventDefault(); last.focus(); }
+        } else {
+          if (document.activeElement === last) { e.preventDefault(); first.focus(); }
+        }
+      }
     },
     [onClose]
   );

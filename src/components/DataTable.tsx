@@ -5,7 +5,6 @@ import {
   Download,
   ChevronLeft,
   ChevronRight,
-  AlertCircle,
   Search,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -37,6 +36,7 @@ interface DataTableProps<T> {
   onSort?: (key: string, direction: "asc" | "desc") => void;
   sortConfig?: { key: string; direction: "asc" | "desc" };
   emptyMessage?: string;
+  emptyAction?: { label: string; onClick: () => void };
   onDownloadExcel?: () => void;
   title?: string;
   onSearch?: (value: string) => void;
@@ -58,6 +58,7 @@ export default function DataTable<T extends Record<string, any>>({
   onSort,
   sortConfig,
   emptyMessage = "조회된 데이터가 없습니다.",
+  emptyAction,
   onDownloadExcel,
   title,
   onSearch,
@@ -204,9 +205,16 @@ export default function DataTable<T extends Record<string, any>>({
               <tr>
                 <td className="px-lg py-xl text-center" colSpan={columns.length + (selectable ? 1 : 0)}>
                   <div className="flex flex-col items-center justify-center gap-sm">
-                    <AlertCircle className="text-line" size={36} />
-                    <p className="text-[14px] text-content-secondary">{emptyMessage}</p>
-                    <p className="text-[12px] text-content-tertiary">조건을 변경하거나 필터를 초기화해보세요.</p>
+                    <Search className="text-line" size={36} />
+                    <p className="text-[13px] text-content-secondary">{emptyMessage}</p>
+                    {emptyAction && (
+                      <button
+                        className="text-[13px] text-primary font-semibold hover:underline"
+                        onClick={emptyAction.onClick}
+                      >
+                        + {emptyAction.label}
+                      </button>
+                    )}
                   </div>
                 </td>
               </tr>

@@ -106,6 +106,15 @@ interface ExpiringMember {
   ddayNum: number;
 }
 
+interface AuditLog {
+  id: number;
+  createdAt: string;
+  action: string;
+  targetType: string;
+  targetId: string | number;
+  userName: string;
+}
+
 /** 연령대 계산 */
 function getAgeGroup(birthDate: string): string {
   const birth = new Date(birthDate);
@@ -157,6 +166,7 @@ export default function Dashboard() {
   const [unpaidMembers, setUnpaidMembers] = useState<UnpaidMember[]>([]);
   const [holdingMembers, setHoldingMembers] = useState<HoldingMember[]>([]);
   const [expiringMembers, setExpiringMembers] = useState<ExpiringMember[]>([]);
+  const [recentActivities, setRecentActivities] = useState<AuditLog[]>([]);
 
   const fetchDashboard = useCallback(async () => {
     try {
@@ -445,6 +455,15 @@ export default function Dashboard() {
           };
         })
       );
+
+      // 최근 활동 (audit_logs)
+      const { data: auditData } = await supabase
+        .from("audit_logs")
+        .select("*")
+        .eq("branchId", branchId)
+        .order("createdAt", { ascending: false })
+        .limit(10);
+      setRecentActivities(auditData ?? []);
 
       setLastRefreshed(new Date());
     } catch (err) {
@@ -833,6 +852,52 @@ export default function Dashboard() {
             </div>
           </div>
         </div>
+      </div>
+
+      {/* 최근 활동 */}
+      <div className="mb-xl rounded-xl border border-line bg-surface p-lg">
+        <div className="mb-md flex items-center justify-between">
+          <h2 className="text-[14px] font-semibold text-content">📋 최근 활동</h2>
+          <button
+            className="flex items-center gap-[3px] text-[12px] font-medium text-primary hover:underline"
+            onClick={() => moveToPage(990)}
+          >
+            더보기
+            <ArrowRight size={12} />
+          </button>
+        </div>
+        {recentActivities.length > 0 ? (
+          <ul className="divide-y divide-line">
+            {recentActivities.map((log) => {
+              const actionIconMap: Record<string, string> = {
+                CREATE: "👤",
+                LOGIN: "🔑",
+                UPDATE: "✏️",
+                DELETE: "🗑",
+                REFUND: "↩️",
+              };
+              const icon = actionIconMap[log.action] ?? "📝";
+              const timeStr = new Date(log.createdAt).toLocaleTimeString("ko-KR", {
+                hour: "2-digit",
+                minute: "2-digit",
+                hour12: false,
+              });
+              return (
+                <li key={log.id} className="flex items-center gap-md py-sm">
+                  <span className="w-[38px] shrink-0 text-[11px] text-content-tertiary">{timeStr}</span>
+                  <span className="text-[14px]">{icon}</span>
+                  <span className="text-[12px] text-content">
+                    {log.userName} {log.action} — {log.targetType} #{log.targetId}
+                  </span>
+                </li>
+              );
+            })}
+          </ul>
+        ) : (
+          <div className="flex items-center justify-center py-lg text-[12px] text-content-tertiary">
+            최근 활동 내역이 없습니다
+          </div>
+        )}
       </div>
 
       {/* 리스트 카드 */}
