@@ -39,6 +39,7 @@ type Measurement = {
   bmi: number;
   pbf: number;
   bmr: number;
+  bodyWater?: number | null;
 };
 
 // INITIAL_MEASUREMENTS 제거 - Supabase body_compositions 테이블에서 로드
@@ -389,7 +390,7 @@ export default function BodyComposition() {
 
   // UI-121 측정값 입력 모달
   const [showAddModal, setShowAddModal] = useState(false);
-  const [formData, setFormData] = useState({ date: new Date().toISOString().split("T")[0], weight: "", muscle: "", pbf: "" });
+  const [formData, setFormData] = useState({ date: new Date().toISOString().split("T")[0], weight: "", muscle: "", pbf: "", bodyWater: "" });
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
 
   // 덮어쓰기 확인
@@ -468,6 +469,7 @@ export default function BodyComposition() {
       fat: +(w * (p / 100)).toFixed(1),
       bmi: calcBMI(w, memberInfo.height),
       bmr: calcBMR(w, memberInfo.height, memberInfo.age),
+      bodyWater: formData.bodyWater ? parseFloat(formData.bodyWater) : null,
     };
     const existing = measurements.find(m => m.date === formData.date);
     if (existing) {
@@ -489,6 +491,7 @@ export default function BodyComposition() {
       fat: entry.fat,
       fatRate: entry.pbf,
       bmi: entry.bmi,
+      bodyWater: entry.bodyWater ?? null,
     };
 
     let result;
@@ -519,13 +522,13 @@ export default function BodyComposition() {
     setShowAddModal(false);
     setShowOverwriteDialog(false);
     setPendingEntry(null);
-    setFormData({ date: new Date().toISOString().split("T")[0], weight: "", muscle: "", pbf: "" });
+    setFormData({ date: new Date().toISOString().split("T")[0], weight: "", muscle: "", pbf: "", bodyWater: "" });
     setFormErrors({});
     toast.success("체성분 데이터가 저장되었습니다.");
   };
 
   const openAddModal = () => {
-    setFormData({ date: new Date().toISOString().split("T")[0], weight: "", muscle: "", pbf: "" });
+    setFormData({ date: new Date().toISOString().split("T")[0], weight: "", muscle: "", pbf: "", bodyWater: "" });
     setFormErrors({});
     setShowAddModal(true);
   };
@@ -862,6 +865,22 @@ export default function BodyComposition() {
                     <AlertCircle size={11} />{formErrors.pbf}
                   </p>
                 )}
+              </div>
+
+              {/* 체수분 */}
+              <div className="space-y-xs">
+                <label className="text-[13px] font-semibold text-content">
+                  체수분 <span className="text-content-secondary font-normal">(%)</span>
+                </label>
+                <div className="flex items-center gap-sm">
+                  <input
+                    className={inputCls("bodyWater")}
+                    type="number" step="0.1" placeholder="예: 55.0"
+                    value={formData.bodyWater}
+                    onChange={e => setFormData(p => ({ ...p, bodyWater: e.target.value }))}
+                  />
+                  <span className="text-[13px] text-content-secondary w-8 shrink-0">%</span>
+                </div>
               </div>
 
               {/* BMI 자동 계산 미리보기 */}

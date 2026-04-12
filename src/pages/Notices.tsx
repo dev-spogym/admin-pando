@@ -88,6 +88,12 @@ export default function Notices() {
     fetchNotices();
   };
 
+  const sortedNotices = [...notices].sort((a, b) => {
+    if (a.isPinned && !b.isPinned) return -1;
+    if (!a.isPinned && b.isPinned) return 1;
+    return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+  });
+
   const fmtDate = (iso: string) => iso?.slice(0, 10) ?? '';
 
   const columns = [
@@ -150,7 +156,7 @@ export default function Notices() {
       <div className="bg-surface rounded-xl border border-line shadow-card overflow-hidden">
         <DataTable
           columns={columns as Parameters<typeof DataTable>[0]['columns']}
-          data={notices as unknown as Record<string, unknown>[]}
+          data={sortedNotices as unknown as Record<string, unknown>[]}
           loading={isLoading}
           title={`총 ${notices.length}건`}
           emptyMessage="등록된 공지사항이 없습니다."

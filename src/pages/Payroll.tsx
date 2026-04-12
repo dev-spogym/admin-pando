@@ -221,15 +221,24 @@ export default function Payroll() {
       header: "관리",
       width: 80,
       align: "center" as const,
-      render: (_: number, row: PayrollRow) =>
-        row.status !== "paid" ? (
+      render: (_: number, row: PayrollRow) => (
+        <div className="flex items-center gap-xs justify-center">
+          {row.status !== "paid" && (
+            <button
+              className="flex items-center gap-xs px-sm py-xs text-Label text-primary border border-primary rounded-button hover:bg-primary-light transition-colors"
+              onClick={() => moveToPage(989)}
+            >
+              <Edit2 size={12} />수정
+            </button>
+          )}
           <button
-            className="flex items-center gap-xs px-sm py-xs text-Label text-primary border border-primary rounded-button hover:bg-primary-light transition-colors"
+            className="flex items-center gap-xs px-sm py-xs text-Label text-content-secondary border border-line rounded-button hover:bg-surface-secondary transition-colors"
             onClick={() => moveToPage(989)}
           >
-            <Edit2 size={12} />수정
+            <FileText size={12} />명세서
           </button>
-        ) : null
+        </div>
+      )
     }
   ];
 
@@ -258,6 +267,21 @@ export default function Payroll() {
                   ))}
                 </select>
               </div>
+              <button
+                className="flex items-center gap-xs px-md py-sm bg-primary text-white rounded-button text-Label font-semibold hover:opacity-90 transition-all"
+                onClick={async () => {
+                  if (!window.confirm("전 직원 급여를 확정하시겠습니까?")) return;
+                  const unpaid = payrollData.filter(r => r.status !== "paid");
+                  if (unpaid.length === 0) { toast.success("이미 모든 급여가 확정되었습니다."); return; }
+                  const ids = unpaid.map(r => r.id);
+                  const { error } = await supabase.from("payroll").update({ status: "paid" }).in("id", ids);
+                  if (error) { toast.error("급여 확정에 실패했습니다."); return; }
+                  toast.success("급여가 확정되었습니다");
+                  setPayrollData(prev => prev.map(r => ids.includes(r.id) ? { ...r, status: "paid" } : r));
+                }}
+              >
+                <CheckCircle2 size={16} />급여 확정
+              </button>
               <button
                 className="flex items-center gap-xs px-md py-sm border border-line text-content-secondary rounded-button text-Label font-semibold hover:bg-surface-secondary transition-all"
                 onClick={() => {
