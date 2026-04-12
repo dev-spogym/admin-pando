@@ -56,6 +56,10 @@ interface KpiData {
   newMembers: number;
   expiringMembers: number;
   expiredMembers: number;
+  // 전월 대비 계산용
+  prevMonthMembers: number;
+  prevMonthRevenue: number;
+  yesterdayAttendance: number;
 }
 
 interface BranchStats {
@@ -172,7 +176,6 @@ export default function SuperDashboard() {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [lastRefreshed, setLastRefreshed] = useState<Date>(() => new Date());
 
-  // TODO: 통합 API 구현 시 교체
   const [kpiData, setKpiData] = useState<KpiData>({
     totalMembers: 0,
     totalRevenue: 0,
@@ -181,6 +184,9 @@ export default function SuperDashboard() {
     newMembers: 0,
     expiringMembers: 0,
     expiredMembers: 0,
+    prevMonthMembers: 0,
+    prevMonthRevenue: 0,
+    yesterdayAttendance: 0,
   });
 
   const [branches, setBranches] = useState<Branch[]>([]);
@@ -307,7 +313,45 @@ export default function SuperDashboard() {
     );
     const expiredMembers = expiredResults.reduce((s, r) => s + (r.count ?? 0), 0);
 
-    setKpiData({ totalMembers, totalRevenue, todayAttendance, totalStaff, newMembers, expiringMembers, expiredMembers });
+    // 전월 매출 합산 (MoM 계산용)
+    const prevMonthStart = new Date(today.getFullYear(), today.getMonth() - 1, 1).toISOString();
+    const prevMonthEnd = new Date(today.getFullYear(), today.getMonth(), 0, 23, 59, 59).toISOString();
+    const prevRevenueResults = await Promise.all(
+      branchList.map((branch) =>
+        supabase
+          .from('sales')
+          .select('amount')
+          .eq('branchId', branch.id)
+          .eq('status', 'COMPLETED')
+          .gte('saleDate', prevMonthStart)
+          .lte('saleDate', prevMonthEnd)
+      )
+    );
+    const prevMonthRevenue = prevRevenueResults.reduce(
+      (s, r) => s + (r.data ?? []).reduce((sum: number, row: { amount: unknown }) => sum + (Number(row.amount) || 0), 0),
+      0
+    );
+
+    // 전월 회원 수 (전월 말 기준 활성 회원 — 근사치: 현재 활성 - 이번달 신규 + 이번달 만료)
+    const prevMonthMembers = Math.max(0, totalMembers - newMembers + expiredMembers);
+
+    // 어제 출석 합산
+    const yesterday = new Date(today);
+    yesterday.setDate(today.getDate() - 1);
+    const yesterdayStr = yesterday.toISOString().slice(0, 10);
+    const yesterdayAttResults = await Promise.all(
+      branchList.map((branch) =>
+        supabase
+          .from('attendance')
+          .select('id', { count: 'exact', head: true })
+          .eq('branchId', branch.id)
+          .gte('checkInAt', `${yesterdayStr}T00:00:00`)
+          .lte('checkInAt', `${yesterdayStr}T23:59:59`)
+      )
+    );
+    const yesterdayAttendance = yesterdayAttResults.reduce((s, r) => s + (r.count ?? 0), 0);
+
+    setKpiData({ totalMembers, totalRevenue, todayAttendance, totalStaff, newMembers, expiringMembers, expiredMembers, prevMonthMembers, prevMonthRevenue, yesterdayAttendance });
   }, []);
 
   // ─── 전체 데이터 로드 ────────────────────────────────────────────────────
@@ -386,26 +430,36 @@ export default function SuperDashboard() {
 
   // ─── KPI 정의 ────────────────────────────────────────────────────────────
 
+  // 전월 대비 변동률 계산 함수
+  const mom = (curr: number, prev: number): number =>
+    prev > 0 ? Math.round(((curr - prev) / prev) * 100) : 0;
+
+  const memberChange = mom(kpiData.totalMembers, kpiData.prevMonthMembers);
+  const revenueChange = mom(kpiData.totalRevenue, kpiData.prevMonthRevenue);
+  const attendanceChange = kpiData.yesterdayAttendance > 0
+    ? mom(kpiData.todayAttendance, kpiData.yesterdayAttendance)
+    : 0;
+
   const kpiCards = [
     {
       label: '전체 회원',
       value: kpiData.totalMembers.toLocaleString('ko-KR') + '명',
       icon: <Users size={18} />,
-      change: 4, // TODO: 통합 API 구현 시 전월 대비 실데이터 교체
+      change: memberChange,
       changeLabel: '전월 대비',
     },
     {
       label: '전체 매출',
       value: formatAmount(kpiData.totalRevenue) + '원',
       icon: <DollarSign size={18} />,
-      change: 12, // TODO: 통합 API 구현 시 전월 대비 실데이터 교체
+      change: revenueChange,
       changeLabel: '이번달 전월 대비',
     },
     {
       label: '전체 출석',
       value: kpiData.todayAttendance.toLocaleString('ko-KR') + '명',
       icon: <UserCheck size={18} />,
-      change: -3, // TODO: 통합 API 구현 시 어제 대비 실데이터 교체
+      change: attendanceChange,
       changeLabel: '어제 대비',
     },
     {

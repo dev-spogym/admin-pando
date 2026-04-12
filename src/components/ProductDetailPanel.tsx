@@ -164,6 +164,8 @@ export default function ProductDetailPanel({ product, isNew, onSave, onDelete, o
   );
   const [saving, setSaving] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState(false);
+  const [activeMembers, setActiveMembers] = useState<number | null>(null);
+  const [deactivateConfirm, setDeactivateConfirm] = useState(false);
   const [showImportModal, setShowImportModal] = useState(false);
   const [importLoading, setImportLoading] = useState(false);
   const [importSearch, setImportSearch] = useState('');
@@ -298,6 +300,27 @@ export default function ProductDetailPanel({ product, isNew, onSave, onDelete, o
       return;
     }
 
+    // 동일 branchId 내 상품명 중복 체크
+    const branchId = getBranchId();
+    const productName = name.trim();
+    let dupQuery = supabase
+      .from('products')
+      .select('id')
+      .eq('branchId', branchId)
+      .eq('name', productName);
+    if (!isCreateMode && product) {
+      dupQuery = dupQuery.neq('id', product.id);
+    }
+    const { data: dupData, error: dupError } = await dupQuery;
+    if (dupError) {
+      toast.error('중복 확인 중 오류가 발생했습니다.');
+      return;
+    }
+    if (dupData && dupData.length > 0) {
+      toast.error('같은 이름의 상품이 이미 있습니다');
+      return;
+    }
+
     setSaving(true);
 
     const firstEnabled = weekdayRows.find(row => row.enabled);
@@ -357,6 +380,44 @@ export default function ProductDetailPanel({ product, isNew, onSave, onDelete, o
     }
     toast.success('상품이 등록되었습니다.');
     onSave((data as { id: number }).id);
+  };
+
+  const handleDeleteClick = async () => {
+    if (!product) return;
+
+    const { count, error: countError } = await supabase
+      .from('sales')
+      .select('id', { count: 'exact', head: true })
+      .eq('productName', product.name)
+      .eq('status', 'COMPLETED');
+
+    if (countError) {
+      // 조회 실패 시 기존 삭제 흐름으로 진행
+      setActiveMembers(0);
+      setDeleteConfirm(true);
+      return;
+    }
+
+    const memberCount = count ?? 0;
+    setActiveMembers(memberCount);
+
+    if (memberCount > 0) {
+      setDeactivateConfirm(true);
+    } else {
+      setDeleteConfirm(true);
+    }
+  };
+
+  const handleDeactivate = async () => {
+    if (!product) return;
+    const { error } = await supabase.from('products').update({ isActive: false }).eq('id', product.id);
+    if (error) {
+      toast.error('비활성화에 실패했습니다.');
+      return;
+    }
+    toast.success('상품이 미사용으로 전환되었습니다.');
+    setDeactivateConfirm(false);
+    onDelete();
   };
 
   const handleDelete = async () => {
@@ -721,7 +782,27 @@ export default function ProductDetailPanel({ product, isNew, onSave, onDelete, o
           </button>
 
           <div className="flex items-center gap-1.5">
-            {deleteConfirm ? (
+            {deactivateConfirm ? (
+              <>
+                <span className="mr-2 text-[11px] font-semibold text-[#c53131]">
+                  이 상품을 이용 중인 회원이 {activeMembers}명 있습니다. &apos;미사용&apos;으로 전환하시겠습니까?
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setDeactivateConfirm(false)}
+                  className="border border-[#b7bdc7] bg-white px-3 py-0.5 text-[11px]"
+                >
+                  취소
+                </button>
+                <button
+                  type="button"
+                  onClick={handleDeactivate}
+                  className="border border-[#b94f4f] bg-[#df5c5c] px-3 py-0.5 text-[11px] font-bold text-white"
+                >
+                  미사용 전환
+                </button>
+              </>
+            ) : deleteConfirm ? (
               <>
                 <span className="mr-2 text-[11px] font-semibold text-[#c53131]">정말 삭제하시겠습니까?</span>
                 <button
@@ -744,7 +825,7 @@ export default function ProductDetailPanel({ product, isNew, onSave, onDelete, o
                 {!isCreateMode && product && (
                   <button
                     type="button"
-                    onClick={() => setDeleteConfirm(true)}
+                    onClick={handleDeleteClick}
                     className="inline-flex items-center gap-1 border border-[#d88d8d] bg-white px-3 py-0.5 text-[11px] text-[#c53131]"
                   >
                     <Trash2 size={13} />

@@ -9,6 +9,36 @@ import { useAuthStore } from '@/stores/authStore';
 import { toast } from 'sonner';
 
 const REMEMBER_KEY = 'spoGym_rememberedId';
+const FAIL_COUNT_KEY = 'login_fail_count';
+const LOCKED_UNTIL_KEY = 'login_fail_locked_until';
+const MAX_FAIL_COUNT = 5;
+const LOCK_DURATION_MS = 30 * 60 * 1000; // 30분
+
+function getLoginLockState(): { isLocked: boolean; remainingMs: number } {
+  const lockedUntil = localStorage.getItem(LOCKED_UNTIL_KEY);
+  if (!lockedUntil) return { isLocked: false, remainingMs: 0 };
+  const remaining = Number(lockedUntil) - Date.now();
+  if (remaining > 0) return { isLocked: true, remainingMs: remaining };
+  // 잠금 시간 경과 — 자동 해제
+  localStorage.removeItem(LOCKED_UNTIL_KEY);
+  localStorage.removeItem(FAIL_COUNT_KEY);
+  return { isLocked: false, remainingMs: 0 };
+}
+
+function incrementFailCount(): number {
+  const prev = Number(localStorage.getItem(FAIL_COUNT_KEY) ?? '0');
+  const next = prev + 1;
+  localStorage.setItem(FAIL_COUNT_KEY, String(next));
+  if (next >= MAX_FAIL_COUNT) {
+    localStorage.setItem(LOCKED_UNTIL_KEY, String(Date.now() + LOCK_DURATION_MS));
+  }
+  return next;
+}
+
+function clearFailCount() {
+  localStorage.removeItem(FAIL_COUNT_KEY);
+  localStorage.removeItem(LOCKED_UNTIL_KEY);
+}
 
 export default function Login() {
   const [id, setId] = useState('');
@@ -19,6 +49,7 @@ export default function Login() {
   const [branches, setBranches] = useState<Branch[]>([]);
   const [branchesLoading, setBranchesLoading] = useState(true);
   const [error, setError] = useState('');
+  const [isLocked, setIsLocked] = useState(false);
 
   const loginMutation = useLogin();
   const authLogin = useAuthStore((s) => s.login);
@@ -26,12 +57,18 @@ export default function Login() {
   const isFormValid = id.trim() !== '' && password.trim() !== '';
   const isLoading = loginMutation.isPending;
 
-  // 저장된 아이디 복원 + 지점 목록 로드
+  // 저장된 아이디 복원 + 지점 목록 로드 + 잠금 상태 확인
   useEffect(() => {
     const saved = localStorage.getItem(REMEMBER_KEY);
     if (saved) {
       setId(saved);
       setRememberMe(true);
+    }
+
+    const { isLocked: locked } = getLoginLockState();
+    if (locked) {
+      setIsLocked(true);
+      setError('계정이 잠겼습니다. 관리자에게 문의하세요.');
     }
 
     getBranches().then((res) => {
@@ -45,7 +82,16 @@ export default function Login() {
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!isFormValid) return;
+    if (!isFormValid || isLocked) return;
+
+    // 잠금 상태 재확인 (타이머 경과 여부)
+    const { isLocked: stillLocked } = getLoginLockState();
+    if (stillLocked) {
+      setIsLocked(true);
+      setError('계정이 잠겼습니다. 관리자에게 문의하세요.');
+      return;
+    }
+
     setError('');
 
     loginMutation.mutate(
@@ -53,9 +99,20 @@ export default function Login() {
       {
         onSuccess: (res) => {
           if (!res.success) {
-            setError(res.message ?? '로그인에 실패했습니다.');
+            const failCount = incrementFailCount();
+            if (failCount >= MAX_FAIL_COUNT) {
+              setIsLocked(true);
+              setError('계정이 잠겼습니다. 관리자에게 문의하세요.');
+              toast.error('계정이 잠겼습니다. 관리자에게 문의하세요.');
+            } else {
+              const remaining = MAX_FAIL_COUNT - failCount;
+              setError(`${res.message ?? '로그인에 실패했습니다.'} (${remaining}회 더 실패 시 계정이 잠깁니다)`);
+            }
             return;
           }
+
+          // 로그인 성공 시 실패 횟수 초기화
+          clearFailCount();
 
           // 로그인 유지: 아이디 저장/삭제
           if (rememberMe) {
@@ -225,18 +282,20 @@ export default function Login() {
           <button
             className={cn(
               'w-full h-[44px] rounded-lg text-[14px] font-semibold text-white flex items-center justify-center gap-sm transition-all',
-              isFormValid && !isLoading
+              isFormValid && !isLoading && !isLocked
                 ? 'bg-primary hover:bg-primary-dark active:scale-[0.98]'
                 : 'bg-content-tertiary cursor-not-allowed',
             )}
             type="submit"
-            disabled={!isFormValid || isLoading}
+            disabled={!isFormValid || isLoading || isLocked}
           >
             {isLoading ? (
               <>
                 <Loader2 className="animate-spin" size={18} />
                 <span>로그인 중...</span>
               </>
+            ) : isLocked ? (
+              '계정 잠금'
             ) : (
               '로그인'
             )}
