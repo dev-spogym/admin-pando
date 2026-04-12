@@ -190,6 +190,194 @@ function RevenueGauge({ revenue, target }: { revenue: number; target: number | n
   );
 }
 
+// 코호트 분석 타입
+interface CohortRow {
+  cohortLabel: string; // "2026-01"
+  cohortStart: Date;
+  total: number;
+  retention: (number | null)[]; // 1~6개월 유지율 (null = 아직 도달 안된 월)
+}
+
+// 코호트 셀 배경 색상
+function cohortCellBg(rate: number | null): string {
+  if (rate === null) return "bg-surface-secondary text-content-secondary";
+  if (rate >= 90) return "bg-green-200 text-green-900";
+  if (rate >= 70) return "bg-green-100 text-green-800";
+  if (rate >= 50) return "bg-yellow-100 text-yellow-800";
+  if (rate >= 30) return "bg-orange-100 text-orange-800";
+  return "bg-red-100 text-red-800";
+}
+
+// 코호트 분석 컴포넌트
+function CohortAnalysis({ branchId }: { branchId: number }) {
+  const [rows, setRows] = useState<CohortRow[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    async function fetchCohort() {
+      setLoading(true);
+      try {
+        const today = new Date();
+        // 최근 6개월 코호트 계산
+        const cohorts: CohortRow[] = [];
+
+        for (let i = 5; i >= 0; i--) {
+          const cohortDate = new Date(today.getFullYear(), today.getMonth() - i, 1);
+          const cohortYear = cohortDate.getFullYear();
+          const cohortMonth = cohortDate.getMonth(); // 0-based
+          const cohortLabel = `${cohortYear}-${String(cohortMonth + 1).padStart(2, "0")}`;
+
+          const cohortStart = new Date(cohortYear, cohortMonth, 1).toISOString();
+          const cohortEnd = new Date(cohortYear, cohortMonth + 1, 0, 23, 59, 59).toISOString();
+
+          // 해당 월 등록 회원 조회
+          const { data: cohortMembers, error } = await supabase
+            .from("members")
+            .select("id, status, membershipExpiry, registeredAt")
+            .eq("branchId", branchId)
+            .is("deletedAt", null)
+            .gte("registeredAt", cohortStart)
+            .lte("registeredAt", cohortEnd);
+
+          if (error || !cohortMembers) {
+            cohorts.push({ cohortLabel, cohortStart: cohortDate, total: 0, retention: [null, null, null, null, null, null] });
+            continue;
+          }
+
+          const total = cohortMembers.length;
+
+          // 경과 M개월 유지율 계산
+          const retention: (number | null)[] = [];
+          for (let m = 1; m <= 6; m++) {
+            // 코호트 등록 월 + m개월 이후 월말
+            const targetMonthEnd = new Date(cohortYear, cohortMonth + m + 1, 0, 23, 59, 59);
+
+            // 해당 월이 아직 지나지 않았으면 null
+            if (targetMonthEnd > today) {
+              retention.push(null);
+              continue;
+            }
+
+            if (total === 0) {
+              retention.push(null);
+              continue;
+            }
+
+            const targetMonthEndStr = targetMonthEnd.toISOString().slice(0, 10);
+            const retained = cohortMembers.filter((member: any) => {
+              if (member.status === "ACTIVE") return true;
+              if (member.membershipExpiry && member.membershipExpiry >= targetMonthEndStr) return true;
+              return false;
+            }).length;
+
+            retention.push(Math.round((retained / total) * 100));
+          }
+
+          cohorts.push({ cohortLabel, cohortStart: cohortDate, total, retention });
+        }
+
+        setRows(cohorts);
+      } catch (err) {
+        console.error("[CohortAnalysis] 데이터 로드 실패:", err);
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    fetchCohort();
+  }, [branchId]);
+
+  return (
+    <div className="bg-surface border border-line rounded-xl p-lg mb-lg">
+      <h3 className="text-[14px] font-bold text-content mb-xs">코호트 분석</h3>
+      <p className="text-[12px] text-content-secondary mb-md">
+        등록 월별 회원 유지율 — 경과 개월 수에 따른 활성 잔존율
+      </p>
+
+      {loading ? (
+        <div className="flex items-center justify-center h-[120px] text-[13px] text-content-secondary">
+          데이터 로딩 중...
+        </div>
+      ) : (
+        <div className="overflow-x-auto">
+          <table className="w-full text-[12px] border-collapse">
+            <thead>
+              <tr>
+                <th className="text-left px-sm py-xs text-content-secondary font-semibold bg-surface-secondary rounded-tl-lg border border-line min-w-[100px]">
+                  등록 코호트
+                </th>
+                <th className="text-center px-sm py-xs text-content-secondary font-semibold bg-surface-secondary border border-line min-w-[60px]">
+                  등록수
+                </th>
+                {[1, 2, 3, 4, 5, 6].map((m) => (
+                  <th
+                    key={m}
+                    className="text-center px-sm py-xs text-content-secondary font-semibold bg-surface-secondary border border-line min-w-[72px]"
+                  >
+                    {m}개월
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((row) => (
+                <tr key={row.cohortLabel}>
+                  <td className="px-sm py-xs font-semibold text-content border border-line bg-surface">
+                    {row.cohortLabel}
+                  </td>
+                  <td className="text-center px-sm py-xs text-content border border-line bg-surface">
+                    {row.total > 0 ? `${row.total}명` : "-"}
+                  </td>
+                  {row.retention.map((rate, idx) => (
+                    <td
+                      key={idx}
+                      className={cn(
+                        "text-center px-sm py-xs border border-line font-medium",
+                        cohortCellBg(rate)
+                      )}
+                    >
+                      {rate === null ? (
+                        <span className="text-content-secondary">-</span>
+                      ) : (
+                        `${rate}%`
+                      )}
+                    </td>
+                  ))}
+                </tr>
+              ))}
+              {rows.length === 0 && (
+                <tr>
+                  <td
+                    colSpan={8}
+                    className="text-center py-lg text-content-secondary border border-line"
+                  >
+                    코호트 데이터가 없습니다.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      <div className="flex flex-wrap gap-sm mt-md">
+        <span className="text-[11px] text-content-secondary">색상 기준:</span>
+        {[
+          { label: "90%+", bg: "bg-green-200" },
+          { label: "70~89%", bg: "bg-green-100" },
+          { label: "50~69%", bg: "bg-yellow-100" },
+          { label: "30~49%", bg: "bg-orange-100" },
+          { label: "~29%", bg: "bg-red-100" },
+        ].map(({ label, bg }) => (
+          <span key={label} className={cn("text-[11px] px-sm py-[2px] rounded", bg)}>
+            {label}
+          </span>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 export default function KpiDashboard() {
   const branchId = Number(localStorage.getItem("branchId")) || 1;
   const [loading, setLoading] = useState(true);
@@ -393,6 +581,10 @@ export default function KpiDashboard() {
         <StatCard label="출석 수" value={`${m.totalClassAttendees}건`} icon={<UserCheck size={18} />} variant="mint" />
         <StatCard label="수업 출석률" value={`${classAttendRate}%`} icon={<Target size={18} />} variant={classAttendRate >= 80 ? "mint" : "peach"} />
       </div>
+
+      {/* 코호트 분석 */}
+      <h3 className="text-[14px] font-bold text-content mb-sm">코호트 분석</h3>
+      <CohortAnalysis branchId={branchId} />
 
       {/* 미구현 KPI 안내 */}
       <div className="bg-surface-secondary border border-line rounded-xl p-lg mt-md">

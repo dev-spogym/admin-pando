@@ -48,6 +48,7 @@ import { cn } from "@/lib/utils";
 import { moveToPage } from "@/internal";
 import { supabase } from "@/lib/supabase";
 import { readBranchJson, writeBranchJson } from "@/lib/branchStorage";
+import { getMemberGrade } from "@/lib/memberGrade";
 
 import SignaturePad from "@/components/SignaturePad";
 import AppLayout from "@/components/AppLayout";
@@ -1659,6 +1660,9 @@ export default function MemberDetail() {
             <div className="flex-1 text-center lg:text-left">
               <div className="flex flex-wrap items-center justify-center lg:justify-start gap-sm mb-xs">
                 <h1 className="text-[22px] font-bold text-content leading-tight">{member.name}</h1>
+                {(() => { const g = getMemberGrade(member.registeredAt); return (
+                  <span className={`text-[12px] px-sm py-[2px] rounded-full font-semibold ${g.color}`}>{g.emoji} {g.label}</span>
+                ); })()}
                 <StatusBadge variant={statusVariant} dot>{statusLabel}</StatusBadge>
                 {dDay !== null && (
                   <span className={cn("text-[12px] px-sm py-[2px] rounded-full font-bold border", getDDayClass(dDay))}>
