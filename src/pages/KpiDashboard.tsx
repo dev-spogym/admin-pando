@@ -378,6 +378,175 @@ function CohortAnalysis({ branchId }: { branchId: number }) {
   );
 }
 
+// 퍼널 분석 데이터 타입
+interface FunnelStep {
+  label: string;
+  count: number;
+  color: string;
+}
+
+// 퍼널 분석 컴포넌트
+function FunnelAnalysis({ branchId }: { branchId: number }) {
+  const [steps, setSteps] = useState<FunnelStep[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    async function fetchFunnel() {
+      setLoading(true);
+      try {
+        const today = new Date();
+        const monthStart = new Date(today.getFullYear(), today.getMonth(), 1).toISOString();
+        const monthEnd = new Date(today.getFullYear(), today.getMonth() + 1, 0, 23, 59, 59).toISOString();
+        // 3개월 전 기준
+        const threeMonthsAgo = new Date(today.getFullYear(), today.getMonth() - 3, 1).toISOString();
+
+        // 병렬 조회 — 테이블 없으면 0으로 처리
+        const [leadsRes, consultRes, memberNewRes, memberRetainRes, reRegRes] = await Promise.all([
+          // 1. 리드 유입 (이번달)
+          supabase
+            .from("leads")
+            .select("id", { count: "exact", head: true })
+            .eq("branchId", branchId)
+            .gte("createdAt", monthStart)
+            .lte("createdAt", monthEnd),
+          // 2. 상담 완료 (이번달)
+          supabase
+            .from("consultations")
+            .select("id", { count: "exact", head: true })
+            .eq("branchId", branchId)
+            .eq("status", "완료")
+            .gte("consultedAt", monthStart)
+            .lte("consultedAt", monthEnd),
+          // 3. 회원 등록 (이번달)
+          supabase
+            .from("members")
+            .select("id", { count: "exact", head: true })
+            .eq("branchId", branchId)
+            .is("deletedAt", null)
+            .gte("registeredAt", monthStart)
+            .lte("registeredAt", monthEnd),
+          // 4. 3개월 유지 (3개월 전 이전 등록 + 현재 ACTIVE)
+          supabase
+            .from("members")
+            .select("id", { count: "exact", head: true })
+            .eq("branchId", branchId)
+            .is("deletedAt", null)
+            .eq("status", "ACTIVE")
+            .lte("registeredAt", threeMonthsAgo),
+          // 5. 재등록 (이번달)
+          supabase
+            .from("sales")
+            .select("id", { count: "exact", head: true })
+            .eq("branchId", branchId)
+            .eq("round", "재등록")
+            .gte("saleDate", monthStart)
+            .lte("saleDate", monthEnd),
+        ]);
+
+        const raw = [
+          leadsRes.count ?? 0,
+          consultRes.count ?? 0,
+          memberNewRes.count ?? 0,
+          memberRetainRes.count ?? 0,
+          reRegRes.count ?? 0,
+        ];
+
+        const colors = [
+          "bg-primary",
+          "bg-primary/80",
+          "bg-primary/60",
+          "bg-primary/40",
+          "bg-primary/25",
+        ];
+
+        const labels = [
+          "리드 유입",
+          "상담 완료",
+          "회원 등록",
+          "3개월 유지",
+          "재등록",
+        ];
+
+        setSteps(labels.map((label, i) => ({ label, count: raw[i], color: colors[i] })));
+      } catch (err) {
+        console.error("[FunnelAnalysis] 데이터 로드 실패:", err);
+        // 에러 시 0으로 표시
+        setSteps([
+          { label: "리드 유입", count: 0, color: "bg-primary" },
+          { label: "상담 완료", count: 0, color: "bg-primary/80" },
+          { label: "회원 등록", count: 0, color: "bg-primary/60" },
+          { label: "3개월 유지", count: 0, color: "bg-primary/40" },
+          { label: "재등록", count: 0, color: "bg-primary/25" },
+        ]);
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    fetchFunnel();
+  }, [branchId]);
+
+  const firstCount = steps.length > 0 ? steps[0].count : 0;
+
+  return (
+    <div className="bg-surface border border-line rounded-xl p-lg mb-lg">
+      <h3 className="text-[14px] font-bold text-content mb-xs">퍼널 분석</h3>
+      <p className="text-[12px] text-content-secondary mb-md">
+        리드 유입 → 상담 완료 → 회원 등록 → 3개월 유지 → 재등록 단계별 전환율
+      </p>
+
+      {loading ? (
+        <div className="flex items-center justify-center h-[120px] text-[13px] text-content-secondary">
+          데이터 로딩 중...
+        </div>
+      ) : (
+        <div className="flex flex-col gap-sm">
+          {steps.map((step, idx) => {
+            const barWidth = firstCount > 0 ? Math.round((step.count / firstCount) * 100) : 0;
+            const convRate = idx === 0
+              ? 100
+              : steps[idx - 1].count > 0
+                ? Math.round((step.count / steps[idx - 1].count) * 100)
+                : 0;
+
+            return (
+              <div key={step.label} className="flex items-center gap-md">
+                {/* 라벨 */}
+                <div className="w-[80px] shrink-0 text-[12px] text-content-secondary text-right">
+                  {step.label}
+                </div>
+                {/* 바 영역 */}
+                <div className="flex-1 flex items-center gap-sm">
+                  <div className="flex-1 h-[26px] bg-surface-secondary rounded-md overflow-hidden">
+                    <div
+                      className={cn("h-full rounded-md transition-all duration-500", step.color)}
+                      style={{ width: `${barWidth}%` }}
+                    />
+                  </div>
+                  {/* 인원 수 */}
+                  <span className="w-[44px] shrink-0 text-[13px] font-semibold text-content text-right">
+                    {step.count.toLocaleString("ko-KR")}명
+                  </span>
+                  {/* 전환율 */}
+                  <span className="w-[52px] shrink-0 text-[12px] text-content-secondary">
+                    {idx === 0 ? "기준" : `→ ${convRate}%`}
+                  </span>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {!loading && firstCount > 0 && (
+        <p className="text-[11px] text-content-secondary mt-md">
+          * 전환율은 직전 단계 대비 비율 / 바 너비는 첫 단계(리드 유입) 기준 비율
+        </p>
+      )}
+    </div>
+  );
+}
+
 export default function KpiDashboard() {
   const branchId = Number(localStorage.getItem("branchId")) || 1;
   const [loading, setLoading] = useState(true);
@@ -585,6 +754,10 @@ export default function KpiDashboard() {
       {/* 코호트 분석 */}
       <h3 className="text-[14px] font-bold text-content mb-sm">코호트 분석</h3>
       <CohortAnalysis branchId={branchId} />
+
+      {/* 퍼널 분석 */}
+      <h3 className="text-[14px] font-bold text-content mb-sm">퍼널 분석</h3>
+      <FunnelAnalysis branchId={branchId} />
 
       {/* 미구현 KPI 안내 */}
       <div className="bg-surface-secondary border border-line rounded-xl p-lg mt-md">

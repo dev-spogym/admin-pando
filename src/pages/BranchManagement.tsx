@@ -93,6 +93,13 @@ export default function BranchManagement() {
   const [isDeactivateOpen, setIsDeactivateOpen] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
 
+  // 상태 변경 관련 상태
+  const [statusChangeTarget, setStatusChangeTarget] = useState<any>(null);
+  const [statusChangeType, setStatusChangeType] = useState<'closed' | 'inactive' | null>(null);
+  const [statusChangeInfo, setStatusChangeInfo] = useState<{ activeMembers: number; activeStaff: number } | null>(null);
+  const [isStatusChangeOpen, setIsStatusChangeOpen] = useState(false);
+  const [isStatusChangeSaving, setIsStatusChangeSaving] = useState(false);
+
   // 지점 등록 폼 상태
   const [branchForm, setBranchForm] = useState<BranchForm>(EMPTY_FORM);
   const [formErrors, setFormErrors] = useState<FormErrors>({});
@@ -246,6 +253,63 @@ export default function BranchManagement() {
     }
   };
 
+  // --- 상태 변경 핸들러 ---
+  const openStatusChange = async (row: any, type: 'closed' | 'inactive') => {
+    setStatusChangeTarget(row);
+    setStatusChangeType(type);
+
+    if (type === 'closed') {
+      // 활성 회원 수 조회
+      const { count: activeMembers } = await supabase
+        .from('members')
+        .select('*', { count: 'exact', head: true })
+        .eq('branchId', row.id)
+        .eq('status', 'ACTIVE');
+
+      // 재직 직원 수 조회
+      const { count: activeStaff } = await supabase
+        .from('staff')
+        .select('*', { count: 'exact', head: true })
+        .eq('branchId', row.id)
+        .eq('isActive', true);
+
+      setStatusChangeInfo({ activeMembers: activeMembers ?? 0, activeStaff: activeStaff ?? 0 });
+    } else {
+      setStatusChangeInfo(null);
+    }
+
+    setIsStatusChangeOpen(true);
+  };
+
+  const handleStatusChangeConfirm = async () => {
+    if (!statusChangeTarget || !statusChangeType) return;
+    if (isStatusChangeSaving) return;
+    setIsStatusChangeSaving(true);
+
+    try {
+      const newStatus = statusChangeType === 'closed' ? 'closed' : 'inactive';
+      const { error } = await supabase
+        .from('branches')
+        .update({ status: newStatus })
+        .eq('id', statusChangeTarget.id);
+
+      if (error) {
+        toast.error(`상태 변경 실패: ${error.message}`);
+        return;
+      }
+
+      setBranches(prev => prev.map(b => b.id === statusChangeTarget.id ? { ...b, status: newStatus } : b));
+      const label = statusChangeType === 'closed' ? '폐점' : '임시휴업';
+      toast.success(`"${statusChangeTarget.name}" 지점이 ${label} 처리되었습니다.`);
+      setIsStatusChangeOpen(false);
+      setStatusChangeTarget(null);
+      setStatusChangeType(null);
+      setStatusChangeInfo(null);
+    } finally {
+      setIsStatusChangeSaving(false);
+    }
+  };
+
   // --- Handlers ---
   const handleMoveMember = () => setIsMoveMemberOpen(true);
 
@@ -271,7 +335,7 @@ export default function BranchManagement() {
     {
       key: 'actions',
       header: '메뉴',
-      width: 150,
+      width: 200,
       align: 'center' as const,
       render: (_: any, row: any) => (
         <div className="flex items-center gap-xs" >
@@ -291,6 +355,20 @@ export default function BranchManagement() {
           >
             비활성
           </button>
+          <div className="w-[1px] h-3 bg-line" />
+          <select
+            className="text-Label text-content-secondary bg-transparent border-none outline-none cursor-pointer hover:text-primary"
+            value=""
+            onChange={e => {
+              const val = e.target.value as 'closed' | 'inactive';
+              if (val) openStatusChange(row, val);
+              e.target.value = '';
+            }}
+          >
+            <option value="" disabled>상태변경</option>
+            <option value="inactive">임시휴업</option>
+            <option value="closed">폐점</option>
+          </select>
         </div>
       )
     }
@@ -861,6 +939,77 @@ export default function BranchManagement() {
                   </div>
                 </>
               )}
+            </div>
+          </div>
+        </div>
+      )}
+      {/* --- MODAL: 상태 변경 경고 다이얼로그 --- */}
+      {isStatusChangeOpen && statusChangeTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-md">
+          <div className="w-full max-w-md bg-surface rounded-modal shadow-card">
+            <div className="p-xl border-b border-line flex justify-between items-center">
+              <h2 className="text-xl font-bold text-content flex items-center gap-sm">
+                <AlertTriangle className="text-state-error" size={20}/>
+                {statusChangeType === 'closed' ? '폐점 처리' : '임시휴업 처리'}
+              </h2>
+              <button className="text-content-secondary hover:text-content" onClick={() => setIsStatusChangeOpen(false)}>
+                <X size={24}/>
+              </button>
+            </div>
+
+            <div className="p-xl space-y-lg">
+              {statusChangeType === 'closed' && statusChangeInfo ? (
+                <>
+                  <div className="rounded-xl bg-state-error/5 border border-state-error/20 p-lg space-y-md">
+                    <p className="text-base font-semibold text-content">
+                      "{statusChangeTarget.name}" 지점의 현황
+                    </p>
+                    <div className="grid grid-cols-2 gap-md">
+                      <div className="bg-surface rounded-xl p-md text-center border border-line">
+                        <p className="text-KPI-Large font-bold text-primary">
+                          {statusChangeInfo.activeMembers.toLocaleString()}명
+                        </p>
+                        <p className="text-Label text-content-secondary mt-xs">활성 회원</p>
+                      </div>
+                      <div className="bg-surface rounded-xl p-md text-center border border-line">
+                        <p className="text-KPI-Large font-bold text-amber-600">
+                          {statusChangeInfo.activeStaff.toLocaleString()}명
+                        </p>
+                        <p className="text-Label text-content-secondary mt-xs">재직 직원</p>
+                      </div>
+                    </div>
+                    <p className="text-sm text-content-secondary flex items-start gap-xs">
+                      <AlertCircle size={14} className="flex-shrink-0 mt-xs text-state-error"/>
+                      이 지점에 활성 회원 {statusChangeInfo.activeMembers}명, 재직 직원 {statusChangeInfo.activeStaff}명이 있습니다. 폐점 처리하시겠습니까?
+                    </p>
+                  </div>
+                </>
+              ) : (
+                <div className="py-md">
+                  <p className="text-base text-content">
+                    <span className="font-semibold">"{statusChangeTarget.name}"</span> 지점을 임시휴업으로 변경하시겠습니까?
+                  </p>
+                  <p className="text-sm text-content-secondary mt-sm">
+                    임시휴업 상태에서는 해당 지점의 신규 등록이 제한됩니다.
+                  </p>
+                </div>
+              )}
+
+              <div className="flex justify-end gap-sm">
+                <button
+                  className="px-lg py-sm text-content-secondary hover:bg-surface-secondary rounded-button transition-colors"
+                  onClick={() => setIsStatusChangeOpen(false)}
+                >
+                  취소
+                </button>
+                <button
+                  className="px-lg py-sm bg-state-error text-white font-semibold rounded-button hover:opacity-90 transition-opacity disabled:opacity-50"
+                  onClick={handleStatusChangeConfirm}
+                  disabled={isStatusChangeSaving}
+                >
+                  {isStatusChangeSaving ? '처리 중...' : (statusChangeType === 'closed' ? '폐점 확인' : '임시휴업 확인')}
+                </button>
+              </div>
             </div>
           </div>
         </div>

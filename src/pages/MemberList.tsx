@@ -54,6 +54,55 @@ const FILTER_CONFIG = [
   { key: 'visitDate', label: '최근방문일', type: 'dateRange' as const },
 ];
 
+/** 회원 세그먼트 판정 (문서 섹션 28) */
+function getMemberSegment(member: { registeredAt?: string; status?: string; membershipExpiry?: string; lastVisitAt?: string }): { label: string; color: string } {
+  const now = Date.now();
+  const dayMs = 86400000;
+
+  const registeredAt = member.registeredAt ? new Date(member.registeredAt).getTime() : null;
+  const membershipExpiry = member.membershipExpiry ? new Date(member.membershipExpiry).getTime() : null;
+  const lastVisitAt = member.lastVisitAt ? new Date(member.lastVisitAt).getTime() : null;
+  const status = member.status ?? '';
+
+  const isActive = status === 'ACTIVE';
+  const isExpired = status === 'EXPIRED';
+
+  // 신규: 등록 30일 이내
+  if (registeredAt && now - registeredAt <= 30 * dayMs) {
+    return { label: '신규', color: 'bg-blue-100 text-blue-700' };
+  }
+  // 만료 후 미등록
+  if (isExpired) {
+    return { label: '만료 후 미등록', color: 'bg-red-100 text-red-700' };
+  }
+  if (isActive) {
+    const daysSinceVisit = lastVisitAt ? (now - lastVisitAt) / dayMs : Infinity;
+    const daysToExpiry = membershipExpiry ? (membershipExpiry - now) / dayMs : Infinity;
+
+    // 이탈 위험: 30일+ 미방문
+    if (daysSinceVisit >= 30) {
+      return { label: '이탈 위험', color: 'bg-red-100 text-red-700' };
+    }
+    // 만료 임박: D-30 이내
+    if (daysToExpiry <= 30) {
+      return { label: '만료 임박', color: 'bg-yellow-100 text-yellow-700' };
+    }
+    // 관심 필요: 14일+ 미방문
+    if (daysSinceVisit >= 14) {
+      return { label: '관심 필요', color: 'bg-yellow-100 text-yellow-700' };
+    }
+    // 충성 회원: 6개월+ 유지 + 최근 7일 내 방문
+    if (registeredAt && now - registeredAt >= 180 * dayMs && daysSinceVisit <= 7) {
+      return { label: '충성 회원', color: 'bg-green-100 text-green-700' };
+    }
+    // 활발한 회원: 최근 14일 내 방문
+    if (daysSinceVisit <= 14) {
+      return { label: '활발한 회원', color: 'bg-green-100 text-green-700' };
+    }
+  }
+  return { label: '-', color: 'bg-surface-secondary text-content-secondary' };
+}
+
 /** DB status → 표시 레이블 */
 const STATUS_LABEL: Record<string, string> = {
   ACTIVE: '활성', INACTIVE: '미등록', EXPIRED: '만료',
@@ -159,6 +208,14 @@ export default function MemberList() {
       render: (_: unknown, row: Member) => (
         <StatusBadge label={STATUS_LABEL[row.status] ?? row.status} variant={STATUS_VARIANT[row.status] ?? 'default'} dot />
       ),
+    },
+    {
+      key: 'segment', header: '세그먼트', width: 110, align: 'center' as const,
+      render: (_: unknown, row: Member) => {
+        const seg = getMemberSegment(row);
+        if (seg.label === '-') return <span className="text-content-tertiary text-[12px]">-</span>;
+        return <span className={`inline-block px-2 py-0.5 rounded text-[11px] font-medium ${seg.color}`}>{seg.label}</span>;
+      },
     },
     {
       key: 'name', header: '회원명', width: 110, sortable: true,
