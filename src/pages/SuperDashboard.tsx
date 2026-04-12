@@ -13,6 +13,7 @@ import {
   Clock,
   ChevronRight,
   ExternalLink,
+  AlertTriangle,
 } from 'lucide-react';
 import AppLayout from '@/components/AppLayout';
 import PageHeader from '@/components/PageHeader';
@@ -66,6 +67,8 @@ interface BranchStats {
   members: number;
   staff: number;
   revenue: number;
+  expiredMembers: number;
+  todayAttendance: number;
 }
 
 // ─── 지점 상태 배지 ────────────────────────────────────────────────────────
@@ -206,7 +209,7 @@ export default function SuperDashboard() {
 
     await Promise.all(
       branchList.map(async (branch) => {
-        const [membersRes, staffRes, revenueRes, attendanceRes] = await Promise.all([
+        const [membersRes, staffRes, revenueRes, attendanceRes, expiredRes] = await Promise.all([
           supabase
             .from('members')
             .select('id', { count: 'exact', head: true })
@@ -231,6 +234,12 @@ export default function SuperDashboard() {
             .eq('branchId', branch.id)
             .gte('checkInAt', `${todayStr}T00:00:00`)
             .lte('checkInAt', `${todayStr}T23:59:59`),
+          supabase
+            .from('members')
+            .select('id', { count: 'exact', head: true })
+            .eq('branchId', branch.id)
+            .eq('status', 'EXPIRED')
+            .is('deletedAt', null),
         ]);
 
         const revenue = (revenueRes.data ?? []).reduce(
@@ -242,10 +251,9 @@ export default function SuperDashboard() {
           members: membersRes.count ?? 0,
           staff: staffRes.count ?? 0,
           revenue,
+          expiredMembers: expiredRes.count ?? 0,
+          todayAttendance: attendanceRes.count ?? 0,
         };
-
-        // KPI 누적 (attendance는 별도로 합산)
-        void attendanceRes;
       })
     );
 
@@ -532,7 +540,88 @@ export default function SuperDashboard() {
         </div>
       </section>
 
-      {/* ── 섹션 2: 지점별 현황 ──────────────────────────────────────────── */}
+      {/* ── 섹션 2: 위험 신호 ────────────────────────────────────────────── */}
+      {(() => {
+        const activeBranchCount = branches.length;
+        const avgRevenue = activeBranchCount > 0
+          ? Object.values(branchStats).reduce((s, b) => s + b.revenue, 0) / activeBranchCount
+          : 0;
+
+        const alerts: { branch: Branch; reasons: string[] }[] = [];
+
+        branches.forEach((branch) => {
+          const stats = branchStats[branch.id];
+          if (!stats) return;
+
+          const reasons: string[] = [];
+
+          // 규칙 1: 매출 급감 — 이번달 매출이 0이거나 전 지점 평균의 50% 이하
+          if (stats.revenue === 0 || (avgRevenue > 0 && stats.revenue <= avgRevenue * 0.5)) {
+            reasons.push(
+              stats.revenue === 0
+                ? '이번달 매출 없음'
+                : `매출 급감 (평균 대비 ${Math.round((stats.revenue / avgRevenue) * 100)}%)`
+            );
+          }
+
+          // 규칙 2: 만료 회원 급증 — 만료 회원이 활성 회원의 30% 이상
+          if (stats.members > 0 && stats.expiredMembers >= stats.members * 0.3) {
+            reasons.push(
+              `만료 회원 급증 (활성 대비 ${Math.round((stats.expiredMembers / stats.members) * 100)}%)`
+            );
+          }
+
+          // 규칙 3: 출석 저조 — 오늘 출석이 활성 회원의 10% 이하
+          if (stats.members > 0 && stats.todayAttendance <= stats.members * 0.1) {
+            reasons.push(
+              `출석 저조 (활성 대비 ${Math.round((stats.todayAttendance / stats.members) * 100)}%)`
+            );
+          }
+
+          if (reasons.length > 0) {
+            alerts.push({ branch, reasons });
+          }
+        });
+
+        if (loading || alerts.length === 0) return null;
+
+        return (
+          <section className="mb-xl">
+            <div className="mb-md flex items-center gap-sm">
+              <AlertTriangle size={17} className="text-amber-500" />
+              <h2 className="text-[16px] font-semibold text-content">위험 신호</h2>
+              <span className="ml-xs text-[13px] font-normal text-content-tertiary">
+                ({alerts.length}개 지점)
+              </span>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-md">
+              {alerts.map(({ branch, reasons }) => (
+                <div
+                  key={branch.id}
+                  className="flex items-start gap-md rounded-xl border border-amber-200 bg-amber-50 p-md"
+                >
+                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-amber-100 text-amber-500">
+                    <AlertTriangle size={18} />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-[14px] font-semibold text-amber-900 truncate">{branch.name}</p>
+                    <ul className="mt-[4px] space-y-[3px]">
+                      {reasons.map((reason) => (
+                        <li key={reason} className="text-[12px] text-amber-700 flex items-center gap-[4px]">
+                          <span className="inline-block h-1 w-1 rounded-full bg-amber-500 shrink-0" />
+                          {reason}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </section>
+        );
+      })()}
+
+      {/* ── 섹션 3: 지점별 현황 ─────────────────────────────────────────── */}
       <section className="mb-xl">
         <div className="mb-md flex items-center justify-between">
           <h2 className="text-[16px] font-semibold text-content flex items-center gap-sm">
@@ -645,7 +734,7 @@ export default function SuperDashboard() {
         )}
       </section>
 
-      {/* ── 섹션 3: 최근 감사 로그 ───────────────────────────────────────── */}
+      {/* ── 섹션 4: 최근 감사 로그 ───────────────────────────────────────── */}
       <section>
         <div className="mb-md flex items-center justify-between">
           <h2 className="text-[16px] font-semibold text-content flex items-center gap-sm">

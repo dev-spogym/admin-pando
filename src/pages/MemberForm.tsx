@@ -116,6 +116,7 @@ export default function MemberForm() {
   const [fcList, setFcList] = useState<StaffOption[]>([{ value: "", label: "선택 안함" }]);
   const [trainerList, setTrainerList] = useState<StaffOption[]>([{ value: "", label: "선택 안함" }]);
   const [phoneChecked, setPhoneChecked] = useState(false);
+  const [phoneDuplicate, setPhoneDuplicate] = useState(false);
   const [isUploadingImage, setIsUploadingImage] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -238,10 +239,11 @@ export default function MemberForm() {
     const isPhoneValid = await trigger("phone");
     if (!isPhoneValid) return;
 
-    // 실제 Supabase 중복 조회
+    // 실제 Supabase 중복 조회 (같은 branchId + 같은 phone)
     let query = supabase
       .from('members')
       .select('id')
+      .eq('branchId', getBranchId())
       .eq('phone', phone)
       .is('deletedAt', null);
     // 수정 모드일 때 자기 자신 제외
@@ -254,11 +256,11 @@ export default function MemberForm() {
       return;
     }
     if (data && data.length > 0) {
-      // 필드 에러를 수동으로 표시하기 위해 trigger 후 에러 상태는 phoneChecked로 관리
-      toast.error("이미 등록된 전화번호입니다.");
+      setPhoneChecked(true);
+      setPhoneDuplicate(true);
     } else {
       setPhoneChecked(true);
-      toast.success("사용 가능한 번호입니다.");
+      setPhoneDuplicate(false);
     }
   };
 
@@ -280,15 +282,17 @@ export default function MemberForm() {
   };
 
   const handleSave = handleSubmit(async (data) => {
-    setIsSubmitting(true);
-
-    // 전화번호 중복 확인
-    const dupCheck = await checkDuplicateMember(data.phone, isEditMode && urlMemberId ? Number(urlMemberId) : undefined);
-    if (dupCheck.isDuplicate) {
-      toast.error(`이미 등록된 전화번호입니다. (${dupCheck.existingName})`);
-      setIsSubmitting(false);
+    // 전화번호 중복 확인 미완료 시 차단
+    if (!phoneChecked) {
+      toast.error("전화번호 중복 확인을 해주세요.");
       return;
     }
+    if (phoneDuplicate) {
+      toast.error("이미 등록된 번호입니다. 다른 번호를 사용해주세요.");
+      return;
+    }
+
+    setIsSubmitting(true);
 
     const memberPayload = {
       name: data.name,
@@ -371,6 +375,7 @@ export default function MemberForm() {
       referralSource: "", companyName: "",
     });
     setPhoneChecked(false);
+    setPhoneDuplicate(false);
     setCurrentStep("step1");
     setShowResetDialog(false);
     toast.success("입력 내용이 초기화되었습니다.");
@@ -445,7 +450,7 @@ export default function MemberForm() {
     watchedValues.memberType &&
     (isEditMode || phoneChecked);
 
-  const step2CanSave = !errors.email && !errors.notes && notesLength <= 500;
+  const step2CanSave = !errors.email && !errors.notes && notesLength <= 500 && !phoneDuplicate;
 
   // 글자수 카운터 색상
   const notesColor = notesLength > 450
@@ -602,7 +607,7 @@ export default function MemberForm() {
                         onChange: (e) => {
                           const formatted = formatPhone(e.target.value);
                           setValue("phone", formatted, { shouldDirty: true });
-                          if (phoneChecked) setPhoneChecked(false);
+                          if (phoneChecked) { setPhoneChecked(false); setPhoneDuplicate(false); }
                         },
                       })}
                     />
@@ -610,16 +615,24 @@ export default function MemberForm() {
                       type="button"
                       className={cn(
                         "px-md rounded-button text-[12px] font-semibold transition-all shrink-0",
-                        phoneChecked
+                        phoneChecked && !phoneDuplicate
                           ? "bg-state-success text-white cursor-default"
+                          : phoneChecked && phoneDuplicate
+                          ? "bg-state-error text-white cursor-default"
                           : "bg-content text-white hover:bg-black active:scale-95"
                       )}
                       onClick={handlePhoneCheck}
                       disabled={phoneChecked}
                     >
-                      {phoneChecked ? <CheckCircle2 size={16} /> : "중복확인"}
+                      {phoneChecked && !phoneDuplicate ? <CheckCircle2 size={16} /> : "중복확인"}
                     </button>
                   </div>
+                  {phoneChecked && !phoneDuplicate && (
+                    <p className="text-[11px] text-state-success font-medium">사용 가능한 번호입니다.</p>
+                  )}
+                  {phoneChecked && phoneDuplicate && (
+                    <p className="text-[11px] text-state-error font-medium">이미 등록된 번호입니다.</p>
+                  )}
                 </Field>
 
                 {/* 회원구분 */}

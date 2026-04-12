@@ -24,6 +24,7 @@ import { useAuthStore } from "@/stores/authStore";
 import { moveToPage } from "@/internal";
 import { hasMenuPermission, hasPermission, normalizeRole, ROLE_LABELS, type UserRole } from "@/lib/permissions";
 import { getBranchesPaginated, type BranchDetail } from "@/api/endpoints/branches";
+import { toast } from "sonner";
 
 interface MenuItem {
   label: string;
@@ -286,14 +287,22 @@ const AppSidebar: React.FC<AppSidebarProps> = ({
                 switchBranch('', '전체 지점');
               } else {
                 const branch = branches.find((b) => String(b.id) === val);
-                if (branch) switchBranch(String(branch.id), branch.name);
+                if (branch) {
+                  if (branch.status === 'CLOSED') {
+                    toast.info('폐점된 지점입니다. 조회만 가능합니다.');
+                  }
+                  switchBranch(String(branch.id), branch.name);
+                }
               }
             }}
           >
             <option value="all">전체 지점 (통합)</option>
-            {branches.map((b) => (
-              <option key={b.id} value={b.id}>{b.name}</option>
-            ))}
+            {branches.map((b) => {
+              const suffix = b.status === 'SUSPENDED' ? ' (휴업)' : b.status === 'CLOSED' ? ' (폐점)' : '';
+              return (
+                <option key={b.id} value={b.id}>{b.name}{suffix}</option>
+              );
+            })}
           </select>
         </div>
       )}
