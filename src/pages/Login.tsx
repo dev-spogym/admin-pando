@@ -68,7 +68,7 @@ export default function Login() {
     const { isLocked: locked } = getLoginLockState();
     if (locked) {
       setIsLocked(true);
-      setError('계정이 잠겼습니다. 관리자에게 문의하세요.');
+      setError('계정이 잠겼습니다. 본사 IT팀에 문의하세요.');
     }
 
     getBranches().then((res) => {
@@ -88,7 +88,7 @@ export default function Login() {
     const { isLocked: stillLocked } = getLoginLockState();
     if (stillLocked) {
       setIsLocked(true);
-      setError('계정이 잠겼습니다. 관리자에게 문의하세요.');
+      setError('계정이 잠겼습니다. 본사 IT팀에 문의하세요.');
       return;
     }
 
@@ -102,8 +102,8 @@ export default function Login() {
             const failCount = incrementFailCount();
             if (failCount >= MAX_FAIL_COUNT) {
               setIsLocked(true);
-              setError('계정이 잠겼습니다. 관리자에게 문의하세요.');
-              toast.error('계정이 잠겼습니다. 관리자에게 문의하세요.');
+              setError('계정이 잠겼습니다. 본사 IT팀에 문의하세요.');
+              toast.error('계정이 잠겼습니다. 본사 IT팀에 문의하세요.');
             } else {
               const remaining = MAX_FAIL_COUNT - failCount;
               setError(`${res.message ?? '로그인에 실패했습니다.'} (${remaining}회 더 실패 시 계정이 잠깁니다)`);
@@ -199,15 +199,15 @@ export default function Login() {
             </div>
           </div>
 
-          {/* 이메일 */}
+          {/* 아이디 */}
           <div>
-            <label className="text-[12px] font-medium text-content-secondary mb-[4px] block">이메일</label>
+            <label className="text-[12px] font-medium text-content-secondary mb-[4px] block">아이디</label>
             <div className="relative">
               <User className="absolute left-[12px] top-1/2 -translate-y-1/2 text-content-tertiary" size={16} />
               <input
                 className="w-full pl-9 pr-md h-[44px] bg-surface-secondary rounded-lg text-[13px] text-content placeholder:text-content-tertiary border border-line focus:border-primary focus:ring-1 focus:ring-primary/20 outline-none transition-all"
-                type="email"
-                placeholder="이메일을 입력하세요"
+                type="text"
+                placeholder="아이디를 입력하세요"
                 value={id}
                 onChange={(e) => { setId(e.target.value); setError(''); }}
                 disabled={isLoading}
