@@ -106,7 +106,7 @@ export default function Login() {
               toast.error('계정이 잠겼습니다. 본사 IT팀에 문의하세요.');
             } else {
               const remaining = MAX_FAIL_COUNT - failCount;
-              setError(`${res.message ?? '로그인에 실패했습니다.'} (${remaining}회 더 실패 시 계정이 잠깁니다)`);
+              setError(`이메일 또는 비밀번호가 올바르지 않습니다. (${remaining}회 더 실패 시 계정이 잠깁니다)`);
             }
             return;
           }

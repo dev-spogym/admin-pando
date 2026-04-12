@@ -320,11 +320,31 @@ const AppSidebar: React.FC<AppSidebarProps> = ({
                     toast.info('폐점된 지점입니다. 조회만 가능합니다.');
                   }
                   switchBranch(String(branch.id), branch.name);
+                  // 최근 접속 지점 저장 (최대 3개)
+                  try {
+                    const key = 'recent_branches';
+                    const prev: {id:string;name:string}[] = JSON.parse(localStorage.getItem(key) || '[]');
+                    const updated = [{id:String(branch.id),name:branch.name}, ...prev.filter(p=>p.id!==String(branch.id))].slice(0,3);
+                    localStorage.setItem(key, JSON.stringify(updated));
+                  } catch {/* ignore */}
                 }
               }
             }}
           >
             <option value="all">전체 지점 (통합)</option>
+            {(() => {
+              try {
+                const recent: {id:string;name:string}[] = JSON.parse(localStorage.getItem('recent_branches') || '[]');
+                if (recent.length > 0 && branchSearch.trim() === '') {
+                  return [
+                    <option key="__recent_label" disabled>── 최근 ──</option>,
+                    ...recent.map(r => <option key={`recent-${r.id}`} value={r.id}>⏱ {r.name}</option>),
+                    <option key="__all_label" disabled>── 전체 ──</option>,
+                  ];
+                }
+              } catch {/* ignore */}
+              return null;
+            })()}
             {branches
               .filter((b) =>
                 branchSearch.trim() === "" ||
