@@ -6,7 +6,7 @@ const getBranchId = (): number => {
   return stored ? Number(stored) : 1;
 };
 
-export type AttendanceStatus = '정상' | '지각' | '조퇴' | '결근';
+export type AttendanceStatus = '정상' | '지각' | '조퇴' | '결근' | '연차' | '휴무';
 
 export interface StaffAttendanceItem {
   id: number;

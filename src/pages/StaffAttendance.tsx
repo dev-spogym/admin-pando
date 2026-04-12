@@ -23,17 +23,19 @@ const fmtLocal = (d: Date) => {
   return `${y}-${m}-${day}`;
 };
 
-const STATUS_VARIANT: Record<AttendanceStatus, 'mint' | 'warning' | 'error' | 'default'> = {
+const STATUS_VARIANT: Record<AttendanceStatus, 'mint' | 'warning' | 'error' | 'default' | 'info'> = {
   정상: 'mint',
   지각: 'warning',
   조퇴: 'default',
   결근: 'error',
+  연차: 'info',
+  휴무: 'default',
 };
 
 export default function StaffAttendance() {
   const [selectedDate, setSelectedDate] = useState(fmtLocal(new Date()));
   const [attendances, setAttendances] = useState<StaffAttendanceItem[]>([]);
-  const [staffList, setStaffList] = useState<{ id: number; name: string }[]>([]);
+  const [staffList, setStaffList] = useState<{ id: number; name: string; role?: string }[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   const getBranchId = () => Number(localStorage.getItem('branchId')) || 1;
@@ -48,8 +50,8 @@ export default function StaffAttendance() {
 
   // 직원 목록 로드
   useEffect(() => {
-    supabase.from('staff').select('id, name').eq('branchId', getBranchId()).then(({ data }) => {
-      if (data) setStaffList(data.map((s: Record<string, unknown>) => ({ id: s.id as number, name: s.name as string })));
+    supabase.from('staff').select('id, name, role').eq('branchId', getBranchId()).then(({ data }) => {
+      if (data) setStaffList(data.map((s: Record<string, unknown>) => ({ id: s.id as number, name: s.name as string, role: s.role as string | undefined })));
     });
   }, []);
 
@@ -59,7 +61,7 @@ export default function StaffAttendance() {
   const mergedData = useMemo(() => {
     return staffList.map(staff => {
       const att = attendances.find(a => a.staffId === staff.id);
-      return att ?? {
+      const base = att ?? {
         id: 0,
         staffId: staff.id,
         staffName: staff.name,
@@ -71,6 +73,7 @@ export default function StaffAttendance() {
         memo: '',
         branchId: getBranchId(),
       };
+      return { ...base, role: staff.role };
     });
   }, [staffList, attendances, selectedDate]);
 
@@ -107,6 +110,12 @@ export default function StaffAttendance() {
 
   const columns = [
     { key: 'staffName', header: '직원명', width: 120 },
+    {
+      key: 'role', header: '직급', width: 100, align: 'center' as const,
+      render: (v: string | undefined) => v
+        ? <span className="inline-flex items-center px-sm py-[2px] rounded-full text-[11px] font-semibold bg-primary/10 text-primary">{v}</span>
+        : <span className="text-content-tertiary text-[12px]">-</span>,
+    },
     {
       key: 'clockIn', header: '출근 시간', width: 110, align: 'center' as const,
       render: (v: string | null) => v ? <span className="tabular-nums text-state-success font-semibold">{v}</span> : <span className="text-content-tertiary">-</span>,

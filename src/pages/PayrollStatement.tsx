@@ -443,9 +443,12 @@ export default function PayrollStatement() {
                   </button>
                   <button
                     className="flex-1 flex items-center justify-center gap-xs whitespace-nowrap px-md py-sm border border-line rounded-button text-Label text-content-secondary hover:bg-accent-light hover:text-accent hover:border-accent transition-all"
-                    onClick={() => window.print()}
+                    onClick={() => {
+                      toast.info("인쇄 다이얼로그에서 'PDF로 저장'을 선택하세요");
+                      setTimeout(() => window.print(), 500);
+                    }}
                   >
-                    <Download size={16} />PDF 다운로드
+                    <Download size={16} />PDF 저장 (인쇄)
                   </button>
                 </div>
               </div>
@@ -573,9 +576,12 @@ export default function PayrollStatement() {
                 </button>
                 <button
                   className="flex items-center gap-xs whitespace-nowrap px-md py-sm border border-line rounded-button text-Label text-content-secondary hover:bg-accent-light hover:text-accent transition-all"
-                  onClick={() => window.print()}
+                  onClick={() => {
+                    toast.info("인쇄 다이얼로그에서 'PDF로 저장'을 선택하세요");
+                    setTimeout(() => window.print(), 500);
+                  }}
                 >
-                  <Download size={14} />PDF 다운로드
+                  <Download size={14} />PDF 저장 (인쇄)
                 </button>
               </div>
               <button

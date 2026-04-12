@@ -270,6 +270,16 @@ export default function SalesStats() {
       start: fmtLocal(new Date(today.getFullYear(), today.getMonth() - 2, 1)),
       end: defaultEnd,
     },
+    {
+      label: '최근 6개월',
+      start: fmtLocal(new Date(today.getFullYear(), today.getMonth() - 5, 1)),
+      end: defaultEnd,
+    },
+    {
+      label: '올해',
+      start: fmtLocal(new Date(today.getFullYear(), 0, 1)),
+      end: defaultEnd,
+    },
   ];
 
   const handlePreset = (preset: typeof PRESETS[0]) => {

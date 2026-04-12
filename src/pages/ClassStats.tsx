@@ -209,7 +209,7 @@ export default function ClassStats() {
         <div className="flex items-center justify-center gap-2">
           <div className="w-16 h-1.5 bg-surface-secondary rounded-full overflow-hidden">
             <div
-              className="h-full rounded-full bg-primary transition-all"
+              className={`h-full rounded-full transition-all ${v >= 80 ? 'bg-green-500' : v >= 50 ? 'bg-amber-500' : 'bg-red-500'}`}
               style={{ width: `${Math.min(v, 100)}%` }}
             />
           </div>
