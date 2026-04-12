@@ -50,6 +50,7 @@ interface BranchForm {
   managerId: string;
   openTime: string;
   closeTime: string;
+  maxCapacity: string;
   memo: string;
 }
 
@@ -70,6 +71,7 @@ const EMPTY_FORM: BranchForm = {
   managerId: '',
   openTime: '06:00',
   closeTime: '23:30',
+  maxCapacity: '',
   memo: '',
 };
 
@@ -735,6 +737,17 @@ export default function BranchManagement() {
                       onChange={e => handleFormChange('closeTime', e.target.value)}
                     />
                   </div>
+                </div>
+                {/* 최대 정원 */}
+                <div className="space-y-xs">
+                  <label className="text-Label text-content-secondary">최대 정원</label>
+                  <input
+                    className="w-full p-sm bg-surface-secondary rounded-input border border-transparent focus:border-accent focus:outline-none"
+                    type="number"
+                    placeholder="동시 수용 가능 인원"
+                    value={branchForm.maxCapacity}
+                    onChange={e => handleFormChange('maxCapacity', e.target.value)}
+                  />
                 </div>
               </FormSection>
 
