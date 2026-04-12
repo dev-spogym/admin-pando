@@ -21,6 +21,7 @@ type StaffFormData = {
   joinDate: string;
   email: string;
   memo: string;
+  salary: string;
 };
 
 // 역할별 권한 미리보기
@@ -108,6 +109,7 @@ export default function StaffForm() {
       email: formData.email || null,
       role: ROLE_MAP[formData.role] || formData.role,
       hireDate: formData.joinDate ? new Date(formData.joinDate).toISOString() : null,
+      salary: formData.salary ? Number(formData.salary) : null,
       branchId,
     };
 
@@ -270,6 +272,17 @@ export default function StaffForm() {
               />
             </div>
             {errors.joinDate && <p role="alert" className="text-Label text-state-error">{errors.joinDate.message}</p>}
+          </div>
+
+          {/* 기본급 */}
+          <div className="space-y-xs">
+            <label className="text-Label font-semibold text-content-secondary">기본급</label>
+            <input
+              {...register("salary")}
+              type="number"
+              placeholder="원 단위"
+              className="w-full px-md py-md bg-surface-secondary border border-line rounded-input text-Body-2 outline-none focus:ring-2 focus:ring-primary transition-all"
+            />
           </div>
         </FormSection>
 

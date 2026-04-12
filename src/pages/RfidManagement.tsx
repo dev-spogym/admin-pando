@@ -455,6 +455,11 @@ export default function RfidManagement() {
       ) : <span className="text-content-tertiary text-[12px]">-</span>
     },
     {
+      key: "memberPhone",
+      header: "연락처", width: 120,
+      render: (val: string | null) => val ? <span className="text-[12px] font-mono text-content">{val}</span> : <span className="text-content-tertiary text-[12px]">-</span>
+    },
+    {
       key: "userType",
       header: "유형", width: 80, align: "center" as const,
       render: (val: string | null) => val
@@ -470,7 +475,7 @@ export default function RfidManagement() {
     },
     {
       key: "issuedAt",
-      header: "발급일", width: 100, align: "center" as const,
+      header: "배정일", width: 100, align: "center" as const,
       render: (val: string | null) => <span className="text-[12px] font-mono text-content">{val || "-"}</span>
     },
     {
