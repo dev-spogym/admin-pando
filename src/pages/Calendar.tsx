@@ -1093,6 +1093,31 @@ export default function Calendar() {
       return;
     }
 
+    // 시간 충돌 감지 (A-36, 124-21)
+    if (formInstructor) {
+      const newStart = new Date(`${formDate}T${formStartTime}:00`).getTime();
+      const newEnd   = new Date(`${formDate}T${formEndTime}:00`).getTime();
+      const editingId = selectedEvent?.id ?? null;
+
+      const allEvents = [...events, ...localEvents];
+      const conflict = allEvents.find(e =>
+        e.instructorId === formInstructor &&
+        e.id !== editingId &&
+        newStart < new Date(e.end).getTime() &&
+        newEnd   > new Date(e.start).getTime()
+      );
+
+      if (conflict) {
+        const startLabel = conflict.start.slice(11, 16);
+        const endLabel   = conflict.end.slice(11, 16);
+        const instructorName = instructors.find(i => i.id === formInstructor)?.name ?? "해당 강사";
+        const proceed = window.confirm(
+          `${instructorName}의 ${startLabel}~${endLabel} 수업과 겹칩니다.\n계속 등록하시겠습니까?`
+        );
+        if (!proceed) return;
+      }
+    }
+
     setIsSaving(true);
     try {
       const instructorInfo = instructors.find(i => i.id === formInstructor);

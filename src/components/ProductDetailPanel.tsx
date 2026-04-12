@@ -1,10 +1,16 @@
 import React, { useEffect, useState } from 'react';
 import { toast } from 'sonner';
-import { Save, Search, Trash2, X } from 'lucide-react';
+import { ChevronDown, ChevronRight, Plus, Save, Search, Trash2, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/lib/supabase';
 import StatusBadge from '@/components/StatusBadge';
 import Modal from '@/components/Modal';
+
+export interface PackageItem {
+  productId: number;
+  productName: string;
+  price: number;
+}
 
 export interface UsageRestrictions {
   availableDays: number[];
@@ -171,6 +177,10 @@ export default function ProductDetailPanel({ product, isNew, onSave, onDelete, o
   const [importSearch, setImportSearch] = useState('');
   const [importProducts, setImportProducts] = useState<ProductRow[]>([]);
   const [copiedFromProductId, setCopiedFromProductId] = useState<number | null>(null);
+  const [packageOpen, setPackageOpen] = useState(false);
+  const [packageItems, setPackageItems] = useState<PackageItem[]>([]);
+  const [packagePrice, setPackagePrice] = useState('');
+  const [packageSelectId, setPackageSelectId] = useState<string>('');
 
   const resetForm = () => {
     setName('');
@@ -202,6 +212,10 @@ export default function ProductDetailPanel({ product, isNew, onSave, onDelete, o
     setPausePeriod('선택');
     setSalesChannel('ALL');
     setWeekdayRows(DAY_ROWS.map(day => ({ day, enabled: false, start: '09:00', end: '18:00' })));
+    setPackageOpen(false);
+    setPackageItems([]);
+    setPackagePrice('');
+    setPackageSelectId('');
   };
 
   const applyProductToForm = (source: ProductRow, options?: { markAsCopy?: boolean }) => {
@@ -258,7 +272,7 @@ export default function ProductDetailPanel({ product, isNew, onSave, onDelete, o
   }, [isNew, product]);
 
   useEffect(() => {
-    if (!showImportModal) return;
+    if (!showImportModal && !packageOpen) return;
 
     const fetchImportProducts = async () => {
       setImportLoading(true);
@@ -278,7 +292,7 @@ export default function ProductDetailPanel({ product, isNew, onSave, onDelete, o
     };
 
     fetchImportProducts();
-  }, [showImportModal, product?.id]);
+  }, [showImportModal, packageOpen, product?.id]);
 
   const effectiveCategory = productKind === '레슨' ? 'PT' : productKind === '이용' ? '이용권' : '기타';
 
@@ -767,6 +781,106 @@ export default function ProductDetailPanel({ product, isNew, onSave, onDelete, o
                   <option value="ONLINE">온라인</option>
                 </select>
               </div>
+            </div>
+
+            {/* 패키지 구성 섹션 */}
+            <div className="border border-[#5a91d8] bg-[#f9fbff]">
+              <button
+                type="button"
+                onClick={() => setPackageOpen(prev => !prev)}
+                className="flex w-full items-center gap-1 px-2 py-1 text-left font-semibold text-[#305f9f] hover:bg-[#eef3fb]"
+              >
+                {packageOpen ? <ChevronDown size={13} /> : <ChevronRight size={13} />}
+                패키지 구성
+                {packageItems.length > 0 && (
+                  <span className="ml-1 rounded bg-[#2563eb] px-1 py-0 text-[10px] text-white">
+                    {packageItems.length}
+                  </span>
+                )}
+              </button>
+
+              {packageOpen && (
+                <div className="border-t border-[#d7e6fb] px-2 pb-2 pt-1.5 space-y-1.5">
+                  {/* 구성 상품 추가 행 */}
+                  <div className="flex items-center gap-1.5">
+                    <select
+                      value={packageSelectId}
+                      onChange={e => setPackageSelectId(e.target.value)}
+                      className={cn(selectClass, 'flex-1')}
+                    >
+                      <option value="">상품 선택</option>
+                      {importProducts
+                        .filter(p => !packageItems.some(i => i.productId === p.id))
+                        .map(p => (
+                          <option key={p.id} value={String(p.id)}>
+                            {p.name} ({formatNum(p.cashPrice ?? p.price)}원)
+                          </option>
+                        ))}
+                    </select>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (!packageSelectId) return;
+                        const found = importProducts.find(p => p.id === Number(packageSelectId));
+                        if (!found) return;
+                        setPackageItems(prev => [
+                          ...prev,
+                          { productId: found.id, productName: found.name, price: found.cashPrice ?? found.price },
+                        ]);
+                        setPackageSelectId('');
+                      }}
+                      className="inline-flex items-center gap-0.5 border border-[#5a91d8] bg-white px-2 py-0.5 text-[11px] text-[#305f9f] hover:bg-[#eef3fb]"
+                    >
+                      <Plus size={11} />
+                      추가
+                    </button>
+                  </div>
+
+                  {/* 구성 상품 목록 */}
+                  {packageItems.length > 0 && (
+                    <div className="rounded border border-[#d7e6fb] bg-white">
+                      {packageItems.map(item => (
+                        <div key={item.productId} className="flex items-center justify-between border-b border-[#eef3fb] px-2 py-0.5 last:border-b-0">
+                          <span className="flex-1 truncate">{item.productName}</span>
+                          <span className="ml-2 shrink-0 tabular-nums text-[#555]">{formatNum(item.price)}원</span>
+                          <button
+                            type="button"
+                            onClick={() => setPackageItems(prev => prev.filter(i => i.productId !== item.productId))}
+                            className="ml-2 shrink-0 text-[#c53131] hover:text-[#991b1b]"
+                          >
+                            <X size={11} />
+                          </button>
+                        </div>
+                      ))}
+                      <div className="flex items-center justify-between border-t border-[#d7e6fb] px-2 py-0.5 bg-[#f4f8ff]">
+                        <span className="font-semibold text-[#305f9f]">합산 정가</span>
+                        <span className="tabular-nums font-semibold text-[#305f9f]">
+                          {formatNum(packageItems.reduce((sum, i) => sum + i.price, 0))}원
+                        </span>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* 패키지 가격 입력 */}
+                  <div className={rowClass}>
+                    <RowLabel>패키지 가격</RowLabel>
+                    <div className="relative min-w-0 flex-1">
+                      <input
+                        value={packagePrice}
+                        onChange={e => {
+                          const raw = e.target.value.replace(/[^0-9]/g, '');
+                          const num = parseInt(raw, 10);
+                          setPackagePrice(Number.isNaN(num) ? '' : num.toLocaleString());
+                        }}
+                        placeholder="할인가 직접 입력"
+                        className={cn(fieldClass, 'pr-10 text-right tabular-nums')}
+                        inputMode="numeric"
+                      />
+                      <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-[#666]">원</span>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </div>
