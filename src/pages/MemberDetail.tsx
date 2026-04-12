@@ -1642,68 +1642,92 @@ export default function MemberDetail() {
           <span className="text-content font-medium">{member.name} 회원 상세</span>
         </nav>
 
-        {/* 고정 영역: 프로필 카드 + 탭 네비게이션 */}
+        {/* 고정 영역: 컴팩트 프로필 + 탭 네비게이션 */}
         <div className="sticky top-0 z-10 bg-surface-secondary -mx-lg px-lg -mt-lg pt-lg pb-0">
 
-        {/* UI-022 프로필 카드 */}
-        <div className="bg-surface rounded-xl border border-line p-xl mb-lg shadow-card">
+          {/* 만료 알림 배너 (sticky 위에 표시) */}
           {dDay !== null && dDay <= 7 && dDay >= 0 && (
-            <div className="flex items-center gap-sm px-md py-sm bg-red-50 border border-state-error/20 rounded-lg mb-lg text-[12px] text-state-error">
+            <div className="flex items-center gap-sm px-md py-sm bg-red-50 border border-state-error/20 rounded-lg mb-sm text-[12px] text-state-error">
               <AlertTriangle size={14} />
               회원권이 {dDay >= 0 ? `D-${dDay}` : `D+${Math.abs(dDay)}`} 만료 예정입니다.
             </div>
           )}
           {dDay !== null && dDay > 7 && dDay <= 30 && (
-            <div className="flex items-center gap-sm px-md py-sm bg-orange-50 border border-orange-200 rounded-lg mb-lg text-[12px] text-orange-600">
+            <div className="flex items-center gap-sm px-md py-sm bg-orange-50 border border-orange-200 rounded-lg mb-sm text-[12px] text-orange-600">
               <AlertTriangle size={14} />
               회원권이 {dDay >= 0 ? `D-${dDay}` : `D+${Math.abs(dDay)}`} 만료 예정입니다.
             </div>
           )}
 
-          <div className="flex flex-col lg:flex-row items-center lg:items-start gap-xl">
-            {/* 프로필 이미지 */}
-            <div className="relative">
-              <div className="w-[120px] h-[120px] rounded-full bg-surface-secondary flex items-center justify-center border-4 border-surface-tertiary overflow-hidden">
-                {member.profileImage ? (
-                  <img src={member.profileImage} alt={member.name} className="w-full h-full object-cover" />
-                ) : (
-                  <User className="text-content-tertiary" size={64} />
-                )}
-              </div>
-              <button
-                className={cn(
-                  "absolute bottom-0 right-0 p-sm rounded-full shadow-md transition-all border border-line",
-                  isFavorite ? "bg-primary text-white border-primary" : "bg-surface text-content-secondary hover:text-primary"
-                )}
-                onClick={toggleFavorite}
-              >
-                <Star size={16} fill={isFavorite ? "currentColor" : "none"} />
-              </button>
-            </div>
-
-            {/* 회원 기본 정보 */}
-            <div className="flex-1 text-center lg:text-left">
-              <div className="flex flex-wrap items-center justify-center lg:justify-start gap-sm mb-xs">
-                <h1 className="text-[22px] font-bold text-content leading-tight">{member.name}</h1>
-                {(() => { const g = getMemberGrade(member.registeredAt); return (
-                  <span className={`text-[12px] px-sm py-[2px] rounded-full font-semibold ${g.color}`}>{g.emoji} {g.label}</span>
-                ); })()}
-                <StatusBadge variant={statusVariant} dot>{statusLabel}</StatusBadge>
-                {dDay !== null && (
-                  <span className={cn("text-[12px] px-sm py-[2px] rounded-full font-bold border", getDDayClass(dDay))}>
-                    {dDay >= 0 ? `D-${dDay}` : `D+${Math.abs(dDay)}`}
-                  </span>
-                )}
-              </div>
-              <p className="text-[13px] text-content-secondary mb-md">
-                {member.gender === "M" ? "남" : member.gender === "F" ? "여" : "-"} · {member.phone || "-"} · {member.email || "-"}
-              </p>
-
-              <div className="flex flex-wrap items-center justify-center lg:justify-start gap-sm">
+          {/* 컴팩트 프로필 카드 */}
+          <div className="bg-surface rounded-t-xl border border-b-0 border-line px-lg py-md shadow-card">
+            <div className="flex items-center gap-md">
+              {/* 프로필 이미지 (컴팩트) */}
+              <div className="relative shrink-0">
+                <div className="w-[52px] h-[52px] rounded-full bg-surface-secondary flex items-center justify-center border-2 border-surface-tertiary overflow-hidden">
+                  {member.profileImage ? (
+                    <img src={member.profileImage} alt={member.name} className="w-full h-full object-cover" />
+                  ) : (
+                    <User className="text-content-tertiary" size={28} />
+                  )}
+                </div>
                 <button
-                  className="flex items-center gap-xs px-md py-sm bg-state-success text-white rounded-button font-semibold text-[13px] hover:opacity-90 transition-all"
+                  className={cn(
+                    "absolute -bottom-[2px] -right-[2px] p-[3px] rounded-full shadow-md transition-all border border-line",
+                    isFavorite ? "bg-primary text-white border-primary" : "bg-surface text-content-secondary hover:text-primary"
+                  )}
+                  onClick={toggleFavorite}
+                >
+                  <Star size={10} fill={isFavorite ? "currentColor" : "none"} />
+                </button>
+              </div>
+
+              {/* 이름 + 상태 + 연락처 */}
+              <div className="flex-1 min-w-0">
+                <div className="flex flex-wrap items-center gap-xs mb-[2px]">
+                  <h1 className="text-[16px] font-bold text-content leading-tight">{member.name}</h1>
+                  {(() => { const g = getMemberGrade(member.registeredAt); return (
+                    <span className={`text-[11px] px-xs py-[1px] rounded-full font-semibold ${g.color}`}>{g.emoji} {g.label}</span>
+                  ); })()}
+                  <StatusBadge variant={statusVariant} dot>{statusLabel}</StatusBadge>
+                  {dDay !== null && (
+                    <span className={cn("text-[11px] px-xs py-[1px] rounded-full font-bold border", getDDayClass(dDay))}>
+                      {dDay >= 0 ? `D-${dDay}` : `D+${Math.abs(dDay)}`}
+                    </span>
+                  )}
+                </div>
+                <p className="text-[12px] text-content-secondary truncate">
+                  {member.gender === "M" ? "남" : member.gender === "F" ? "여" : "-"} · {member.phone || "-"} · {member.email || "-"}
+                </p>
+              </div>
+
+              {/* 퀵 지표 (인라인) */}
+              <div className="hidden md:flex items-center gap-sm shrink-0">
+                <div className="flex flex-col items-center px-sm py-xs bg-surface-secondary rounded-lg border border-line min-w-[56px]">
+                  <span className="text-[10px] text-content-secondary">미수금</span>
+                  <span className="text-[12px] font-bold text-state-error">{sales.reduce((acc, s) => acc + s.unpaid, 0).toLocaleString()}원</span>
+                </div>
+                <div className="flex flex-col items-center px-sm py-xs bg-surface-secondary rounded-lg border border-line min-w-[56px]">
+                  <span className="text-[10px] text-content-secondary">마일리지</span>
+                  <span className="text-[12px] font-bold text-accent">{member.mileage ?? 0}P</span>
+                </div>
+                <div className="flex flex-col items-center px-sm py-xs bg-surface-secondary rounded-lg border border-line min-w-[56px]">
+                  <span className="text-[10px] text-content-secondary">계약</span>
+                  <span className="text-[12px] font-bold text-primary">{contracts.length}건</span>
+                </div>
+                {locker && (
+                  <div className="flex flex-col items-center px-sm py-xs bg-surface-secondary rounded-lg border border-line min-w-[56px]">
+                    <span className="text-[10px] text-content-secondary">락커</span>
+                    <span className="text-[12px] font-bold text-content">{locker.lockerNumber || "-"}</span>
+                  </div>
+                )}
+              </div>
+
+              {/* 액션 버튼 */}
+              <div className="flex items-center gap-xs shrink-0">
+                <button
+                  className="flex items-center gap-xs px-sm py-xs bg-state-success text-white rounded-button font-semibold text-[12px] hover:opacity-90 transition-all"
                   onClick={async () => {
-                    // 수동 출석 기록을 attendance 테이블에 저장
                     const { error } = await supabase.from('attendance').insert({
                       branchId: Number(localStorage.getItem('branchId') || '1'),
                       memberId: member.id,
@@ -1717,7 +1741,6 @@ export default function MemberDetail() {
                       return;
                     }
                     toast.success('출석이 기록되었습니다.');
-                    // 출석 데이터 refetch
                     const { data } = await supabase
                       .from('attendance')
                       .select('*')
@@ -1727,82 +1750,58 @@ export default function MemberDetail() {
                     if (data) setAttendances(data as AttendanceRecord[]);
                   }}
                 >
-                  <CheckCircle2 size={15} />
-                  수동 출석
+                  <CheckCircle2 size={13} />
+                  수동출석
                 </button>
                 {canEdit && (
                   <button
-                    className="flex items-center gap-xs px-md py-sm bg-surface-secondary text-content rounded-button font-semibold text-[13px] border border-line hover:bg-surface-tertiary transition-all"
+                    className="flex items-center gap-xs px-sm py-xs bg-surface-secondary text-content rounded-button font-semibold text-[12px] border border-line hover:bg-surface-tertiary transition-all"
                     onClick={() => moveToPage(987, { id: memberId ?? '' })}
                   >
-                    <Edit size={15} />
+                    <Edit size={13} />
                     수정
                   </button>
                 )}
                 <button
-                  className="flex items-center gap-xs px-md py-sm bg-accent-light text-accent rounded-button font-semibold text-[13px] hover:bg-accent hover:text-white transition-all"
+                  className="flex items-center gap-xs px-sm py-xs bg-accent-light text-accent rounded-button font-semibold text-[12px] hover:bg-accent hover:text-white transition-all"
                   onClick={() => moveToPage(971, { memberId: memberId ?? '' })}
                 >
-                  <ShoppingBag size={15} />
-                  상품 구매
+                  <ShoppingBag size={13} />
+                  상품구매
                 </button>
-                {/* 메시지 발송 버튼 */}
                 <button
-                  className="flex items-center gap-xs px-md py-sm bg-surface-secondary text-content rounded-button font-semibold text-[13px] border border-line hover:bg-surface-tertiary transition-all"
+                  className="flex items-center gap-xs px-sm py-xs bg-surface-secondary text-content rounded-button font-semibold text-[12px] border border-line hover:bg-surface-tertiary transition-all"
                   onClick={() => moveToPage(980)}
                 >
-                  <MessageSquare size={15} />
-                  메시지 발송
+                  <MessageSquare size={13} />
+                  메시지
                 </button>
-                {/* 지점이관 버튼 */}
                 {canTransfer && (
                   <button
-                    className="flex items-center gap-xs px-md py-sm bg-surface-secondary text-content rounded-button font-semibold text-[13px] border border-line hover:bg-surface-tertiary transition-all"
+                    className="flex items-center gap-xs px-sm py-xs bg-surface-secondary text-content rounded-button font-semibold text-[12px] border border-line hover:bg-surface-tertiary transition-all"
                     onClick={() => moveToPage(968, { id: memberId ?? '' })}
                   >
-                    <ArrowRightLeft size={15} />
+                    <ArrowRightLeft size={13} />
                     지점이관
                   </button>
                 )}
-                {/* 탈퇴 버튼 */}
                 {canWithdraw && (
                   <button
-                    className="flex items-center gap-xs px-md py-sm border border-state-warning/40 text-state-warning rounded-button font-semibold text-[13px] hover:bg-state-warning hover:text-white transition-all"
+                    className="flex items-center gap-xs px-sm py-xs border border-state-warning/40 text-state-warning rounded-button font-semibold text-[12px] hover:bg-state-warning hover:text-white transition-all"
                     onClick={() => setIsWithdrawModalOpen(true)}
                   >
-                    <UserMinus size={15} />
+                    <UserMinus size={13} />
                     탈퇴
                   </button>
                 )}
               </div>
             </div>
-
-            {/* 퀵 지표 */}
-            <div className="hidden xl:flex flex-col gap-sm min-w-[200px]">
-              {[
-                { label: "미수금", value: `${sales.reduce((acc, s) => acc + s.unpaid, 0).toLocaleString()}원`, color: "text-state-error" },
-                { label: "마일리지", value: `${member.mileage ?? 0}P`, color: "text-accent" },
-                { label: "계약 수", value: `${contracts.length}건`, color: "text-primary" },
-              ].map(item => (
-                <div key={item.label} className="flex justify-between items-center p-sm bg-surface-secondary rounded-lg border border-line">
-                  <span className="text-[12px] text-content-secondary">{item.label}</span>
-                  <span className={cn("text-[13px] font-bold", item.color)}>{item.value}</span>
-                </div>
-              ))}
-              {locker && (
-                <div className="flex justify-between items-center p-sm bg-surface-secondary rounded-lg border border-line">
-                  <span className="text-[12px] text-content-secondary">락커</span>
-                  <span className="text-[13px] font-bold text-content">{locker.lockerNumber || "-"}</span>
-                </div>
-              )}
-            </div>
           </div>
-        </div>
 
-        {/* 탭 네비게이션 */}
-        <div className="bg-surface rounded-xl border border-line shadow-card overflow-hidden">
-          <TabNav tabs={tabs} activeTab={activeTab} onTabChange={setActiveTab} />
-        </div>
+          {/* 탭 네비게이션 */}
+          <div className="bg-surface border-x border-line shadow-card">
+            <TabNav tabs={tabs} activeTab={activeTab} onTabChange={setActiveTab} />
+          </div>
         </div>{/* /고정 영역 */}
 
         {/* 탭 콘텐츠 */}

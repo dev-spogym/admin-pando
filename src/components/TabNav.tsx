@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useRef, useEffect } from "react";
 import { LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -17,24 +17,53 @@ interface TabNavProps {
 }
 
 export default function TabNav({ tabs = [], activeTab, onTabChange, className = "" }: TabNavProps) {
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const activeButtonRef = useRef<HTMLButtonElement>(null);
+
+  // 탭 전환 시 선택된 탭이 보이도록 스크롤
+  useEffect(() => {
+    if (activeButtonRef.current && scrollContainerRef.current) {
+      activeButtonRef.current.scrollIntoView({
+        behavior: "smooth",
+        block: "nearest",
+        inline: "nearest",
+      });
+    }
+  }, [activeTab]);
+
   return (
-    <div className={cn("inline-flex p-[3px] gap-[2px] bg-surface-tertiary rounded-lg", className)}>
+    <div
+      ref={scrollContainerRef}
+      className={cn(
+        "flex overflow-x-auto border-b border-line bg-surface",
+        // 스크롤바 숨기기
+        "[&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]",
+        className
+      )}
+    >
       {(tabs || []).map((tab) => {
         const isActive = activeTab === tab.key;
         const Icon = tab.icon;
         return (
           <button
             key={tab.key}
+            ref={isActive ? activeButtonRef : undefined}
             type="button"
             className={cn(
-              "flex items-center gap-[6px] px-3 py-[6px] text-[13px] font-medium transition-all rounded-md whitespace-nowrap",
+              "flex items-center gap-[6px] px-4 py-3 text-[13px] font-medium transition-all whitespace-nowrap shrink-0 border-b-2",
               isActive
-                ? "bg-surface text-content shadow-xs"
-                : "text-content-secondary hover:text-content"
+                ? "border-primary text-primary"
+                : "border-transparent text-content-secondary hover:text-content hover:border-line"
             )}
             onClick={() => onTabChange(tab.key)}
           >
-            {Icon && <Icon className={cn("shrink-0", isActive ? "text-content" : "text-content-tertiary")} size={15} strokeWidth={2} />}
+            {Icon && (
+              <Icon
+                className={cn("shrink-0", isActive ? "text-primary" : "text-content-tertiary")}
+                size={14}
+                strokeWidth={2}
+              />
+            )}
             <span>{tab.label}</span>
             {tab.count !== undefined && (
               <span
