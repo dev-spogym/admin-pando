@@ -91,8 +91,36 @@ const Notices = React.lazy(() => import('@/pages/Notices'));
 const KpiPreviewCenter = React.lazy(() => import('@/pages/KpiPreviewCenter'));
 const TodayTasks = React.lazy(() => import('@/pages/TodayTasks'));
 
+// localStorage의 theme_mode를 읽어 document에 다크모드 클래스/속성 적용
+function applyTheme() {
+  const mode = localStorage.getItem('theme_mode') ?? 'system';
+  let isDark = false;
+  if (mode === 'dark') {
+    isDark = true;
+  } else if (mode === 'system') {
+    isDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+  }
+  if (isDark) {
+    document.documentElement.setAttribute('data-theme', 'dark');
+    document.documentElement.classList.add('dark');
+  } else {
+    document.documentElement.removeAttribute('data-theme');
+    document.documentElement.classList.remove('dark');
+  }
+}
+
 export default function App() {
   const navigate = useNavigate();
+
+  // 테마 초기화 (앱 마운트 시 1회 + storage 변경 감지)
+  useEffect(() => {
+    applyTheme();
+    const onStorage = (e: StorageEvent) => {
+      if (e.key === 'theme_mode') applyTheme();
+    };
+    window.addEventListener('storage', onStorage);
+    return () => window.removeEventListener('storage', onStorage);
+  }, []);
 
   // moveToPage에서 React Router navigate를 쓸 수 있도록 등록
   useEffect(() => {

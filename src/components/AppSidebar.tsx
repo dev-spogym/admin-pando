@@ -25,6 +25,7 @@ import { moveToPage } from "@/internal";
 import { hasMenuPermission, hasPermission, normalizeRole, ROLE_LABELS, type UserRole } from "@/lib/permissions";
 import { getBranchesPaginated, type BranchDetail } from "@/api/endpoints/branches";
 import { toast } from "sonner";
+import NotificationCenter from "@/components/NotificationCenter";
 
 interface MenuItem {
   label: string;
@@ -263,15 +264,21 @@ const AppSidebar: React.FC<AppSidebarProps> = ({
       {/* 로고 */}
       <div className="flex h-[56px] items-center px-lg border-b border-line shrink-0">
         {!collapsed ? (
-          <div className="flex items-center gap-sm cursor-pointer" onClick={() => handleNavigate("/", 966)}>
-            <div className="h-7 w-7 rounded-lg bg-primary flex items-center justify-center text-white text-[13px] font-bold">
-              S
+          <div className="flex items-center justify-between w-full">
+            <div className="flex items-center gap-sm cursor-pointer" onClick={() => handleNavigate("/", 966)}>
+              <div className="h-7 w-7 rounded-lg bg-primary flex items-center justify-center text-white text-[13px] font-bold">
+                S
+              </div>
+              <span className="text-[16px] font-bold text-content tracking-tight">FitGenie CRM</span>
             </div>
-            <span className="text-[16px] font-bold text-content tracking-tight">FitGenie CRM</span>
+            <NotificationCenter collapsed={false} />
           </div>
         ) : (
-          <div className="mx-auto h-7 w-7 rounded-lg bg-primary flex items-center justify-center text-white text-[13px] font-bold cursor-pointer" onClick={() => handleNavigate("/", 966)}>
-            S
+          <div className="flex flex-col items-center gap-2 w-full">
+            <div className="h-7 w-7 rounded-lg bg-primary flex items-center justify-center text-white text-[13px] font-bold cursor-pointer" onClick={() => handleNavigate("/", 966)}>
+              S
+            </div>
+            <NotificationCenter collapsed={true} />
           </div>
         )}
       </div>

@@ -20,6 +20,14 @@ body {
   min-height: 100vh;
 }
 
+/* 다크모드 CSS 변수 */
+[data-theme="dark"] {
+  --color-bg: #1F2937;
+  --color-surface: #111827;
+  --color-text: #F9FAFB;
+  --color-border: #374151;
+}
+
 /* 스크롤바 최소화 */
 .scrollbar-hide::-webkit-scrollbar {
   display: none;
