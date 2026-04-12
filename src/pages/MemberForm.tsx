@@ -524,7 +524,7 @@ export default function MemberForm() {
                   <input
                     ref={fileInputRef}
                     type="file"
-                    accept="image/*"
+                    accept="image/jpeg,image/png"
                     className="hidden"
                     onChange={handleProfileImageChange}
                   />
@@ -557,7 +557,7 @@ export default function MemberForm() {
               {/* UI-028~031: 기본 인적사항 */}
               <FormSection title="기본 인적 사항" columns={2}>
                 {/* UI-028 이름 */}
-                <Field label="이름" required error={errors.name?.message} hint="한글/영문/한자 2~20자">
+                <Field label="이름" required error={errors.name ? (errors.name.message || "이름을 입력하세요") : undefined} hint="한글/영문/한자 2~20자">
                   <input
                     className={inputCls(!!errors.name)}
                     type="text"
@@ -594,7 +594,7 @@ export default function MemberForm() {
                 </Field>
 
                 {/* UI-031 연락처 */}
-                <Field label="연락처" required error={errors.phone?.message} hint="010-xxxx-xxxx 형식">
+                <Field label="연락처" required error={errors.phone?.message} hint="하이픈(-)은 자동으로 입력됩니다">
                   <div className="flex gap-sm">
                     <input
                       className={cn(inputCls(!!errors.phone), "flex-1")}
@@ -622,7 +622,7 @@ export default function MemberForm() {
                           : "bg-content text-white hover:bg-black active:scale-95"
                       )}
                       onClick={handlePhoneCheck}
-                      disabled={phoneChecked}
+                      disabled={phoneChecked || !watchedValues.phone || watchedValues.phone.length < 13}
                     >
                       {phoneChecked && !phoneDuplicate ? <CheckCircle2 size={16} /> : "중복확인"}
                     </button>
@@ -952,7 +952,7 @@ export default function MemberForm() {
       <ConfirmDialog
         open={showCancelDialog}
         title="작성 취소"
-        description="저장하지 않고 나가시겠습니까? 입력 중인 모든 내용이 사라집니다."
+        description="작성 중인 내용이 사라집니다. 취소하시겠습니까?"
         confirmLabel="나가기"
         cancelLabel="계속 작성"
         variant="danger"
