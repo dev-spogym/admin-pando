@@ -161,7 +161,7 @@ export default function MemberList() {
       ),
     },
     {
-      key: 'name', header: '회원명', width: 110,
+      key: 'name', header: '회원명', width: 110, sortable: true,
       render: (value: unknown, row: Member) => (
         <button className="text-primary font-medium hover:underline transition-all text-[13px]" onClick={() => moveToPage(985, { id: row.id })}>{String(value)}</button>
       ),

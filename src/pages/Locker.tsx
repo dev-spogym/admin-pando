@@ -261,19 +261,33 @@ export default function Locker() {
             };
             return m[s] ?? "available";
           };
-          const mapped: LockerData[] = lockerData.map((l: any) => ({
-            id: String(l.id),
-            number: l.number ?? 0,
-            zone: "A" as "A" | "B" | "C",
-            status: mapStatus(l.status ?? "AVAILABLE"),
-            memberName: l.memberName ?? undefined,
-            memberId: l.memberId ? String(l.memberId) : undefined,
-            assignedDate: l.assignedAt ? String(l.assignedAt).split("T")[0] : undefined,
-            expiryDate: l.expiresAt ? String(l.expiresAt).split("T")[0] : undefined,
-            password: l.password ?? undefined,
-            memo: l.memo ?? undefined,
-            history: [],
-          }));
+          const mapped: LockerData[] = lockerData.map((l: any) => {
+            let status = mapStatus(l.status ?? "AVAILABLE");
+            const expiryDate = l.expiresAt ? String(l.expiresAt).split("T")[0] : undefined;
+            // 만료 D-7 이내 자동 판정: 사용중(in_use)이고 만료일이 7일 이내면 expiring
+            if (status === "in_use" && expiryDate) {
+              const dDay = getDDay(expiryDate);
+              if (dDay !== null && dDay <= 7 && dDay >= 0) {
+                status = "expiring";
+              }
+            }
+            // zone 매핑: DB에 zone 필드 있으면 사용, 없으면 번호 기준 자동 분배
+            const zoneFromDb = l.zone ?? l.section;
+            const zone: "A" | "B" | "C" = zoneFromDb === "B" ? "B" : zoneFromDb === "C" ? "C" : "A";
+            return {
+              id: String(l.id),
+              number: l.number ?? 0,
+              zone,
+              status,
+              memberName: l.memberName ?? undefined,
+              memberId: l.memberId ? String(l.memberId) : undefined,
+              assignedDate: l.assignedAt ? String(l.assignedAt).split("T")[0] : undefined,
+              expiryDate,
+              password: l.password ?? undefined,
+              memo: l.memo ?? undefined,
+              history: [],
+            };
+          });
           setLockers(mapped);
         }
         // 회원 목록 (일괄 배정용)

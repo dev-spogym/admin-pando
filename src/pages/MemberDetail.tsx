@@ -1717,13 +1717,13 @@ export default function MemberDetail() {
                   <ShoppingBag size={15} />
                   상품 구매
                 </button>
-                {/* BROJ: 메시지 버튼 */}
+                {/* 메시지 발송 버튼 */}
                 <button
-                  className="flex items-center gap-xs px-md py-sm bg-surface-secondary text-content-secondary rounded-button font-semibold text-[13px] border border-line hover:bg-surface-tertiary transition-all"
-                  onClick={() => toast.info("메시지 기능은 준비 중입니다.")}
+                  className="flex items-center gap-xs px-md py-sm bg-surface-secondary text-content rounded-button font-semibold text-[13px] border border-line hover:bg-surface-tertiary transition-all"
+                  onClick={() => moveToPage(980)}
                 >
                   <MessageSquare size={15} />
-                  메시지
+                  메시지 발송
                 </button>
               </div>
             </div>

@@ -173,6 +173,8 @@ const AppSidebar: React.FC<AppSidebarProps> = ({
 
   // 지점 목록 상태 (슈퍼관리자 드롭다운용)
   const [branches, setBranches] = useState<BranchDetail[]>([]);
+  // 지점 검색 필터
+  const [branchSearch, setBranchSearch] = useState("");
 
   const authUser = useAuthStore((s) => s.user);
   const switchBranch = useAuthStore((s) => s.switchBranch);
@@ -278,6 +280,25 @@ const AppSidebar: React.FC<AppSidebarProps> = ({
       {isSuperAdmin && !collapsed && (
         <div className="px-3 py-2 border-b border-line">
           <label className="text-xs text-muted-foreground font-medium">지점 전환</label>
+          {/* 지점 검색 input */}
+          <div className="relative mt-1">
+            <input
+              type="text"
+              placeholder="지점 검색..."
+              value={branchSearch}
+              onChange={(e) => setBranchSearch(e.target.value)}
+              className="w-full px-2 py-1 pr-6 text-xs border border-line rounded-md bg-background text-content placeholder:text-content-tertiary focus:outline-none focus:ring-1 focus:ring-primary"
+            />
+            {branchSearch && (
+              <button
+                className="absolute right-1.5 top-1/2 -translate-y-1/2 text-content-tertiary hover:text-content"
+                onClick={() => setBranchSearch("")}
+                aria-label="검색 초기화"
+              >
+                ×
+              </button>
+            )}
+          </div>
           <select
             className="w-full mt-1 px-2 py-1.5 text-sm border border-line rounded-md bg-background text-content focus:outline-none focus:ring-1 focus:ring-primary"
             value={authUser?.currentBranchId || 'all'}
@@ -297,12 +318,17 @@ const AppSidebar: React.FC<AppSidebarProps> = ({
             }}
           >
             <option value="all">전체 지점 (통합)</option>
-            {branches.map((b) => {
-              const suffix = b.status === 'SUSPENDED' ? ' (휴업)' : b.status === 'CLOSED' ? ' (폐점)' : '';
-              return (
-                <option key={b.id} value={b.id}>{b.name}{suffix}</option>
-              );
-            })}
+            {branches
+              .filter((b) =>
+                branchSearch.trim() === "" ||
+                b.name.includes(branchSearch.trim())
+              )
+              .map((b) => {
+                const suffix = b.status === 'SUSPENDED' ? ' (휴업)' : b.status === 'CLOSED' ? ' (폐점)' : '';
+                return (
+                  <option key={b.id} value={b.id}>{b.name}{suffix}</option>
+                );
+              })}
           </select>
         </div>
       )}

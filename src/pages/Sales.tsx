@@ -394,6 +394,22 @@ export default function Sales() {
         </span>
       )
     },
+    { key: 'quantity', header: '수량', width: 70, align: 'center' as const,
+      render: (v: number) => <span className="tabular-nums">{v}</span> },
+    { key: 'originalPrice', header: '정가', width: 100, align: 'right' as const,
+      render: (v: number) => <span className="tabular-nums">{v > 0 ? `₩${v.toLocaleString()}` : '-'}</span> },
+    { key: 'discountPrice', header: '할인', width: 90, align: 'right' as const,
+      render: (v: number) => <span className="tabular-nums">{v > 0 ? `₩${v.toLocaleString()}` : '-'}</span> },
+    { key: 'cardCompany', header: '카드사', width: 90, align: 'center' as const,
+      render: (v: string) => <span>{v || '-'}</span> },
+    { key: 'cardNumber', header: '카드번호', width: 130,
+      render: (v: string) => <span className="tabular-nums text-[12px]">{v || '-'}</span> },
+    { key: 'approvalNo', header: '승인번호', width: 110,
+      render: (v: string) => <span className="tabular-nums text-[12px]">{v || '-'}</span> },
+    { key: 'serviceDays', header: '서비스일수', width: 90, align: 'center' as const,
+      render: (v: number) => <span className="tabular-nums">{v > 0 ? `${v}일` : '-'}</span> },
+    { key: 'serviceCount', header: '서비스횟수', width: 90, align: 'center' as const,
+      render: (v: number) => <span className="tabular-nums">{v > 0 ? `${v}회` : '-'}</span> },
     { key: 'status', header: '상태', width: 80, align: 'center' as const,
       render: (val: string) => (
         <StatusBadge variant={statusVariant(val)} dot>{val}</StatusBadge>
@@ -451,12 +467,29 @@ export default function Sales() {
 
   const handleDownloadExcel = () => {
     const exportColumns = [
-      { key: 'purchaseDate', header: '날짜' },
-      { key: 'buyer', header: '회원명' },
+      { key: 'no', header: 'No' },
+      { key: 'purchaseDate', header: '구매일' },
+      { key: 'round', header: '매출유형' },
+      { key: 'type', header: '유형' },
       { key: 'productName', header: '상품명' },
-      { key: 'paymentTool', header: '결제방법' },
-      { key: 'salePrice', header: '금액' },
+      { key: 'buyer', header: '구매자' },
+      { key: 'manager', header: '담당자' },
+      { key: 'quantity', header: '수량' },
+      { key: 'originalPrice', header: '정가' },
+      { key: 'salePrice', header: '판매가' },
+      { key: 'discountPrice', header: '할인' },
+      { key: 'paymentTool', header: '결제수단' },
+      { key: 'cash', header: '현금' },
+      { key: 'card', header: '카드' },
+      { key: 'mileage', header: '마일리지' },
+      { key: 'unpaid', header: '미수금' },
+      { key: 'cardCompany', header: '카드사' },
+      { key: 'cardNumber', header: '카드번호' },
+      { key: 'approvalNo', header: '승인번호' },
+      { key: 'serviceDays', header: '서비스일수' },
+      { key: 'serviceCount', header: '서비스횟수' },
       { key: 'status', header: '상태' },
+      { key: 'memo', header: '메모' },
     ];
     exportToExcel(filteredData as Record<string, unknown>[], exportColumns, { filename: '매출내역' });
     toast.success(`${filteredData.length}건 엑셀 다운로드 완료`);

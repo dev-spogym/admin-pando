@@ -129,6 +129,7 @@ export default function ProductList() {
   const [searchValue, setSearchValue] = useState('');
   const [products, setProducts] = useState<ProductRow[]>([]);
   const [loading, setLoading] = useState(false);
+  const [salesCountMap, setSalesCountMap] = useState<Map<string, number>>(new Map());
 
   // 동적 카테고리 목록 (product_groups + 실제 상품에서 추출)
   const dynamicCategories = useMemo(() => {
@@ -146,11 +147,18 @@ export default function ProductList() {
 
   const fetchProducts = useCallback(async () => {
     setLoading(true);
-    const { data, error } = await supabase
-      .from('products')
-      .select('*')
-      .eq('branchId', getBranchId())
-      .order('id');
+    const [{ data, error }, { data: salesData }] = await Promise.all([
+      supabase
+        .from('products')
+        .select('*')
+        .eq('branchId', getBranchId())
+        .order('id'),
+      supabase
+        .from('sales')
+        .select('productName')
+        .eq('branchId', getBranchId())
+        .eq('status', 'COMPLETED'),
+    ]);
     if (!error && data) {
       setProducts((data as unknown as ProductRow[]).map(p => ({
         ...p,
@@ -158,6 +166,15 @@ export default function ProductList() {
         cashPrice: p.cashPrice != null ? Number(p.cashPrice) : null,
         cardPrice: p.cardPrice != null ? Number(p.cardPrice) : null,
       })));
+    }
+    if (salesData) {
+      const map = new Map<string, number>();
+      for (const row of salesData as { productName: string }[]) {
+        if (row.productName) {
+          map.set(row.productName, (map.get(row.productName) ?? 0) + 1);
+        }
+      }
+      setSalesCountMap(map);
     }
     setLoading(false);
   }, []);
@@ -566,6 +583,9 @@ export default function ProductList() {
                             <th className="px-[3px] py-[6px] text-[10px] font-semibold text-content-secondary text-center">포인트</th>
                           </>
                         )}
+                        {!panelOpen && (
+                          <th className="px-sm py-[6px] text-[10px] font-semibold text-content-secondary text-center">판매</th>
+                        )}
                         <th className="px-sm py-[6px] text-[10px] font-semibold text-content-secondary text-center">상태</th>
                       </tr>
                     </thead>
@@ -668,6 +688,12 @@ export default function ProductList() {
                                   </span>
                                 </td>
                               </>
+                            )}
+                            {/* 판매 건수 */}
+                            {!panelOpen && (
+                              <td className="px-sm py-[5px] text-center text-[12px] text-content-secondary">
+                                {salesCountMap.get(product.name) != null ? `${salesCountMap.get(product.name)}건` : '0건'}
+                              </td>
                             )}
                             {/* 상태 */}
                             <td className="px-sm py-[5px] text-center">
