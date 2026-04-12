@@ -37,6 +37,7 @@ import FormSection from '@/components/FormSection';
 import ConfirmDialog from '@/components/ConfirmDialog';
 import { supabase } from '@/lib/supabase';
 import { exportToExcel } from '@/lib/exportExcel';
+import { useAuthStore } from '@/stores/authStore';
 
 // 코드 중복 체크는 branches 상태에서 동적으로 처리
 
@@ -85,6 +86,7 @@ const isValidCode = (v: string) => /^[A-Z]{2,5}$/.test(v);
 const isValidName = (v: string) => v.trim().length >= 2 && v.trim().length <= 30;
 
 export default function BranchManagement() {
+  const switchBranch = useAuthStore((s) => s.switchBranch);
   const [activeTab, setActiveTab] = useState('list');
   const [isAddBranchOpen, setIsAddBranchOpen] = useState(false);
   const [isMoveMemberOpen, setIsMoveMemberOpen] = useState(false);
@@ -318,7 +320,9 @@ export default function BranchManagement() {
   // --- Table Columns ---
   const branchColumns = [
     { key: 'id', header: 'No', width: 60, align: 'center' as const },
-    { key: 'name', header: '지점명', sortable: true },
+    { key: 'name', header: '지점명', sortable: true, render: (v: string, row: any) => (
+      <button className="text-primary font-semibold hover:underline" onClick={(e) => { e.stopPropagation(); switchBranch(String(row.id), v); toast.success(`${v} 지점으로 전환되었습니다`); }}>{v}</button>
+    ) },
     { key: 'code', header: '지점 코드', width: 120 },
     { key: 'address', header: '주소' },
     { key: 'phone', header: '연락처', width: 140 },
