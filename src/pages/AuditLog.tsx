@@ -3,6 +3,8 @@ import { Shield, Search, ChevronLeft, ChevronRight } from 'lucide-react';
 import { toast } from 'sonner';
 import AppLayout from '@/components/AppLayout';
 import { getAuditLogs, type AuditLogEntry, type AuditLogParams } from '@/api/endpoints/auditLog';
+import { getBranches, type Branch } from '@/api/endpoints/auth';
+import { useAuthStore } from '@/stores/authStore';
 import { cn } from '@/lib/utils';
 
 // 날짜 포맷: yyyy-MM-dd HH:mm:ss
@@ -123,6 +125,9 @@ const TARGET_OPTIONS = [
 const PAGE_SIZE = 50;
 
 export default function AuditLog() {
+  const authUser = useAuthStore((s) => s.user);
+  const isSuperAdmin = authUser?.isSuperAdmin ?? false;
+
   const [logs, setLogs] = useState<AuditLogEntry[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [totalCount, setTotalCount] = useState(0);
@@ -134,6 +139,16 @@ export default function AuditLog() {
   const [actionFilter, setActionFilter] = useState('');
   const [userSearch, setUserSearch] = useState('');
   const [targetTypeFilter, setTargetTypeFilter] = useState('');
+  const [branchFilter, setBranchFilter] = useState('');
+  const [branches, setBranches] = useState<Branch[]>([]);
+
+  // 슈퍼관리자일 때 지점 목록 로드
+  useEffect(() => {
+    if (!isSuperAdmin) return;
+    getBranches().then((res) => {
+      if (res.success && res.data) setBranches(res.data);
+    });
+  }, [isSuperAdmin]);
 
   const totalPages = Math.max(1, Math.ceil(totalCount / PAGE_SIZE));
 
@@ -148,6 +163,7 @@ export default function AuditLog() {
           toDate: toDate ? `${toDate}T23:59:59` : undefined,
           action: actionFilter || undefined,
           targetType: targetTypeFilter || undefined,
+          branchId: branchFilter ? Number(branchFilter) : undefined,
         };
         const res = await getAuditLogs(params);
         if (!res.success) {
@@ -170,13 +186,13 @@ export default function AuditLog() {
         setIsLoading(false);
       }
     },
-    [fromDate, toDate, actionFilter, targetTypeFilter, userSearch]
+    [fromDate, toDate, actionFilter, targetTypeFilter, userSearch, branchFilter]
   );
 
   useEffect(() => {
     setCurrentPage(1);
     fetchLogs(1);
-  }, [fromDate, toDate, actionFilter, targetTypeFilter]);
+  }, [fromDate, toDate, actionFilter, targetTypeFilter, branchFilter]);
 
   const handleSearch = () => {
     setCurrentPage(1);
@@ -266,6 +282,25 @@ export default function AuditLog() {
                 ))}
               </select>
             </div>
+
+            {/* 지점 필터 (슈퍼관리자 전용) */}
+            {isSuperAdmin && (
+              <div className="flex flex-col gap-1">
+                <label className="text-xs font-medium text-content-secondary">지점</label>
+                <select
+                  value={branchFilter}
+                  onChange={(e) => setBranchFilter(e.target.value)}
+                  className="h-9 px-3 text-sm border border-line rounded-lg bg-white text-content-primary focus:outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent"
+                >
+                  <option value="">전체</option>
+                  {branches.map((b) => (
+                    <option key={b.id} value={String(b.id)}>
+                      {b.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
 
             {/* 사용자 검색 */}
             <div className="flex flex-col gap-1">

@@ -175,16 +175,32 @@ export default function BranchReport() {
             const total = totalMembers ?? 0;
             const avgSales = total > 0 ? Math.round(totalSales / total) : 0;
 
+            // 출석 수 (선택 월)
+            const { count: attendanceCount } = await supabase
+              .from('attendance')
+              .select('*', { count: 'exact', head: true })
+              .eq('branchId', b.id)
+              .gte('checkInAt', `${startDate}T00:00:00`)
+              .lte('checkInAt', `${endDateStr}T23:59:59`);
+
+            // 출석률 = 해당 월 총 출석 수 ÷ (활성 회원 수 × 해당 월 일수) × 100
+            const activeCnt = activeMembers ?? 0;
+            const daysInMonth = endDate.getDate();
+            const attendanceRate =
+              activeCnt > 0 && daysInMonth > 0
+                ? `${((attendanceCount ?? 0) / (activeCnt * daysInMonth) * 100).toFixed(1)}%`
+                : '-';
+
             return {
               id: b.id,
               name: b.name,
               totalMembers: total,
               newMembers: newMembers ?? 0,
-              activeMembers: activeMembers ?? 0,
+              activeMembers: activeCnt,
               expiredMembers: expiredMembers ?? 0,
               totalSales,
               avgSales,
-              attendanceRate: '-',
+              attendanceRate,
             } as BranchStat;
           })
         );
