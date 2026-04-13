@@ -24,13 +24,17 @@ export default function PageHeader({
         <div className="text-[12px] text-content-tertiary mb-sm">{breadcrumb}</div>
       )}
       <div className="flex items-center justify-between gap-md">
-        <div>
+        <div className="min-w-[160px]">
           <h1 className="text-Page-Title text-content">{title}</h1>
           {description && (
             <p className="text-[13px] text-content-secondary mt-[2px]">{description}</p>
           )}
         </div>
-        {actions && <div className="flex items-center gap-sm shrink-0">{actions}</div>}
+        {actions && (
+          <div className="flex items-center gap-sm shrink-0 flex-nowrap [&_button]:whitespace-nowrap [&_span]:whitespace-nowrap">
+            {actions}
+          </div>
+        )}
       </div>
       {children && <div className="mt-md">{children}</div>}
     </div>

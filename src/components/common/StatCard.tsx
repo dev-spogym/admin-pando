@@ -59,7 +59,7 @@ export default function StatCard({
       <div className="flex items-start justify-between">
         <div className="flex-1">
           <p className="text-[12px] font-medium text-content-secondary mb-[6px]">{label}</p>
-          <h3 className="text-KPI-Large text-content tabular-nums">{value}</h3>
+          <h3 className="text-KPI-Large text-content tabular-nums break-all leading-tight">{value}</h3>
 
           {(description || change) && (
             <div className="mt-[6px]">
