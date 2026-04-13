@@ -2,7 +2,7 @@
 export const dynamic = 'force-dynamic';
 
 ﻿import React, { useState, useEffect } from 'react';
-import { Eye, EyeOff, Lock, User, MapPin, Loader2, ChevronDown, Check } from 'lucide-react';
+import { Eye, EyeOff, Lock, User, Loader2, Check } from 'lucide-react';
 import { moveToPage } from '@/internal';
 import { cn } from '@/lib/utils';
 import { useLogin } from '@/api/hooks/useAuth';
@@ -179,24 +179,20 @@ export default function Login() {
         <form className="w-full space-y-md" onSubmit={handleLogin}>
           {/* 지점 선택 */}
           <div>
-            <label className="text-[12px] font-medium text-content-secondary mb-[4px] block">지점 선택</label>
-            <div className="relative">
-              <MapPin className="absolute left-[12px] top-1/2 -translate-y-1/2 text-content-tertiary" size={15} />
-              <Select
-                className="w-full pl-9 pr-md py-[10px] bg-surface-secondary rounded-lg text-[13px] text-content border border-line focus:border-primary focus:ring-1 focus:ring-primary/20 outline-none appearance-none cursor-pointer transition-all disabled:opacity-50"
-                value={selectedBranchId}
-                onChange={(v) => setSelectedBranchId(v)}
-                disabled={branchesLoading || isLoading}
-                options={
-                  branchesLoading
-                    ? [{ value: '', label: '지점 로딩 중...' }]
-                    : branches.length === 0
-                    ? [{ value: '', label: '지점 없음' }]
-                    : branches.map((b) => ({ value: String(b.id), label: b.name }))
-                }
-              />
-              <ChevronDown className="absolute right-[12px] top-1/2 -translate-y-1/2 text-content-tertiary pointer-events-none" size={14} />
-            </div>
+            <Select
+              label="지점 선택"
+              placeholder="지점을 선택하세요"
+              value={selectedBranchId}
+              onChange={(v) => setSelectedBranchId(v)}
+              disabled={branchesLoading || isLoading}
+              options={
+                branchesLoading
+                  ? [{ value: '', label: '지점 로딩 중...' }]
+                  : branches.length === 0
+                  ? [{ value: '', label: '지점 없음' }]
+                  : branches.map((b) => ({ value: String(b.id), label: b.name }))
+              }
+            />
           </div>
 
           {/* 아이디 */}
