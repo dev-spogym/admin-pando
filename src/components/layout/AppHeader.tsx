@@ -448,7 +448,7 @@ const AppHeader = ({
             <ClipboardList size={18} />
           </button>
           <span className="absolute -bottom-8 left-1/2 -translate-x-1/2 whitespace-nowrap rounded bg-content px-2 py-1 text-[11px] text-white opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50">
-            화면설계서 모드
+            화면설계서 모드 (⌘/)
           </span>
         </div>
 

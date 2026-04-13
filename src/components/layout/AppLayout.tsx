@@ -24,6 +24,19 @@ const AppLayout = ({ children }: AppLayoutProps) => {
   const [isMobile, setIsMobile] = useState(() => typeof window !== 'undefined' ? window.innerWidth < MOBILE_BREAKPOINT : false);
   const authUser = useAuthStore((s) => s.user);
   const designDocMode = useUiStore((s) => s.designDocMode);
+  const toggleDesignDocMode = useUiStore((s) => s.toggleDesignDocMode);
+
+  // Cmd/Ctrl + / 단축키로 화면설계서 모드 토글
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === '/') {
+        e.preventDefault();
+        toggleDesignDocMode();
+      }
+    };
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [toggleDesignDocMode]);
 
   // 화면 크기 감지
   useEffect(() => {
