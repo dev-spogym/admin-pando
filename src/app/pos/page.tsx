@@ -20,6 +20,7 @@ import StatusBadge from "@/components/common/StatusBadge";
 import { cn } from '@/lib/utils';
 import { moveToPage } from '@/internal';
 import { supabase } from '@/lib/supabase';
+import { formatNumber } from '@/lib/format';
 
 const getBranchId = (): number => {
   if (typeof window === 'undefined') return 1;
@@ -125,13 +126,13 @@ const ProductCard = ({
         <div className="flex justify-between items-baseline">
           <span className="text-[11px] text-content-tertiary">현금가</span>
           <span className="text-[14px] font-bold text-primary tabular-nums">
-            {product.cashPrice.toLocaleString()}원
+            {formatNumber(product.cashPrice)}원
           </span>
         </div>
         <div className="flex justify-between items-baseline mt-[2px]">
           <span className="text-[11px] text-content-tertiary">카드가</span>
           <span className="text-[12px] font-medium text-content-secondary tabular-nums">
-            {product.cardPrice.toLocaleString()}원
+            {formatNumber(product.cardPrice)}원
           </span>
         </div>
       </div>
@@ -459,11 +460,10 @@ export default function SalesPos() {
                       </div>
 
                       <span className="text-[14px] font-bold text-content tabular-nums">
-                        {(
+                        {formatNumber(
                           (item.priceType === 'cash' ? item.cashPrice : item.cardPrice) *
                           item.quantity
-                        ).toLocaleString()}
-                        원
+                        )}원
                       </span>
                     </div>
                   </div>
@@ -481,7 +481,7 @@ export default function SalesPos() {
               <div className="flex justify-between items-center">
                 <span className="text-[13px] text-content-secondary">총 합계</span>
                 <span className="text-[22px] font-bold text-primary tabular-nums">
-                  {totalAmount.toLocaleString()}원
+                  {formatNumber(totalAmount)}원
                 </span>
               </div>
               <button

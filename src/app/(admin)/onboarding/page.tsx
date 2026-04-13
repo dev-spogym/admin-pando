@@ -16,6 +16,7 @@ import {
 import { cn } from "@/lib/utils";
 import { supabase } from "@/lib/supabase";
 import { toast } from "sonner";
+import Button from "@/components/ui/Button";
 
 /**
  * 온보딩 대시보드 — 신규회원 정착률 추적
@@ -255,9 +256,7 @@ export default function OnboardingDashboard() {
         title="온보딩 대시보드"
         description="신규회원 정착률을 추적합니다. (프리-온보딩 → 신규 유치 → 신규 안정)"
         actions={
-          <button className="flex items-center gap-xs px-md py-sm border border-line rounded-button text-[13px] text-content-secondary hover:bg-surface-secondary transition-colors" onClick={fetchData}>
-            <RefreshCw size={14} className={loading ? "animate-spin" : ""} /> 새로고침
-          </button>
+          <Button variant="outline" size="sm" icon={<RefreshCw size={14} className={loading ? "animate-spin" : ""} />} onClick={fetchData}>새로고침</Button>
         }
       />
 

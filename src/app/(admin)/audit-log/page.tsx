@@ -11,6 +11,8 @@ import { useAuthStore } from '@/stores/authStore';
 import { cn } from '@/lib/utils';
 import Select from '@/components/ui/Select';
 import SimpleTable from '@/components/common/SimpleTable';
+import Button from '@/components/ui/Button';
+import { formatNumber } from '@/lib/format';
 
 // 날짜 포맷: yyyy-MM-dd HH:mm:ss
 const fmtDatetime = (iso: string): string => {
@@ -305,12 +307,7 @@ export default function AuditLog() {
             </div>
 
             {/* 검색 버튼 */}
-            <button
-              onClick={handleSearch}
-              className="h-9 px-4 text-sm font-medium bg-accent text-white rounded-lg hover:bg-accent/90 transition-colors"
-            >
-              검색
-            </button>
+            <Button variant="primary" size="sm" onClick={handleSearch}>검색</Button>
           </div>
         </div>
 
@@ -319,7 +316,7 @@ export default function AuditLog() {
           {/* 테이블 헤더 요약 */}
           <div className="flex items-center justify-between px-4 py-3 border-b border-line">
             <span className="text-sm text-content-secondary">
-              전체 <span className="font-semibold text-content-primary">{totalCount.toLocaleString()}</span>건
+              전체 <span className="font-semibold text-content-primary">{formatNumber(totalCount)}</span>건
             </span>
           </div>
 
@@ -428,7 +425,7 @@ export default function AuditLog() {
           {/* 총 건수 하단 표시 (페이지 없을 때) */}
           {!isLoading && totalPages <= 1 && logs.length > 0 && (
             <div className="px-4 py-3 border-t border-line text-center text-xs text-content-tertiary">
-              총 {totalCount.toLocaleString()}건
+              총 {formatNumber(totalCount)}건
             </div>
           )}
         </div>

@@ -382,10 +382,7 @@ export default function BranchManagement() {
       header: '회원명',
       sortable: true,
       render: (v: string, row: any) => (
-        <button
-          className="text-primary hover:underline font-medium" onClick={() => moveToPage(985, { id: row.id })}>
-          {v}
-        </button>
+        <Button variant="ghost" size="sm" onClick={() => moveToPage(985, { id: row.id })}>{v}</Button>
       )
     },
     { key: 'from', header: '원 지점' },
@@ -405,20 +402,8 @@ export default function BranchManagement() {
     <AppLayout >
       <PageHeader title="지점 관리 (멀티지점)" description="전체 지점의 운영 현황을 통합 관리하고 지점 간 데이터 이동을 처리합니다." actions={
           <div className="flex gap-sm">
-            <button
-              className="flex items-center gap-xs px-md py-sm bg-primary-light text-primary hover:bg-primary hover:text-white transition-all rounded-button text-Label font-semibold"
-              onClick={handleMoveMember}
-            >
-              <ArrowLeftRight size={16} />
-              지점 이동 신청
-            </button>
-            <button
-              className="flex items-center gap-xs px-md py-sm bg-primary text-white hover:opacity-90 transition-all rounded-button text-Label font-semibold"
-              onClick={() => setIsAddBranchOpen(true)}
-            >
-              <Plus size={16} />
-              신규 지점 등록
-            </button>
+            <Button variant="outline" size="sm" icon={<ArrowLeftRight size={16} />} onClick={handleMoveMember}>지점 이동 신청</Button>
+            <Button variant="primary" size="sm" icon={<Plus size={16} />} onClick={() => setIsAddBranchOpen(true)}>신규 지점 등록</Button>
           </div>
         }/>
 
@@ -475,9 +460,9 @@ export default function BranchManagement() {
         <div className="space-y-lg animate-in fade-in duration-300" >
           <div className="flex justify-between items-center" >
             <div className="flex items-center gap-sm p-sm bg-surface rounded-xl border border-line shadow-card" >
-              <button className="px-md py-xs bg-primary-light text-primary rounded-button text-Label font-semibold" >월간</button>
-              <button className="px-md py-xs text-content-secondary hover:text-content rounded-button text-Label" >주간</button>
-              <button className="px-md py-xs text-content-secondary hover:text-content rounded-button text-Label" >연간</button>
+              <Button variant="primary" size="sm">월간</Button>
+              <Button variant="ghost" size="sm">주간</Button>
+              <Button variant="ghost" size="sm">연간</Button>
             </div>
             <p className="text-sm text-content-secondary" >기준: 2026.02.01 ~ 2026.02.19</p>
           </div>
@@ -624,13 +609,7 @@ export default function BranchManagement() {
                       maxLength={5}
                       onChange={e => handleFormChange('code', e.target.value.toUpperCase())}
                     />
-                    <button
-                      className="px-md py-sm bg-accent-light text-accent text-Label font-semibold rounded-button whitespace-nowrap hover:opacity-80 transition-opacity"
-                      type="button"
-                      onClick={handleAutoGenerateCode}
-                    >
-                      자동생성
-                    </button>
+                    <Button variant="outline" size="sm" type="button" onClick={handleAutoGenerateCode}>자동생성</Button>
                   </div>
                   {formErrors.code && (
                     <p className="flex items-center gap-xs text-Label text-state-error">
@@ -696,16 +675,7 @@ export default function BranchManagement() {
                       readOnly={true}
                       value={branchForm.address}
                     />
-                    <button
-                      className="px-md py-sm bg-surface-secondary text-content text-Label font-semibold rounded-button whitespace-nowrap hover:bg-surface-secondary transition-colors"
-                      type="button"
-                      onClick={() => {
-                        // Mock 주소 설정
-                        handleFormChange('address', '서울특별시 종로구 광화문광장 1');
-                      }}
-                    >
-                      주소검색
-                    </button>
+                    <Button variant="outline" size="sm" type="button" onClick={() => { handleFormChange('address', '서울특별시 종로구 광화문광장 1'); }}>주소검색</Button>
                   </div>
                   {formErrors.address && (
                     <p className="flex items-center gap-xs text-Label text-state-error">

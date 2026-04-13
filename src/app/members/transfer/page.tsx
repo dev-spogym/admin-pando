@@ -24,6 +24,7 @@ import AppLayout from "@/components/layout/AppLayout";
 import PageHeader from "@/components/common/PageHeader";
 import Select from '@/components/ui/Select';
 import Textarea from '@/components/ui/Textarea';
+import { formatNumber } from '@/lib/format';
 
 import { getMember, type Member } from '@/api/endpoints/members';
 import {
@@ -320,7 +321,7 @@ function MemberTransfer() {
                     status={checkResult.hasUnpaidAmount ? 'block' : 'ok'}
                     detail={
                       checkResult.hasUnpaidAmount
-                        ? `${checkResult.unpaidAmount.toLocaleString()}원 정산 필요`
+                        ? `${formatNumber(checkResult.unpaidAmount)}원 정산 필요`
                         : '0원'
                     }
                   />
@@ -364,7 +365,7 @@ function MemberTransfer() {
                   <CheckItem
                     label="마일리지"
                     status="ok"
-                    detail={`${checkResult.mileageBalance.toLocaleString()}P — 테넌트 통합이므로 유지됩니다.`}
+                    detail={`${formatNumber(checkResult.mileageBalance)}P — 테넌트 통합이므로 유지됩니다.`}
                   />
                 </div>
 

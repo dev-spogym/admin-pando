@@ -191,12 +191,13 @@ export default function StaffList() {
       key: "name",
       header: <SortHeader col="name" label="직원명" />,
       render: (val: string, row: any) => (
-        <button
-          className="text-primary font-semibold hover:underline"
+        <Button
+          variant="ghost"
+          size="sm"
           onClick={() => moveToPage(998, { id: row.id })}
         >
           {val}
-        </button>
+        </Button>
       )
     },
     {

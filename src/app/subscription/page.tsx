@@ -23,6 +23,8 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { moveToPage } from '@/internal';
+import Button from '@/components/ui/Button';
+import { formatKRW, formatNumber } from '@/lib/format';
 import { exportToExcel } from '@/lib/exportExcel';
 import AppLayout from "@/components/layout/AppLayout";
 import PageHeader from "@/components/common/PageHeader";
@@ -165,17 +167,19 @@ export default function Subscription() {
                 <span>다음 결제일: {currentPlan.nextBillingDate}</span>
               </div>
               <div className="flex items-end gap-xs">
-                <span className="text-Heading-1 text-primary font-bold">₩{currentPlan.amount.toLocaleString()}</span>
+                <span className="text-Heading-1 text-primary font-bold">{formatKRW(currentPlan.amount)}</span>
                 <span className="text-Body-1 text-content-secondary mb-1">/ {currentPlan.billingCycle === 'annual' ? '년' : '월'}</span>
               </div>
             </div>
             <div className="flex flex-col gap-sm min-w-[200px]">
-              <button
-                className="w-full py-md bg-primary text-white rounded-button font-bold flex items-center justify-center gap-sm hover:opacity-90 transition-opacity shadow-sm"
+              <Button
+                variant="primary"
+                fullWidth
+                icon={<ChevronRight size={18} />}
                 onClick={() => setActiveTab('plans')}
               >
-                플랜 변경하기 <ChevronRight size={18} />
-              </button>
+                플랜 변경하기
+              </Button>
               <button
                 className="w-full py-md text-content-secondary hover:text-state-error transition-colors text-Body-2 font-medium"
                 onClick={() => setIsCancelDialogOpen(true)}
@@ -278,12 +282,12 @@ export default function Subscription() {
               <h3 className="text-Heading-2 text-content font-bold mb-md">{plan.name}</h3>
               <div className="flex items-end gap-xs mb-xs">
                 <span className="text-Heading-1 font-bold text-content">
-                  ₩{(billingCycle === 'annual' ? plan.price.annual : plan.price.monthly).toLocaleString()}
+                  {formatKRW(billingCycle === 'annual' ? plan.price.annual : plan.price.monthly)}
                 </span>
                 <span className="text-Body-2 text-content-secondary mb-1">/ 월</span>
               </div>
               {billingCycle === 'annual' && (
-                <p className="text-Label text-content-secondary">연간 ₩{(plan.price.annual * 12).toLocaleString()} 결제</p>
+                <p className="text-Label text-content-secondary">연간 {formatKRW(plan.price.annual * 12)} 결제</p>
               )}
             </div>
 
@@ -322,17 +326,13 @@ export default function Subscription() {
             </div>
 
             <div className="p-xl">
-              <button
+              <Button
+                variant={plan.isCurrent ? "secondary" : "primary"}
+                fullWidth
                 disabled={plan.isCurrent}
-                className={cn(
-                  "w-full py-md rounded-button font-bold transition-all",
-                  plan.isCurrent
-                    ? "bg-accent-light text-accent cursor-default"
-                    : "bg-primary text-white hover:shadow-lg hover:translate-y-[-2px]"
-                )}
               >
                 {plan.isCurrent ? '현재 플랜' : '선택하기'}
-              </button>
+              </Button>
             </div>
           </div>
         ))}
@@ -354,7 +354,7 @@ export default function Subscription() {
         />
         <StatCard
           label="월 결제 총액"
-          value={`₩${currentPlan.amount.toLocaleString()}`}
+          value={formatKRW(currentPlan.amount)}
           icon={<CreditCard className="text-primary" />}
           variant="default"
           description="다음 결제일: 2026-05-15"
@@ -370,7 +370,7 @@ export default function Subscription() {
             { key: 'plan', header: '플랜명', width: 200 },
             {
               key: 'amount', header: '결제금액', width: 150,
-              render: val => <span className="font-bold text-content">₩{val.toLocaleString()}</span>
+              render: (val: number) => <span className="font-bold text-content">{formatKRW(val)}</span>
             },
             { key: 'method', header: '결제수단', width: 180 },
             {
@@ -410,12 +410,13 @@ export default function Subscription() {
           title="구독 플랜 관리"
           description="Fit SaaS 서비스 구독 현황을 관리하고 결제 내역을 확인합니다."
           actions={
-            <button
+            <Button
+              variant="primary"
+              icon={<Zap size={18} />}
               onClick={() => setActiveTab('plans')}
-              className="flex items-center gap-sm px-lg py-md bg-primary text-white rounded-button text-Body-2 font-semibold hover:opacity-90 transition-opacity shadow-sm"
             >
-              <Zap size={18} /> 플랜 업그레이드
-            </button>
+              플랜 업그레이드
+            </Button>
           }
         />
 

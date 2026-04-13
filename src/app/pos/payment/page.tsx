@@ -24,6 +24,7 @@ import ConfirmDialog from "@/components/ui/ConfirmDialog";
 import { moveToPage } from '@/internal';
 import { supabase } from '@/lib/supabase';
 import { checkDuplicatePayment, deductPoints, accruePoints } from '@/lib/businessLogic';
+import { formatKRW, formatNumber } from '@/lib/format';
 
 const getBranchId = (): number => {
   if (typeof window === 'undefined') return 1;
@@ -151,7 +152,7 @@ export default function PosPayment() {
       // 복합결제 메모 생성
       const mixedMemo =
         paymentMethod === 'mixed'
-          ? `복합결제 - 카드: ${mixedAmount.card.toLocaleString()}원, 현금: ${mixedAmount.cash.toLocaleString()}원, 마일리지: ${mixedAmount.mileage.toLocaleString()}P`
+          ? `복합결제 - 카드: ${formatNumber(mixedAmount.card)}원, 현금: ${formatNumber(mixedAmount.cash)}원, 마일리지: ${formatNumber(mixedAmount.mileage)}P`
           : null;
 
       // 마일리지 결제 시 차감
@@ -318,7 +319,7 @@ export default function PosPayment() {
                   <div className="flex items-center gap-lg">
                     <span className="text-[13px] text-content-tertiary">x{item.quantity}</span>
                     <span className="text-[15px] font-semibold text-content tabular-nums">
-                      ₩{(item.price * item.quantity).toLocaleString()}
+                      {formatKRW(item.price * item.quantity)}
                     </span>
                   </div>
                 </div>
@@ -327,7 +328,7 @@ export default function PosPayment() {
             <div className="px-lg py-md bg-surface-secondary/30 border-t border-line flex justify-between items-center">
               <span className="text-[13px] text-content-secondary font-medium">총 결제 금액</span>
               <span className="text-[22px] font-bold text-primary tabular-nums">
-                ₩{subtotal.toLocaleString()}
+                {formatKRW(subtotal)}
               </span>
             </div>
           </div>
@@ -348,7 +349,7 @@ export default function PosPayment() {
                     <p className="font-bold text-content text-[14px]">{selectedMember.name}</p>
                     <p className="text-[12px] text-content-secondary">{selectedMember.phone}</p>
                     <p className="text-[12px] text-accent font-semibold">
-                      마일리지: {selectedMember.mileage.toLocaleString()} P
+                      마일리지: {formatNumber(selectedMember.mileage)} P
                     </p>
                   </div>
                 </div>
@@ -383,7 +384,7 @@ export default function PosPayment() {
                         </div>
                         <div className="text-right">
                           <p className="text-[11px] text-content-tertiary">보유 마일리지</p>
-                          <p className="text-[13px] font-bold text-accent tabular-nums">{m.mileage.toLocaleString()} P</p>
+                          <p className="text-[13px] font-bold text-accent tabular-nums">{formatNumber(m.mileage)} P</p>
                         </div>
                       </button>
                     ))}
@@ -458,8 +459,8 @@ export default function PosPayment() {
                   'flex justify-between items-center pt-sm border-t border-line text-[12px] font-semibold',
                   mixedDiff === 0 ? 'text-state-success' : 'text-state-error'
                 )}>
-                  <span>합계 {mixedTotal.toLocaleString()}원</span>
-                  <span>{mixedDiff === 0 ? '금액 일치' : `${Math.abs(mixedDiff).toLocaleString()}원 ${mixedDiff > 0 ? '부족' : '초과'}`}</span>
+                  <span>합계 {formatNumber(mixedTotal)}원</span>
+                  <span>{mixedDiff === 0 ? '금액 일치' : `${formatNumber(Math.abs(mixedDiff))}원 ${mixedDiff > 0 ? '부족' : '초과'}`}</span>
                 </div>
               </div>
             )}
@@ -471,15 +472,15 @@ export default function PosPayment() {
                   <div className="space-y-xs">
                     <div className="flex justify-between text-[13px]">
                       <span className="text-content-secondary">보유 마일리지</span>
-                      <span className="font-bold text-accent tabular-nums">{selectedMember.mileage.toLocaleString()} P</span>
+                      <span className="font-bold text-accent tabular-nums">{formatNumber(selectedMember.mileage)} P</span>
                     </div>
                     <div className="flex justify-between text-[13px]">
                       <span className="text-content-secondary">결제 금액</span>
-                      <span className="font-bold text-content tabular-nums">₩{subtotal.toLocaleString()}</span>
+                      <span className="font-bold text-content tabular-nums">{formatKRW(subtotal)}</span>
                     </div>
                     {selectedMember.mileage < subtotal && (
                       <p className="text-[12px] text-state-error font-semibold mt-xs">
-                        마일리지가 부족합니다. (부족: {(subtotal - selectedMember.mileage).toLocaleString()}P)
+                        마일리지가 부족합니다. (부족: {formatNumber(subtotal - selectedMember.mileage)}P)
                       </p>
                     )}
                   </div>
@@ -495,7 +496,7 @@ export default function PosPayment() {
             <div className="flex justify-between items-center">
               <span className="text-[13px] text-content-secondary">최종 결제 금액</span>
               <span className="text-[24px] font-bold text-primary tabular-nums">
-                ₩{subtotal.toLocaleString()}
+                {formatKRW(subtotal)}
               </span>
             </div>
 
@@ -555,12 +556,12 @@ export default function PosPayment() {
                 {cartItems.map(item => (
                   <div key={item.id} className="flex justify-between text-[13px]">
                     <span className="text-content-secondary">{item.name} x{item.quantity}</span>
-                    <span className="font-semibold text-content tabular-nums">₩{(item.price * item.quantity).toLocaleString()}</span>
+                    <span className="font-semibold text-content tabular-nums">{formatKRW(item.price * item.quantity)}</span>
                   </div>
                 ))}
                 <div className="pt-sm border-t border-line flex justify-between">
                   <span className="text-[14px] font-bold text-content">합계</span>
-                  <span className="text-[16px] font-bold text-primary tabular-nums">₩{subtotal.toLocaleString()}</span>
+                  <span className="text-[16px] font-bold text-primary tabular-nums">{formatKRW(subtotal)}</span>
                 </div>
               </div>
 

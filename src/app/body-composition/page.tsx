@@ -27,6 +27,7 @@ import ConfirmDialog from "@/components/ui/ConfirmDialog";
 import { moveToPage } from "@/internal";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { formatNumber } from '@/lib/format';
 import Button from "@/components/ui/Button";
 import { supabase } from "@/lib/supabase";
 import { useSearchParams } from "next/navigation";
@@ -752,7 +753,7 @@ function BodyComposition() {
               {[
                 { label: "기초대사량 (BMR)", value: `${latest.bmr} kcal` },
                 { label: "제지방량", value: `${(latest.weight - latest.fat).toFixed(1)} kg` },
-                { label: "권장 섭취 열량", value: `${Math.round(latest.bmr * 1.4).toLocaleString()} kcal` },
+                { label: "권장 섭취 열량", value: `${formatNumber(Math.round(latest.bmr * 1.4))} kcal` },
               ].map(item => (
                 <div key={item.label} className="flex justify-between items-center p-md bg-surface-secondary rounded-lg border border-line">
                   <span className="text-[13px] text-content-secondary">{item.label}</span>

@@ -747,18 +747,8 @@ export default function MemberList() {
         size="sm"
         footer={
           <div className="flex gap-sm justify-end">
-            <button
-              className="px-md py-[7px] rounded-lg border border-line text-[13px] text-content-secondary hover:bg-surface-tertiary transition-colors"
-              onClick={() => setShowStatusModal(false)}
-            >
-              취소
-            </button>
-            <button
-              className="px-md py-[7px] rounded-lg bg-primary text-white text-[13px] font-medium hover:bg-primary-dark transition-colors"
-              onClick={handleStatusConfirm}
-            >
-              변경 확인
-            </button>
+            <Button variant="outline" size="sm" onClick={() => setShowStatusModal(false)}>취소</Button>
+            <Button variant="primary" size="sm" onClick={handleStatusConfirm}>변경 확인</Button>
           </div>
         }
       >

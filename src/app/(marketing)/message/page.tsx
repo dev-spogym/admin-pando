@@ -49,6 +49,8 @@ import Select from "@/components/ui/Select";
 import Textarea from "@/components/ui/Textarea";
 import Checkbox from "@/components/ui/Checkbox";
 import RadioGroup from "@/components/ui/RadioGroup";
+import Button from "@/components/ui/Button";
+import { formatNumber } from "@/lib/format";
 
 // --- 채널 설정 ---
 const CHANNEL_CONFIG = {
@@ -169,18 +171,8 @@ function RecipientModal({
         </div>
 
         <div className="px-xl py-lg border-t border-line bg-surface-secondary/5 flex justify-end gap-md">
-          <button
-            className="px-xl py-md rounded-button border border-line text-content-secondary hover:bg-surface transition-colors"
-            onClick={onClose}
-          >
-            취소
-          </button>
-          <button
-            className="px-xl py-md rounded-button bg-primary text-white font-semibold hover:opacity-90 transition-opacity"
-            onClick={() => onConfirm(temp)}
-          >
-            선택 완료 ({temp.length}명)
-          </button>
+          <Button variant="outline" onClick={onClose}>취소</Button>
+          <Button variant="primary" onClick={() => onConfirm(temp)}>선택 완료 ({temp.length}명)</Button>
         </div>
       </div>
     </div>
@@ -207,27 +199,20 @@ function PreviewModal({
       <div className="w-full max-w-md bg-surface rounded-modal shadow-xl overflow-hidden animate-in zoom-in duration-200">
         <div className="p-xl border-b border-line">
           <h2 className="text-Heading-2 font-bold text-content">발송 미리보기</h2>
-          <p className="text-Body-2 text-content-secondary mt-xs">수신자 {recipientCount.toLocaleString()}명에게 발송됩니다.</p>
+          <p className="text-Body-2 text-content-secondary mt-xs">수신자 {formatNumber(recipientCount)}명에게 발송됩니다.</p>
         </div>
         <div className="p-xl space-y-md">
           <div className="flex items-center gap-sm">
             <StatusBadge variant="info">{channel}</StatusBadge>
-            <span className="text-Label text-content-secondary">수신자 {recipientCount.toLocaleString()}명</span>
+            <span className="text-Label text-content-secondary">수신자 {formatNumber(recipientCount)}명</span>
           </div>
           <div className="bg-surface-secondary border border-line rounded-xl p-lg min-h-[120px]">
             <p className="text-Body-2 text-content whitespace-pre-wrap">{content || "(내용 없음)"}</p>
           </div>
         </div>
         <div className="p-xl border-t border-line flex justify-end gap-sm">
-          <button className="px-lg py-sm border border-line rounded-button text-Label text-content-secondary hover:bg-surface-secondary transition-all" onClick={onClose}>
-            취소
-          </button>
-          <button
-            className="px-lg py-sm bg-primary text-white rounded-button text-Label font-semibold hover:opacity-90 transition-all flex items-center gap-xs"
-            onClick={onConfirm}
-          >
-            <Send size={14} />발송하기
-          </button>
+          <Button variant="outline" size="sm" onClick={onClose}>취소</Button>
+          <Button variant="primary" size="sm" icon={<Send size={14} />} onClick={onConfirm}>발송하기</Button>
         </div>
       </div>
     </div>
@@ -478,7 +463,7 @@ export default function MessageSend() {
                           수신자 선택 <span className="text-error">*</span>
                         </label>
                         <span className="text-Label text-content-secondary">
-                          {sendForm.useAllMembers ? `전체 ${totalMemberCount !== null ? totalMemberCount.toLocaleString() : "..."}명` : `${sendForm.recipients.length}명 선택됨`}
+                          {sendForm.useAllMembers ? `전체 ${totalMemberCount !== null ? formatNumber(totalMemberCount) : "..."}명` : `${sendForm.recipients.length}명 선택됨`}
                         </span>
                       </div>
 
@@ -526,12 +511,14 @@ export default function MessageSend() {
                             ))
                           )}
                         </div>
-                        <button
-                          className="bg-accent-light text-accent px-md py-sm rounded-button font-bold text-Body-2 hover:bg-accent hover:text-white transition-colors self-start"
+                        <Button
+                          variant="outline"
+                          size="sm"
                           onClick={() => setIsRecipientModalOpen(true)}
+                          className="self-start"
                         >
                           대상 검색
-                        </button>
+                        </Button>
                       </div>
                     </div>
 
@@ -584,11 +571,11 @@ export default function MessageSend() {
                     <div className="bg-surface-secondary/30 rounded-xl p-md flex items-center justify-between border border-line">
                       <span className="text-Body-2 text-content-secondary">
                         {smsTypeLabel ? `${smsTypeLabel} ${effectiveCost}원/건` : sendForm.channel === "push" ? "앱 푸시 무료" : `알림톡 ${effectiveCost}원/건`}
-                        {" · "}수신자 {recipientCount.toLocaleString()}명
+                        {" · "}수신자 {formatNumber(recipientCount)}명
                       </span>
                       <div className="text-right">
                         <p className="text-Label text-content-secondary">예상 발송 비용</p>
-                        <p className="text-Body-1 font-bold text-primary">{totalCost.toLocaleString()}원</p>
+                        <p className="text-Body-1 font-bold text-primary">{formatNumber(totalCost)}원</p>
                       </div>
                     </div>
 
@@ -657,13 +644,15 @@ export default function MessageSend() {
                           />
                         )}
                       </div>
-                      <button
-                        className="bg-primary text-white px-xl py-md rounded-button font-bold text-Body-1 shadow-md shadow-primary/20 hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center gap-sm disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
+                      <Button
+                        variant="primary"
+                        icon={<Send size={16} />}
+                        loading={isSending}
                         disabled={isSending || isOverLimit || (!sendForm.useAllMembers && sendForm.recipients.length === 0)}
                         onClick={handleSend}
                       >
-                        <Send size={16} />{isSending ? "발송 중..." : "메시지 발송"}
-                      </button>
+                        {isSending ? "발송 중..." : "메시지 발송"}
+                      </Button>
                     </div>
                   </div>
                 </FormSection>
@@ -675,12 +664,14 @@ export default function MessageSend() {
                     description="이벤트 발생 시 자동으로 메시지를 발송합니다."
                     columns={1}
                     actions={
-                      <button
-                        className="text-accent text-Label font-bold flex items-center gap-xs hover:underline"
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        icon={<ChevronRight size={14} />}
                         onClick={() => moveToPage(992)}
                       >
-                        상세 설정 <ChevronRight size={14} />
-                      </button>
+                        상세 설정
+                      </Button>
                     }
                   >
                     <div className="space-y-xl">

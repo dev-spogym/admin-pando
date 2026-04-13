@@ -10,6 +10,7 @@ import DataTable from "@/components/common/DataTable";
 import StatusBadge from "@/components/common/StatusBadge";
 import ConfirmDialog from "@/components/ui/ConfirmDialog";
 import { cn } from '@/lib/utils';
+import { formatKRW } from '@/lib/format';
 import Button from '@/components/ui/Button';
 import {
   getDiscountPolicies,
@@ -120,7 +121,7 @@ export default function DiscountSettings() {
       key: 'value', header: '할인 값', width: 120, align: 'right' as const,
       render: (v: number, row: DiscountPolicy) => (
         <span className="tabular-nums font-semibold">
-          {row.type === 'percentage' ? `${v}%` : `₩${v.toLocaleString()}`}
+          {row.type === 'percentage' ? `${v}%` : formatKRW(v)}
         </span>
       ),
     },
@@ -130,7 +131,7 @@ export default function DiscountSettings() {
     },
     {
       key: 'maxDiscount', header: '한도', width: 120, align: 'right' as const,
-      render: (v: number | null) => v != null ? `₩${v.toLocaleString()}` : '-',
+      render: (v: number | null) => v != null ? formatKRW(v) : '-',
     },
     {
       key: 'isActive', header: '상태', width: 90, align: 'center' as const,

@@ -23,6 +23,8 @@ import DataTable from "@/components/common/DataTable";
 import StatusBadge from "@/components/common/StatusBadge";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/lib/supabase";
+import Button from "@/components/ui/Button";
+import { formatKRW, formatNumber } from "@/lib/format";
 import { exportToExcel } from "@/lib/exportExcel";
 import { useAuthStore } from "@/stores/authStore";
 import { normalizeRole } from "@/lib/permissions";
@@ -239,28 +241,28 @@ export default function PayrollStatement() {
       header: "기본급",
       align: "right" as const,
       width: 130,
-      render: (val: number) => val ? <span className="inline-block whitespace-nowrap">{val.toLocaleString()}원</span> : "-"
+      render: (val: number) => val ? <span className="inline-block whitespace-nowrap">{formatKRW(val)}</span> : "-"
     },
     {
       key: "totalEarnings",
       header: "지급총액",
       align: "right" as const,
       width: 140,
-      render: (val: number) => val ? <span className="inline-block whitespace-nowrap">{val.toLocaleString()}원</span> : "-"
+      render: (val: number) => val ? <span className="inline-block whitespace-nowrap">{formatKRW(val)}</span> : "-"
     },
     {
       key: "totalDeductions",
       header: "공제총액",
       align: "right" as const,
       width: 140,
-      render: (val: number) => val ? <span className="inline-block whitespace-nowrap text-error">-{val.toLocaleString()}원</span> : "-"
+      render: (val: number) => val ? <span className="inline-block whitespace-nowrap text-error">-{formatNumber(val)}원</span> : "-"
     },
     {
       key: "netPay",
       header: "실지급액",
       align: "right" as const,
       width: 140,
-      render: (val: number) => val ? <span className="inline-block whitespace-nowrap font-bold text-primary">{val.toLocaleString()}원</span> : "-"
+      render: (val: number) => val ? <span className="inline-block whitespace-nowrap font-bold text-primary">{formatKRW(val)}</span> : "-"
     },
     {
       key: "status",
@@ -281,8 +283,9 @@ export default function PayrollStatement() {
       align: "center" as const,
       width: 110,
       render: (_: number, row: typeof tableData[0]) => (
-        <button
-          className="whitespace-nowrap text-primary text-Label font-semibold hover:underline"
+        <Button
+          variant="ghost"
+          size="sm"
           onClick={() => {
             const rec = payrollRecords.find(r => r.staffId === row.id);
             if (rec) {
@@ -301,7 +304,7 @@ export default function PayrollStatement() {
           }}
         >
           상세보기
-        </button>
+        </Button>
       )
     }
   ];
@@ -313,19 +316,15 @@ export default function PayrollStatement() {
           title="급여 명세서"
           description="직원별 월간 급여 명세서를 조회하고 발급합니다."
           actions={
-            <button
-              className="flex items-center gap-xs px-md py-sm bg-primary text-white rounded-button text-Label font-bold hover:opacity-90 transition-all"
-              onClick={() => window.print()}
-            >
-              <Printer size={16} />
+            <Button variant="primary" size="sm" icon={<Printer size={16} />} onClick={() => window.print()}>
               일괄 인쇄
-            </button>
+            </Button>
           }
         />
 
         {/* 요약 카드 */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-lg">
-          <StatCard label="총 실지급액"  value={`${totalNet.toLocaleString()}원`} icon={<FileText />}     variant="default" />
+          <StatCard label="총 실지급액"  value={formatKRW(totalNet)} icon={<FileText />}     variant="default" />
           <StatCard label="지급완료"     value={`${paidCount}건`}                 icon={<CheckCircle2 />} variant="mint" />
           <StatCard label="미지급"       value={`${pendingCount}건`}              icon={<Clock />}        variant="peach" />
         </div>
@@ -388,12 +387,12 @@ export default function PayrollStatement() {
                     {statement.earnings.map((item, i) => (
                       <div key={i} className="flex justify-between items-center py-xs border-b border-dashed border-line">
                         <span className="text-Body-2 text-content">{item.name}</span>
-                        <span className="text-Body-2 font-medium">{item.amount.toLocaleString()}원</span>
+                        <span className="text-Body-2 font-medium">{formatKRW(item.amount)}</span>
                       </div>
                     ))}
                     <div className="flex justify-between items-center pt-sm">
                       <span className="text-Body-2 font-bold text-content">지급 총액</span>
-                      <span className="text-Body-2 font-bold text-state-success">{totalEarnings.toLocaleString()}원</span>
+                      <span className="text-Body-2 font-bold text-state-success">{formatKRW(totalEarnings)}</span>
                     </div>
                   </div>
 
@@ -406,12 +405,12 @@ export default function PayrollStatement() {
                     {statement.deductions.map((item, i) => (
                       <div key={i} className="flex justify-between items-center py-xs border-b border-dashed border-line">
                         <span className="text-Body-2 text-content">{item.name}</span>
-                        <span className="text-Body-2 font-medium text-error">-{item.amount.toLocaleString()}원</span>
+                        <span className="text-Body-2 font-medium text-error">-{formatNumber(item.amount)}원</span>
                       </div>
                     ))}
                     <div className="flex justify-between items-center pt-sm">
                       <span className="text-Body-2 font-bold text-content">공제 총액</span>
-                      <span className="text-Body-2 font-bold text-error">{totalDeductions.toLocaleString()}원</span>
+                      <span className="text-Body-2 font-bold text-error">{formatKRW(totalDeductions)}</span>
                     </div>
                   </div>
                 </div>
@@ -424,26 +423,32 @@ export default function PayrollStatement() {
                     </div>
                     <span className="text-Body-1 font-bold text-content">실지급액</span>
                   </div>
-                  <p className="text-[28px] font-bold text-accent">{netPay.toLocaleString()}원</p>
+                  <p className="text-[28px] font-bold text-accent">{formatKRW(netPay)}</p>
                 </div>
 
                 {/* UI-129 PDF 다운로드 버튼 */}
                 <div className="flex gap-sm pt-sm">
-                  <button
-                    className="flex-1 flex items-center justify-center gap-xs whitespace-nowrap px-md py-sm border border-line rounded-button text-Label text-content-secondary hover:bg-primary-light hover:text-primary hover:border-primary transition-all"
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    fullWidth
+                    icon={<Mail size={16} />}
                     onClick={() => toast.info("이메일 발송 기능은 추후 지원 예정입니다.")}
                   >
-                    <Mail size={16} />이메일 발송
-                  </button>
-                  <button
-                    className="flex-1 flex items-center justify-center gap-xs whitespace-nowrap px-md py-sm border border-line rounded-button text-Label text-content-secondary hover:bg-accent-light hover:text-accent hover:border-accent transition-all"
+                    이메일 발송
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    fullWidth
+                    icon={<Download size={16} />}
                     onClick={() => {
                       toast.info("인쇄 다이얼로그에서 'PDF로 저장'을 선택하세요");
                       setTimeout(() => window.print(), 500);
                     }}
                   >
-                    <Download size={16} />PDF 저장 (인쇄)
-                  </button>
+                    PDF 저장 (인쇄)
+                  </Button>
                 </div>
               </div>
             ) : (
@@ -522,13 +527,13 @@ export default function PayrollStatement() {
                   {modalStatement.earnings.map((item, i) => (
                     <div key={i} className="flex justify-between py-xs border-b border-dashed border-line">
                       <span className="text-Body-2 text-content">{item.name}</span>
-                      <span className="text-Body-2 font-medium">{item.amount.toLocaleString()}원</span>
+                      <span className="text-Body-2 font-medium">{formatKRW(item.amount)}</span>
                     </div>
                   ))}
                   <div className="flex justify-between pt-sm">
                     <span className="text-Body-2 font-bold">지급 총액</span>
                     <span className="text-Body-2 font-bold text-state-success">
-                      {modalStatement.earnings.reduce((s, e) => s + e.amount, 0).toLocaleString()}원
+                      {formatKRW(modalStatement.earnings.reduce((s, e) => s + e.amount, 0))}
                     </span>
                   </div>
                 </div>
@@ -539,13 +544,13 @@ export default function PayrollStatement() {
                   {modalStatement.deductions.map((item, i) => (
                     <div key={i} className="flex justify-between py-xs border-b border-dashed border-line">
                       <span className="text-Body-2 text-content">{item.name}</span>
-                      <span className="text-Body-2 font-medium text-error">-{item.amount.toLocaleString()}원</span>
+                      <span className="text-Body-2 font-medium text-error">-{formatNumber(item.amount)}원</span>
                     </div>
                   ))}
                   <div className="flex justify-between pt-sm">
                     <span className="text-Body-2 font-bold">공제 총액</span>
                     <span className="text-Body-2 font-bold text-error">
-                      {modalStatement.deductions.reduce((s, e) => s + e.amount, 0).toLocaleString()}원
+                      {formatKRW(modalStatement.deductions.reduce((s, e) => s + e.amount, 0))}
                     </span>
                   </div>
                 </div>
@@ -554,7 +559,7 @@ export default function PayrollStatement() {
               <div className="flex justify-between items-center p-lg bg-accent-light border border-accent/20 rounded-xl">
                 <span className="text-Body-1 font-bold text-content">실지급액</span>
                 <p className="text-[26px] font-bold text-accent">
-                  {(modalStatement.earnings.reduce((s, e) => s + e.amount, 0) - modalStatement.deductions.reduce((s, e) => s + e.amount, 0)).toLocaleString()}원
+                  {formatKRW(modalStatement.earnings.reduce((s, e) => s + e.amount, 0) - modalStatement.deductions.reduce((s, e) => s + e.amount, 0))}
                 </p>
               </div>
             </div>
@@ -562,28 +567,10 @@ export default function PayrollStatement() {
             {/* 모달 푸터 */}
             <div className="p-xl border-t border-line bg-surface-secondary/10 flex justify-between items-center">
               <div className="flex gap-sm">
-                <button
-                  className="flex items-center gap-xs whitespace-nowrap px-md py-sm border border-line rounded-button text-Label text-content-secondary hover:bg-primary-light hover:text-primary transition-all"
-                  onClick={() => toast.info("이메일 발송 기능은 추후 지원 예정입니다.")}
-                >
-                  <Mail size={14} />이메일
-                </button>
-                <button
-                  className="flex items-center gap-xs whitespace-nowrap px-md py-sm border border-line rounded-button text-Label text-content-secondary hover:bg-accent-light hover:text-accent transition-all"
-                  onClick={() => {
-                    toast.info("인쇄 다이얼로그에서 'PDF로 저장'을 선택하세요");
-                    setTimeout(() => window.print(), 500);
-                  }}
-                >
-                  <Download size={14} />PDF 저장 (인쇄)
-                </button>
+                <Button variant="outline" size="sm" icon={<Mail size={14} />} onClick={() => toast.info("이메일 발송 기능은 추후 지원 예정입니다.")}>이메일</Button>
+                <Button variant="outline" size="sm" icon={<Download size={14} />} onClick={() => { toast.info("인쇄 다이얼로그에서 'PDF로 저장'을 선택하세요"); setTimeout(() => window.print(), 500); }}>PDF 저장 (인쇄)</Button>
               </div>
-              <button
-                className="px-xl py-sm bg-content text-white rounded-button text-Label font-bold hover:bg-black transition-all"
-                onClick={() => setIsModalOpen(false)}
-              >
-                닫기
-              </button>
+              <Button variant="primary" size="sm" onClick={() => setIsModalOpen(false)}>닫기</Button>
             </div>
           </div>
         </div>

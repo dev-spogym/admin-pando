@@ -133,6 +133,7 @@ export default function PermissionSettings() {
   const [showConflictModal, setShowConflictModal] = useState(false);
 
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [createSourceRole, setCreateSourceRole] = useState('');
   const [isCopyModalOpen, setIsCopyModalOpen] = useState(false);
   const [isResetConfirmOpen, setIsResetConfirmOpen] = useState(false);
   const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
@@ -293,6 +294,7 @@ export default function PermissionSettings() {
 
     setRoles([...roles, newRole]);
     setIsCreateModalOpen(false);
+    setCreateSourceRole('');
     setSelectedRoleId(newRole.id);
   };
 
@@ -589,10 +591,11 @@ export default function PermissionSettings() {
                 </div>
                 <div >
                   <label className="mb-xs block text-sm text-content-secondary" >기준 역할 복사 (선택)</label>
-                  <select className="w-full rounded-lg border border-line bg-surface-secondary px-md py-sm text-sm focus:ring-2 focus:ring-primary focus:outline-none" name="sourceRole">
-                    <option value="">선택 안함</option>
-                    {roles.map(r => <option key={r.id} value={r.code}>{r.name}</option>)}
-                  </select>
+                  <Select
+                    options={[{ value: '', label: '선택 안함' }, ...roles.map(r => ({ value: r.code, label: r.name }))]}
+                    value={createSourceRole}
+                    onChange={setCreateSourceRole}
+                  />
                 </div>
 
                 <div className="mt-xl flex justify-end gap-sm pt-md" >

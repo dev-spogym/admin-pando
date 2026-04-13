@@ -403,9 +403,9 @@ export default function RfidManagement() {
       key: "memberName",
       header: "회원명",
       render: (val: string | null, row: RfidCard) => val ? (
-        <button className="text-[13px] font-semibold text-primary hover:underline" onClick={() => row.memberId && moveToPage(985, { id: row.memberId })}>
+        <Button variant="ghost" size="sm" onClick={() => row.memberId && moveToPage(985, { id: row.memberId })}>
           {val}
-        </button>
+        </Button>
       ) : <span className="text-content-tertiary text-[12px]">-</span>
     },
     {

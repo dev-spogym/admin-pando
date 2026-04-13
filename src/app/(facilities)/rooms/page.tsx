@@ -30,6 +30,7 @@ import SimpleTable from "@/components/common/SimpleTable";
 import Input from "@/components/ui/Input";
 import { toast } from "sonner";
 import { readBranchJson, writeBranchJson } from "@/lib/branchStorage";
+import Button from "@/components/ui/Button";
 
 /**
  * SCR-053: 운동룸 관리
@@ -370,15 +371,10 @@ const RoomModal = ({
         </div>
 
         <div className="px-xl py-lg bg-surface-secondary flex gap-md">
-          <button
-            className="flex-1 h-11 rounded-lg border border-line text-content-secondary text-[13px] font-semibold hover:bg-surface-tertiary transition-colors"
-            onClick={onClose}
-          >취소</button>
-          <button
-            className={cn(
-              "flex-1 h-11 rounded-lg text-[13px] font-bold shadow-sm transition-all",
-              isValid ? "bg-primary text-white hover:opacity-90" : "bg-surface-tertiary text-content-tertiary cursor-not-allowed"
-            )}
+          <Button variant="outline" fullWidth onClick={onClose}>취소</Button>
+          <Button
+            variant="primary"
+            fullWidth
             disabled={!isValid}
             onClick={() => {
               if (!isValid) return;
@@ -387,7 +383,7 @@ const RoomModal = ({
             }}
           >
             {room ? "수정 완료" : "등록하기"}
-          </button>
+          </Button>
         </div>
       </div>
     </div>
@@ -513,13 +509,14 @@ export default function RoomManagement() {
           title="운동룸 관리"
           description="센터 내 운동룸의 현황, 예약 슬롯, 좌석 배치를 관리합니다."
           actions={
-            <button
-              className="flex items-center gap-sm bg-primary text-white px-md py-sm rounded-lg text-[13px] font-bold shadow-sm hover:opacity-90 transition-all"
+            <Button
+              variant="primary"
+              size="sm"
+              icon={<Plus size={16} />}
               onClick={() => { setSelectedRoom(null); setRoomModal(true); }}
             >
-              <Plus size={16} />
               새 운동룸 등록
-            </button>
+            </Button>
           }
         />
 

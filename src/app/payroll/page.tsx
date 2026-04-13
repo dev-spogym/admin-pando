@@ -184,9 +184,7 @@ export default function Payroll() {
       key: "name",
       header: <SortHeader col="name" label="직원명" />,
       render: (val: string) => (
-        <button className="text-primary font-semibold hover:underline" onClick={() => moveToPage(989)}>
-          {val}
-        </button>
+        <Button variant="ghost" size="sm" onClick={() => moveToPage(989)}>{val}</Button>
       )
     },
     { key: "role", header: "역할", width: 100 },
@@ -232,19 +230,9 @@ export default function Payroll() {
       render: (_: number, row: PayrollRow) => (
         <div className="flex items-center gap-xs justify-center">
           {row.status !== "paid" && (
-            <button
-              className="flex items-center gap-xs px-sm py-xs text-Label text-primary border border-primary rounded-button hover:bg-primary-light transition-colors"
-              onClick={() => moveToPage(989)}
-            >
-              <Edit2 size={12} />수정
-            </button>
+            <Button variant="outline" size="sm" icon={<Edit2 size={12} />} onClick={() => moveToPage(989)}>수정</Button>
           )}
-          <button
-            className="flex items-center gap-xs px-sm py-xs text-Label text-content-secondary border border-line rounded-button hover:bg-surface-secondary transition-colors"
-            onClick={() => moveToPage(989)}
-          >
-            <FileText size={12} />명세서
-          </button>
+          <Button variant="outline" size="sm" icon={<FileText size={12} />} onClick={() => moveToPage(989)}>명세서</Button>
         </div>
       )
     }
@@ -418,12 +406,7 @@ export default function Payroll() {
               <p className="text-Body-2 text-content-secondary">직원별 급여 명세서를 조회하고 PDF로 다운로드할 수 있습니다.</p>
             </div>
           </div>
-          <button
-            className="px-lg py-sm bg-primary text-white rounded-button text-Label font-semibold hover:opacity-90 transition-all whitespace-nowrap"
-            onClick={() => moveToPage(989)}
-          >
-            명세서 바로가기
-          </button>
+          <Button variant="primary" size="sm" onClick={() => moveToPage(989)}>명세서 바로가기</Button>
         </div>
       </div>
     </AppLayout>

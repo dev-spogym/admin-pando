@@ -8,6 +8,8 @@ import AppLayout from "@/components/layout/AppLayout";
 import { cn } from '@/lib/utils';
 import { supabase } from '@/lib/supabase';
 import Input from '@/components/ui/Input';
+import { formatNumber } from '@/lib/format';
+import Select from '@/components/ui/Select';
 
 type SalesSourceRow = {
   id: number;
@@ -392,26 +394,30 @@ export default function StatisticsManagement() {
               <span>부터</span>
               <Input type="date" size="sm" value={dateTo} onChange={e => setDateTo(e.target.value)} className="h-5 px-1 text-[11px]" />
               <span>까지</span>
-              <select value={lessonType} onChange={e => setLessonType(e.target.value)} className="h-5 border border-[#b6b6b6] bg-white px-1 text-[11px] outline-none">
-                {lessonTypeOptions.map(option => (
-                  <option key={option}>{option}</option>
-                ))}
-              </select>
-              <select value={manager} onChange={e => setManager(e.target.value)} className="h-5 border border-[#b6b6b6] bg-white px-1 text-[11px] outline-none">
-                {managerOptions.map(option => (
-                  <option key={option}>{option}</option>
-                ))}
-              </select>
-              <select value={classType} onChange={e => setClassType(e.target.value)} className="h-5 border border-[#b6b6b6] bg-white px-1 text-[11px] outline-none">
-                {classTypeOptions.map(option => (
-                  <option key={option}>{option}</option>
-                ))}
-              </select>
-              <select value={memberStatus} onChange={e => setMemberStatus(e.target.value)} className="h-5 border border-[#b6b6b6] bg-white px-1 text-[11px] outline-none">
-                {memberStatusOptions.map(option => (
-                  <option key={option}>{option}</option>
-                ))}
-              </select>
+              <Select
+                options={lessonTypeOptions.map(o => ({ value: o, label: o }))}
+                value={lessonType}
+                onChange={setLessonType}
+                className="h-5 text-[11px]"
+              />
+              <Select
+                options={managerOptions.map(o => ({ value: o, label: o }))}
+                value={manager}
+                onChange={setManager}
+                className="h-5 text-[11px]"
+              />
+              <Select
+                options={classTypeOptions.map(o => ({ value: o, label: o }))}
+                value={classType}
+                onChange={setClassType}
+                className="h-5 text-[11px]"
+              />
+              <Select
+                options={memberStatusOptions.map(o => ({ value: o, label: o }))}
+                value={memberStatus}
+                onChange={setMemberStatus}
+                className="h-5 text-[11px]"
+              />
             </div>
           </div>
 
@@ -484,16 +490,16 @@ export default function StatisticsManagement() {
                   <td className="border border-[#b59b39]" />
                   <td className="border border-[#b59b39]" />
                   <td className="border border-[#b59b39]" />
-                  <td className="border border-[#b59b39] px-2 py-[3px] text-right">{totals.saleAmount.toLocaleString()}</td>
-                  <td className="border border-[#b59b39] px-2 py-[3px] text-right">{totals.discountAmount.toLocaleString()}</td>
-                  <td className="border border-[#b59b39] px-2 py-[3px] text-right">{totals.receivedAmount.toLocaleString()}</td>
-                  <td className="border border-[#b59b39] px-2 py-[3px] text-right">{totals.cardAmount.toLocaleString()}</td>
-                  <td className="border border-[#b59b39] px-2 py-[3px] text-right">{totals.cashAmount.toLocaleString()}</td>
-                  <td className="border border-[#b59b39] px-2 py-[3px] text-right">{totals.voucherAmount.toLocaleString()}</td>
-                  <td className="border border-[#b59b39] px-2 py-[3px] text-right">{totals.pointAmount.toLocaleString()}</td>
-                  <td className="border border-[#b59b39] px-2 py-[3px] text-right">{totals.unpaidCreated.toLocaleString()}</td>
-                  <td className="border border-[#b59b39] px-2 py-[3px] text-right">{totals.unpaidCollected.toLocaleString()}</td>
-                  <td className="border border-[#b59b39] px-2 py-[3px] text-right">{totals.finalReceived.toLocaleString()}</td>
+                  <td className="border border-[#b59b39] px-2 py-[3px] text-right">{formatNumber(totals.saleAmount)}</td>
+                  <td className="border border-[#b59b39] px-2 py-[3px] text-right">{formatNumber(totals.discountAmount)}</td>
+                  <td className="border border-[#b59b39] px-2 py-[3px] text-right">{formatNumber(totals.receivedAmount)}</td>
+                  <td className="border border-[#b59b39] px-2 py-[3px] text-right">{formatNumber(totals.cardAmount)}</td>
+                  <td className="border border-[#b59b39] px-2 py-[3px] text-right">{formatNumber(totals.cashAmount)}</td>
+                  <td className="border border-[#b59b39] px-2 py-[3px] text-right">{formatNumber(totals.voucherAmount)}</td>
+                  <td className="border border-[#b59b39] px-2 py-[3px] text-right">{formatNumber(totals.pointAmount)}</td>
+                  <td className="border border-[#b59b39] px-2 py-[3px] text-right">{formatNumber(totals.unpaidCreated)}</td>
+                  <td className="border border-[#b59b39] px-2 py-[3px] text-right">{formatNumber(totals.unpaidCollected)}</td>
+                  <td className="border border-[#b59b39] px-2 py-[3px] text-right">{formatNumber(totals.finalReceived)}</td>
                   <td className="border border-[#b59b39]" />
                 </tr>
               </tfoot>

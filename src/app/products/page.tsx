@@ -31,6 +31,7 @@ import PageHeader from "@/components/common/PageHeader";
 import StatCard from "@/components/common/StatCard";
 import StatCardGrid from "@/components/common/StatCardGrid";
 import { formatKRW } from "@/lib/format";
+import Button from "@/components/ui/Button";
 import StatusBadge from "@/components/common/StatusBadge";
 import TabNav from "@/components/common/TabNav";
 import { cn } from '@/lib/utils';
@@ -291,17 +292,20 @@ export default function ProductList() {
             </div>
             {/* 상품 등록 버튼 (상품 목록 탭에서만) */}
             {mainTab === 'products' && canEditProduct && (
-              <button
+              <Button
+                variant="primary"
+                size="sm"
+                icon={<Plus size={15} />}
                 onClick={handleNewProduct}
-                className="flex items-center gap-xs px-md py-sm bg-primary text-surface rounded-button text-[13px] font-bold shadow-sm hover:bg-primary-dark transition-colors"
               >
-                <Plus size={15} />
                 상품 등록
-              </button>
+              </Button>
             )}
             {/* 엑셀 다운로드 */}
             {mainTab === 'products' && (
-              <button
+              <Button
+                variant="outline"
+                size="sm"
                 onClick={() => {
                   const cols = [
                     { key: 'category', header: '카테고리' },
@@ -314,10 +318,9 @@ export default function ProductList() {
                   exportToExcel(filteredData as unknown as Record<string, unknown>[], cols, { filename: '상품목록' });
                   toast.success(`${filteredData.length}건 엑셀 다운로드 완료`);
                 }}
-                className="flex items-center gap-xs px-md py-sm border border-line bg-surface text-content-secondary rounded-button text-[13px] hover:bg-surface-secondary transition-colors"
               >
                 Excel
-              </button>
+              </Button>
             )}
           </div>
         }
@@ -361,20 +364,24 @@ export default function ProductList() {
                 </button>
               </div>
               <div className="flex gap-sm">
-                <button
+                <Button
+                  variant="primary"
+                  size="sm"
+                  icon={<Save size={14} />}
                   onClick={handleGroupSave}
                   disabled={groupSaving}
-                  className="flex items-center gap-xs px-md py-[6px] bg-primary text-surface rounded-lg text-[13px] font-semibold hover:bg-primary-dark transition-colors disabled:opacity-50"
                 >
-                  <Save size={14} />{editingGroupId !== null ? '수정 저장' : '등록'}
-                </button>
+                  {editingGroupId !== null ? '수정 저장' : '등록'}
+                </Button>
                 {editingGroupId !== null && (
-                  <button
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    icon={<X size={14} />}
                     onClick={() => { setEditingGroupId(null); setGroupForm({ name: '', sortOrder: 0, isActive: true }); }}
-                    className="flex items-center gap-xs px-md py-[6px] border border-line text-content-secondary rounded-lg text-[13px] hover:bg-surface-secondary transition-colors"
                   >
-                    <X size={14} />취소
-                  </button>
+                    취소
+                  </Button>
                 )}
               </div>
             </div>

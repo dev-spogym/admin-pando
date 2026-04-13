@@ -5,6 +5,7 @@ import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import { toast } from 'sonner';
 import { RefreshCw, BarChart2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { formatKRW, formatNumber } from '@/lib/format';
 
 import PageHeader from "@/components/common/PageHeader";
 import TabNav from "@/components/common/TabNav";
@@ -127,7 +128,7 @@ function HBarChart({ data }: { data: AggRow[] }) {
             />
           </div>
           <div className="w-[120px] text-[12px] font-semibold tabular-nums text-right shrink-0">
-            ₩{row.total.toLocaleString()}
+            {formatKRW(row.total)}
           </div>
           <div className="w-[40px] text-[11px] text-content-tertiary tabular-nums text-right shrink-0">
             {row.pct.toFixed(1)}%
@@ -390,11 +391,11 @@ export default function SalesStats() {
     { key: 'label', header: labelHeader, width: 220 },
     {
       key: 'count', header: '판매건수', width: 100, align: 'center' as const,
-      render: (v: number) => <span className="tabular-nums">{v.toLocaleString()}건</span>,
+      render: (v: number) => <span className="tabular-nums">{formatNumber(v)}건</span>,
     },
     {
       key: 'total', header: '매출액', width: 160, align: 'right' as const,
-      render: (v: number) => <span className="font-semibold tabular-nums">₩{v.toLocaleString()}</span>,
+      render: (v: number) => <span className="font-semibold tabular-nums">{formatKRW(v)}</span>,
     },
     {
       key: 'pct', header: '비율', width: 100, align: 'right' as const,
@@ -451,15 +452,15 @@ export default function SalesStats() {
   // 직군별/담당자별 테이블 컬럼
   const roleColumns = [
     { key: 'label', header: '직군', width: 160 },
-    { key: 'count', header: '건수', width: 100, align: 'center' as const, render: (v: number) => <span className="tabular-nums">{v.toLocaleString()}건</span> },
-    { key: 'total', header: '매출액', width: 160, align: 'right' as const, render: (v: number) => <span className="font-semibold tabular-nums">₩{v.toLocaleString()}</span> },
+    { key: 'count', header: '건수', width: 100, align: 'center' as const, render: (v: number) => <span className="tabular-nums">{formatNumber(v)}건</span> },
+    { key: 'total', header: '매출액', width: 160, align: 'right' as const, render: (v: number) => <span className="font-semibold tabular-nums">{formatKRW(v)}</span> },
     { key: 'pct', header: '비율', width: 100, align: 'right' as const, render: (v: number) => <span className="tabular-nums text-content-secondary">{v.toFixed(1)}%</span> },
   ];
   const staffColumns = [
     { key: 'label', header: '담당자', width: 140 },
-    { key: 'count', header: '건수', width: 100, align: 'center' as const, render: (v: number) => <span className="tabular-nums">{v.toLocaleString()}건</span> },
-    { key: 'total', header: '매출액', width: 160, align: 'right' as const, render: (v: number) => <span className="font-semibold tabular-nums">₩{v.toLocaleString()}</span> },
-    { key: 'avg', header: '평균단가', width: 140, align: 'right' as const, render: (v: number) => <span className="tabular-nums text-content-secondary">₩{v.toLocaleString()}</span> },
+    { key: 'count', header: '건수', width: 100, align: 'center' as const, render: (v: number) => <span className="tabular-nums">{formatNumber(v)}건</span> },
+    { key: 'total', header: '매출액', width: 160, align: 'right' as const, render: (v: number) => <span className="font-semibold tabular-nums">{formatKRW(v)}</span> },
+    { key: 'avg', header: '평균단가', width: 140, align: 'right' as const, render: (v: number) => <span className="tabular-nums text-content-secondary">{formatKRW(v)}</span> },
     { key: 'pct', header: '비율', width: 100, align: 'right' as const, render: (v: number) => <span className="tabular-nums text-content-secondary">{v.toFixed(1)}%</span> },
   ];
 
@@ -587,7 +588,7 @@ export default function SalesStats() {
             </button>
             <BarChart2 size={15} className="text-content-tertiary" />
             <span className="text-[13px] text-content-secondary">
-              총 매출: <span className="font-bold text-content tabular-nums">₩{grandTotal.toLocaleString()}</span>
+              총 매출: <span className="font-bold text-content tabular-nums">{formatKRW(grandTotal)}</span>
             </span>
           </div>
         </div>
@@ -597,16 +598,16 @@ export default function SalesStats() {
           <div className="px-lg py-sm border-b border-line-light bg-surface-secondary flex items-center gap-xl flex-wrap">
             <div className="flex items-center gap-sm">
               <span className="text-[12px] text-content-secondary">이번 기간:</span>
-              <span className="text-[13px] font-bold tabular-nums text-content">₩{grandTotal.toLocaleString()}</span>
+              <span className="text-[13px] font-bold tabular-nums text-content">{formatKRW(grandTotal)}</span>
             </div>
             <div className="flex items-center gap-sm">
               <span className="text-[12px] text-content-secondary">전월 동기:</span>
-              <span className="text-[13px] font-bold tabular-nums text-content-secondary">₩{prevGrandTotal.toLocaleString()}</span>
+              <span className="text-[13px] font-bold tabular-nums text-content-secondary">{formatKRW(prevGrandTotal)}</span>
             </div>
             <div className="flex items-center gap-sm">
               <span className="text-[12px] text-content-secondary">차이:</span>
               <span className={cn('text-[13px] font-bold tabular-nums', diffTotal >= 0 ? 'text-state-success' : 'text-state-error')}>
-                {diffTotal >= 0 ? '+' : ''}₩{diffTotal.toLocaleString()}
+                {diffTotal >= 0 ? '+' : ''}{formatKRW(diffTotal)}
               </span>
               <span className={cn('text-[12px] font-semibold tabular-nums', diffTotal >= 0 ? 'text-state-success' : 'text-state-error')}>
                 ({diffTotal >= 0 ? '+' : ''}{diffPct.toFixed(1)}%)

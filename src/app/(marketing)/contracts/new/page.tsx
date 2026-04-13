@@ -34,6 +34,7 @@ import { updateMembershipPeriod, accruePoints, checkDuplicatePayment } from '@/l
 import { uploadFile } from '@/lib/uploadFile';
 import Select from '@/components/ui/Select';
 import Textarea from '@/components/ui/Textarea';
+import { formatKRW } from '@/lib/format';
 
 const getBranchId = (): number => {
   if (typeof window === 'undefined') return 1;
@@ -506,7 +507,7 @@ export default function ContractWizard() {
                 </div>
                 <div className="flex justify-between items-end">
                   <span className="text-Body-2 text-content-secondary">{p.duration}일</span>
-                  <span className="text-Heading-2 text-primary font-bold">{p.price.toLocaleString()}원</span>
+                  <span className="text-Heading-2 text-primary font-bold">{formatKRW(p.price)}</span>
                 </div>
               </button>
             );
@@ -527,7 +528,7 @@ export default function ContractWizard() {
               <div key={idx} className="bg-surface p-md rounded-xl flex justify-between items-center shadow-sm">
                 <div>
                   <p className="text-Body-2 font-semibold text-content">{p.name}</p>
-                  <p className="text-Label text-primary">{p.price.toLocaleString()}원</p>
+                  <p className="text-Label text-primary">{formatKRW(p.price)}</p>
                 </div>
                 <button
                   className="text-content-secondary hover:text-state-error transition-colors"
@@ -542,7 +543,7 @@ export default function ContractWizard() {
         <div className="border-t border-primary/20 pt-lg">
           <div className="flex justify-between items-center">
             <span className="text-Body-1 text-content">총 합계</span>
-            <span className="text-Heading-2 text-primary font-bold">{totalPrice.toLocaleString()}원</span>
+            <span className="text-Heading-2 text-primary font-bold">{formatKRW(totalPrice)}</span>
           </div>
         </div>
       </div>
@@ -659,15 +660,15 @@ export default function ContractWizard() {
           <div className="md:col-span-2 bg-primary-light rounded-xl p-lg space-y-sm border border-primary/20">
             <div className="flex justify-between text-Body-2">
               <span className="text-content-secondary">원가</span>
-              <span className="font-medium">{totalPrice.toLocaleString()}원</span>
+              <span className="font-medium">{formatKRW(totalPrice)}</span>
             </div>
             <div className="flex justify-between text-Body-2 text-state-error">
               <span>할인 ({discountRateNum}%)</span>
-              <span>- {discountAmount.toLocaleString()}원</span>
+              <span>- {formatKRW(discountAmount)}</span>
             </div>
             <div className="flex justify-between text-Body-1 font-bold border-t border-primary/20 pt-sm">
               <span className="text-content">최종가</span>
-              <span className="text-primary">{finalPrice.toLocaleString()}원</span>
+              <span className="text-primary">{formatKRW(finalPrice)}</span>
             </div>
           </div>
         )}
@@ -783,7 +784,7 @@ export default function ContractWizard() {
               {/* 합계 검증 */}
               <div className="pt-sm border-t border-line flex justify-between items-center">
                 <span className="text-Body-2 text-content-secondary">입력 합계</span>
-                <span className="text-Body-1 font-bold">{paymentTotal.toLocaleString()}원</span>
+                <span className="text-Body-1 font-bold">{formatKRW(paymentTotal)}</span>
               </div>
               {paymentMatchesLabel && (
                 <p className={cn("text-Body-2 font-medium text-right", paymentMatchesOk ? "text-green-600" : "text-state-error")}>
@@ -798,15 +799,15 @@ export default function ContractWizard() {
           <div className="space-y-md">
             <div className="flex justify-between py-sm border-b border-line">
               <span className="text-Body-2 text-content-secondary">상품 합계</span>
-              <span className="text-Body-1 font-medium">{totalPrice.toLocaleString()}원</span>
+              <span className="text-Body-1 font-medium">{formatKRW(totalPrice)}</span>
             </div>
             <div className="flex justify-between py-sm border-b border-line text-state-error">
               <span className="text-Body-2">할인 ({discountRateNum > 0 ? `${discountRateNum}%` : '없음'})</span>
-              <span className="text-Body-1 font-medium">- {discountAmount.toLocaleString()}원</span>
+              <span className="text-Body-1 font-medium">- {formatKRW(discountAmount)}</span>
             </div>
             <div className="flex justify-between py-md">
               <span className="text-Heading-2 text-content">최종 결제 금액</span>
-              <span className="text-Heading-1 text-primary font-bold">{finalPrice.toLocaleString()}원</span>
+              <span className="text-Heading-1 text-primary font-bold">{formatKRW(finalPrice)}</span>
             </div>
           </div>
         </FormSection>
@@ -885,7 +886,7 @@ export default function ContractWizard() {
               {selectedProducts.map((p, i) => (
                 <div key={i} className={cn("flex justify-between items-center px-md py-sm text-Body-2", i > 0 && "border-t border-line")}>
                   <span>{p.name}</span>
-                  <span className="font-semibold text-primary">{p.price.toLocaleString()}원</span>
+                  <span className="font-semibold text-primary">{formatKRW(p.price)}</span>
                 </div>
               ))}
             </div>
@@ -897,17 +898,17 @@ export default function ContractWizard() {
             <div className="bg-primary-light rounded-xl p-md space-y-sm border border-primary/10">
               <div className="flex justify-between text-Body-2">
                 <span className="text-content-secondary">원가 합계</span>
-                <span>{totalPrice.toLocaleString()}원</span>
+                <span>{formatKRW(totalPrice)}</span>
               </div>
               {discountRateNum > 0 && (
                 <div className="flex justify-between text-Body-2 text-state-error">
                   <span>할인 ({DISCOUNT_TYPES.find(d => d.value === discountType)?.label ?? ''} {discountRateNum}%)</span>
-                  <span>- {discountAmount.toLocaleString()}원</span>
+                  <span>- {formatKRW(discountAmount)}</span>
                 </div>
               )}
               <div className="flex justify-between text-Body-1 font-bold border-t border-primary/20 pt-sm">
                 <span>최종 결제 금액</span>
-                <span className="text-primary text-Heading-2">{finalPrice.toLocaleString()}원</span>
+                <span className="text-primary text-Heading-2">{formatKRW(finalPrice)}</span>
               </div>
             </div>
           </div>

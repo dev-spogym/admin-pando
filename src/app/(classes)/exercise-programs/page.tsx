@@ -13,6 +13,7 @@ import ConfirmDialog from "@/components/ui/ConfirmDialog";
 import { cn } from '@/lib/utils';
 import Select from '@/components/ui/Select';
 import Textarea from '@/components/ui/Textarea';
+import Button from '@/components/ui/Button';
 import {
   getExercisePrograms,
   createExerciseProgram,
@@ -172,12 +173,9 @@ export default function ExerciseProgramManagement() {
         title="운동 프로그램 관리"
         description="센터에서 운영하는 운동 프로그램을 등록하고 관리합니다."
         actions={
-          <button
-            onClick={openCreate}
-            className="flex items-center gap-xs px-md py-sm bg-primary text-surface rounded-button text-[13px] font-bold shadow-sm hover:bg-primary-dark transition-colors"
-          >
-            <Plus size={16} /> 프로그램 추가
-          </button>
+          <Button variant="primary" size="sm" icon={<Plus size={16} />} onClick={openCreate}>
+            프로그램 추가
+          </Button>
         }
       />
 
@@ -321,10 +319,10 @@ export default function ExerciseProgramManagement() {
             </div>
 
             <div className="flex gap-sm px-lg py-md border-t border-line sticky bottom-0 bg-surface">
-              <button onClick={() => setModalOpen(false)} className="flex-1 h-[38px] rounded-lg border border-line text-[13px] text-content-secondary hover:bg-surface-secondary transition-colors">취소</button>
-              <button onClick={handleSave} disabled={isSaving} className="flex-1 h-[38px] rounded-lg bg-primary text-[13px] font-semibold text-surface hover:bg-primary-dark disabled:opacity-50 transition-colors">
+              <Button variant="outline" fullWidth onClick={() => setModalOpen(false)}>취소</Button>
+              <Button variant="primary" fullWidth loading={isSaving} disabled={isSaving} onClick={handleSave}>
                 {isSaving ? '저장 중...' : (editTarget ? '수정 저장' : '등록')}
-              </button>
+              </Button>
             </div>
           </div>
         </div>

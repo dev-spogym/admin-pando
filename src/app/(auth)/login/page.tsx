@@ -11,6 +11,7 @@ import type { Branch } from '@/api/endpoints';
 import { useAuthStore } from '@/stores/authStore';
 import { toast } from 'sonner';
 import Select from '@/components/ui/Select';
+import Button from '@/components/ui/Button';
 
 const REMEMBER_KEY = 'spoGym_rememberedId';
 const FAIL_COUNT_KEY = 'login_fail_count';
@@ -278,35 +279,23 @@ export default function Login() {
           )}
 
           {/* 로그인 버튼 */}
-          <button
-            className={cn(
-              'w-full h-[44px] rounded-lg text-[14px] font-semibold text-white flex items-center justify-center gap-sm transition-all',
-              isFormValid && !isLoading && !isLocked
-                ? 'bg-primary hover:bg-primary-dark active:scale-[0.98]'
-                : 'bg-content-tertiary cursor-not-allowed',
-            )}
+          <Button
+            variant="primary"
+            fullWidth
             type="submit"
+            loading={isLoading}
             disabled={!isFormValid || isLoading || isLocked}
           >
-            {isLoading ? (
-              <>
-                <Loader2 className="animate-spin" size={18} />
-                <span>로그인 중...</span>
-              </>
-            ) : isLocked ? (
-              '계정 잠금'
-            ) : (
-              '로그인'
-            )}
-          </button>
+            {isLocked ? '계정 잠금' : isLoading ? '로그인 중...' : '로그인'}
+          </Button>
         </form>
 
         <div className="mt-lg text-center">
           <p className="text-[12px] text-content-tertiary">
             도움이 필요하신가요?{' '}
-            <button className="text-primary font-medium hover:underline" type="button" onClick={() => toast.info('고객센터: 02-1234-5678 (평일 09:00~18:00)')}>
+            <Button variant="ghost" size="sm" type="button" onClick={() => toast.info('고객센터: 02-1234-5678 (평일 09:00~18:00)')}>
               고객센터 문의
-            </button>
+            </Button>
           </p>
         </div>
       </div>

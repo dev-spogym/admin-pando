@@ -31,6 +31,7 @@ import FormSection from "@/components/common/FormSection";
 import ConfirmDialog from "@/components/ui/ConfirmDialog";
 import { moveToPage } from "@/internal";
 import Select from '@/components/ui/Select';
+import Button from '@/components/ui/Button';
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { supabase } from "@/lib/supabase";
@@ -241,12 +242,14 @@ export default function IotSettings() {
           <h3 className="text-Heading-2 text-content">IoT 기기 목록</h3>
           <p className="text-Body-2 text-content-secondary mt-xs">센터 내 연동된 모든 IoT 기기 상태를 확인하고 관리합니다.</p>
         </div>
-        <button
+        <Button
+          variant="primary"
+          size="sm"
+          icon={<Plus size={16} />}
           onClick={() => setIsAddDeviceOpen(true)}
-          className="flex items-center gap-xs px-md py-sm bg-primary text-white rounded-button text-Label font-semibold hover:opacity-90 transition-opacity"
         >
-          <Plus size={16} /> 기기 추가
-        </button>
+          기기 추가
+        </Button>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-md">
@@ -617,8 +620,8 @@ export default function IotSettings() {
       </FormSection>
 
       <div className="flex justify-end gap-sm">
-        <button
-          className="px-xl py-md bg-surface border border-line text-content rounded-button text-Body-2 font-semibold hover:bg-surface-secondary transition-colors"
+        <Button
+          variant="outline"
           onClick={() => {
             const defaultRule = { gate: "메인 출입구", days: ["월","화","수","목","금","토","일"], startTime: "06:00", endTime: "23:00" };
             setEditRule(defaultRule);
@@ -627,9 +630,9 @@ export default function IotSettings() {
           }}
         >
           초기화
-        </button>
-        <button
-          className="px-xl py-md bg-accent text-white rounded-button text-Body-2 font-semibold hover:opacity-90 transition-opacity shadow-lg shadow-accent/20"
+        </Button>
+        <Button
+          variant="primary"
           onClick={async () => {
             // 현재 편집 중인 규칙을 반영하여 저장
             const updatedRules = accessRules.map((r, i) => i === 0 ? editRule : r);
@@ -640,7 +643,7 @@ export default function IotSettings() {
           }}
         >
           규칙 저장하기
-        </button>
+        </Button>
       </div>
     </div>
   );
@@ -667,18 +670,22 @@ export default function IotSettings() {
         description="센터 내 출입 게이트와 IoT 기기 연동을 관리하고 출입 보안 로그를 확인합니다."
         actions={
           <div className="flex items-center gap-sm">
-            <button
+            <Button
+              variant="outline"
+              size="sm"
+              icon={<Settings2 size={16} />}
               onClick={() => moveToPage(994)}
-              className="flex items-center gap-xs px-md py-sm bg-surface border border-line text-content-secondary rounded-button text-Label font-semibold hover:bg-surface-secondary transition-all"
             >
-              <Settings2 size={16} /> 키오스크 설정
-            </button>
-            <button
+              키오스크 설정
+            </Button>
+            <Button
+              variant="primary"
+              size="sm"
+              icon={<Cpu size={16} />}
               onClick={() => setIsAddDeviceOpen(true)}
-              className="flex items-center gap-xs px-md py-sm bg-accent-light text-accent rounded-button text-Label font-semibold hover:bg-accent hover:text-white transition-all"
             >
-              <Cpu size={16} /> IoT 기기 추가
-            </button>
+              IoT 기기 추가
+            </Button>
           </div>
         }
       />
@@ -835,19 +842,19 @@ export default function IotSettings() {
               </div>
             </div>
             <div className="px-xl py-lg border-t border-line flex justify-end gap-md bg-surface-secondary/5">
-              <button
-                className="px-xl py-md rounded-button border border-line text-content-secondary hover:bg-surface transition-colors"
+              <Button
+                variant="outline"
                 onClick={() => setIsAddDeviceOpen(false)}
               >
                 취소
-              </button>
-              <button
-                className="px-xl py-md rounded-button bg-primary text-white font-semibold hover:opacity-90 transition-opacity disabled:opacity-50"
+              </Button>
+              <Button
+                variant="primary"
                 disabled={!newDevice.name || !newDevice.ip}
                 onClick={handleAddDevice}
               >
                 기기 등록
-              </button>
+              </Button>
             </div>
           </div>
         </div>

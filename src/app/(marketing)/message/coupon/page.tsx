@@ -29,6 +29,7 @@ import {
   AlertTriangle
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { formatKRW, formatNumber } from '@/lib/format';
 import { moveToPage } from "@/internal";
 import { exportToExcel } from "@/lib/exportExcel";
 import AppLayout from "@/components/layout/AppLayout";
@@ -289,7 +290,7 @@ export default function CouponManagement() {
         if (row.type === "free") return "무료 체험";
         // type 문자열에 "percent" 또는 "%"가 포함되면 퍼센트로 표시
         const isPercent = row.type?.toLowerCase().includes("percent") || row.type?.toLowerCase().includes("%");
-        return isPercent ? `${val}%` : `${Number(val).toLocaleString()}원`;
+        return isPercent ? `${val}%` : formatKRW(Number(val));
       }
     },
     {
@@ -304,7 +305,7 @@ export default function CouponManagement() {
         return (
           <div className="space-y-[4px]">
             <div className="flex justify-between text-Label">
-              <span className="text-content-secondary">사용 {used.toLocaleString()} / {issued.toLocaleString()}건</span>
+              <span className="text-content-secondary">사용 {formatNumber(used)} / {formatNumber(issued)}건</span>
               {isExhausted && (
                 <span className="text-amber-600 font-bold text-[10px] bg-amber-600/10 px-xs rounded-full">소진</span>
               )}

@@ -26,6 +26,7 @@ import { getBranches, type Branch } from '@/api/endpoints/auth';
 import { getAuditLogs, type AuditLogEntry } from '@/api/endpoints/auditLog';
 import { useAuthStore } from '@/stores/authStore';
 import { supabase } from '@/lib/supabase';
+import { formatNumber } from '@/lib/format';
 
 // ─── 유틸 ──────────────────────────────────────────────────────────────────
 
@@ -454,7 +455,7 @@ export default function SuperDashboard() {
   const kpiCards = [
     {
       label: '전체 회원',
-      value: kpiData.totalMembers.toLocaleString('ko-KR') + '명',
+      value: formatNumber(kpiData.totalMembers) + '명',
       icon: <Users size={18} />,
       change: memberChange,
       changeLabel: '전월 대비',
@@ -468,35 +469,35 @@ export default function SuperDashboard() {
     },
     {
       label: '전체 출석',
-      value: kpiData.todayAttendance.toLocaleString('ko-KR') + '명',
+      value: formatNumber(kpiData.todayAttendance) + '명',
       icon: <UserCheck size={18} />,
       change: attendanceChange,
       changeLabel: '어제 대비',
     },
     {
       label: '전체 직원',
-      value: kpiData.totalStaff.toLocaleString('ko-KR') + '명',
+      value: formatNumber(kpiData.totalStaff) + '명',
       icon: <LayoutDashboard size={18} />,
       change: 0,
       changeLabel: '전월 대비',
     },
     {
       label: '이번달 신규',
-      value: kpiData.newMembers.toLocaleString('ko-KR') + '명',
+      value: formatNumber(kpiData.newMembers) + '명',
       icon: <ArrowUpRight size={18} />,
       change: 0,
       changeLabel: '이번달',
     },
     {
       label: '만료 예정 (30일)',
-      value: kpiData.expiringMembers.toLocaleString('ko-KR') + '명',
+      value: formatNumber(kpiData.expiringMembers) + '명',
       icon: <Clock size={18} />,
       change: 0,
       changeLabel: '30일 이내',
     },
     {
       label: '만료 회원',
-      value: kpiData.expiredMembers.toLocaleString('ko-KR') + '명',
+      value: formatNumber(kpiData.expiredMembers) + '명',
       icon: <ShieldAlert size={18} />,
       change: 0,
       changeLabel: '현재',
@@ -692,7 +693,7 @@ export default function SuperDashboard() {
                       <p className="text-[10px] text-content-tertiary mb-[2px]">활성 회원</p>
                       {stats ? (
                         <p className="text-[15px] font-bold text-content">
-                          {stats.members.toLocaleString('ko-KR')}
+                          {formatNumber(stats.members)}
                           <span className="text-[10px] font-normal text-content-tertiary ml-[2px]">명</span>
                         </p>
                       ) : (
@@ -703,7 +704,7 @@ export default function SuperDashboard() {
                       <p className="text-[10px] text-content-tertiary mb-[2px]">직원</p>
                       {stats ? (
                         <p className="text-[15px] font-bold text-content">
-                          {stats.staff.toLocaleString('ko-KR')}
+                          {formatNumber(stats.staff)}
                           <span className="text-[10px] font-normal text-content-tertiary ml-[2px]">명</span>
                         </p>
                       ) : (

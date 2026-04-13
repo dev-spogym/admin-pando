@@ -15,6 +15,7 @@ import {
 import { cn } from "@/lib/utils";
 import { supabase } from "@/lib/supabase";
 import { toast } from "sonner";
+import { formatNumber } from '@/lib/format';
 import SimpleTable from '@/components/common/SimpleTable';
 
 /**
@@ -175,7 +176,7 @@ function RevenueGauge({ revenue, target }: { revenue: number; target: number | n
     <div className="mt-sm">
       <div className="flex items-center justify-between mb-[4px]">
         <span className="text-[11px] text-content-secondary">
-          ₩{revManwon.toLocaleString("ko-KR")}만 / ₩{targetManwon.toLocaleString("ko-KR")}만 ({pctValue}%)
+          ₩{formatNumber(revManwon)}만 / ₩{formatNumber(targetManwon)}만 ({pctValue}%)
         </span>
         <span className={cn(
           "text-[11px] font-semibold",
@@ -493,7 +494,7 @@ function FunnelAnalysis({ branchId }: { branchId: number }) {
                   </div>
                   {/* 인원 수 */}
                   <span className="w-[44px] shrink-0 text-[13px] font-semibold text-content text-right">
-                    {step.count.toLocaleString("ko-KR")}명
+                    {formatNumber(step.count)}명
                   </span>
                   {/* 전환율 */}
                   <span className="w-[52px] shrink-0 text-[12px] text-content-secondary">
