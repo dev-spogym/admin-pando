@@ -30,6 +30,7 @@ import SearchFilter from "@/components/common/SearchFilter";
 import FormSection from "@/components/common/FormSection";
 import ConfirmDialog from "@/components/ui/ConfirmDialog";
 import { moveToPage } from "@/internal";
+import Select from '@/components/ui/Select';
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { supabase } from "@/lib/supabase";
@@ -552,15 +553,15 @@ export default function IotSettings() {
       <FormSection title="게이트별 출입 규칙" description="특정 게이트에 대한 허용 요일, 시간대, 대상 회원을 설정합니다.">
         <div className="space-y-md">
           <label className="block text-Body-2 text-content font-medium">대상 게이트 선택</label>
-          <select
-            className="w-full bg-surface-secondary border-0 rounded-input px-md py-sm focus:ring-2 focus:ring-accent transition-all"
+          <Select
+            options={[
+              { value: '메인 출입구', label: '메인 출입구' },
+              { value: '운동룸 A', label: '운동룸 A' },
+              { value: '탈의실 입구', label: '탈의실 입구' },
+            ]}
             value={editRule.gate}
-            onChange={e => setEditRule({ ...editRule, gate: e.target.value })}
-          >
-            <option>메인 출입구</option>
-            <option>운동룸 A</option>
-            <option>탈의실 입구</option>
-          </select>
+            onChange={v => setEditRule({ ...editRule, gate: v })}
+          />
         </div>
 
         <div className="space-y-md">
@@ -800,17 +801,17 @@ export default function IotSettings() {
               </div>
               <div className="space-y-xs">
                 <label className="text-Label text-content-secondary">기기 유형 <span className="text-state-error">*</span></label>
-                <select
-                  className="w-full bg-surface-secondary rounded-input px-md py-sm border-0 focus:ring-2 focus:ring-accent outline-none"
+                <Select
+                  options={[
+                    { value: '출입문', label: '출입문' },
+                    { value: '체성분', label: '체성분' },
+                    { value: '키오스크', label: '키오스크' },
+                    { value: 'RFID', label: 'RFID' },
+                    { value: '카메라', label: '카메라' },
+                  ]}
                   value={newDevice.type}
-                  onChange={e => setNewDevice({ ...newDevice, type: e.target.value as DeviceType })}
-                >
-                  <option value="출입문">출입문</option>
-                  <option value="체성분">체성분</option>
-                  <option value="키오스크">키오스크</option>
-                  <option value="RFID">RFID</option>
-                  <option value="카메라">카메라</option>
-                </select>
+                  onChange={v => setNewDevice({ ...newDevice, type: v as DeviceType })}
+                />
               </div>
               <div className="grid grid-cols-2 gap-md">
                 <div className="space-y-xs">

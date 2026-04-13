@@ -28,6 +28,8 @@ import StatCard from "@/components/common/StatCard";
 import StatusBadge from "@/components/common/StatusBadge";
 import FormSection from "@/components/common/FormSection";
 import { moveToPage } from "@/internal";
+import Select from "@/components/ui/Select";
+import Textarea from "@/components/ui/Textarea";
 import { supabase } from "@/lib/supabase";
 import { toast } from "sonner";
 
@@ -425,15 +427,15 @@ export default function AutoAlarm() {
       <div className="grid grid-cols-1 md:grid-cols-3 gap-lg mb-xl">
         {/* 발신 번호 */}
         <div className="bg-surface p-lg rounded-xl border border-line shadow-card">
-          <label className="block text-Label text-content-secondary mb-sm">발신 번호</label>
-          <select
-            className="w-full rounded-input bg-surface-secondary border-none px-md py-[10px] text-Body-2 text-content outline-none focus:ring-2 focus:ring-primary"
+          <Select
+            label="발신 번호"
             value={senderNumber}
-            onChange={e => setSenderNumber(e.target.value)}
-          >
-            <option value="02-1234-5678">02-1234-5678 (대표번호)</option>
-            <option value="010-9876-5432">010-9876-5432 (김매니저)</option>
-          </select>
+            onChange={v => setSenderNumber(v)}
+            options={[
+              { value: "02-1234-5678", label: "02-1234-5678 (대표번호)" },
+              { value: "010-9876-5432", label: "010-9876-5432 (김매니저)" },
+            ]}
+          />
         </div>
 
         <StatCard
@@ -549,31 +551,31 @@ export default function AutoAlarm() {
                 {/* 발송 시점 / 대상 */}
                 <div className="grid grid-cols-2 gap-md">
                   <div>
-                    <label className="block text-Label text-content-secondary mb-sm">발송 시점</label>
-                    <select
-                      className="w-full rounded-input bg-surface-secondary border-none px-md py-[10px] text-Body-2 text-content outline-none"
+                    <Select
+                      label="발송 시점"
                       value={modalData.timing}
-                      onChange={e => setModalData(prev => ({ ...prev, timing: e.target.value }))}
-                    >
-                      <option>즉시</option>
-                      <option>1일 전</option>
-                      <option>3일 전</option>
-                      <option>7일 전</option>
-                      <option>14일 전</option>
-                    </select>
+                      onChange={v => setModalData(prev => ({ ...prev, timing: v }))}
+                      options={[
+                        { value: "즉시", label: "즉시" },
+                        { value: "1일 전", label: "1일 전" },
+                        { value: "3일 전", label: "3일 전" },
+                        { value: "7일 전", label: "7일 전" },
+                        { value: "14일 전", label: "14일 전" },
+                      ]}
+                    />
                   </div>
                   <div>
-                    <label className="block text-Label text-content-secondary mb-sm">발송 대상</label>
-                    <select
-                      className="w-full rounded-input bg-surface-secondary border-none px-md py-[10px] text-Body-2 text-content outline-none"
+                    <Select
+                      label="발송 대상"
                       value={modalData.target}
-                      onChange={e => setModalData(prev => ({ ...prev, target: e.target.value }))}
-                    >
-                      <option>전체 회원</option>
-                      <option>신규 회원</option>
-                      <option>장기 회원</option>
-                      <option>VIP 회원</option>
-                    </select>
+                      onChange={v => setModalData(prev => ({ ...prev, target: v }))}
+                      options={[
+                        { value: "전체 회원", label: "전체 회원" },
+                        { value: "신규 회원", label: "신규 회원" },
+                        { value: "장기 회원", label: "장기 회원" },
+                        { value: "VIP 회원", label: "VIP 회원" },
+                      ]}
+                    />
                   </div>
                 </div>
 
@@ -593,11 +595,12 @@ export default function AutoAlarm() {
                       ))}
                     </div>
                   </div>
-                  <textarea
-                    className="w-full h-[140px] rounded-input bg-surface-secondary border-none p-md text-Body-2 text-content outline-none resize-none focus:ring-2 focus:ring-primary"
+                  <Textarea
                     value={modalData.content}
                     onChange={e => setModalData(prev => ({ ...prev, content: e.target.value }))}
                     placeholder="내용을 입력하세요"
+                    rows={5}
+                    className="h-[140px]"
                   />
                   <p className="mt-xs text-right text-Label text-content-secondary">
                     {modalData.content.length} / 1,000자

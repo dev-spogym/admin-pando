@@ -22,6 +22,8 @@ import { moveToPage } from '@/internal';
 
 import AppLayout from "@/components/layout/AppLayout";
 import PageHeader from "@/components/common/PageHeader";
+import Select from '@/components/ui/Select';
+import Textarea from '@/components/ui/Textarea';
 
 import { getMember, type Member } from '@/api/endpoints/members';
 import {
@@ -418,23 +420,13 @@ function MemberTransfer() {
                 <label className="block text-xs font-medium text-content-secondary mb-1.5">
                   이관할 지점 <span className="text-red-500">*</span>
                 </label>
-                <select
-                  value={toBranchId}
-                  onChange={(e) => setToBranchId(e.target.value === '' ? '' : Number(e.target.value))}
-                  className={cn(
-                    'w-full h-10 rounded-lg border border-border bg-surface-secondary px-3 text-sm text-content',
-                    'focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary',
-                    'disabled:opacity-50 disabled:cursor-not-allowed'
-                  )}
+                <Select
+                  options={[...branches.map((b) => ({ value: String(b.id), label: b.name }))]}
+                  value={toBranchId === '' ? '' : String(toBranchId)}
+                  onChange={(v) => setToBranchId(v === '' ? '' : Number(v))}
+                  placeholder="지점을 선택하세요"
                   disabled={!checkResult?.canTransfer}
-                >
-                  <option value="">지점을 선택하세요</option>
-                  {branches.map((b) => (
-                    <option key={b.id} value={b.id}>
-                      {b.name}
-                    </option>
-                  ))}
-                </select>
+                />
                 {branches.length === 0 && (
                   <p className="text-xs text-content-tertiary mt-1">이관 가능한 다른 지점이 없습니다.</p>
                 )}
@@ -480,18 +472,12 @@ function MemberTransfer() {
                 <label className="block text-xs font-medium text-content-secondary mb-1.5">
                   이관 사유 <span className="text-content-tertiary">(선택)</span>
                 </label>
-                <textarea
+                <Textarea
                   value={reason}
                   onChange={(e) => setReason(e.target.value)}
                   placeholder="이관 사유를 입력하세요..."
                   rows={3}
                   disabled={!checkResult?.canTransfer}
-                  className={cn(
-                    'w-full rounded-lg border border-border bg-surface-secondary px-3 py-2.5 text-sm text-content',
-                    'placeholder:text-content-tertiary resize-none',
-                    'focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary',
-                    'disabled:opacity-50 disabled:cursor-not-allowed'
-                  )}
                 />
               </div>
             </div>

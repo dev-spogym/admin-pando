@@ -14,6 +14,7 @@ import StatCard from "@/components/common/StatCard";
 import DataTable from "@/components/common/DataTable";
 import StatusBadge from "@/components/common/StatusBadge";
 import Modal from "@/components/ui/Modal";
+import Select from '@/components/ui/Select';
 import ConfirmDialog from "@/components/ui/ConfirmDialog";
 import SignaturePad from "@/components/common/SignaturePad";
 import { supabase } from '@/lib/supabase';
@@ -749,29 +750,24 @@ export default function LessonManagement() {
 
           <div>
             <label className="block text-[12px] font-medium text-content-secondary mb-xs">유형</label>
-            <select
-              className="w-full px-3 py-2 border border-line rounded-lg text-[13px] text-content bg-surface focus:outline-none focus:border-primary"
+            <Select
               value={form.type}
-              onChange={(e) => setForm((f) => ({ ...f, type: e.target.value }))}
-            >
-              <option value="GROUP">그룹</option>
-              <option value="PERSONAL">1:1</option>
-              <option value="SEMI">세미</option>
-            </select>
+              onChange={(v) => setForm((f) => ({ ...f, type: v }))}
+              options={[
+                { value: 'GROUP', label: '그룹' },
+                { value: 'PERSONAL', label: '1:1' },
+                { value: 'SEMI', label: '세미' },
+              ]}
+            />
           </div>
 
           <div>
             <label className="block text-[12px] font-medium text-content-secondary mb-xs">강사</label>
-            <select
-              className="w-full px-3 py-2 border border-line rounded-lg text-[13px] text-content bg-surface focus:outline-none focus:border-primary"
+            <Select
               value={form.instructorId}
-              onChange={(e) => setForm((f) => ({ ...f, instructorId: e.target.value }))}
-            >
-              <option value="">강사 선택</option>
-              {staffList.map((s) => (
-                <option key={s.id} value={String(s.id)}>{s.name}</option>
-              ))}
-            </select>
+              onChange={(v) => setForm((f) => ({ ...f, instructorId: v }))}
+              options={[{ value: '', label: '강사 선택' }, ...staffList.map((s) => ({ value: String(s.id), label: s.name }))]}
+            />
           </div>
 
           <div className="grid grid-cols-2 gap-md">
@@ -818,14 +814,14 @@ export default function LessonManagement() {
 
           <div>
             <label className="block text-[12px] font-medium text-content-secondary mb-xs">상태</label>
-            <select
-              className="w-full px-3 py-2 border border-line rounded-lg text-[13px] text-content bg-surface focus:outline-none focus:border-primary"
+            <Select
               value={form.status}
-              onChange={(e) => setForm((f) => ({ ...f, status: e.target.value }))}
-            >
-              <option value="ACTIVE">활성</option>
-              <option value="INACTIVE">비활성</option>
-            </select>
+              onChange={(v) => setForm((f) => ({ ...f, status: v }))}
+              options={[
+                { value: 'ACTIVE', label: '활성' },
+                { value: 'INACTIVE', label: '비활성' },
+              ]}
+            />
           </div>
         </div>
       </Modal>
@@ -892,16 +888,11 @@ export default function LessonManagement() {
             <>
               <div>
                 <label className="block text-[12px] font-medium text-content-secondary mb-xs">강사 변경</label>
-                <select
-                  className="w-full px-3 py-2 border border-line rounded-lg text-[13px] text-content bg-surface focus:outline-none focus:border-primary"
+                <Select
                   value={bulkForm.instructorId}
-                  onChange={(e) => setBulkForm((f) => ({ ...f, instructorId: e.target.value }))}
-                >
-                  <option value="">(변경 안 함)</option>
-                  {staffList.map((s) => (
-                    <option key={s.id} value={String(s.id)}>{s.name}</option>
-                  ))}
-                </select>
+                  onChange={(v) => setBulkForm((f) => ({ ...f, instructorId: v }))}
+                  options={[{ value: '', label: '(변경 안 함)' }, ...staffList.map((s) => ({ value: String(s.id), label: s.name }))]}
+                />
               </div>
 
               <div className="grid grid-cols-2 gap-md">

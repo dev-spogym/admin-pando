@@ -23,6 +23,7 @@ import DataTable from "@/components/common/DataTable";
 import { formatNumber, formatKRW } from '@/lib/format';
 import { supabase } from '@/lib/supabase';
 import { exportToExcel } from '@/lib/exportExcel';
+import Select from '@/components/ui/Select';
 
 // --- 타입 ---
 interface BranchStat {
@@ -347,17 +348,12 @@ export default function BranchReport() {
             {/* 월 선택 */}
             <div className="flex items-center gap-xs px-md py-sm bg-surface border border-line rounded-button shadow-card">
               <CalendarIcon size={15} className="text-content-secondary" />
-              <select
+              <Select
                 className="bg-transparent text-sm text-content focus:outline-none cursor-pointer"
                 value={selectedMonth}
-                onChange={e => setSelectedMonth(e.target.value)}
-              >
-                {monthOptions.map(opt => (
-                  <option key={opt.value} value={opt.value}>
-                    {opt.label}
-                  </option>
-                ))}
-              </select>
+                onChange={(v) => setSelectedMonth(v)}
+                options={monthOptions}
+              />
             </div>
             {/* 엑셀 다운로드 */}
             <button

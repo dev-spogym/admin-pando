@@ -12,6 +12,8 @@ import DataTable from "@/components/common/DataTable";
 import StatusBadge from "@/components/common/StatusBadge";
 import TabNav from "@/components/common/TabNav";
 import Modal from "@/components/ui/Modal";
+import Select from '@/components/ui/Select';
+import Textarea from '@/components/ui/Textarea';
 import { supabase } from '@/lib/supabase';
 import { exportToExcel } from '@/lib/exportExcel';
 
@@ -415,29 +417,24 @@ export default function ClothingManagement() {
             <div className="grid grid-cols-2 gap-md">
               <div>
                 <label className="text-[12px] font-medium text-content-secondary mb-[4px] block">사이즈</label>
-                <select
-                  className="w-full h-[40px] px-md bg-surface-secondary rounded-lg text-[13px] border border-line focus:border-primary outline-none"
+                <Select
                   value={addForm.size}
-                  onChange={e => setAddForm({ ...addForm, size: e.target.value })}
-                >
-                  {SIZE_OPTIONS.map(s => <option key={s} value={s}>{s}</option>)}
-                </select>
+                  onChange={(v) => setAddForm({ ...addForm, size: v })}
+                  options={SIZE_OPTIONS.map(s => ({ value: s, label: s }))}
+                />
               </div>
               <div>
                 <label className="text-[12px] font-medium text-content-secondary mb-[4px] block">타입</label>
-                <select
-                  className="w-full h-[40px] px-md bg-surface-secondary rounded-lg text-[13px] border border-line focus:border-primary outline-none"
+                <Select
                   value={addForm.type}
-                  onChange={e => setAddForm({ ...addForm, type: e.target.value })}
-                >
-                  {TYPE_OPTIONS.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
-                </select>
+                  onChange={(v) => setAddForm({ ...addForm, type: v })}
+                  options={TYPE_OPTIONS}
+                />
               </div>
             </div>
             <div>
               <label className="text-[12px] font-medium text-content-secondary mb-[4px] block">메모</label>
-              <textarea
-                className="w-full h-20 px-md py-sm bg-surface-secondary rounded-lg text-[13px] border border-line focus:border-primary outline-none resize-none"
+              <Textarea
                 placeholder="특이사항 입력"
                 value={addForm.memo}
                 onChange={e => setAddForm({ ...addForm, memo: e.target.value })}

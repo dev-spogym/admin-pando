@@ -24,6 +24,8 @@ import StatusBadge from "@/components/common/StatusBadge";
 import ConfirmDialog from "@/components/ui/ConfirmDialog";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/lib/supabase";
+import Select from "@/components/ui/Select";
+import Textarea from "@/components/ui/Textarea";
 import { toast } from "sonner";
 import { readBranchJson, writeBranchJson } from "@/lib/branchStorage";
 
@@ -358,12 +360,13 @@ const RoomModal = ({
 
           {/* 설명 */}
           <div>
-            <label className="block text-[12px] font-semibold text-content-secondary mb-sm">설명</label>
-            <textarea
-              className="w-full h-20 rounded-lg bg-surface-secondary border border-line p-md text-[13px] focus:border-primary outline-none resize-none transition-all"
+            <Textarea
+              label="설명"
               placeholder="룸에 대한 설명을 입력하세요"
               value={description}
               onChange={e => setDescription(e.target.value)}
+              rows={3}
+              className="h-20"
             />
           </div>
         </div>
@@ -534,16 +537,15 @@ export default function RoomManagement() {
         <div className="flex items-center justify-between">
           <TabNav tabs={tabs} activeTab={activeTab} onTabChange={setActiveTab} />
           <div className="flex items-center gap-sm">
-            <select
-              className="h-9 rounded-lg bg-surface border border-line px-md text-[13px] text-content outline-none focus:border-primary transition-colors"
+            <Select
               value={filterType}
-              onChange={e => setFilterType(e.target.value as RoomType | "")}
-            >
-              <option value="">전체 유형</option>
-              {(["GX", "PT", "스피닝", "필라테스", "기타"] as RoomType[]).map(t => (
-                <option key={t} value={t}>{t}</option>
-              ))}
-            </select>
+              onChange={v => setFilterType(v as RoomType | "")}
+              options={[
+                { value: "", label: "전체 유형" },
+                ...( ["GX", "PT", "스피닝", "필라테스", "기타"] as RoomType[]).map(t => ({ value: t, label: t })),
+              ]}
+              className="w-40"
+            />
           </div>
         </div>
 

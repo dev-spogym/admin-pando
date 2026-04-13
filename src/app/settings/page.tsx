@@ -26,6 +26,7 @@ import TabNav from "@/components/common/TabNav";
 import FormSection from "@/components/common/FormSection";
 import { cn } from '@/lib/utils';
 import { moveToPage } from '@/internal';
+import Textarea from '@/components/ui/Textarea';
 import { supabase } from '@/lib/supabase';
 
 type TabKey = 'basic' | 'notification' | 'theme' | 'supplies';
@@ -307,8 +308,7 @@ export default function Settings() {
             </div>
             <div className="col-span-2 space-y-xs">
               <label className="text-Label text-content">센터 소개</label>
-              <textarea
-                className="w-full bg-surface-secondary p-md rounded-input focus:ring-1 focus:ring-accent outline-none border border-transparent resize-none"
+              <Textarea
                 rows={2}
                 value={centerInfo.description}
                 onChange={e => { setCenterInfo({ ...centerInfo, description: e.target.value }); markDirty(); }}

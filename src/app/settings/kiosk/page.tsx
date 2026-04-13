@@ -26,6 +26,8 @@ import TabNav from "@/components/common/TabNav";
 import FormSection from "@/components/common/FormSection";
 import { cn } from "@/lib/utils";
 import { moveToPage } from "@/internal";
+import Select from '@/components/ui/Select';
+import Textarea from '@/components/ui/Textarea';
 import { toast } from "sonner";
 import { supabase } from "@/lib/supabase";
 
@@ -351,35 +353,51 @@ export default function KioskSettings() {
             <FormSection title="얼굴 인식 설정" description="AI 기반 얼굴 인식 출입 시스템 설정 (브로제이 참고)" columns={2}>
               <div className="space-y-xs">
                 <label className="text-Label text-content-secondary">인식 모드</label>
-                <select className="w-full bg-surface-secondary p-md rounded-input border-none focus:ring-2 focus:ring-accent/20 outline-none text-[13px]">
-                  <option value="single">단일 인식 (1명씩)</option>
-                  <option value="multi">다중 인식 (최대 10명 동시)</option>
-                </select>
+                <Select
+                  options={[
+                    { value: 'single', label: '단일 인식 (1명씩)' },
+                    { value: 'multi', label: '다중 인식 (최대 10명 동시)' },
+                  ]}
+                  value="single"
+                  onChange={() => {}}
+                />
                 <p className="text-[11px] text-content-secondary">브로제이: 10명 동시 인식 가능</p>
               </div>
               <div className="space-y-xs">
                 <label className="text-Label text-content-secondary">인식 민감도</label>
-                <select className="w-full bg-surface-secondary p-md rounded-input border-none focus:ring-2 focus:ring-accent/20 outline-none text-[13px]">
-                  <option value="high">높음 (정확도 우선)</option>
-                  <option value="medium">보통</option>
-                  <option value="low">낮음 (속도 우선)</option>
-                </select>
+                <Select
+                  options={[
+                    { value: 'high', label: '높음 (정확도 우선)' },
+                    { value: 'medium', label: '보통' },
+                    { value: 'low', label: '낮음 (속도 우선)' },
+                  ]}
+                  value="high"
+                  onChange={() => {}}
+                />
               </div>
               <div className="space-y-xs">
                 <label className="text-Label text-content-secondary">병행 인증 수단</label>
-                <select className="w-full bg-surface-secondary p-md rounded-input border-none focus:ring-2 focus:ring-accent/20 outline-none text-[13px]">
-                  <option value="none">얼굴만</option>
-                  <option value="phone">전화번호 입력 병행</option>
-                  <option value="qr">QR 코드 병행</option>
-                </select>
+                <Select
+                  options={[
+                    { value: 'none', label: '얼굴만' },
+                    { value: 'phone', label: '전화번호 입력 병행' },
+                    { value: 'qr', label: 'QR 코드 병행' },
+                  ]}
+                  value="none"
+                  onChange={() => {}}
+                />
                 <p className="text-[11px] text-content-secondary">인식 실패 시 대체 수단</p>
               </div>
               <div className="space-y-xs">
                 <label className="text-Label text-content-secondary">자동 등록</label>
-                <select className="w-full bg-surface-secondary p-md rounded-input border-none focus:ring-2 focus:ring-accent/20 outline-none text-[13px]">
-                  <option value="manual">수동 등록 (관리자 촬영)</option>
-                  <option value="first_visit">첫 방문 시 자동 촬영</option>
-                </select>
+                <Select
+                  options={[
+                    { value: 'manual', label: '수동 등록 (관리자 촬영)' },
+                    { value: 'first_visit', label: '첫 방문 시 자동 촬영' },
+                  ]}
+                  value="manual"
+                  onChange={() => {}}
+                />
               </div>
               <div className="col-span-2 p-md bg-blue-50 rounded-xl border border-blue-200">
                 <p className="text-[12px] text-blue-700 font-medium">카메라 연동 필요</p>
@@ -520,11 +538,11 @@ export default function KioskSettings() {
             />
           </div>
           {settings.showNotice && (
-            <textarea
-              className="w-full bg-surface-secondary p-md rounded-input border-none focus:ring-2 focus:ring-accent/20 outline-none resize-none h-20 mt-sm"
+            <Textarea
               value={settings.noticeContent}
               onChange={e => setSettings({ ...settings, noticeContent: e.target.value })}
               placeholder="키오스크 공지사항 입력"
+              rows={3}
             />
           )}
         </div>

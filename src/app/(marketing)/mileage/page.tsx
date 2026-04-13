@@ -37,6 +37,8 @@ import StatusBadge from "@/components/common/StatusBadge";
 import FormSection from "@/components/common/FormSection";
 import ConfirmDialog from "@/components/ui/ConfirmDialog";
 import { cn } from '@/lib/utils';
+import Select from "@/components/ui/Select";
+import Textarea from "@/components/ui/Textarea";
 import { supabase } from '@/lib/supabase';
 
 const getBranchId = (): number => {
@@ -148,27 +150,28 @@ const ManualAdjustmentModal = ({
 
           {/* 사유 */}
           <div>
-            <label className="text-Label mb-xs block">사유</label>
-            <select
-              className="w-full rounded-input bg-surface-secondary border-none p-md focus:ring-2 focus:ring-accent transition-all"
+            <Select
+              label="사유"
               value={reason}
-              onChange={(e) => setReason(e.target.value)}
-            >
-              <option value="이벤트 보상">이벤트 보상</option>
-              <option value="불만 보상">불만 보상</option>
-              <option value="오류 수정">오류 수정</option>
-              <option value="기타">기타</option>
-            </select>
+              onChange={v => setReason(v)}
+              options={[
+                { value: "이벤트 보상", label: "이벤트 보상" },
+                { value: "불만 보상", label: "불만 보상" },
+                { value: "오류 수정", label: "오류 수정" },
+                { value: "기타", label: "기타" },
+              ]}
+            />
           </div>
 
           {/* 메모 */}
           <div>
-            <label className="text-Label mb-xs block">메모 (선택)</label>
-            <textarea
-              className="w-full rounded-input bg-surface-secondary border-none p-md h-[80px] focus:ring-2 focus:ring-accent transition-all resize-none"
+            <Textarea
+              label="메모 (선택)"
               value={memo}
-              onChange={(e) => setMemo(e.target.value)}
+              onChange={e => setMemo(e.target.value)}
               placeholder="상세 내용을 입력하세요"
+              rows={3}
+              className="h-[80px]"
             />
           </div>
         </div>

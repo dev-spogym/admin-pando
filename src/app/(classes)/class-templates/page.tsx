@@ -13,6 +13,8 @@ import DataTable from "@/components/common/DataTable";
 import StatusBadge from "@/components/common/StatusBadge";
 import Modal from "@/components/ui/Modal";
 import ConfirmDialog from "@/components/ui/ConfirmDialog";
+import Select from '@/components/ui/Select';
+import Textarea from '@/components/ui/Textarea';
 import { supabase } from '@/lib/supabase';
 
 // 수업 유형
@@ -366,15 +368,11 @@ export default function ClassTemplates() {
           {/* 유형 */}
           <div>
             <label className="block text-[12px] font-medium text-content-secondary mb-xs">유형</label>
-            <select
-              className="w-full px-3 py-2 border border-line rounded-lg text-[13px] text-content bg-surface focus:outline-none focus:border-primary"
+            <Select
               value={form.type}
-              onChange={(e) => setForm((f) => ({ ...f, type: e.target.value }))}
-            >
-              {TYPE_OPTIONS.map((o) => (
-                <option key={o.value} value={o.value}>{o.label}</option>
-              ))}
-            </select>
+              onChange={(v) => setForm((f) => ({ ...f, type: v }))}
+              options={TYPE_OPTIONS}
+            />
           </div>
 
           {/* 기본정원 / 기본시간 */}
@@ -404,9 +402,8 @@ export default function ClassTemplates() {
           {/* 설명 */}
           <div>
             <label className="block text-[12px] font-medium text-content-secondary mb-xs">설명</label>
-            <textarea
+            <Textarea
               rows={2}
-              className="w-full px-3 py-2 border border-line rounded-lg text-[13px] text-content bg-surface focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary/20 resize-none"
               placeholder="수업 설명 (선택)"
               value={form.description}
               onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}

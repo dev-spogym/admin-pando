@@ -18,6 +18,7 @@ import Modal from "@/components/ui/Modal";
 import ConfirmDialog from "@/components/ui/ConfirmDialog";
 import { cn } from '@/lib/utils';
 import { supabase } from '@/lib/supabase';
+import Select from '@/components/ui/Select';
 
 // ─── 타입 정의 ─────────────────────────────────────────────────
 type BayStatus = 'available' | 'in_use' | 'reserved' | 'maintenance';
@@ -516,23 +517,21 @@ export default function GolfBayManagement() {
             {/* 프로 배정 */}
             {selectedBay.status === 'in_use' && (
               <div className="flex flex-col gap-xs">
-                <label className="text-[11px] font-semibold text-content-secondary">프로 배정 변경</label>
-                <select
+                <Select
+                  label="프로 배정 변경"
                   value={selectedBay.proId?.toString() ?? ''}
-                  onChange={e => {
-                    const proId = e.target.value ? Number(e.target.value) : null;
+                  onChange={v => {
+                    const proId = v ? Number(v) : null;
                     const proName = staffList.find(s => s.id === proId)?.name ?? null;
                     setBays(prev => prev.map(b => b.id === selectedBay.id ? { ...b, proId, proName } : b));
                     setSelectedBay(prev => prev ? { ...prev, proId, proName } : prev);
                     toast.success(proName ? `${proName} 프로가 배정되었습니다.` : '프로 배정이 해제되었습니다.');
                   }}
-                  className="px-sm py-[5px] border border-line rounded-lg text-[12px] bg-surface focus:outline-none focus:border-primary"
-                >
-                  <option value="">프로 없음</option>
-                  {staffList.map(s => (
-                    <option key={s.id} value={String(s.id)}>{s.name}</option>
-                  ))}
-                </select>
+                  options={[
+                    { value: '', label: '프로 없음' },
+                    ...staffList.map(s => ({ value: String(s.id), label: s.name })),
+                  ]}
+                />
               </div>
             )}
 

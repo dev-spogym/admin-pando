@@ -13,6 +13,7 @@ import DataTable from "@/components/common/DataTable";
 import StatusBadge from "@/components/common/StatusBadge";
 import TabNav from "@/components/common/TabNav";
 import Modal from "@/components/ui/Modal";
+import Select from '@/components/ui/Select';
 import type { BadgeVariant } from "@/components/common/StatusBadge";
 import { supabase } from '@/lib/supabase';
 
@@ -386,31 +387,21 @@ export default function LessonCounts() {
         {/* 회원 필터 */}
         <div className="flex flex-col gap-xs min-w-[140px]">
           <label className="text-[11px] font-medium text-content-secondary">회원</label>
-          <select
-            className="px-2 py-1.5 border border-line rounded-lg text-[12px] text-content bg-surface focus:outline-none focus:border-primary"
+          <Select
             value={filterMemberId}
-            onChange={(e) => setFilterMemberId(e.target.value)}
-          >
-            <option value="">전체 회원</option>
-            {memberOptions.map((m) => (
-              <option key={m.id} value={String(m.id)}>{m.name}</option>
-            ))}
-          </select>
+            onChange={(v) => setFilterMemberId(v)}
+            options={[{ value: '', label: '전체 회원' }, ...memberOptions.map((m) => ({ value: String(m.id), label: m.name }))]}
+          />
         </div>
 
         {/* 상품 필터 */}
         <div className="flex flex-col gap-xs min-w-[140px]">
           <label className="text-[11px] font-medium text-content-secondary">상품</label>
-          <select
-            className="px-2 py-1.5 border border-line rounded-lg text-[12px] text-content bg-surface focus:outline-none focus:border-primary"
+          <Select
             value={filterProduct}
-            onChange={(e) => setFilterProduct(e.target.value)}
-          >
-            <option value="">전체 상품</option>
-            {productOptions.map((p) => (
-              <option key={p} value={p}>{p}</option>
-            ))}
-          </select>
+            onChange={(v) => setFilterProduct(v)}
+            options={[{ value: '', label: '전체 상품' }, ...productOptions.map((p) => ({ value: p, label: p }))]}
+          />
         </div>
 
         {/* 시작일 필터 */}

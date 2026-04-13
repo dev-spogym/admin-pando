@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import Button from "@/components/ui/Button";
+import Select from '@/components/ui/Select';
 import { moveToPage } from "@/internal";
 import AppLayout from "@/components/layout/AppLayout";
 import PageHeader from "@/components/common/PageHeader";
@@ -262,18 +263,11 @@ export default function Payroll() {
           actions={
             <div className="flex items-center gap-sm">
               {/* UI-098 월 선택 */}
-              <div className="relative">
-                <CalendarIcon size={16} className="absolute left-md top-1/2 -translate-y-1/2 text-content-secondary pointer-events-none" />
-                <select
-                  value={selectedMonth}
-                  onChange={e => setSelectedMonth(e.target.value)}
-                  className="pl-[36px] pr-md py-sm bg-white border border-line rounded-button text-Body-2 outline-none focus:border-primary cursor-pointer"
-                >
-                  {MONTHS.map(m => (
-                    <option key={m.value} value={m.value}>{m.label}</option>
-                  ))}
-                </select>
-              </div>
+              <Select
+                options={MONTHS.map(m => ({ value: m.value, label: m.label }))}
+                value={selectedMonth}
+                onChange={v => setSelectedMonth(v)}
+              />
               <Button
                 variant="primary"
                 icon={<CheckCircle2 size={16} />}

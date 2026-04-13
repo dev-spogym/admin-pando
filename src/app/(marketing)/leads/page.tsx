@@ -19,6 +19,8 @@ import {
   getLeads, createLead, updateLead, deleteLead, getLeadStats,
   type Lead, type LeadSource, type LeadStatus, type CreateLeadInput,
 } from "@/api/endpoints/leads";
+import Select from "@/components/ui/Select";
+import Textarea from "@/components/ui/Textarea";
 
 const LEAD_SOURCES: LeadSource[] = ["간판", "인터넷", "전단지", "추천", "SNS", "카카오톡", "전화문의", "방문", "기타"];
 const LEAD_STATUSES: LeadStatus[] = ["신규", "연락완료", "상담예정", "방문완료", "등록완료", "미전환", "보류"];
@@ -187,15 +189,25 @@ export default function LeadManagement() {
         <div className="flex flex-wrap gap-sm">
           <div className="flex items-center gap-xs">
             <Filter size={14} className="text-content-secondary" />
-            <select className="px-sm py-xs rounded border border-line bg-surface text-[12px]" value={filterStatus} onChange={e => setFilterStatus(e.target.value as LeadStatus | "전체")}>
-              <option value="전체">전체 상태</option>
-              {LEAD_STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
-            </select>
+            <Select
+              value={filterStatus}
+              onChange={v => setFilterStatus(v as LeadStatus | "전체")}
+              options={[
+                { value: "전체", label: "전체 상태" },
+                ...LEAD_STATUSES.map(s => ({ value: s, label: s })),
+              ]}
+              className="w-36"
+            />
           </div>
-          <select className="px-sm py-xs rounded border border-line bg-surface text-[12px]" value={filterSource} onChange={e => setFilterSource(e.target.value as LeadSource | "전체")}>
-            <option value="전체">전체 유입경로</option>
-            {LEAD_SOURCES.map(s => <option key={s} value={s}>{s}</option>)}
-          </select>
+          <Select
+            value={filterSource}
+            onChange={v => setFilterSource(v as LeadSource | "전체")}
+            options={[
+              { value: "전체", label: "전체 유입경로" },
+              ...LEAD_SOURCES.map(s => ({ value: s, label: s })),
+            ]}
+            className="w-40"
+          />
         </div>
         {/* 뷰 모드 토글 */}
         <div className="flex items-center gap-xs border border-line rounded-lg p-[3px] bg-surface">
@@ -297,9 +309,12 @@ export default function LeadManagement() {
               </div>
               <div className="flex items-center gap-md">
                 <label className="text-[13px] text-content-secondary w-[90px] shrink-0">유입경로 <span className="text-state-error">*</span></label>
-                <select className="flex-1 px-md py-sm rounded-input border border-line bg-surface-secondary text-[13px] outline-none focus:ring-2 focus:ring-primary/30" value={form.source} onChange={e => setForm(p => ({ ...p, source: e.target.value as LeadSource }))}>
-                  {LEAD_SOURCES.map(s => <option key={s} value={s}>{s}</option>)}
-                </select>
+                <Select
+                  value={form.source}
+                  onChange={v => setForm(p => ({ ...p, source: v as LeadSource }))}
+                  options={LEAD_SOURCES.map(s => ({ value: s, label: s }))}
+                  className="flex-1"
+                />
               </div>
               <div className="flex items-center gap-md">
                 <label className="text-[13px] text-content-secondary w-[90px] shrink-0">상태</label>
@@ -323,7 +338,13 @@ export default function LeadManagement() {
               </div>
               <div className="flex items-start gap-md">
                 <label className="text-[13px] text-content-secondary w-[90px] shrink-0 pt-sm">메모</label>
-                <textarea className="flex-1 px-md py-sm rounded-input border border-line bg-surface-secondary text-[13px] outline-none focus:ring-2 focus:ring-primary/30 resize-none" rows={3} placeholder="문의 내용, 특이사항 등" value={form.memo ?? ""} onChange={e => setForm(p => ({ ...p, memo: e.target.value }))} />
+                <Textarea
+                  className="flex-1"
+                  rows={3}
+                  placeholder="문의 내용, 특이사항 등"
+                  value={form.memo ?? ""}
+                  onChange={e => setForm(p => ({ ...p, memo: e.target.value }))}
+                />
               </div>
             </div>
             <div className="flex justify-end gap-sm px-lg py-md border-t border-line">

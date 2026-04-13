@@ -32,6 +32,8 @@ import { supabase } from '@/lib/supabase';
 import { toast } from 'sonner';
 import { updateMembershipPeriod, accruePoints, checkDuplicatePayment } from '@/lib/businessLogic';
 import { uploadFile } from '@/lib/uploadFile';
+import Select from '@/components/ui/Select';
+import Textarea from '@/components/ui/Textarea';
 
 const getBranchId = (): number => {
   if (typeof window === 'undefined') return 1;
@@ -604,17 +606,15 @@ export default function ContractWizard() {
 
       <FormSection title="할인 설정" columns={2}>
         <div className="space-y-xs">
-          <label className="text-Label text-content-secondary">할인 유형</label>
-          <select
-            className="w-full p-md bg-surface-secondary rounded-input outline-none focus:ring-2 focus:ring-accent transition-all"
+          <Select
+            label="할인 유형"
             value={discountType}
-            onChange={e => setDiscountType(e.target.value)}
-          >
-            <option value="">없음 (할인 없음)</option>
-            {DISCOUNT_TYPES.map(d => (
-              <option key={d.value} value={d.value}>{d.label}</option>
-            ))}
-          </select>
+            onChange={v => setDiscountType(v)}
+            options={[
+              { value: "", label: "없음 (할인 없음)" },
+              ...DISCOUNT_TYPES.map(d => ({ value: d.value, label: d.label })),
+            ]}
+          />
         </div>
         <div className="space-y-xs">
           <label className="text-Label text-content-secondary">
@@ -675,33 +675,31 @@ export default function ContractWizard() {
 
       <FormSection title="실적 담당자" columns={1}>
         <div className="space-y-xs">
-          <label className="text-Label text-content-secondary">실적 담당자 선택</label>
-          <select
-            className="w-full p-md bg-surface-secondary rounded-input outline-none focus:ring-2 focus:ring-accent transition-all"
-            value={salesStaffId}
-            onChange={e => {
-              const id = e.target.value === '' ? '' : Number(e.target.value);
+          <Select
+            label="실적 담당자 선택"
+            value={String(salesStaffId)}
+            onChange={v => {
+              const id = v === '' ? '' : Number(v);
               setSalesStaffId(id as number | '');
-              setSalesStaffName(staffs.find(s => s.id === Number(e.target.value))?.name ?? '');
+              setSalesStaffName(staffs.find(s => s.id === Number(v))?.name ?? '');
             }}
-          >
-            <option value="">담당자 없음</option>
-            {staffs.map(s => (
-              <option key={s.id} value={s.id}>{s.name}</option>
-            ))}
-          </select>
+            options={[
+              { value: '', label: '담당자 없음' },
+              ...staffs.map(s => ({ value: String(s.id), label: s.name })),
+            ]}
+          />
           <p className="text-[11px] text-content-secondary">계약 실적이 귀속될 직원을 선택하세요.</p>
         </div>
       </FormSection>
 
       <FormSection title="특약 및 메모" columns={1}>
         <div className="space-y-xs">
-          <label className="text-Label text-content-secondary">특약 사항</label>
-          <textarea
-            className="w-full p-md bg-surface-secondary rounded-input outline-none focus:ring-2 focus:ring-accent transition-all min-h-[100px]"
+          <Textarea
+            label="특약 사항"
             placeholder="계약 시 별도 협의된 내용을 입력하세요."
             value={contractDetails.memo}
             onChange={e => setContractDetails({ ...contractDetails, memo: e.target.value })}
+            rows={4}
           />
         </div>
       </FormSection>

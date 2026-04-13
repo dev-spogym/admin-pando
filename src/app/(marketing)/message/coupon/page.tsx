@@ -41,6 +41,8 @@ import DataTable from "@/components/common/DataTable";
 import StatusBadge from "@/components/common/StatusBadge";
 import ConfirmDialog from "@/components/ui/ConfirmDialog";
 import FormSection from "@/components/common/FormSection";
+import Select from "@/components/ui/Select";
+import Textarea from "@/components/ui/Textarea";
 
 // -- 쿠폰 코드 자동 생성 유틸 --
 function generateCouponCode(): string {
@@ -731,15 +733,15 @@ function CouponFormModal({ coupon, onClose, onSave }: any) {
           {formData.type === "discount" && (
             <FormSection title="할인 설정" columns={2}>
               <div className="space-y-sm">
-                <label className="text-Label text-content-secondary">할인 방식 <span className="text-state-error">*</span></label>
-                <select
-                  className="w-full bg-surface-secondary border-0 rounded-input px-md py-sm focus:ring-2 focus:ring-accent outline-none"
+                <Select
+                  label="할인 방식 *"
                   value={formData.discountType}
-                  onChange={(e) => setFormData({ ...formData, discountType: e.target.value })}
-                >
-                  <option value="percent">정률 할인 (%)</option>
-                  <option value="amount">정액 할인 (원)</option>
-                </select>
+                  onChange={v => setFormData({ ...formData, discountType: v })}
+                  options={[
+                    { value: "percent", label: "정률 할인 (%)" },
+                    { value: "amount", label: "정액 할인 (원)" },
+                  ]}
+                />
               </div>
               <div className="space-y-sm">
                 <label className="text-Label text-content-secondary">할인 값 <span className="text-state-error">*</span></label>
@@ -794,21 +796,21 @@ function CouponFormModal({ coupon, onClose, onSave }: any) {
 
           <FormSection title="기타 상세 정보" columns={1}>
             <div className="space-y-sm">
-              <label className="text-Label text-content-secondary">사용 조건</label>
-              <textarea
-                className="w-full bg-surface-secondary border-0 rounded-input px-md py-sm min-h-[80px]"
+              <Textarea
+                label="사용 조건"
                 placeholder="예: 30,000원 이상 결제 시 사용 가능"
                 value={formData.conditions}
-                onChange={(e) => setFormData({ ...formData, conditions: e.target.value })}
+                onChange={e => setFormData({ ...formData, conditions: e.target.value })}
+                rows={3}
               />
             </div>
             <div className="space-y-sm">
-              <label className="text-Label text-content-secondary">내부 메모</label>
-              <textarea
-                className="w-full bg-surface-secondary border-0 rounded-input px-md py-sm min-h-[60px]"
+              <Textarea
+                label="내부 메모"
                 placeholder="내부 관리용 메모를 입력하세요"
                 value={formData.memo}
-                onChange={(e) => setFormData({ ...formData, memo: e.target.value })}
+                onChange={e => setFormData({ ...formData, memo: e.target.value })}
+                rows={2}
               />
             </div>
           </FormSection>
@@ -1016,17 +1018,17 @@ function IssueCouponModal({ coupon, onClose, onIssue }: any) {
           {/* 조건별 */}
           {targetType === "condition" && (
             <div className="space-y-sm">
-              <label className="text-Label text-content-secondary font-semibold">발급 조건</label>
-              <select
-                className="w-full bg-surface-secondary border border-line rounded-input px-md py-sm text-Body-2 outline-none focus:ring-2 focus:ring-accent"
+              <Select
+                label="발급 조건"
                 value={condition}
-                onChange={e => setCondition(e.target.value)}
-              >
-                <option value="active">활성 회원 전체</option>
-                <option value="expired">만료 회원</option>
-                <option value="new">신규 회원 (30일 이내)</option>
-                <option value="absence">장기 미출석 (30일 이상)</option>
-              </select>
+                onChange={v => setCondition(v)}
+                options={[
+                  { value: "active", label: "활성 회원 전체" },
+                  { value: "expired", label: "만료 회원" },
+                  { value: "new", label: "신규 회원 (30일 이내)" },
+                  { value: "absence", label: "장기 미출석 (30일 이상)" },
+                ]}
+              />
             </div>
           )}
 

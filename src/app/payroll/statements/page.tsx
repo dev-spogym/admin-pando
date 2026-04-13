@@ -17,6 +17,7 @@ import {
 import { toast } from "sonner";
 import AppLayout from "@/components/layout/AppLayout";
 import PageHeader from "@/components/common/PageHeader";
+import Select from '@/components/ui/Select';
 import StatCard from "@/components/common/StatCard";
 import DataTable from "@/components/common/DataTable";
 import StatusBadge from "@/components/common/StatusBadge";
@@ -339,32 +340,21 @@ export default function PayrollStatement() {
               {/* 직원 선택 — readonly는 본인만 조회 가능 */}
               <div className="space-y-xs">
                 <label className="text-Label font-semibold text-content-secondary">직원 선택</label>
-                <select
+                <Select
+                  options={staffList.map(s => ({ value: String(s.id), label: s.name }))}
                   value={selectedStaffId}
-                  onChange={e => setSelectedStaffId(e.target.value)}
+                  onChange={v => setSelectedStaffId(v)}
                   disabled={isReadonly}
-                  className={cn(
-                    "w-full px-md py-sm bg-surface-secondary border border-line rounded-button text-Body-2 outline-none focus:border-primary",
-                    isReadonly ? "opacity-60 cursor-not-allowed" : "cursor-pointer"
-                  )}
-                >
-                  {staffList.map(s => (
-                    <option key={s.id} value={String(s.id)}>{s.name}</option>
-                  ))}
-                </select>
+                />
               </div>
               {/* 월 선택 */}
               <div className="space-y-xs">
                 <label className="text-Label font-semibold text-content-secondary">지급 월</label>
-                <select
+                <Select
+                  options={MONTHS.map(m => ({ value: m.value, label: m.label }))}
                   value={selectedMonth}
-                  onChange={e => setSelectedMonth(e.target.value)}
-                  className="w-full px-md py-sm bg-surface-secondary border border-line rounded-button text-Body-2 outline-none focus:border-primary cursor-pointer"
-                >
-                  {MONTHS.map(m => (
-                    <option key={m.value} value={m.value}>{m.label}</option>
-                  ))}
-                </select>
+                  onChange={v => setSelectedMonth(v)}
+                />
               </div>
             </div>
 

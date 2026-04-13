@@ -10,6 +10,7 @@ import { getBranches } from '@/api/endpoints';
 import type { Branch } from '@/api/endpoints';
 import { useAuthStore } from '@/stores/authStore';
 import { toast } from 'sonner';
+import Select from '@/components/ui/Select';
 
 const REMEMBER_KEY = 'spoGym_rememberedId';
 const FAIL_COUNT_KEY = 'login_fail_count';
@@ -180,24 +181,19 @@ export default function Login() {
             <label className="text-[12px] font-medium text-content-secondary mb-[4px] block">지점 선택</label>
             <div className="relative">
               <MapPin className="absolute left-[12px] top-1/2 -translate-y-1/2 text-content-tertiary" size={15} />
-              <select
+              <Select
                 className="w-full pl-9 pr-md py-[10px] bg-surface-secondary rounded-lg text-[13px] text-content border border-line focus:border-primary focus:ring-1 focus:ring-primary/20 outline-none appearance-none cursor-pointer transition-all disabled:opacity-50"
                 value={selectedBranchId}
-                onChange={(e) => setSelectedBranchId(e.target.value)}
+                onChange={(v) => setSelectedBranchId(v)}
                 disabled={branchesLoading || isLoading}
-              >
-                {branchesLoading ? (
-                  <option value="">지점 로딩 중...</option>
-                ) : branches.length === 0 ? (
-                  <option value="">지점 없음</option>
-                ) : (
-                  branches.map((b) => (
-                    <option key={b.id} value={String(b.id)}>
-                      {b.name}
-                    </option>
-                  ))
-                )}
-              </select>
+                options={
+                  branchesLoading
+                    ? [{ value: '', label: '지점 로딩 중...' }]
+                    : branches.length === 0
+                    ? [{ value: '', label: '지점 없음' }]
+                    : branches.map((b) => ({ value: String(b.id), label: b.name }))
+                }
+              />
               <ChevronDown className="absolute right-[12px] top-1/2 -translate-y-1/2 text-content-tertiary pointer-events-none" size={14} />
             </div>
           </div>

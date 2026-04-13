@@ -22,6 +22,8 @@ import TabNav from "@/components/common/TabNav";
 import DataTable from "@/components/common/DataTable";
 import StatusBadge from "@/components/common/StatusBadge";
 import AppLayout from "@/components/layout/AppLayout";
+import Select from '@/components/ui/Select';
+import Textarea from '@/components/ui/Textarea';
 import { supabase } from '@/lib/supabase';
 import { exportToExcel } from '@/lib/exportExcel';
 
@@ -331,19 +333,12 @@ export default function UnpaidManagement() {
         return (
           <div className="flex items-center justify-center gap-xs">
             {nextStatuses.length > 0 && (
-              <select
-                defaultValue=""
-                onChange={e => {
-                  if (e.target.value) handleChangeStatus(row.id, e.target.value);
-                  e.target.value = '';
-                }}
-                className="px-sm py-[3px] bg-surface border border-line text-content-secondary rounded-md text-[11px] font-semibold hover:bg-surface-tertiary transition-colors cursor-pointer focus:outline-none"
-              >
-                <option value="" disabled>상태변경</option>
-                {nextStatuses.map(s => (
-                  <option key={s} value={s}>{s}</option>
-                ))}
-              </select>
+              <Select
+                options={nextStatuses.map(s => ({ value: s, label: s }))}
+                value=""
+                onChange={v => { if (v) handleChangeStatus(row.id, v); }}
+                placeholder="상태변경"
+              />
             )}
             <button
               onClick={() => setMemoModal({ open: true, id: row.id, memo: row.memo })}
@@ -430,11 +425,11 @@ export default function UnpaidManagement() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
           <div className="bg-surface rounded-xl border border-line shadow-xl w-[400px] p-xl">
             <h2 className="text-Section-Title text-content mb-md">메모 편집</h2>
-            <textarea
-              className="w-full h-[120px] p-md border border-line rounded-lg text-[13px] text-content resize-none focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary/20 transition-all"
+            <Textarea
               value={memoModal.memo}
               onChange={e => setMemoModal(prev => ({ ...prev, memo: e.target.value }))}
               placeholder="메모를 입력하세요..."
+              rows={5}
             />
             <div className="flex justify-end gap-sm mt-md">
               <button

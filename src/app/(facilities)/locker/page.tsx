@@ -27,6 +27,7 @@ import TabNav from "@/components/common/TabNav";
 import StatCard from "@/components/common/StatCard";
 import StatCardGrid from "@/components/common/StatCardGrid";
 import { SearchFilter } from "@/components/common/SearchFilter";
+import Textarea from '@/components/ui/Textarea';
 import StatusBadge from "@/components/common/StatusBadge";
 import DataTable from "@/components/common/DataTable";
 import ConfirmDialog from "@/components/ui/ConfirmDialog";
@@ -950,8 +951,7 @@ export default function Locker() {
             </div>
             <div>
               <label className="block text-[12px] font-semibold text-content-secondary mb-xs">메모</label>
-              <textarea
-                className="w-full rounded-lg bg-surface-secondary border border-line px-md py-sm text-[13px] focus:border-primary outline-none resize-none"
+              <Textarea
                 rows={3}
                 placeholder="락커 메모"
                 defaultValue={actionModal.locker.memo ?? ""}

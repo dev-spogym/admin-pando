@@ -8,6 +8,7 @@ import { CalendarPlus, Eye } from 'lucide-react';
 import AppLayout from "@/components/layout/AppLayout";
 import PageHeader from "@/components/common/PageHeader";
 import Modal from "@/components/ui/Modal";
+import Select from '@/components/ui/Select';
 import { supabase } from '@/lib/supabase';
 import { bulkCreateClasses } from '@/api/endpoints/classSchedule';
 
@@ -233,35 +234,29 @@ export default function ClassSchedule() {
             <label className="block text-[12px] font-medium text-content-secondary mb-xs">
               수업 템플릿 <span className="text-state-error">*</span>
             </label>
-            <select
-              className="w-full px-3 py-2 border border-line rounded-lg text-[13px] text-content bg-surface focus:outline-none focus:border-primary"
+            <Select
               value={templateId}
-              onChange={(e) => setTemplateId(e.target.value)}
+              onChange={(v) => setTemplateId(v)}
               disabled={loading}
-            >
-              <option value="">템플릿 선택</option>
-              {templates.map((t) => (
-                <option key={t.id} value={String(t.id)}>
-                  {t.name} ({t.defaultDurationMin}분 / 정원 {t.defaultCapacity}명)
-                </option>
-              ))}
-            </select>
+              options={[
+                { value: '', label: '템플릿 선택' },
+                ...templates.map((t) => ({ value: String(t.id), label: `${t.name} (${t.defaultDurationMin}분 / 정원 ${t.defaultCapacity}명)` })),
+              ]}
+            />
           </div>
 
           {/* 담당 강사 */}
           <div>
             <label className="block text-[12px] font-medium text-content-secondary mb-xs">담당 강사</label>
-            <select
-              className="w-full px-3 py-2 border border-line rounded-lg text-[13px] text-content bg-surface focus:outline-none focus:border-primary"
+            <Select
               value={instructorId}
-              onChange={(e) => setInstructorId(e.target.value)}
+              onChange={(v) => setInstructorId(v)}
               disabled={loading}
-            >
-              <option value="">강사 선택 (선택사항)</option>
-              {staffList.map((s) => (
-                <option key={s.id} value={String(s.id)}>{s.name}</option>
-              ))}
-            </select>
+              options={[
+                { value: '', label: '강사 선택 (선택사항)' },
+                ...staffList.map((s) => ({ value: String(s.id), label: s.name })),
+              ]}
+            />
           </div>
 
           {/* 요일 선택 */}

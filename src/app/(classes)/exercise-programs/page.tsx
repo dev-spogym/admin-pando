@@ -11,6 +11,8 @@ import DataTable from "@/components/common/DataTable";
 import StatusBadge from "@/components/common/StatusBadge";
 import ConfirmDialog from "@/components/ui/ConfirmDialog";
 import { cn } from '@/lib/utils';
+import Select from '@/components/ui/Select';
+import Textarea from '@/components/ui/Textarea';
 import {
   getExercisePrograms,
   createExerciseProgram,
@@ -233,32 +235,27 @@ export default function ExerciseProgramManagement() {
               <div className="grid grid-cols-2 gap-md">
                 <div>
                   <label className="text-[12px] font-semibold text-content-secondary mb-[4px] block">카테고리</label>
-                  <select
-                    className="w-full h-[38px] px-md bg-surface-secondary rounded-lg text-[13px] border border-line focus:border-primary focus:outline-none"
+                  <Select
                     value={form.category}
-                    onChange={e => setForm({ ...form, category: e.target.value })}
-                  >
-                    {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
-                  </select>
+                    onChange={(v) => setForm({ ...form, category: v })}
+                    options={CATEGORIES.map(c => ({ value: c, label: c }))}
+                  />
                 </div>
                 <div>
                   <label className="text-[12px] font-semibold text-content-secondary mb-[4px] block">난이도</label>
-                  <select
-                    className="w-full h-[38px] px-md bg-surface-secondary rounded-lg text-[13px] border border-line focus:border-primary focus:outline-none"
+                  <Select
                     value={form.level}
-                    onChange={e => setForm({ ...form, level: e.target.value as ProgramLevel })}
-                  >
-                    {LEVELS.map(l => <option key={l} value={l}>{l}</option>)}
-                  </select>
+                    onChange={(v) => setForm({ ...form, level: v as ProgramLevel })}
+                    options={LEVELS.map(l => ({ value: l, label: l }))}
+                  />
                 </div>
               </div>
 
               {/* 설명 */}
               <div>
                 <label className="text-[12px] font-semibold text-content-secondary mb-[4px] block">설명</label>
-                <textarea
+                <Textarea
                   rows={3}
-                  className="w-full px-md py-sm bg-surface-secondary rounded-lg text-[13px] border border-line focus:border-primary focus:outline-none resize-none"
                   placeholder="프로그램 설명을 입력하세요."
                   value={form.description}
                   onChange={e => setForm({ ...form, description: e.target.value })}

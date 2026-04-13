@@ -45,6 +45,8 @@ import StatusBadge from "@/components/common/StatusBadge";
 import DataTable from "@/components/common/DataTable";
 import FormSection from "@/components/common/FormSection";
 import Toggle from "@/components/ui/Toggle";
+import Select from "@/components/ui/Select";
+import Textarea from "@/components/ui/Textarea";
 
 // --- 채널 설정 ---
 const CHANNEL_CONFIG = {
@@ -444,13 +446,16 @@ export default function MessageSend() {
                 />
                 <div className="md:col-span-2 bg-surface rounded-xl border border-line p-lg shadow-card flex items-center justify-between">
                   <div>
-                    <p className="text-Label text-content-secondary mb-xs">발신 설정</p>
-                    <select
-                      className="bg-surface-secondary border-none rounded-button px-md py-sm text-Body-2 outline-none focus:ring-2 focus:ring-primary"
-                    >
-                      <option>02-1234-5678 (대표번호)</option>
-                      <option>010-9876-5432</option>
-                    </select>
+                    <Select
+                      label="발신 설정"
+                      value="02-1234-5678"
+                      onChange={() => {}}
+                      options={[
+                        { value: "02-1234-5678", label: "02-1234-5678 (대표번호)" },
+                        { value: "010-9876-5432", label: "010-9876-5432" },
+                      ]}
+                      className="w-56"
+                    />
                   </div>
                   <div className="flex gap-xs">
                     <StatusBadge variant="success" dot={true}>알림톡 활성</StatusBadge>
@@ -599,10 +604,9 @@ export default function MessageSend() {
                           {isOverLimit && <span className="ml-xs">초과</span>}
                         </span>
                       </div>
-                      <textarea
+                      <Textarea
                         className={cn(
-                          "w-full bg-surface-secondary border rounded-button px-md py-sm text-Body-2 outline-none resize-none focus:ring-2",
-                          isOverLimit ? "border-error focus:ring-error/30" : "border-line focus:ring-primary"
+                          isOverLimit ? "border-error" : "border-line"
                         )}
                         rows={6}
                         placeholder="내용을 입력하세요."

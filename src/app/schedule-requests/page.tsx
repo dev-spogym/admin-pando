@@ -20,6 +20,7 @@ import PageHeader from "@/components/common/PageHeader";
 import DataTable from "@/components/common/DataTable";
 import StatusBadge from "@/components/common/StatusBadge";
 import { cn } from "@/lib/utils";
+import Textarea from '@/components/ui/Textarea';
 import { toast } from "sonner";
 import {
   getScheduleRequests,
@@ -413,12 +414,11 @@ export default function ScheduleRequests() {
               </div>
               <div className="space-y-xs">
                 <label className="text-[12px] font-semibold text-content">메모 (선택)</label>
-                <textarea
+                <Textarea
                   rows={2}
                   value={altMemo}
                   onChange={e => setAltMemo(e.target.value)}
                   placeholder="대안 제시 사유나 안내 메시지를 입력하세요"
-                  className="w-full px-3 py-2 border border-line rounded-lg text-[13px] text-content bg-surface focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary/20 resize-none"
                 />
               </div>
             </div>

@@ -40,6 +40,8 @@ import StatusBadge from "@/components/common/StatusBadge";
 import SearchFilter from "@/components/common/SearchFilter";
 import FormSection from "@/components/common/FormSection";
 import ConfirmDialog from "@/components/ui/ConfirmDialog";
+import Select from '@/components/ui/Select';
+import Textarea from '@/components/ui/Textarea';
 import { supabase } from '@/lib/supabase';
 import { exportToExcel } from '@/lib/exportExcel';
 import { useAuthStore } from '@/stores/authStore';
@@ -367,19 +369,18 @@ export default function BranchManagement() {
             비활성
           </button>
           <div className="w-[1px] h-3 bg-line" />
-          <select
-            className="text-Label text-content-secondary bg-transparent border-none outline-none cursor-pointer hover:text-primary"
+          <Select
             value=""
-            onChange={e => {
-              const val = e.target.value as 'closed' | 'inactive';
+            onChange={(v) => {
+              const val = v as 'closed' | 'inactive';
               if (val) openStatusChange(row, val);
-              e.target.value = '';
             }}
-          >
-            <option value="" disabled>상태변경</option>
-            <option value="inactive">임시휴업</option>
-            <option value="closed">폐점</option>
-          </select>
+            options={[
+              { value: '', label: '상태변경', disabled: true },
+              { value: 'inactive', label: '임시휴업' },
+              { value: 'closed', label: '폐점' },
+            ]}
+          />
         </div>
       )
     }
@@ -673,18 +674,19 @@ export default function BranchManagement() {
                 {/* 지점 관리자 */}
                 <div className="space-y-xs" >
                   <label className="text-Label text-content-secondary" >지점 관리자 <span className="text-state-error" >*</span></label>
-                  <select
+                  <Select
                     className={cn(
                       "w-full p-sm bg-surface-secondary rounded-input border focus:outline-none transition-colors",
                       formErrors.managerId ? "border-state-error focus:border-state-error" : "border-transparent focus:border-accent"
                     )}
                     value={branchForm.managerId}
-                    onChange={e => handleFormChange('managerId', e.target.value)}
-                  >
-                    <option value="">계정 선택</option>
-                    <option value="owner1">김오너 (owner)</option>
-                    <option value="owner2">박대표 (owner)</option>
-                  </select>
+                    onChange={(v) => handleFormChange('managerId', v)}
+                    options={[
+                      { value: '', label: '계정 선택' },
+                      { value: 'owner1', label: '김오너 (owner)' },
+                      { value: 'owner2', label: '박대표 (owner)' },
+                    ]}
+                  />
                   {formErrors.managerId && (
                     <p className="flex items-center gap-xs text-Label text-state-error">
                       <AlertCircle size={12}/> {formErrors.managerId}
@@ -770,7 +772,7 @@ export default function BranchManagement() {
                 </div>
                 <div className="space-y-xs mt-md" >
                   <label className="text-Label text-content-secondary" >메모</label>
-                  <textarea
+                  <Textarea
                     className="w-full p-sm bg-surface-secondary rounded-input border border-transparent focus:border-accent focus:outline-none min-h-[80px]"
                     placeholder="지점 관련 특이사항을 입력하세요."
                     value={branchForm.memo}
@@ -821,11 +823,13 @@ export default function BranchManagement() {
                 </div>
                 <div className="space-y-xs" >
                   <label className="text-Label text-content-secondary" >이동할 지점 <span className="text-state-error" >*</span></label>
-                  <select className="w-full p-sm bg-surface-secondary rounded-input border border-transparent focus:border-accent focus:outline-none" >
-                    <option value="">지점 선택</option>
-                    <option value="2">FitGenie CRM 강남점</option>
-                    <option value="3">FitGenie CRM 여의도점</option>
-                  </select>
+                  <Select
+                    options={[
+                      { value: '', label: '지점 선택' },
+                      { value: '2', label: 'FitGenie CRM 강남점' },
+                      { value: '3', label: 'FitGenie CRM 여의도점' },
+                    ]}
+                  />
                 </div>
               </div>
 
@@ -850,7 +854,7 @@ export default function BranchManagement() {
 
               <div className="space-y-xs" >
                 <label className="text-Label text-content-secondary" >이동 사유</label>
-                <textarea className="w-full p-sm bg-surface-secondary rounded-input border border-transparent focus:border-accent focus:outline-none min-h-[80px]" placeholder="이동 사유를 메모하세요."/>
+                <Textarea className="w-full p-sm bg-surface-secondary rounded-input border border-transparent focus:border-accent focus:outline-none min-h-[80px]" placeholder="이동 사유를 메모하세요."/>
               </div>
             </div>
 

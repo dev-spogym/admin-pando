@@ -9,6 +9,7 @@ import { getAuditLogs, type AuditLogEntry, type AuditLogParams } from '@/api/end
 import { getBranches, type Branch } from '@/api/endpoints/auth';
 import { useAuthStore } from '@/stores/authStore';
 import { cn } from '@/lib/utils';
+import Select from '@/components/ui/Select';
 
 // 날짜 포맷: yyyy-MM-dd HH:mm:ss
 const fmtDatetime = (iso: string): string => {
@@ -257,51 +258,32 @@ export default function AuditLog() {
             {/* 액션 타입 */}
             <div className="flex flex-col gap-1">
               <label className="text-xs font-medium text-content-secondary">액션 타입</label>
-              <select
+              <Select
                 value={actionFilter}
-                onChange={(e) => setActionFilter(e.target.value)}
-                className="h-9 px-3 text-sm border border-line rounded-lg bg-white text-content-primary focus:outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent"
-              >
-                {ACTION_OPTIONS.map((opt) => (
-                  <option key={opt.value} value={opt.value}>
-                    {opt.label}
-                  </option>
-                ))}
-              </select>
+                onChange={(v) => setActionFilter(v)}
+                options={ACTION_OPTIONS}
+              />
             </div>
 
             {/* 대상 유형 */}
             <div className="flex flex-col gap-1">
               <label className="text-xs font-medium text-content-secondary">대상 유형</label>
-              <select
+              <Select
                 value={targetTypeFilter}
-                onChange={(e) => setTargetTypeFilter(e.target.value)}
-                className="h-9 px-3 text-sm border border-line rounded-lg bg-white text-content-primary focus:outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent"
-              >
-                {TARGET_OPTIONS.map((opt) => (
-                  <option key={opt.value} value={opt.value}>
-                    {opt.label}
-                  </option>
-                ))}
-              </select>
+                onChange={(v) => setTargetTypeFilter(v)}
+                options={TARGET_OPTIONS}
+              />
             </div>
 
             {/* 지점 필터 (슈퍼관리자 전용) */}
             {isSuperAdmin && (
               <div className="flex flex-col gap-1">
                 <label className="text-xs font-medium text-content-secondary">지점</label>
-                <select
+                <Select
                   value={branchFilter}
-                  onChange={(e) => setBranchFilter(e.target.value)}
-                  className="h-9 px-3 text-sm border border-line rounded-lg bg-white text-content-primary focus:outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent"
-                >
-                  <option value="">전체</option>
-                  {branches.map((b) => (
-                    <option key={b.id} value={String(b.id)}>
-                      {b.name}
-                    </option>
-                  ))}
-                </select>
+                  onChange={(v) => setBranchFilter(v)}
+                  options={[{ value: '', label: '전체' }, ...branches.map((b) => ({ value: String(b.id), label: b.name }))]}
+                />
               </div>
             )}
 

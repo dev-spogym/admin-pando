@@ -35,6 +35,7 @@ import type { Member } from '@/api/endpoints/members';
 import { toggleFavorite } from '@/api/endpoints/members';
 import { exportToExcel } from '@/lib/exportExcel';
 import { supabase } from '@/lib/supabase';
+import Select from '@/components/ui/Select';
 import { useAuthStore } from '@/stores/authStore';
 import { hasFeature, hasPermission } from '@/lib/permissions';
 
@@ -513,19 +514,15 @@ export default function MemberList() {
           {/* 상품 드롭다운 필터 */}
           <div className="flex items-center gap-sm">
             <span className="text-[13px] text-content-secondary font-medium">상품 선택:</span>
-            <div className="relative">
-              <select
-                className="appearance-none border border-line bg-surface rounded-lg px-md pr-[30px] py-[6px] text-[13px] text-content outline-none focus:ring-2 focus:ring-primary/20 cursor-pointer"
-                value={selectedProductName}
-                onChange={(e) => { setSelectedProductName(e.target.value); setCurrentPage(1); }}
-              >
-                <option value="all">전체 상품</option>
-                {Object.keys(productGroups).map(type => (
-                  <option key={type} value={type}>{MEMBERSHIP_TYPE_LABEL[type] ?? type}</option>
-                ))}
-              </select>
-              <ChevronDown size={14} className="absolute right-[8px] top-1/2 -translate-y-1/2 text-content-tertiary pointer-events-none" />
-            </div>
+            <Select
+              value={selectedProductName}
+              onChange={v => { setSelectedProductName(v); setCurrentPage(1); }}
+              options={[
+                { value: "all", label: "전체 상품" },
+                ...Object.keys(productGroups).map(type => ({ value: type, label: MEMBERSHIP_TYPE_LABEL[type] ?? type })),
+              ]}
+              className="w-44"
+            />
           </div>
 
           {/* membershipType 기준 정렬 테이블 */}
@@ -636,19 +633,17 @@ export default function MemberList() {
             {/* 미방문 N일 드롭다운 */}
             <div className="flex items-center gap-xs">
               <span className="text-[13px] text-content-secondary">미방문</span>
-              <div className="relative">
-                <select
-                  className="appearance-none border border-line bg-surface rounded-lg px-sm pr-[26px] py-[4px] text-[13px] text-content outline-none focus:ring-2 focus:ring-primary/20 cursor-pointer"
-                  value={daysNoVisit}
-                  onChange={(e) => { setDaysNoVisit(Number(e.target.value)); setCurrentPage(1); }}
-                >
-                  <option value={0}>전체</option>
-                  <option value={7}>7일 초과</option>
-                  <option value={14}>14일 초과</option>
-                  <option value={30}>30일 초과</option>
-                </select>
-                <ChevronDown size={12} className="absolute right-[6px] top-1/2 -translate-y-1/2 text-content-tertiary pointer-events-none" />
-              </div>
+              <Select
+                value={String(daysNoVisit)}
+                onChange={v => { setDaysNoVisit(Number(v)); setCurrentPage(1); }}
+                options={[
+                  { value: "0", label: "전체" },
+                  { value: "7", label: "7일 초과" },
+                  { value: "14", label: "14일 초과" },
+                  { value: "30", label: "30일 초과" },
+                ]}
+                className="w-32"
+              />
             </div>
 
             <div className="h-4 w-px bg-line" />
@@ -656,19 +651,17 @@ export default function MemberList() {
             {/* 회원구분 드롭다운 */}
             <div className="flex items-center gap-xs">
               <span className="text-[13px] text-content-secondary">회원구분</span>
-              <div className="relative">
-                <select
-                  className="appearance-none border border-line bg-surface rounded-lg px-sm pr-[26px] py-[4px] text-[13px] text-content outline-none focus:ring-2 focus:ring-primary/20 cursor-pointer"
-                  value={memberTypeFilter}
-                  onChange={(e) => { setMemberTypeFilter(e.target.value); setCurrentPage(1); }}
-                >
-                  <option value="all">전체</option>
-                  <option value="일반">일반</option>
-                  <option value="기명법인">기명법인</option>
-                  <option value="무기명법인">무기명법인</option>
-                </select>
-                <ChevronDown size={12} className="absolute right-[6px] top-1/2 -translate-y-1/2 text-content-tertiary pointer-events-none" />
-              </div>
+              <Select
+                value={memberTypeFilter}
+                onChange={v => { setMemberTypeFilter(v); setCurrentPage(1); }}
+                options={[
+                  { value: "all", label: "전체" },
+                  { value: "일반", label: "일반" },
+                  { value: "기명법인", label: "기명법인" },
+                  { value: "무기명법인", label: "무기명법인" },
+                ]}
+                className="w-32"
+              />
             </div>
 
             <div className="h-4 w-px bg-line" />
@@ -676,21 +669,19 @@ export default function MemberList() {
             {/* 유입경로 드롭다운 */}
             <div className="flex items-center gap-xs">
               <span className="text-[13px] text-content-secondary">유입경로</span>
-              <div className="relative">
-                <select
-                  className="appearance-none border border-line bg-surface rounded-lg px-sm pr-[26px] py-[4px] text-[13px] text-content outline-none focus:ring-2 focus:ring-primary/20 cursor-pointer"
-                  value={referralSourceFilter}
-                  onChange={(e) => { setReferralSourceFilter(e.target.value); setCurrentPage(1); }}
-                >
-                  <option value="all">전체</option>
-                  <option value="홈페이지">홈페이지</option>
-                  <option value="지인소개">지인소개</option>
-                  <option value="네이버">네이버</option>
-                  <option value="인스타">인스타</option>
-                  <option value="기타">기타</option>
-                </select>
-                <ChevronDown size={12} className="absolute right-[6px] top-1/2 -translate-y-1/2 text-content-tertiary pointer-events-none" />
-              </div>
+              <Select
+                value={referralSourceFilter}
+                onChange={v => { setReferralSourceFilter(v); setCurrentPage(1); }}
+                options={[
+                  { value: "all", label: "전체" },
+                  { value: "홈페이지", label: "홈페이지" },
+                  { value: "지인소개", label: "지인소개" },
+                  { value: "네이버", label: "네이버" },
+                  { value: "인스타", label: "인스타" },
+                  { value: "기타", label: "기타" },
+                ]}
+                className="w-32"
+              />
             </div>
 
             <div className="h-4 w-px bg-line" />

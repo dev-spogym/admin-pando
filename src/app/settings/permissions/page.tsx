@@ -25,6 +25,8 @@ import PageHeader from "@/components/common/PageHeader";
 import StatusBadge from "@/components/common/StatusBadge";
 import ConfirmDialog from "@/components/ui/ConfirmDialog";
 import AppLayout from "@/components/layout/AppLayout";
+import Select from '@/components/ui/Select';
+import Textarea from '@/components/ui/Textarea';
 import { supabase } from "@/lib/supabase";
 
 const getBranchId = (): number => {
@@ -583,8 +585,7 @@ export default function PermissionSettings() {
                 </div>
                 <div >
                   <label className="mb-xs block text-sm text-content-secondary" >설명</label>
-                  <textarea
-                    className="w-full rounded-lg border border-line bg-surface-secondary px-md py-sm text-sm focus:ring-2 focus:ring-primary focus:outline-none" name="description" rows={3} placeholder="역할에 대한 상세 설명을 입력하세요."/>
+                  <Textarea name="description" rows={3} placeholder="역할에 대한 상세 설명을 입력하세요."/>
                 </div>
                 <div >
                   <label className="mb-xs block text-sm text-content-secondary" >기준 역할 복사 (선택)</label>
@@ -617,14 +618,12 @@ export default function PermissionSettings() {
               <div className="space-y-md">
                 <div>
                   <label className="mb-xs block text-sm text-content-secondary">복사할 기준 역할</label>
-                  <select
-                    className="w-full rounded-lg border border-line bg-surface-secondary px-md py-sm text-sm focus:ring-2 focus:ring-primary focus:outline-none"
+                  <Select
+                    options={roles.map(r => ({ value: r.id, label: r.name }))}
                     value={copySourceRoleId}
-                    onChange={e => setCopySourceRoleId(e.target.value)}
-                  >
-                    <option value="">선택하세요</option>
-                    {roles.map(r => <option key={r.id} value={r.id}>{r.name}</option>)}
-                  </select>
+                    onChange={v => setCopySourceRoleId(v)}
+                    placeholder="선택하세요"
+                  />
                 </div>
                 <div>
                   <label className="mb-xs block text-sm text-content-secondary">새 역할 이름 <span className="text-state-error">*</span></label>

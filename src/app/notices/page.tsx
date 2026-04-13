@@ -10,6 +10,7 @@ import DataTable from "@/components/common/DataTable";
 import StatusBadge from "@/components/common/StatusBadge";
 import ConfirmDialog from "@/components/ui/ConfirmDialog";
 import { cn } from '@/lib/utils';
+import Textarea from '@/components/ui/Textarea';
 import {
   getNotices,
   createNotice,
@@ -192,9 +193,8 @@ export default function Notices() {
               {/* 내용 */}
               <div>
                 <label className="text-[12px] font-semibold text-content-secondary mb-[4px] block">내용 *</label>
-                <textarea
+                <Textarea
                   rows={6}
-                  className="w-full px-md py-sm bg-surface-secondary rounded-lg text-[13px] border border-line focus:border-primary focus:outline-none resize-none"
                   placeholder="공지 내용을 입력하세요"
                   value={form.content}
                   onChange={e => setForm({ ...form, content: e.target.value })}

@@ -18,6 +18,8 @@ import {
 import { toast } from 'sonner';
 import AppLayout from "@/components/layout/AppLayout";
 import PageHeader from "@/components/common/PageHeader";
+import Select from '@/components/ui/Select';
+import Textarea from '@/components/ui/Textarea';
 import { cn } from '@/lib/utils';
 import { moveToPage } from '@/internal';
 import {
@@ -305,27 +307,16 @@ function StaffResignation() {
                 <label className="text-Label font-semibold text-content-secondary">
                   직원 <span className="text-error">*</span>
                 </label>
-                <select
-                  value={selectedStaffId ?? ''}
-                  onChange={(e) => {
-                    setSelectedStaffId(e.target.value ? Number(e.target.value) : null);
+                <Select
+                  options={staffList.map((s) => ({ value: String(s.id), label: `${s.name} (${s.role})` }))}
+                  value={selectedStaffId !== null ? String(selectedStaffId) : ''}
+                  onChange={(v) => {
+                    setSelectedStaffId(v ? Number(v) : null);
                     if (step1Errors.staff) setStep1Errors((p) => ({ ...p, staff: '' }));
                   }}
-                  className={cn(
-                    'w-full px-md py-md bg-surface-secondary border rounded-input text-Body-2 outline-none focus:ring-2 focus:ring-primary transition-all',
-                    step1Errors.staff ? 'border-error' : 'border-line'
-                  )}
-                >
-                  <option value="">직원을 선택하세요</option>
-                  {staffList.map((s) => (
-                    <option key={s.id} value={s.id}>
-                      {s.name} ({s.role})
-                    </option>
-                  ))}
-                </select>
-                {step1Errors.staff && (
-                  <p className="text-Label text-error">{step1Errors.staff}</p>
-                )}
+                  placeholder="직원을 선택하세요"
+                  error={step1Errors.staff}
+                />
               </div>
 
               {/* 선택된 직원 카드 */}
@@ -396,12 +387,11 @@ function StaffResignation() {
                 <label className="text-Label font-semibold text-content-secondary">
                   퇴사 사유 <span className="text-content-secondary font-normal">(선택)</span>
                 </label>
-                <textarea
+                <Textarea
                   value={resignReason}
                   onChange={(e) => setResignReason(e.target.value)}
                   placeholder="퇴사 사유를 입력하세요 (개인 사정, 계약 만료 등)"
                   rows={3}
-                  className="w-full px-md py-md bg-surface-secondary border border-line rounded-input text-Body-2 outline-none focus:ring-2 focus:ring-primary transition-all resize-none"
                 />
               </div>
             </div>
@@ -443,18 +433,14 @@ function StaffResignation() {
                 <span className="text-Label font-semibold text-content-secondary whitespace-nowrap">
                   일괄 배정:
                 </span>
-                <select
-                  value={bulkStaffId ?? ''}
-                  onChange={(e) => setBulkStaffId(e.target.value ? Number(e.target.value) : null)}
-                  className="flex-1 min-w-[160px] px-sm py-xs bg-surface border border-line rounded-input text-Body-2 outline-none focus:ring-2 focus:ring-primary transition-all"
-                >
-                  <option value="">담당 FC 선택</option>
-                  {activeFcList.map((fc) => (
-                    <option key={fc.id} value={fc.id}>
-                      {fc.name}
-                    </option>
-                  ))}
-                </select>
+                <div className="flex-1 min-w-[160px]">
+                  <Select
+                    options={activeFcList.map((fc) => ({ value: String(fc.id), label: fc.name }))}
+                    value={bulkStaffId !== null ? String(bulkStaffId) : ''}
+                    onChange={(v) => setBulkStaffId(v ? Number(v) : null)}
+                    placeholder="담당 FC 선택"
+                  />
+                </div>
                 <button
                   onClick={applyBulkAssign}
                   disabled={!bulkStaffId}
@@ -509,28 +495,13 @@ function StaffResignation() {
                             )}
                           </td>
                           <td className="py-sm px-md">
-                            <select
-                              value={m.assignedStaffId ?? ''}
-                              onChange={(e) =>
-                                handleMemberAssign(
-                                  m.id,
-                                  e.target.value ? Number(e.target.value) : null
-                                )
-                              }
-                              className={cn(
-                                'w-full px-sm py-xs border rounded-input text-Body-2 outline-none focus:ring-2 focus:ring-primary transition-all bg-surface',
-                                m.hasPtRemaining && m.assignedStaffId === null
-                                  ? 'border-error'
-                                  : 'border-line'
-                              )}
-                            >
-                              <option value="">담당자 선택</option>
-                              {activeFcList.map((fc) => (
-                                <option key={fc.id} value={fc.id}>
-                                  {fc.name}
-                                </option>
-                              ))}
-                            </select>
+                            <Select
+                              options={activeFcList.map((fc) => ({ value: String(fc.id), label: fc.name }))}
+                              value={m.assignedStaffId !== null ? String(m.assignedStaffId) : ''}
+                              onChange={(v) => handleMemberAssign(m.id, v ? Number(v) : null)}
+                              placeholder="담당자 선택"
+                              error={m.hasPtRemaining && m.assignedStaffId === null ? ' ' : undefined}
+                            />
                           </td>
                         </tr>
                       ))}

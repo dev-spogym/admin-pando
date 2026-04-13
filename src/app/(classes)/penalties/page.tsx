@@ -12,6 +12,8 @@ import StatCardGrid from "@/components/common/StatCardGrid";
 import DataTable from "@/components/common/DataTable";
 import StatusBadge from "@/components/common/StatusBadge";
 import Modal from "@/components/ui/Modal";
+import Select from '@/components/ui/Select';
+import Textarea from '@/components/ui/Textarea';
 import ConfirmDialog from "@/components/ui/ConfirmDialog";
 import type { BadgeVariant } from "@/components/common/StatusBadge";
 import { supabase } from '@/lib/supabase';
@@ -388,15 +390,15 @@ export default function PenaltyManagement() {
           {/* 페널티 유형 */}
           <div>
             <label className="block text-[12px] font-medium text-content-secondary mb-xs">유형</label>
-            <select
-              className="w-full px-3 py-2 border border-line rounded-lg text-[13px] text-content bg-surface focus:outline-none focus:border-primary"
+            <Select
               value={form.type}
-              onChange={(e) => setForm((f) => ({ ...f, type: e.target.value }))}
-            >
-              <option value="NOSHOW">노쇼</option>
-              <option value="LATE_CANCEL">지각취소</option>
-              <option value="LATE">지각</option>
-            </select>
+              onChange={(v) => setForm((f) => ({ ...f, type: v }))}
+              options={[
+                { value: 'NOSHOW', label: '노쇼' },
+                { value: 'LATE_CANCEL', label: '지각취소' },
+                { value: 'LATE', label: '지각' },
+              ]}
+            />
           </div>
 
           {/* 차감 횟수 */}
@@ -417,8 +419,7 @@ export default function PenaltyManagement() {
             <label className="block text-[12px] font-medium text-content-secondary mb-xs">
               사유 <span className="text-state-error">*</span>
             </label>
-            <textarea
-              className="w-full px-3 py-2 border border-line rounded-lg text-[13px] text-content bg-surface focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary/20 resize-none"
+            <Textarea
               rows={3}
               placeholder="페널티 사유를 입력하세요."
               value={form.reason}

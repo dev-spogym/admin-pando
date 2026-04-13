@@ -32,6 +32,8 @@ import StatusBadge from "@/components/common/StatusBadge";
 import { cn } from "@/lib/utils";
 import { moveToPage } from "@/internal";
 import { supabase } from "@/lib/supabase";
+import Select from "@/components/ui/Select";
+import Textarea from "@/components/ui/Textarea";
 import { toast } from "sonner";
 import { exportToExcel } from "@/lib/exportExcel";
 
@@ -704,15 +706,12 @@ function ValidLessonsTab({ lessons }: { lessons: Lesson[] }) {
           {instructors.length > 2 && (
             <div className="flex items-center gap-xs">
               <span className="text-[12px] text-content-secondary">강사</span>
-              <select
+              <Select
                 value={instructorFilter}
-                onChange={e => setInstructorFilter(e.target.value)}
-                className="h-7 rounded-lg bg-surface-secondary border border-line px-sm text-[12px] outline-none focus:border-primary transition-colors"
-              >
-                {instructors.map(i => (
-                  <option key={i} value={i}>{i}</option>
-                ))}
-              </select>
+                onChange={v => setInstructorFilter(v)}
+                options={instructors.map((i: string) => ({ value: i, label: i }))}
+                className="w-32"
+              />
             </div>
           )}
         </div>
@@ -1493,27 +1492,25 @@ export default function Calendar() {
               <div className="flex flex-col gap-md bg-surface p-md rounded-xl border border-line shadow-xs">
                 <div className="flex flex-wrap items-center gap-md">
                   {/* 강사 필터 */}
-                  <select
-                    className="h-9 rounded-lg bg-surface-secondary border border-line px-md text-[13px] text-content outline-none focus:border-primary transition-colors"
+                  <Select
                     value={selectedInstructor}
-                    onChange={e => setSelectedInstructor(e.target.value)}
-                  >
-                    <option value="">전체 강사</option>
-                    {instructors.map(i => (
-                      <option key={i.id} value={i.id}>{i.name} ({i.type})</option>
-                    ))}
-                  </select>
+                    onChange={v => setSelectedInstructor(v)}
+                    options={[
+                      { value: "", label: "전체 강사" },
+                      ...instructors.map((i: any) => ({ value: i.id, label: `${i.name} (${i.type})` })),
+                    ]}
+                    className="w-40"
+                  />
                   {/* 수업명 필터 */}
-                  <select
-                    className="h-9 rounded-lg bg-surface-secondary border border-line px-md text-[13px] text-content outline-none focus:border-primary transition-colors"
+                  <Select
                     value={selectedLessonFilter}
-                    onChange={e => setSelectedLessonFilter(e.target.value)}
-                  >
-                    <option value="">전체 수업</option>
-                    {lessons.map(l => (
-                      <option key={l.id} value={l.name}>{l.name}</option>
-                    ))}
-                  </select>
+                    onChange={v => setSelectedLessonFilter(v)}
+                    options={[
+                      { value: "", label: "전체 수업" },
+                      ...lessons.map((l: any) => ({ value: l.name, label: l.name })),
+                    ]}
+                    className="w-40"
+                  />
                   {/* 정원 상태 필터 */}
                   <div className="flex items-center gap-xs">
                     {(["전체", "여유", "마감"] as const).map(opt => (
@@ -2052,23 +2049,23 @@ export default function Calendar() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-xl">
                 <div className="space-y-lg">
                   <div>
-                    <label className="block text-[12px] font-semibold text-content-secondary mb-sm">수업 템플릿 <span className="text-state-error">*</span></label>
-                    <select
-                      className="w-full h-11 rounded-lg bg-surface-secondary border border-line px-md text-[13px] focus:border-primary outline-none transition-all"
+                    <Select
+                      label="수업 템플릿 *"
                       value={formTemplate}
-                      onChange={e => {
-                        setFormTemplate(e.target.value);
-                        const tpl = CLASS_TYPES.find(t => t.id === e.target.value);
+                      onChange={v => {
+                        setFormTemplate(v);
+                        const tpl = CLASS_TYPES.find((t: any) => t.id === v);
                         if (tpl) {
                           setFormName(tpl.name);
                           setFormCapacity(tpl.capacity);
                           setFormRoom(tpl.room);
                         }
                       }}
-                    >
-                      <option value="">템플릿을 선택하세요</option>
-                      {CLASS_TYPES.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
-                    </select>
+                      options={[
+                        { value: "", label: "템플릿을 선택하세요" },
+                        ...CLASS_TYPES.map((t: any) => ({ value: t.id, label: t.name })),
+                      ]}
+                    />
                   </div>
                   <div>
                     <label className="block text-[12px] font-semibold text-content-secondary mb-sm">수업명 <span className="text-state-error">*</span></label>
@@ -2081,16 +2078,16 @@ export default function Calendar() {
                   </div>
                   <div className="grid grid-cols-2 gap-md">
                     <div>
-                      <label className="block text-[12px] font-semibold text-content-secondary mb-sm">수업 유형 <span className="text-state-error">*</span></label>
-                      <select
-                        className="w-full h-11 rounded-lg bg-surface-secondary border border-line px-md text-[13px] focus:border-primary outline-none transition-all"
+                      <Select
+                        label="수업 유형 *"
                         value={formType}
-                        onChange={e => setFormType(e.target.value)}
-                      >
-                        <option>그룹 수업</option>
-                        <option>PT / OT</option>
-                        <option>개인 레슨</option>
-                      </select>
+                        onChange={v => setFormType(v)}
+                        options={[
+                          { value: "그룹 수업", label: "그룹 수업" },
+                          { value: "PT / OT", label: "PT / OT" },
+                          { value: "개인 레슨", label: "개인 레슨" },
+                        ]}
+                      />
                     </div>
                     <div>
                       <label className="block text-[12px] font-semibold text-content-secondary mb-sm">정원수 <span className="text-state-error">*</span></label>
@@ -2103,15 +2100,15 @@ export default function Calendar() {
                     </div>
                   </div>
                   <div>
-                    <label className="block text-[12px] font-semibold text-content-secondary mb-sm">담당 강사 <span className="text-state-error">*</span></label>
-                    <select
-                      className="w-full h-11 rounded-lg bg-surface-secondary border border-line px-md text-[13px] focus:border-primary outline-none transition-all"
+                    <Select
+                      label="담당 강사 *"
                       value={formInstructor}
-                      onChange={e => setFormInstructor(e.target.value)}
-                    >
-                      <option value="">강사를 선택하세요</option>
-                      {instructors.map(i => <option key={i.id} value={i.id}>{i.name} ({i.type})</option>)}
-                    </select>
+                      onChange={v => setFormInstructor(v)}
+                      options={[
+                        { value: "", label: "강사를 선택하세요" },
+                        ...instructors.map((i: any) => ({ value: i.id, label: `${i.name} (${i.type})` })),
+                      ]}
+                    />
                   </div>
                 </div>
 
@@ -2146,14 +2143,12 @@ export default function Calendar() {
                     </div>
                   </div>
                   <div>
-                    <label className="block text-[12px] font-semibold text-content-secondary mb-sm">장소(룸) 선택 <span className="text-state-error">*</span></label>
-                    <select
-                      className="w-full h-11 rounded-lg bg-surface-secondary border border-line px-md text-[13px] focus:border-primary outline-none transition-all"
+                    <Select
+                      label="장소(룸) 선택 *"
                       value={formRoom}
-                      onChange={e => setFormRoom(e.target.value)}
-                    >
-                      {ROOMS.map(r => <option key={r.id} value={r.name}>{r.name}</option>)}
-                    </select>
+                      onChange={v => setFormRoom(v)}
+                      options={ROOMS.map((r: any) => ({ value: r.name, label: r.name }))}
+                    />
                   </div>
                   <div>
                     <label className="block text-[12px] font-semibold text-content-secondary mb-sm">반복 설정</label>
@@ -2342,17 +2337,15 @@ export default function Calendar() {
                 )}
                 {formTargetType === "직원" && (
                   <div>
-                    <label className="block text-[12px] font-semibold text-content-secondary mb-sm">직원 선택</label>
-                    <select
-                      className="w-full h-11 rounded-lg bg-surface-secondary border border-line px-md text-[13px] focus:border-primary outline-none transition-all"
+                    <Select
+                      label="직원 선택"
                       value={formTargetStaff}
-                      onChange={e => setFormTargetStaff(e.target.value)}
-                    >
-                      <option value="">직원을 선택하세요</option>
-                      {instructors.map(i => (
-                        <option key={i.id} value={i.id}>{i.name} ({i.type})</option>
-                      ))}
-                    </select>
+                      onChange={v => setFormTargetStaff(v)}
+                      options={[
+                        { value: "", label: "직원을 선택하세요" },
+                        ...instructors.map((i: any) => ({ value: i.id, label: `${i.name} (${i.type})` })),
+                      ]}
+                    />
                   </div>
                 )}
                 {/* 참여자 목록 */}
@@ -2464,12 +2457,13 @@ export default function Calendar() {
               </div>
 
               <div>
-                <label className="block text-[12px] font-semibold text-content-secondary mb-sm">수업 메모</label>
-                <textarea
-                  className="w-full h-20 rounded-lg bg-surface-secondary border border-line p-md text-[13px] focus:border-primary outline-none resize-none transition-all"
+                <Textarea
+                  label="수업 메모"
                   placeholder="강사나 회원에게 전달할 메모를 입력하세요"
                   value={formMemo}
                   onChange={e => setFormMemo(e.target.value)}
+                  rows={3}
+                  className="h-20"
                 />
               </div>
             </div>

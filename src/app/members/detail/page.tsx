@@ -53,6 +53,8 @@ import {
 import { cn } from "@/lib/utils";
 import { moveToPage } from "@/internal";
 import { supabase } from "@/lib/supabase";
+import Select from "@/components/ui/Select";
+import Textarea from "@/components/ui/Textarea";
 import { readBranchJson, writeBranchJson } from "@/lib/branchStorage";
 import { getMemberGrade } from "@/lib/memberGrade";
 
@@ -1053,17 +1055,17 @@ function TabMemo({ memberId }: { memberId: string }) {
       <div className="bg-surface rounded-xl border border-line p-lg">
         <h3 className="text-Section-Title text-content mb-md">새 메모 작성</h3>
         <div className="space-y-sm">
-          <select
-            className="rounded-input bg-surface-secondary border border-line px-md py-sm text-[13px] text-content outline-none focus:ring-2 focus:ring-primary/20 w-auto"
+          <Select
             value={newCategory}
-            onChange={e => setNewCategory(e.target.value)}
-          >
-            <option value="상담">상담</option>
-            <option value="특이사항">특이사항</option>
-            <option value="일반">일반</option>
-          </select>
-          <textarea
-            className="w-full rounded-input bg-surface-secondary border border-line px-md py-sm text-[13px] text-content outline-none focus:ring-2 focus:ring-primary/20 resize-none"
+            onChange={v => setNewCategory(v)}
+            options={[
+              { value: "상담", label: "상담" },
+              { value: "특이사항", label: "특이사항" },
+              { value: "일반", label: "일반" },
+            ]}
+            className="w-40"
+          />
+          <Textarea
             rows={3}
             placeholder="상담 내용 또는 특이사항을 입력하세요..."
             value={newContent}
@@ -1138,8 +1140,7 @@ function TabMemo({ memberId }: { memberId: string }) {
             </div>
             <div className="mt-sm">
               {editingId === memo.id ? (
-                <textarea
-                  className="w-full rounded-input bg-surface-secondary border border-line px-md py-sm text-[13px] text-content outline-none focus:ring-2 focus:ring-primary/20 resize-none"
+                <Textarea
                   rows={3}
                   value={editingContent}
                   onChange={e => setEditingContent(e.target.value)}
@@ -1355,12 +1356,13 @@ function LessonModal({
 
           {/* 운동 내용 메모 */}
           <div>
-            <label className="block text-[12px] font-semibold text-content-secondary mb-sm">운동 내용 메모</label>
-            <textarea
-              className="w-full h-20 rounded-lg bg-surface-secondary border border-line p-md text-[13px] focus:border-primary outline-none resize-none"
+            <Textarea
+              label="운동 내용 메모"
               placeholder="운동 내용, 특이사항 등을 입력하세요"
               value={memo}
               onChange={e => setMemo(e.target.value)}
+              rows={3}
+              className="h-20"
             />
           </div>
 
@@ -2009,13 +2011,12 @@ function MemberDetail() {
             </div>
             <div className="p-xl space-y-md">
               <div className="space-y-xs">
-                <label className="text-[13px] font-semibold text-content-secondary">탈퇴 사유 (선택)</label>
-                <textarea
+                <Textarea
+                  label="탈퇴 사유 (선택)"
                   rows={3}
                   value={withdrawReason}
                   onChange={e => setWithdrawReason(e.target.value)}
                   placeholder="탈퇴 사유를 입력하세요."
-                  className="w-full rounded-input border border-line bg-surface-secondary px-md py-sm text-[13px] text-content outline-none focus:ring-2 focus:ring-state-warning/30 resize-none"
                 />
               </div>
             </div>

@@ -22,6 +22,8 @@ import TabNav from "@/components/common/TabNav";
 import { useAuthStore } from "@/stores/authStore";
 import { getTodayTasks, type TodayTask } from "@/lib/todayTasks";
 import { cn } from "@/lib/utils";
+import Select from '@/components/ui/Select';
+import Textarea from '@/components/ui/Textarea';
 
 type StatusFilter = "all" | "대기" | "진행중" | "완료";
 type EditableTask = TodayTask & { source: "hq" };
@@ -247,36 +249,24 @@ export default function TodayTasks() {
               value={form.memberName}
               onChange={(e) => setForm((prev) => ({ ...prev, memberName: e.target.value }))}
             />
-            <select
-              className="rounded-input border border-line bg-surface-secondary px-md py-sm text-[13px] outline-none focus:ring-2 focus:ring-primary/30"
+            <Select
               value={form.category}
-              onChange={(e) => setForm((prev) => ({ ...prev, category: e.target.value as TodayTask["category"] }))}
-            >
-              {CATEGORY_OPTIONS.map((option) => (
-                <option key={option} value={option}>{option}</option>
-              ))}
-            </select>
-            <select
-              className="rounded-input border border-line bg-surface-secondary px-md py-sm text-[13px] outline-none focus:ring-2 focus:ring-primary/30"
+              onChange={(v) => setForm((prev) => ({ ...prev, category: v as TodayTask["category"] }))}
+              options={CATEGORY_OPTIONS.map((o) => ({ value: o, label: o }))}
+            />
+            <Select
               value={form.priority}
-              onChange={(e) => setForm((prev) => ({ ...prev, priority: e.target.value as TodayTask["priority"] }))}
-            >
-              {PRIORITY_OPTIONS.map((option) => (
-                <option key={option} value={option}>{option}</option>
-              ))}
-            </select>
-            <select
-              className="rounded-input border border-line bg-surface-secondary px-md py-sm text-[13px] outline-none focus:ring-2 focus:ring-primary/30"
+              onChange={(v) => setForm((prev) => ({ ...prev, priority: v as TodayTask["priority"] }))}
+              options={PRIORITY_OPTIONS.map((o) => ({ value: o, label: o }))}
+            />
+            <Select
               value={form.status}
-              onChange={(e) => setForm((prev) => ({ ...prev, status: e.target.value as TodayTask["status"] }))}
-            >
-              {STATUS_OPTIONS.map((option) => (
-                <option key={option} value={option}>{option}</option>
-              ))}
-            </select>
+              onChange={(v) => setForm((prev) => ({ ...prev, status: v as TodayTask["status"] }))}
+              options={STATUS_OPTIONS.map((o) => ({ value: o, label: o }))}
+            />
           </div>
 
-          <textarea
+          <Textarea
             className="mt-md w-full rounded-input border border-line bg-surface-secondary px-md py-sm text-[13px] outline-none focus:ring-2 focus:ring-primary/30"
             rows={3}
             placeholder="업무 설명"
