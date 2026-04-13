@@ -140,6 +140,62 @@ const ROUTE_TO_MODULE: Record<string, { module: string; section?: string }> = {
   '/reports': { module: '모듈 6', section: '주요 기능' },
 };
 
+// 라우트 -> KPI 정의서 관련 섹션 매핑
+const ROUTE_TO_KPI: Record<string, { section: string }> = {
+  '/kpi': { section: '전체' },
+  '/kpi-preview': { section: '전체' },
+  '/super-dashboard': { section: '본사 (HQ) KPI' },
+  '/branch-report': { section: '지점 (Branch) KPI' },
+  '/': { section: '지점 (Branch) KPI' },
+  '/today-tasks': { section: '직원 (Staff) KPI' },
+  '/instructor-status': { section: 'PT Trainer' },
+  '/class-stats': { section: 'GX/필라테스 강사' },
+  '/lesson-counts': { section: 'PT Trainer' },
+  '/lessons': { section: 'PT Trainer' },
+  '/sales/stats': { section: '지점 (Branch) KPI' },
+  '/sales/statistics-management': { section: '지점 (Branch) KPI' },
+  '/leads': { section: 'FC (Fitness Consultant)' },
+  '/members': { section: 'FC (Fitness Consultant)' },
+  '/members/detail': { section: 'FC (Fitness Consultant)' },
+  '/payroll': { section: '지점 (Branch) KPI' },
+  '/attendance': { section: '지점 (Branch) KPI' },
+};
+
+// KPI 정의서에서 관련 섹션 추출
+function extractKpiSection(content: string, sectionName: string): string {
+  if (sectionName === '전체') return content;
+
+  const lines = content.split('\n');
+  const result: string[] = [];
+  let capturing = false;
+
+  for (const line of lines) {
+    const trimmed = line.trim();
+
+    // ## 또는 ### 섹션 매칭
+    if ((trimmed.startsWith('## ') || trimmed.startsWith('### ')) && trimmed.includes(sectionName)) {
+      capturing = true;
+      result.push(line);
+      continue;
+    }
+
+    // 같은 레벨의 다른 섹션이 나오면 중단
+    if (capturing && trimmed.startsWith('## ') && !trimmed.includes(sectionName)) {
+      break;
+    }
+    if (capturing && trimmed.startsWith('### ') && !trimmed.includes(sectionName) && result.length > 3) {
+      // ### 하위 섹션은 다음 ##까지 계속 수집
+      if (trimmed.startsWith('## ')) break;
+    }
+
+    if (capturing) {
+      result.push(line);
+    }
+  }
+
+  return result.length > 0 ? result.join('\n') : '';
+}
+
 // 시스템 모듈 정의서에서 관련 모듈 섹션 추출
 function extractModuleSection(content: string, moduleName: string, sectionName?: string): string {
   const lines = content.split('\n');
@@ -225,6 +281,21 @@ export async function GET(request: NextRequest) {
         }
       } catch {
         // 시스템 모듈 정의서 파일이 없어도 에러 무시
+      }
+    }
+
+    // KPI 정의서에서 관련 섹션 추가
+    const kpiMapping = ROUTE_TO_KPI[routePath];
+    if (kpiMapping) {
+      try {
+        const kpiPath = path.join(process.cwd(), 'docs', 'KPI_정의서.md');
+        const kpiContent = fs.readFileSync(kpiPath, 'utf-8');
+        const kpiSection = extractKpiSection(kpiContent, kpiMapping.section);
+        if (kpiSection) {
+          content += '\n\n---\n\n# 📊 관련 KPI\n\n' + kpiSection;
+        }
+      } catch {
+        // KPI 정의서 파일이 없어도 에러 무시
       }
     }
 
