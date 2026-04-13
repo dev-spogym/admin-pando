@@ -1083,13 +1083,21 @@ export default function ContractWizard() {
               다음 단계 <ChevronRight size={20} />
             </button>
           ) : (
-            <button
-              onClick={handleContractSave}
-              disabled={isSaving}
-              className="flex items-center gap-sm px-[48px] py-lg bg-accent text-white rounded-button font-bold hover:scale-[1.02] active:scale-[0.98] transition-all shadow-lg shadow-accent/20 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              <FileText size={20} /> {isSaving ? "저장 중..." : "계약 완료 확인"}
-            </button>
+            <div className="flex items-center gap-sm">
+              <button
+                onClick={() => { toast.info('인쇄 다이얼로그에서 PDF로 저장을 선택하세요.'); setTimeout(() => window.print(), 300); }}
+                className="flex items-center gap-sm px-xl py-lg bg-surface border border-line text-content-secondary rounded-button font-bold hover:bg-surface-secondary transition-all"
+              >
+                <FileText size={18} /> PDF 다운로드
+              </button>
+              <button
+                onClick={handleContractSave}
+                disabled={isSaving}
+                className="flex items-center gap-sm px-[48px] py-lg bg-accent text-white rounded-button font-bold hover:scale-[1.02] active:scale-[0.98] transition-all shadow-lg shadow-accent/20 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <FileText size={20} /> {isSaving ? "저장 중..." : "계약 완료 확인"}
+              </button>
+            </div>
           )}
         </div>
       </div>

@@ -16,7 +16,9 @@ import {
   Edit2,
   Save,
   Trash2,
+  Globe,
 } from 'lucide-react';
+import ConfirmFlow from '@/components/common/ConfirmFlow';
 import {
   getProductGroups,
   createProductGroup,
@@ -83,9 +85,97 @@ const SPORT_TYPES = ['전체', '헬스', '필라테스', '요가', '수영', '�
 
 
 // ─── 컴포넌트 ────────────────────────────────────────────────
+// 상품 description에서 isPackage 여부 파악
+function isPackageProduct(product: { description?: string | null }): boolean {
+  try {
+    const desc = product.description ?? '';
+    if (!desc.startsWith('{')) return false;
+    const parsed = JSON.parse(desc);
+    return parsed?.isPackage === true;
+  } catch {
+    return false;
+  }
+}
+
 export default function ProductList() {
   const authUser = useAuthStore((s) => s.user);
+  const isSuperAdmin = authUser?.isSuperAdmin ?? false;
   const canEditProduct = hasFeature(authUser?.role ?? '', 'productEdit', authUser?.isSuperAdmin);
+
+  // ── 전 지점 배포 상태 ──────────────────────────────────────
+  const [showDeployModal, setShowDeployModal] = useState(false);
+  const [deploySelectedIds, setDeploySelectedIds] = useState<Set<number>>(new Set());
+  const [branches, setBranches] = useState<{ id: number; name: string }[]>([]);
+  const [deployBranchIds, setDeployBranchIds] = useState<Set<number>>(new Set());
+  const [deployAllBranches, setDeployAllBranches] = useState(true);
+  const [showDeployConfirm, setShowDeployConfirm] = useState(false);
+  const [deploying, setDeploying] = useState(false);
+
+  const fetchBranches = useCallback(async () => {
+    const { data } = await supabase.from('branches').select('id, name').order('id');
+    if (data) setBranches((data as { id: number; name: string }[]));
+  }, []);
+
+  const handleOpenDeployModal = () => {
+    fetchBranches();
+    setDeploySelectedIds(new Set());
+    setDeployBranchIds(new Set());
+    setDeployAllBranches(true);
+    setShowDeployModal(true);
+  };
+
+  const handleDeploy = async () => {
+    const targetBranchIds = deployAllBranches
+      ? branches.map(b => b.id).filter(id => id !== Number(getBranchId()))
+      : [...deployBranchIds].filter(id => id !== Number(getBranchId()));
+
+    if (targetBranchIds.length === 0) {
+      toast.error('배포할 지점을 선택하세요.');
+      return;
+    }
+    if (deploySelectedIds.size === 0) {
+      toast.error('배포할 상품을 선택하세요.');
+      return;
+    }
+
+    setDeploying(true);
+    let successCount = 0;
+    let skipCount = 0;
+
+    const selectedProducts = products.filter(p => deploySelectedIds.has(p.id));
+
+    for (const branchId of targetBranchIds) {
+      for (const prod of selectedProducts) {
+        // 중복 체크
+        const { data: existing } = await supabase
+          .from('products')
+          .select('id')
+          .eq('branchId', branchId)
+          .eq('name', prod.name)
+          .maybeSingle();
+
+        if (existing) {
+          skipCount++;
+          continue;
+        }
+
+        // INSERT (id, branchId, createdAt 제외하고 복사)
+        const prodRaw = prod as unknown as Record<string, unknown>;
+        const { id: _id, branchId: _bid, createdAt: _ca, ...rest } = prodRaw;
+        void _id; void _bid; void _ca;
+        await supabase.from('products').insert({
+          ...rest,
+          branchId,
+        });
+        successCount++;
+      }
+    }
+
+    setDeploying(false);
+    setShowDeployModal(false);
+    setShowDeployConfirm(false);
+    toast.success(`배포 완료: ${successCount}건 추가, ${skipCount}건 건너뜀`);
+  };
 
   // 최상위 탭: "상품 목록" / "분류 관리"
   const [mainTab, setMainTab] = useState<'products' | 'groups'>('products');
@@ -290,6 +380,17 @@ export default function ProductList() {
                 </button>
               ))}
             </div>
+            {/* 전 지점 배포 버튼 (슈퍼관리자 전용) */}
+            {mainTab === 'products' && isSuperAdmin && (
+              <Button
+                variant="outline"
+                size="sm"
+                icon={<Globe size={14} />}
+                onClick={handleOpenDeployModal}
+              >
+                전 지점 배포
+              </Button>
+            )}
             {/* 상품 등록 버튼 (상품 목록 탭에서만) */}
             {mainTab === 'products' && canEditProduct && (
               <Button
@@ -599,6 +700,11 @@ export default function ProductList() {
                                     {PRODUCT_TYPE_BADGE[product.productType].label}
                                   </span>
                                 )}
+                                {isPackageProduct(product) && (
+                                  <span className="text-[9px] font-bold px-[4px] py-[1px] rounded shrink-0 bg-amber-100 text-amber-700 flex items-center gap-[2px]">
+                                    📦 패키지
+                                  </span>
+                                )}
                                 <span className={cn(
                                   'text-[12px] font-semibold truncate',
                                   isSelected ? 'text-primary' : 'text-content group-hover:text-primary'
@@ -716,6 +822,140 @@ export default function ProductList() {
           </div>
         </>
       )}
+      {/* ── 전 지점 배포 모달 ───────────────────────────────── */}
+      {showDeployModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/40" onClick={() => setShowDeployModal(false)} />
+          <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-2xl overflow-hidden flex flex-col max-h-[90vh]">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-line">
+              <h2 className="text-[15px] font-bold text-content flex items-center gap-2">
+                <Globe size={16} className="text-primary" />
+                전 지점 배포
+              </h2>
+              <button onClick={() => setShowDeployModal(false)} className="text-content-tertiary hover:text-content">
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto p-6 space-y-5">
+              {/* 배포할 상품 선택 */}
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <p className="text-[13px] font-semibold text-content">배포할 상품 선택</p>
+                  <button
+                    className="text-[11px] text-primary hover:underline"
+                    onClick={() => setDeploySelectedIds(new Set(products.map(p => p.id)))}
+                  >
+                    전체 선택
+                  </button>
+                </div>
+                <div className="border border-line rounded-lg overflow-hidden max-h-[240px] overflow-y-auto">
+                  {products.map(p => (
+                    <label key={p.id} className="flex items-center gap-3 px-4 py-2 hover:bg-surface-secondary cursor-pointer border-b border-line last:border-b-0">
+                      <input
+                        type="checkbox"
+                        checked={deploySelectedIds.has(p.id)}
+                        onChange={() => {
+                          setDeploySelectedIds(prev => {
+                            const next = new Set(prev);
+                            next.has(p.id) ? next.delete(p.id) : next.add(p.id);
+                            return next;
+                          });
+                        }}
+                        className="h-4 w-4 accent-primary"
+                      />
+                      <span className="text-[13px] text-content flex-1">{p.name}</span>
+                      {isPackageProduct(p) && (
+                        <span className="text-[10px] bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded font-semibold">📦 패키지</span>
+                      )}
+                      <span className="text-[12px] text-content-secondary tabular-nums">
+                        {(p.cashPrice ?? p.price).toLocaleString()}원
+                      </span>
+                    </label>
+                  ))}
+                </div>
+                <p className="text-[11px] text-content-tertiary mt-1">{deploySelectedIds.size}개 선택됨</p>
+              </div>
+
+              {/* 대상 지점 선택 */}
+              <div>
+                <p className="text-[13px] font-semibold text-content mb-2">대상 지점</p>
+                <label className="flex items-center gap-2 mb-3 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={deployAllBranches}
+                    onChange={() => setDeployAllBranches(prev => !prev)}
+                    className="h-4 w-4 accent-primary"
+                  />
+                  <span className="text-[13px] text-content font-medium">전체 지점</span>
+                </label>
+                {!deployAllBranches && (
+                  <div className="border border-line rounded-lg overflow-hidden max-h-[180px] overflow-y-auto">
+                    {branches.filter(b => b.id !== Number(getBranchId())).map(b => (
+                      <label key={b.id} className="flex items-center gap-3 px-4 py-2 hover:bg-surface-secondary cursor-pointer border-b border-line last:border-b-0">
+                        <input
+                          type="checkbox"
+                          checked={deployBranchIds.has(b.id)}
+                          onChange={() => {
+                            setDeployBranchIds(prev => {
+                              const next = new Set(prev);
+                              next.has(b.id) ? next.delete(b.id) : next.add(b.id);
+                              return next;
+                            });
+                          }}
+                          className="h-4 w-4 accent-primary"
+                        />
+                        <span className="text-[13px] text-content">{b.name}</span>
+                      </label>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className="px-6 py-4 border-t border-line flex justify-end gap-3">
+              <button
+                onClick={() => setShowDeployModal(false)}
+                className="px-4 py-2 text-[13px] font-medium text-content-secondary bg-surface-secondary hover:bg-line rounded-lg"
+              >
+                취소
+              </button>
+              <button
+                onClick={() => {
+                  if (deploySelectedIds.size === 0) { toast.error('배포할 상품을 선택하세요.'); return; }
+                  const targetCount = deployAllBranches
+                    ? branches.filter(b => b.id !== Number(getBranchId())).length
+                    : deployBranchIds.size;
+                  if (targetCount === 0) { toast.error('배포할 지점을 선택하세요.'); return; }
+                  setShowDeployConfirm(true);
+                }}
+                className="px-4 py-2 text-[13px] font-semibold bg-primary text-white rounded-lg hover:bg-primary-dark flex items-center gap-2"
+              >
+                <Globe size={14} />
+                배포하기
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ConfirmFlow: 배포 최종 확인 */}
+      <ConfirmFlow
+        isOpen={showDeployConfirm}
+        onClose={() => setShowDeployConfirm(false)}
+        onConfirm={handleDeploy}
+        isLoading={deploying}
+        steps={[
+          {
+            title: '전 지점 배포 확인',
+            description: `${deploySelectedIds.size}개 상품을 ${
+              deployAllBranches
+                ? `전체 ${branches.filter(b => b.id !== Number(getBranchId())).length}개`
+                : `${deployBranchIds.size}개`
+            } 지점에 배포합니다. 이미 같은 이름의 상품이 있는 지점은 건너뜁니다.`,
+          },
+        ]}
+      />
     </AppLayout>
   );
 }

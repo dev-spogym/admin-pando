@@ -343,7 +343,31 @@ export default function OnboardingDashboard() {
         </div>
       </div>
 
-      {/* 신규 회원 목록 */}
+      {/* 이탈 위험 회원 목록 */}
+      {(() => {
+        const atRisk = newMembers.filter(m => m.status === '위험' || m.status === '이탈위험');
+        if (atRisk.length === 0) return null;
+        return (
+          <div className="mb-lg">
+            <div className="flex items-center gap-sm mb-sm">
+              <AlertCircle size={16} className="text-state-error" />
+              <h3 className="text-[14px] font-bold text-state-error">이탈 위험 회원</h3>
+              <span className="text-[12px] text-content-tertiary">{atRisk.length}명</span>
+            </div>
+            <div className="bg-red-50 border border-red-200 rounded-xl overflow-hidden">
+              <DataTable
+                title=""
+                columns={columns}
+                data={atRisk}
+                loading={false}
+                emptyMessage=""
+              />
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* 전체 신규 회원 목록 */}
       <DataTable
         title="최근 30일 신규 회원 온보딩 현황"
         columns={columns}

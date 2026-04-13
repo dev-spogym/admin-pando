@@ -418,6 +418,19 @@ export default function BranchManagement() {
       {/* --- TAB: 지점 목록 --- */}
       {activeTab === 'list' && (
         <div className="space-y-lg animate-in fade-in duration-300" >
+          {/* 폐점 지점 조회 전용 배너 */}
+          {branches.some((b: any) => b.status === 'closed' || b.status === '폐점') && (
+            <div className="flex items-start gap-md rounded-xl border border-amber-200 bg-amber-50 px-lg py-md">
+              <AlertTriangle size={16} className="text-amber-500 shrink-0 mt-[2px]" />
+              <div>
+                <p className="text-[13px] font-semibold text-amber-800">폐점 지점 포함</p>
+                <p className="text-[12px] text-amber-700 mt-[2px]">
+                  폐점된 지점({branches.filter((b: any) => b.status === 'closed' || b.status === '폐점').map((b: any) => b.name).join(', ')})은
+                  <span className="font-semibold"> 조회 전용</span> 모드입니다. 데이터 수정 및 신규 등록이 제한됩니다.
+                </p>
+              </div>
+            </div>
+          )}
           <StatCardGrid cols={4}>
             <StatCard label="총 지점 수" value={`${branches.length}개`} icon={<Building2 />} variant="default"/>
             <StatCard label="총 회원 수" value={`${formatNumber(integratedStats.reduce((s, i) => s + (i.members ?? 0), 0))}명`} icon={<Users />} variant="mint"/>

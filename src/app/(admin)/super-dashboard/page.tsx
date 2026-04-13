@@ -535,6 +535,21 @@ export default function SuperDashboard() {
         }
       />
 
+      {/* ── 매출 급감 Alert (전월 대비 20% 이상 감소) ────────────────────── */}
+      {!loading && kpiData.prevMonthRevenue > 0 && kpiData.totalRevenue < kpiData.prevMonthRevenue * 0.8 && (
+        <div className="mb-lg flex items-start gap-md rounded-xl border border-red-200 bg-red-50 px-lg py-md">
+          <AlertTriangle size={18} className="text-red-500 shrink-0 mt-[2px]" />
+          <div>
+            <p className="text-[14px] font-semibold text-red-800">매출 급감 경보</p>
+            <p className="text-[13px] text-red-700 mt-[2px]">
+              이번달 매출({formatAmount(kpiData.totalRevenue)}원)이 전월({formatAmount(kpiData.prevMonthRevenue)}원) 대비{' '}
+              <span className="font-bold">{Math.round((1 - kpiData.totalRevenue / kpiData.prevMonthRevenue) * 100)}% 감소</span>했습니다.
+              즉각적인 확인이 필요합니다.
+            </p>
+          </div>
+        </div>
+      )}
+
       {/* ── 섹션 1: KPI 카드 ─────────────────────────────────────────────── */}
       <section className="mb-xl">
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-md">

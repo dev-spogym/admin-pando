@@ -2,11 +2,13 @@ import { getBranchId } from '@/lib/getBranchId';
 import React, { useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import { formatNumber } from '@/lib/format';
-import { ChevronDown, ChevronRight, Plus, Save, Search, Trash2, X } from 'lucide-react';
+import { ChevronDown, ChevronRight, Plus, Save, Search, Trash2, X, History } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/lib/supabase';
 import StatusBadge from "@/components/common/StatusBadge";
 import Modal from "@/components/ui/Modal";
+import Timeline, { type TimelineItem } from '@/components/common/Timeline';
+import { createAuditLog } from '@/api/endpoints/auditLog';
 
 export interface PackageItem {
   productId: number;
@@ -179,9 +181,13 @@ export default function ProductDetailPanel({ product, isNew, onSave, onDelete, o
   const [importProducts, setImportProducts] = useState<ProductRow[]>([]);
   const [copiedFromProductId, setCopiedFromProductId] = useState<number | null>(null);
   const [packageOpen, setPackageOpen] = useState(false);
+  const [isPackage, setIsPackage] = useState(false);
   const [packageItems, setPackageItems] = useState<PackageItem[]>([]);
   const [packagePrice, setPackagePrice] = useState('');
   const [packageSelectId, setPackageSelectId] = useState<string>('');
+  const [showPriceHistory, setShowPriceHistory] = useState(false);
+  const [priceHistory, setPriceHistory] = useState<TimelineItem[]>([]);
+  const [priceHistoryLoading, setPriceHistoryLoading] = useState(false);
 
   const resetForm = () => {
     setName('');
@@ -214,6 +220,7 @@ export default function ProductDetailPanel({ product, isNew, onSave, onDelete, o
     setSalesChannel('ALL');
     setWeekdayRows(DAY_ROWS.map(day => ({ day, enabled: false, start: '09:00', end: '18:00' })));
     setPackageOpen(false);
+    setIsPackage(false);
     setPackageItems([]);
     setPackagePrice('');
     setPackageSelectId('');
@@ -226,7 +233,6 @@ export default function ProductDetailPanel({ product, isNew, onSave, onDelete, o
     setCashPrice(formatNum(source.cashPrice ?? source.price));
     setDuration(source.duration?.toString() ?? '');
     setSessions(source.sessions?.toString() ?? '');
-    setDescription(source.description ?? '');
     setTag(source.tag ?? '');
     setIsActive(source.isActive);
     setKioskVisible(source.kioskVisible ?? true);
@@ -253,6 +259,28 @@ export default function ProductDetailPanel({ product, isNew, onSave, onDelete, o
         return { day, enabled: availableDays.includes(mapped), start, end };
       })
     );
+
+    // 패키지 정보 복원 (description JSON)
+    try {
+      const desc = source.description ?? '';
+      const parsed = desc.startsWith('{') ? JSON.parse(desc) : null;
+      if (parsed?.isPackage) {
+        setIsPackage(true);
+        setPackageItems(parsed.packageItems ?? []);
+        setPackagePrice(parsed.packagePrice != null ? formatNumber(parsed.packagePrice) : '');
+        setDescription(parsed.originalDescription ?? '');
+      } else {
+        setIsPackage(false);
+        setPackageItems([]);
+        setPackagePrice('');
+        setDescription(source.description ?? '');
+      }
+    } catch {
+      setIsPackage(false);
+      setPackageItems([]);
+      setPackagePrice('');
+      setDescription(source.description ?? '');
+    }
 
     if (options?.markAsCopy) {
       setCopiedFromProductId(source.id);
@@ -296,6 +324,45 @@ export default function ProductDetailPanel({ product, isNew, onSave, onDelete, o
   }, [showImportModal, packageOpen, product?.id]);
 
   const effectiveCategory = productKind === '레슨' ? 'PT' : productKind === '이용' ? '이용권' : '기타';
+
+  // 가격 이력 로드
+  const fetchPriceHistory = async () => {
+    if (!product) return;
+    setPriceHistoryLoading(true);
+    const { data } = await supabase
+      .from('audit_log')
+      .select('*')
+      .eq('targetType', 'product')
+      .eq('targetId', product.id)
+      .eq('action', 'UPDATE')
+      .order('createdAt', { ascending: false })
+      .limit(20);
+    if (data) {
+      const items: TimelineItem[] = (data as Array<{
+        createdAt: string;
+        beforeValue?: Record<string, unknown>;
+        afterValue?: Record<string, unknown>;
+        userName?: string;
+      }>)
+        .filter(row => row.beforeValue?.price !== undefined || row.afterValue?.price !== undefined)
+        .map(row => {
+          const before = row.beforeValue?.price as number | undefined;
+          const after = row.afterValue?.price as number | undefined;
+          const dateStr = new Date(row.createdAt).toLocaleString('ko-KR', {
+            year: '2-digit', month: '2-digit', day: '2-digit',
+            hour: '2-digit', minute: '2-digit',
+          });
+          return {
+            date: dateStr,
+            title: `${before != null ? before.toLocaleString() : '?'}원 → ${after != null ? after.toLocaleString() : '?'}원`,
+            user: row.userName ?? '',
+            color: '#2563eb',
+          };
+        });
+      setPriceHistory(items);
+    }
+    setPriceHistoryLoading(false);
+  };
 
   const handlePriceChange = (value: string) => {
     const raw = value.replace(/[^0-9]/g, '');
@@ -373,15 +440,44 @@ export default function ProductDetailPanel({ product, isNew, onSave, onDelete, o
             weekendPrice: null,
           }
         : null,
+      // 패키지 플래그 + 구성 항목 저장 (description에 JSON 직렬화)
+      ...(isPackage && packageItems.length > 0
+        ? {
+            description: JSON.stringify({
+              isPackage: true,
+              packageItems,
+              packagePrice: parseNum(packagePrice) ?? cashVal,
+              originalDescription: description.trim() || null,
+            }),
+          }
+        : {}),
     };
 
     if (!isCreateMode && product) {
+      // 가격 변경 여부 체크 → audit_log 기록
+      const prevPrice = product.cashPrice ?? product.price;
+      const priceChanged = prevPrice !== cashVal;
+
       const { error } = await supabase.from('products').update(payload).eq('id', product.id);
       setSaving(false);
       if (error) {
         toast.error('수정에 실패했습니다.');
         return;
       }
+
+      if (priceChanged) {
+        const userRaw = typeof window !== 'undefined' ? localStorage.getItem('auth_user') : null;
+        const userObj = userRaw ? JSON.parse(userRaw) : null;
+        await createAuditLog({
+          action: 'UPDATE',
+          targetType: 'product',
+          targetId: product.id,
+          beforeValue: { price: prevPrice, name: product.name },
+          afterValue: { price: cashVal, name: name.trim() },
+          detail: { field: 'price', userName: userObj?.name ?? '' },
+        });
+      }
+
       toast.success('상품이 수정되었습니다.');
       onSave(product.id);
       return;
@@ -828,6 +924,9 @@ export default function ProductDetailPanel({ product, isNew, onSave, onDelete, o
               >
                 {packageOpen ? <ChevronDown size={13} /> : <ChevronRight size={13} />}
                 패키지 구성
+                {isPackage && (
+                  <span className="ml-1 rounded bg-[#f59e0b] px-1 py-0 text-[10px] text-white">패키지</span>
+                )}
                 {packageItems.length > 0 && (
                   <span className="ml-1 rounded bg-[#2563eb] px-1 py-0 text-[10px] text-white">
                     {packageItems.length}
@@ -837,6 +936,11 @@ export default function ProductDetailPanel({ product, isNew, onSave, onDelete, o
 
               {packageOpen && (
                 <div className="border-t border-[#d7e6fb] px-2 pb-2 pt-1.5 space-y-1.5">
+                  {/* 패키지 상품 플래그 */}
+                  <label className={cn(checkLabelClass)}>
+                    <ClassicCheckbox checked={isPackage} onChange={() => setIsPackage(prev => !prev)} />
+                    이 상품을 패키지 상품으로 등록
+                  </label>
                   {/* 구성 상품 추가 행 */}
                   <div className="flex items-center gap-1.5">
                     <select
@@ -918,6 +1022,34 @@ export default function ProductDetailPanel({ product, isNew, onSave, onDelete, o
                 </div>
               )}
             </div>
+
+            {/* 가격 변경 이력 섹션 (수정 모드에서만) */}
+            {!isCreateMode && product && (
+              <div className="border border-[#c8d7ee] bg-[#f4f8ff]">
+                <button
+                  type="button"
+                  onClick={() => {
+                    const next = !showPriceHistory;
+                    setShowPriceHistory(next);
+                    if (next && priceHistory.length === 0) fetchPriceHistory();
+                  }}
+                  className="flex w-full items-center gap-1 px-2 py-1 text-left font-semibold text-[#305f9f] hover:bg-[#eef3fb]"
+                >
+                  {showPriceHistory ? <ChevronDown size={13} /> : <ChevronRight size={13} />}
+                  <History size={12} />
+                  가격 변경 이력
+                </button>
+                {showPriceHistory && (
+                  <div className="border-t border-[#d7e6fb] px-3 py-2">
+                    {priceHistoryLoading ? (
+                      <p className="text-[11px] text-content-secondary">불러오는 중...</p>
+                    ) : (
+                      <Timeline items={priceHistory} />
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         </div>
 

@@ -245,9 +245,29 @@ export default function PosPayment() {
             {selectedMember ? `${selectedMember.name} 회원님의 ` : ''}결제가 정상적으로 처리되었습니다.
           </p>
 
+          {/* 영수증 미리보기 (인쇄용) */}
+          <div className="print:block hidden w-full max-w-sm mx-auto mb-4 text-left text-[12px] font-mono border border-gray-300 p-4 rounded">
+            <p className="text-center font-bold text-[14px] mb-2">영수증</p>
+            <hr className="mb-2" />
+            {selectedMember && <p>회원: {selectedMember.name}</p>}
+            <p>결제수단: {{ card: '카드', cash: '현금', mileage: '마일리지', mixed: '복합결제' }[paymentMethod]}</p>
+            <hr className="my-2" />
+            {cartItems.map(item => (
+              <div key={item.id} className="flex justify-between">
+                <span>{item.name} x{item.quantity}</span>
+                <span>{(item.price * item.quantity).toLocaleString()}원</span>
+              </div>
+            ))}
+            <hr className="my-2" />
+            <div className="flex justify-between font-bold">
+              <span>합계</span>
+              <span>{subtotal.toLocaleString()}원</span>
+            </div>
+          </div>
+
           <div className="grid grid-cols-2 gap-md w-full max-w-sm mb-xl">
             <button
-              onClick={() => toast.info('영수증 출력을 시작합니다.')}
+              onClick={() => { toast.info('영수증 인쇄를 시작합니다.'); setTimeout(() => window.print(), 200); }}
               className="flex flex-col items-center justify-center p-lg rounded-xl border border-line bg-surface hover:bg-surface-tertiary transition-all gap-sm"
             >
               <Printer className="text-primary" size={28} strokeWidth={1.5} />

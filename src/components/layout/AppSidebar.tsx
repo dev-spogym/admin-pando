@@ -18,6 +18,7 @@ import {
   CreditCard,
   Target,
   ClipboardList,
+  FileText,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuthStore } from "@/stores/authStore";
@@ -46,6 +47,7 @@ const SUPER_ADMIN_MENU_ITEMS: MenuItem[] = [
   { label: "통합 대시보드", icon: LayoutDashboard, path: "/super-dashboard" },
   { label: "지점 관리", icon: Building2, path: "/branches", viewId: 984 },
   { label: "지점 비교 리포트", icon: BarChart3, path: "/branch-report" },
+  { label: "자동 리포트", icon: FileText, path: "/reports", viewId: 1004 },
   { label: "전체 직원 관리", icon: Users, path: "/staff", viewId: 974 },
   { label: "감사 로그", icon: Shield, path: "/audit-log" },
   { label: "구독 관리", icon: CreditCard, path: "/subscription", viewId: 983 },

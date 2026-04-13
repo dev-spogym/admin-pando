@@ -12,6 +12,7 @@ import { cn } from '@/lib/utils';
 import Select from '@/components/ui/Select';
 import SimpleTable from '@/components/common/SimpleTable';
 import Button from '@/components/ui/Button';
+import ExportButton from '@/components/common/ExportButton';
 import { formatNumber } from '@/lib/format';
 
 // 날짜 포맷: yyyy-MM-dd HH:mm:ss
@@ -318,6 +319,28 @@ export default function AuditLog() {
             <span className="text-sm text-content-secondary">
               전체 <span className="font-semibold text-content-primary">{formatNumber(totalCount)}</span>건
             </span>
+            <ExportButton
+              data={logs.map(l => ({
+                시간: fmtDatetime(l.createdAt),
+                사용자: l.userName ?? `ID ${l.userId}`,
+                액션: getActionBadge(l.action).label,
+                대상유형: getTargetTypeLabel(l.targetType),
+                대상ID: l.targetId ?? '',
+                상세: summarizeDetail(l),
+                IP: l.ipAddress ?? '',
+              }))}
+              columns={[
+                { key: '시간', header: '시간' },
+                { key: '사용자', header: '사용자' },
+                { key: '액션', header: '액션' },
+                { key: '대상유형', header: '대상유형' },
+                { key: '대상ID', header: '대상ID' },
+                { key: '상세', header: '상세' },
+                { key: 'IP', header: 'IP' },
+              ]}
+              fileName={`감사로그_${fromDate}_${toDate}`}
+              format="csv"
+            />
           </div>
 
           {isLoading ? (

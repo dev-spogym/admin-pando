@@ -184,6 +184,26 @@ export default function LeadManagement() {
         <StatCard label="미전환율" value={`${stats.missedRate}%`} icon={<AlertCircle size={18} />} />
       </StatCardGrid>
 
+      {/* 상태별 전환율 */}
+      {stats.total > 0 && (
+        <div className="mb-lg bg-surface rounded-xl border border-line shadow-card p-lg">
+          <h3 className="text-[13px] font-bold text-content mb-md">상태별 분포</h3>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-sm">
+            {LEAD_STATUSES.filter(s => (stats.byStatus[s] ?? 0) > 0).map(s => {
+              const cnt = stats.byStatus[s] ?? 0;
+              const pct = stats.total > 0 ? Math.round((cnt / stats.total) * 100) : 0;
+              return (
+                <div key={s} className="flex flex-col items-center p-sm bg-surface-secondary rounded-lg border border-line">
+                  <span className="text-[11px] text-content-tertiary mb-xs">{s}</span>
+                  <span className="text-[18px] font-bold text-content">{cnt}건</span>
+                  <span className="text-[11px] text-primary font-semibold">{pct}%</span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
       {/* 필터 + 뷰 토글 */}
       <div className="flex flex-wrap items-center justify-between gap-sm mb-md">
         <div className="flex flex-wrap gap-sm">

@@ -262,12 +262,31 @@ export default function BranchReport() {
     </button>
   );
 
+  // 매출 기준 랭킹 계산 (sortedStats가 totalSales 내림차순일 때 인덱스)
+  const salesRankedIds = useMemo(
+    () => [...branchStats].sort((a, b) => b.totalSales - a.totalSales).map(b => b.id),
+    [branchStats]
+  );
+
+  const medalIcon = (id: number) => {
+    const rank = salesRankedIds.indexOf(id);
+    if (rank === 0) return <span title="1위" className="text-[16px]">🥇</span>;
+    if (rank === 1) return <span title="2위" className="text-[16px]">🥈</span>;
+    if (rank === 2) return <span title="3위" className="text-[16px]">🥉</span>;
+    return <span className="text-[12px] text-content-tertiary font-mono">{rank + 1}위</span>;
+  };
+
   const tableColumns = [
     {
       key: 'name',
       header: '지점명',
       sortable: false,
-      render: (v: string) => <span className="font-medium text-content">{v}</span>,
+      render: (v: string, row: BranchStat) => (
+        <span className="flex items-center gap-xs font-medium text-content">
+          {medalIcon(row.id)}
+          {v}
+        </span>
+      ),
     },
     {
       key: 'totalMembers',

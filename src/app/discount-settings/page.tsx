@@ -3,12 +3,13 @@ export const dynamic = 'force-dynamic';
 
 import React, { useState, useEffect } from 'react';
 import { toast } from 'sonner';
-import { Plus, Edit2, Trash2, Tag } from 'lucide-react';
+import { Plus, Edit2, Trash2, Tag, History } from 'lucide-react';
 import AppLayout from "@/components/layout/AppLayout";
 import PageHeader from "@/components/common/PageHeader";
 import DataTable from "@/components/common/DataTable";
 import StatusBadge from "@/components/common/StatusBadge";
 import ConfirmDialog from "@/components/ui/ConfirmDialog";
+import Timeline from "@/components/common/Timeline";
 import { cn } from '@/lib/utils';
 import { formatKRW } from '@/lib/format';
 import Button from '@/components/ui/Button';
@@ -19,6 +20,26 @@ import {
   deleteDiscountPolicy,
   type DiscountPolicy,
 } from '@/api/endpoints/discountPolicies';
+
+const HISTORY_KEY = 'discount_policy_history';
+
+interface HistoryEntry {
+  date: string;
+  title: string;
+  description: string;
+}
+
+function loadHistory(): HistoryEntry[] {
+  if (typeof window === 'undefined') return [];
+  try { return JSON.parse(localStorage.getItem(HISTORY_KEY) ?? '[]') as HistoryEntry[]; }
+  catch { return []; }
+}
+
+function saveHistory(entry: HistoryEntry) {
+  const prev = loadHistory();
+  const next = [entry, ...prev].slice(0, 50);
+  localStorage.setItem(HISTORY_KEY, JSON.stringify(next));
+}
 
 const EMPTY_FORM = {
   name: '',
@@ -38,6 +59,7 @@ export default function DiscountSettings() {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<number | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+  const [history, setHistory] = useState<HistoryEntry[]>(() => loadHistory());
 
   const fetchPolicies = async () => {
     setIsLoading(true);
@@ -86,10 +108,24 @@ export default function DiscountSettings() {
       const { error } = await updateDiscountPolicy(editTarget.id, payload);
       if (error) { toast.error('수정에 실패했습니다.'); setIsSaving(false); return; }
       toast.success('할인 정책이 수정되었습니다.');
+      const entry: HistoryEntry = {
+        date: new Date().toLocaleString('ko-KR', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }),
+        title: `수정: ${payload.name}`,
+        description: `${payload.type === 'percentage' ? `${payload.value}%` : formatKRW(payload.value)} · ${payload.isActive ? '활성' : '비활성'}`,
+      };
+      saveHistory(entry);
+      setHistory(loadHistory());
     } else {
       const { error } = await createDiscountPolicy(payload);
       if (error) { toast.error('등록에 실패했습니다.'); setIsSaving(false); return; }
       toast.success('할인 정책이 등록되었습니다.');
+      const entry: HistoryEntry = {
+        date: new Date().toLocaleString('ko-KR', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }),
+        title: `등록: ${payload.name}`,
+        description: `${payload.type === 'percentage' ? `${payload.value}%` : formatKRW(payload.value)} · ${payload.isActive ? '활성' : '비활성'}`,
+      };
+      saveHistory(entry);
+      setHistory(loadHistory());
     }
 
     setIsSaving(false);
@@ -99,9 +135,19 @@ export default function DiscountSettings() {
 
   const handleDelete = async () => {
     if (deleteTarget === null) return;
+    const target = policies.find(p => p.id === deleteTarget);
     const { error } = await deleteDiscountPolicy(deleteTarget);
     if (error) { toast.error('삭제에 실패했습니다.'); return; }
     toast.success('할인 정책이 삭제되었습니다.');
+    if (target) {
+      const entry: HistoryEntry = {
+        date: new Date().toLocaleString('ko-KR', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }),
+        title: `삭제: ${target.name}`,
+        description: `${target.type === 'percentage' ? `${target.value}%` : formatKRW(target.value)}`,
+      };
+      saveHistory(entry);
+      setHistory(loadHistory());
+    }
     setDeleteDialogOpen(false);
     setDeleteTarget(null);
     fetchPolicies();
@@ -170,6 +216,24 @@ export default function DiscountSettings() {
           pagination={{ page: 1, pageSize: 20, total: policies.length }}
         />
       </div>
+
+      {/* 변경 이력 */}
+      {history.length > 0 && (
+        <div className="bg-surface rounded-xl border border-line shadow-card p-lg mt-lg">
+          <div className="flex items-center gap-sm mb-md">
+            <History size={16} className="text-primary" />
+            <h3 className="text-[14px] font-bold text-content">변경 이력</h3>
+            <span className="text-[12px] text-content-tertiary">최근 {history.length}건</span>
+          </div>
+          <Timeline
+            items={history.map(h => ({
+              date: h.date,
+              title: h.title,
+              description: h.description,
+            }))}
+          />
+        </div>
+      )}
 
       {/* 추가/수정 모달 */}
       {modalOpen && (

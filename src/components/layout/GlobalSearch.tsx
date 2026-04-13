@@ -36,12 +36,32 @@ const MENU_ITEMS = [
   { label: '감사 로그', path: '/audit-log', viewId: 0 },
 ];
 
+const RECENT_KEY = 'global_search_recent';
+const MAX_RECENT = 8;
+
+function loadRecent(): string[] {
+  if (typeof window === 'undefined') return [];
+  try { return JSON.parse(localStorage.getItem(RECENT_KEY) ?? '[]') as string[]; }
+  catch { return []; }
+}
+
+function addRecent(q: string) {
+  const prev = loadRecent().filter(s => s !== q);
+  localStorage.setItem(RECENT_KEY, JSON.stringify([q, ...prev].slice(0, MAX_RECENT)));
+}
+
+function removeRecent(q: string) {
+  const next = loadRecent().filter(s => s !== q);
+  localStorage.setItem(RECENT_KEY, JSON.stringify(next));
+}
+
 export default function GlobalSearch() {
   const [isOpen, setIsOpen] = useState(false);
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<SearchResult[]>([]);
   const [selectedIdx, setSelectedIdx] = useState(0);
   const [loading, setLoading] = useState(false);
+  const [recentSearches, setRecentSearches] = useState<string[]>([]);
   const inputRef = useRef<HTMLInputElement>(null);
 
   // ⌘K / Ctrl+K 단축키
@@ -57,13 +77,14 @@ export default function GlobalSearch() {
     return () => window.removeEventListener('keydown', handler);
   }, []);
 
-  // 열릴 때 포커스
+  // 열릴 때 포커스 + 최근 검색어 로드
   useEffect(() => {
     if (isOpen) {
       setTimeout(() => inputRef.current?.focus(), 100);
       setQuery('');
       setResults([]);
       setSelectedIdx(0);
+      setRecentSearches(loadRecent());
     }
   }, [isOpen]);
 
@@ -77,6 +98,8 @@ export default function GlobalSearch() {
 
     searchTimeout.current = setTimeout(async () => {
       setLoading(true);
+      addRecent(q.trim());
+      setRecentSearches(loadRecent());
       const branchId = getBranchId();
       const items: SearchResult[] = [];
 
@@ -209,6 +232,29 @@ export default function GlobalSearch() {
           )}
           {!query && (
             <div className="py-md px-lg text-[12px] text-content-tertiary">
+              {recentSearches.length > 0 && (
+                <div className="mb-md">
+                  <p className="mb-xs font-semibold text-content-secondary">최근 검색어</p>
+                  <div className="flex flex-wrap gap-xs">
+                    {recentSearches.map(s => (
+                      <div key={s} className="flex items-center gap-[2px] bg-surface-secondary rounded-full pl-sm pr-xs py-[3px] border border-line">
+                        <button
+                          className="text-[12px] text-content hover:text-primary transition-colors"
+                          onClick={() => handleSearch(s)}
+                        >
+                          {s}
+                        </button>
+                        <button
+                          className="text-content-tertiary hover:text-content ml-[2px]"
+                          onClick={() => { removeRecent(s); setRecentSearches(loadRecent()); }}
+                        >
+                          <X size={11} />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
               <p className="mb-xs font-medium">빠른 검색</p>
               <p>회원 이름, 전화번호, 상품명, 메뉴를 검색하세요</p>
               <p className="mt-xs">↑↓ 이동 · Enter 선택 · Esc 닫기</p>

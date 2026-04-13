@@ -34,6 +34,22 @@ export default function Notices() {
   const [deleteTarget, setDeleteTarget] = useState<number | null>(null);
   const [detailNotice, setDetailNotice] = useState<Notice | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+  const [readIds, setReadIds] = useState<Set<number>>(() => {
+    if (typeof window === 'undefined') return new Set();
+    try {
+      const stored = localStorage.getItem('notice_read_ids');
+      return stored ? new Set<number>(JSON.parse(stored) as number[]) : new Set<number>();
+    } catch { return new Set<number>(); }
+  });
+
+  const markAsRead = (id: number) => {
+    setReadIds(prev => {
+      const next = new Set(prev);
+      next.add(id);
+      localStorage.setItem('notice_read_ids', JSON.stringify([...next]));
+      return next;
+    });
+  };
 
   const fetchNotices = async () => {
     setIsLoading(true);
@@ -101,6 +117,8 @@ export default function Notices() {
 
   const fmtDate = (iso: string) => iso?.slice(0, 10) ?? '';
 
+  const readCount = sortedNotices.filter(n => readIds.has(n.id)).length;
+
   const columns = [
     {
       key: 'isPinned', header: '', width: 36, align: 'center' as const,
@@ -110,13 +128,22 @@ export default function Notices() {
       key: 'title', header: '제목',
       render: (v: string, row: Notice) => (
         <button
-          className={cn('text-[13px] font-semibold text-left hover:text-primary transition-colors', row.isPinned && 'text-primary')}
-          onClick={() => setDetailNotice(row)}
+          className={cn('flex items-center gap-xs text-[13px] font-semibold text-left hover:text-primary transition-colors', row.isPinned && 'text-primary')}
+          onClick={() => { setDetailNotice(row); markAsRead(row.id); }}
         >
           {row.isPinned && <span className="mr-xs text-[10px] bg-primary/10 text-primary px-xs py-[1px] rounded-full">공지</span>}
           {v}
+          {!readIds.has(row.id) && (
+            <span className="ml-xs inline-block h-2 w-2 rounded-full bg-primary shrink-0" title="읽지 않음" />
+          )}
         </button>
       ),
+    },
+    {
+      key: 'readStatus', header: '읽음', width: 72, align: 'center' as const,
+      render: (_: unknown, row: Notice) => readIds.has(row.id)
+        ? <span className="text-[11px] text-content-tertiary">읽음</span>
+        : <span className="text-[11px] font-semibold text-primary">NEW</span>,
     },
     { key: 'authorName', header: '작성자', width: 100 },
     { key: 'createdAt', header: '작성일', width: 110, align: 'center' as const, render: (v: string) => fmtDate(v) },
@@ -154,7 +181,7 @@ export default function Notices() {
           columns={columns as Parameters<typeof DataTable>[0]['columns']}
           data={sortedNotices as unknown as Record<string, unknown>[]}
           loading={isLoading}
-          title={`총 ${notices.length}건`}
+          title={`총 ${notices.length}건 · 읽음 ${readCount}건`}
           emptyMessage="등록된 공지사항이 없습니다."
           pagination={{ page: 1, pageSize: 20, total: notices.length }}
           onRowClick={(row) => setDetailNotice(row as unknown as Notice)}

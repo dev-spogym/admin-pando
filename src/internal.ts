@@ -52,6 +52,7 @@ const VIEW_ID_MAP: Record<number, string> = {
   1001: '/audit-log',                // 감사 로그
   1002: '/members/transfer',         // 회원 이관
   1003: '/branch-report',            // 지점 비교 리포트
+  1004: '/reports',                  // 자동 리포트
 };
 
 export function getPathFromViewId(viewId: number): string | undefined {
