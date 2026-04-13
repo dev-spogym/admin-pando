@@ -208,6 +208,7 @@ export default function Login() {
                 className="w-full pl-9 pr-md h-[44px] bg-surface-secondary rounded-lg text-[13px] text-content placeholder:text-content-tertiary border border-line focus:border-primary focus:ring-1 focus:ring-primary/20 outline-none transition-all"
                 type="text"
                 placeholder="아이디를 입력하세요"
+                autoComplete="username"
                 value={id}
                 onChange={(e) => { setId(e.target.value); setError(''); }}
                 disabled={isLoading}
