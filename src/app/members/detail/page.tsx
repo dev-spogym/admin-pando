@@ -1,6 +1,10 @@
+'use client';
+export const dynamic = 'force-dynamic';
+
+import { getBranchId } from '@/lib/getBranchId';
 import React, { useState, useEffect } from "react";
 import { toast } from "sonner";
-import { useSearchParams } from "react-router-dom";
+import { useSearchParams, useRouter } from "next/navigation";
 import { startHolding, endHolding } from "@/lib/businessLogic";
 import { useAuthStore } from "@/stores/authStore";
 import { hasFeature, hasPermission } from "@/lib/permissions";
@@ -692,7 +696,7 @@ function TabPayment({ sales, memberId, memberName }: { sales: SaleRecord[]; memb
           if (!refundTarget) return;
           // 환불 레코드를 sales 테이블에 저장 (음수 금액)
           const { error } = await supabase.from('sale').insert({
-            branchId: Number(localStorage.getItem('branchId') || '1'),
+            branchId: Number(typeof window !== 'undefined' ? localStorage.getItem('branchId') : '1'),
             memberId: Number(memberId),
             memberName: memberName,
             productName: refundTarget.itemName,
@@ -1177,7 +1181,7 @@ type LessonRecord = {
 
 function TabLesson({ memberId }: { memberId: string }) {
   const SETTINGS_KEY = `lesson_records_${memberId}`;
-  const branchId = localStorage.getItem("branchId") || "1";
+  const branchId = typeof window !== "undefined" ? localStorage.getItem("branchId") || "1" : "1";
 
   const [records, setRecords] = useState<LessonRecord[]>([]);
   const [showModal, setShowModal] = useState(false);
@@ -1403,16 +1407,21 @@ function LessonModal({
 // 메인 컴포넌트
 // ────────────────────────────────────────────────────────────
 
-export default function MemberDetail() {
+function MemberDetail() {
   const authUser = useAuthStore((s) => s.user);
   const canDelete = hasFeature(authUser?.role ?? '', 'memberDelete', authUser?.isSuperAdmin);
   const canEdit = hasPermission(authUser?.role ?? '', '/members/edit', authUser?.isSuperAdmin);
 
-  const [searchParams, setSearchParams] = useSearchParams();
-  const activeTab = searchParams.get("tab") || "info";
-  const memberId = searchParams.get("id");
-  const setActiveTab = (tab: string) =>
-    setSearchParams(memberId ? { id: memberId, tab } : { tab });
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const activeTab = searchParams?.get("tab") || "info";
+  const memberId = searchParams?.get("id") ?? null;
+  const setActiveTab = (tab: string) => {
+    const params = new URLSearchParams();
+    if (memberId) params.set("id", memberId);
+    params.set("tab", tab);
+    router.push(`?${params.toString()}`);
+  };
 
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [isFavorite, setIsFavorite] = useState(false);
@@ -1426,7 +1435,7 @@ export default function MemberDetail() {
   useEffect(() => {
     if (!memberId) return;
     const loadFavorite = async () => {
-      const branchId = Number(localStorage.getItem('branchId') || '1');
+      const branchId = Number(typeof window !== 'undefined' ? localStorage.getItem('branchId') : '1');
       const favIds = readBranchJson<number[]>('favorites', [], branchId);
       setIsFavorite(favIds.includes(Number(memberId)));
     };
@@ -1434,7 +1443,7 @@ export default function MemberDetail() {
   }, [memberId]);
 
   const toggleFavorite = async () => {
-    const branchId = Number(localStorage.getItem('branchId') || '1');
+    const branchId = Number(typeof window !== 'undefined' ? localStorage.getItem('branchId') : '1');
     let favIds = readBranchJson<number[]>('favorites', [], branchId);
 
     const mid = Number(memberId);
@@ -1733,7 +1742,7 @@ export default function MemberDetail() {
                   icon={<CheckCircle2 size={13} />}
                   onClick={async () => {
                     const { error } = await supabase.from('attendance').insert({
-                      branchId: Number(localStorage.getItem('branchId') || '1'),
+                      branchId: Number(typeof window !== 'undefined' ? localStorage.getItem('branchId') : '1'),
                       memberId: member.id,
                       memberName: member.name,
                       checkInAt: new Date().toISOString(),
@@ -2039,5 +2048,13 @@ export default function MemberDetail() {
         onCancel={() => setIsDeleteDialogOpen(false)}
       />
     </AppLayout>
+  );
+}
+
+export default function MemberDetailPage() {
+  return (
+    <React.Suspense>
+      <MemberDetail />
+    </React.Suspense>
   );
 }

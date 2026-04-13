@@ -50,3 +50,8 @@ qa-test.mjs
 
 # MCP
 .mcp.json
+
+# Next.js
+.next/
+out/
+next-env.d.ts

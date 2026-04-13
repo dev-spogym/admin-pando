@@ -1,3 +1,6 @@
+'use client';
+export const dynamic = 'force-dynamic';
+
 import React, { useState, useEffect } from "react";
 import {
   Plus,
@@ -25,7 +28,7 @@ import { moveToPage } from "@/internal";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/lib/supabase";
-import { useSearchParams } from "react-router-dom";
+import { useSearchParams } from "next/navigation";
 
 // ────────────────────────────────────────────────────────────
 // 타입 정의
@@ -334,9 +337,9 @@ function AnalysisRow({
 // 메인 컴포넌트
 // ────────────────────────────────────────────────────────────
 
-export default function BodyComposition() {
-  const [searchParams] = useSearchParams();
-  const memberId = searchParams.get("memberId") ?? "1";
+function BodyComposition() {
+  const searchParams = useSearchParams();
+  const memberId = searchParams?.get("memberId") ?? "1";
 
   const [activeTab, setActiveTab] = useState("list");
   const [measurements, setMeasurements] = useState<Measurement[]>([]);
@@ -1053,5 +1056,13 @@ export default function BodyComposition() {
         </div>
       )}
     </AppLayout>
+  );
+}
+
+export default function BodyCompositionPage() {
+  return (
+    <React.Suspense>
+      <BodyComposition />
+    </React.Suspense>
   );
 }

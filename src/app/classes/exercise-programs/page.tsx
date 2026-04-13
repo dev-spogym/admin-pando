@@ -1,3 +1,7 @@
+'use client';
+export const dynamic = 'force-dynamic';
+
+import { getBranchId } from '@/lib/getBranchId';
 import React, { useState, useEffect } from 'react';
 import { toast } from 'sonner';
 import { Plus, Edit2, Trash2, Dumbbell, PlusCircle, X } from 'lucide-react';
@@ -44,7 +48,7 @@ const EMPTY_FORM = {
 };
 
 export default function ExerciseProgramManagement() {
-  const branchId = Number(localStorage.getItem('branchId')) || 1;
+  const branchId = getBranchId();
   const [programs, setPrograms] = useState<ExerciseProgram[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [modalOpen, setModalOpen] = useState(false);

@@ -1,3 +1,7 @@
+'use client';
+export const dynamic = 'force-dynamic';
+
+import { getBranchId } from '@/lib/getBranchId';
 import React, { useState, useEffect, useCallback } from 'react';
 import {
   Save,
@@ -142,7 +146,7 @@ function ToggleSwitch({ checked, onChange }: { checked: boolean; onChange: () =>
 }
 
 export default function Settings() {
-  const branchId = Number(localStorage.getItem('branchId')) || 1;
+  const branchId = getBranchId();
 
   const [activeTab, setActiveTab] = useState<TabKey>('basic');
   const [isSaving, setIsSaving] = useState(false);

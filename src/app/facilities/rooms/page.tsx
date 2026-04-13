@@ -1,3 +1,6 @@
+'use client';
+export const dynamic = 'force-dynamic';
+
 import React, { useState, useEffect, useCallback } from "react";
 import {
   Plus,
@@ -392,7 +395,7 @@ const RoomModal = ({
 
 // --- settings 저장/불러오기 헬퍼 ---
 const SETTINGS_KEY = "room_management";
-function getBranchId() { return localStorage.getItem("branchId") || "1"; }
+function getBranchId() { if (typeof window === "undefined") return "1"; return localStorage.getItem("branchId") || "1"; }
 function getStorageKey() { return `settings_${getBranchId()}_${SETTINGS_KEY}`; }
 
 async function loadRoomSettings(): Promise<Room[] | null> {

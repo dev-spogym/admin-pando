@@ -1,3 +1,7 @@
+'use client';
+export const dynamic = 'force-dynamic';
+
+import { getBranchId } from '@/lib/getBranchId';
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { toast } from 'sonner';
 import {
@@ -74,7 +78,6 @@ const PRODUCT_TYPE_BADGE: Record<string, { label: string; className: string }> =
 // 종목 목록
 const SPORT_TYPES = ['전체', '헬스', '필라테스', '요가', '수영', '복싱', '크로스핏', '기타'];
 
-const getBranchId = (): number => Number(localStorage.getItem('branchId')) || 1;
 
 // ─── 컴포넌트 ────────────────────────────────────────────────
 export default function ProductList() {

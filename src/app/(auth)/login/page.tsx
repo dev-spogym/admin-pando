@@ -1,3 +1,6 @@
+'use client';
+export const dynamic = 'force-dynamic';
+
 ﻿import React, { useState, useEffect } from 'react';
 import { Eye, EyeOff, Lock, User, MapPin, Loader2, ChevronDown, Check } from 'lucide-react';
 import { moveToPage } from '@/internal';

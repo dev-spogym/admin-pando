@@ -5,11 +5,13 @@
 import { supabase } from '@/lib/supabase';
 
 const getBranchId = (): number => {
+  if (typeof window === 'undefined') return 1;
   const stored = localStorage.getItem('branchId');
   return stored ? Number(stored) : 1;
 };
 
 const getCurrentUser = (): { id: number; name: string | null } => {
+  if (typeof window === 'undefined') return { id: 0, name: null };
   const stored = localStorage.getItem('auth_user');
   if (!stored) return { id: 0, name: null };
 

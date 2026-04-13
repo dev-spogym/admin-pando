@@ -1,5 +1,8 @@
+'use client';
+export const dynamic = 'force-dynamic';
+
 import React, { useState, useEffect, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useRouter } from 'next/navigation';
 import {
   LayoutDashboard,
   Users,
@@ -171,7 +174,7 @@ const ACTION_LABELS: Record<string, string> = {
 // ─── 메인 컴포넌트 ─────────────────────────────────────────────────────────
 
 export default function SuperDashboard() {
-  const navigate = useNavigate();
+  const router = useRouter();
   const { user, switchBranch } = useAuthStore();
   const isSuperAdmin = user?.isSuperAdmin ?? false;
 
@@ -407,7 +410,7 @@ export default function SuperDashboard() {
   const handleSwitchBranch = (branch: Branch) => {
     switchBranch(String(branch.id), branch.name);
     toast.success(`"${branch.name}" 지점으로 전환되었습니다.`);
-    navigate('/');
+    router.push('/');
   };
 
   // ─── 권한 없음 ───────────────────────────────────────────────────────────
@@ -427,7 +430,7 @@ export default function SuperDashboard() {
           </div>
           <button
             className="mt-sm rounded-lg bg-primary px-lg py-[8px] text-[13px] font-semibold text-white hover:bg-primary-dark transition-colors"
-            onClick={() => navigate('/')}
+            onClick={() => router.push('/')}
           >
             대시보드로 이동
           </button>
@@ -633,7 +636,7 @@ export default function SuperDashboard() {
           </h2>
           <button
             className="flex items-center gap-xs text-[12px] text-primary font-medium hover:underline"
-            onClick={() => navigate('/branches')}
+            onClick={() => router.push('/branches')}
           >
             지점 관리
             <ExternalLink size={12} />
@@ -743,7 +746,7 @@ export default function SuperDashboard() {
           </h2>
           <button
             className="flex items-center gap-xs text-[12px] text-primary font-medium hover:underline"
-            onClick={() => navigate('/audit-log')}
+            onClick={() => router.push('/audit-log')}
           >
             전체 보기
             <ExternalLink size={12} />

@@ -5,7 +5,7 @@
 import { supabase } from '../../lib/supabase';
 import type { ApiResponse } from '../types';
 
-const getBranchId = (): number => {
+const getBranchId = (): number => { if (typeof window === "undefined") return 1;
   const stored = localStorage.getItem('branchId');
   return stored ? Number(stored) : 1;
 };

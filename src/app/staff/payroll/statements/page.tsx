@@ -1,3 +1,6 @@
+'use client';
+export const dynamic = 'force-dynamic';
+
 import React, { useState, useMemo, useEffect } from "react";
 import {
   FileText,
@@ -24,6 +27,7 @@ import { useAuthStore } from "@/stores/authStore";
 import { normalizeRole } from "@/lib/permissions";
 
 const getBranchId = (): number => {
+  if (typeof window === 'undefined') return 1;
   const stored = localStorage.getItem('branchId');
   return stored ? Number(stored) : 1;
 };

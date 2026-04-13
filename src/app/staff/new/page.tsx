@@ -1,5 +1,9 @@
+'use client';
+export const dynamic = 'force-dynamic';
+
+import { getBranchId } from '@/lib/getBranchId';
 import React, { useState, useEffect } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useSearchParams } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Save, User, Phone, Mail, Calendar, FileText, Check, ShieldCheck } from "lucide-react";
@@ -38,10 +42,10 @@ const ROLE_DB_TO_KEY: Record<string, string> = {
   센터장: "owner", 매니저: "manager", FC: "fc", 트레이너: "trainer", 스태프: "staff",
 };
 
-export default function StaffForm() {
+function StaffForm() {
   // URL 쿼리 파라미터로 수정 모드 감지
-  const [searchParams] = useSearchParams();
-  const editId = searchParams.get("id");
+  const searchParams = useSearchParams();
+  const editId = searchParams?.get("id") ?? null;
   const isEditMode = !!editId;
 
   const [showCancelDialog, setShowCancelDialog] = useState(false);
@@ -98,7 +102,7 @@ export default function StaffForm() {
 
   const onSubmit = async (formData: StaffFormData) => {
     setIsSaving(true);
-    const branchId = Number(localStorage.getItem("branchId")) || 1;
+    const branchId = getBranchId();
     // 폼 영문 키 → DB 한글 역할명 매핑
     const ROLE_MAP: Record<string, string> = {
       owner: "센터장", manager: "매니저", fc: "FC", trainer: "트레이너", staff: "스태프",
@@ -335,5 +339,13 @@ export default function StaffForm() {
         onCancel={() => setShowCancelDialog(false)}
       />
     </AppLayout>
+  );
+}
+
+export default function StaffFormPage() {
+  return (
+    <React.Suspense>
+      <StaffForm />
+    </React.Suspense>
   );
 }

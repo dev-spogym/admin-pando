@@ -1,3 +1,6 @@
+'use client';
+export const dynamic = 'force-dynamic';
+
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import {
   User,
@@ -31,6 +34,7 @@ import { updateMembershipPeriod, accruePoints, checkDuplicatePayment } from '@/l
 import { uploadFile } from '@/lib/uploadFile';
 
 const getBranchId = (): number => {
+  if (typeof window === 'undefined') return 1;
   const stored = localStorage.getItem('branchId');
   return stored ? Number(stored) : 1;
 };

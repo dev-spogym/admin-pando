@@ -1,3 +1,7 @@
+'use client';
+export const dynamic = 'force-dynamic';
+
+import { getBranchId } from '@/lib/getBranchId';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 import AppLayout from "@/components/layout/AppLayout";
@@ -80,7 +84,6 @@ const columns: Array<{ key: keyof StatRow | 'empty'; label: string; className?: 
   { key: 'note', label: '비고' },
 ];
 
-const getBranchId = (): number => Number(localStorage.getItem('branchId')) || 1;
 
 const fmtLocal = (d: Date) => {
   const y = d.getFullYear();

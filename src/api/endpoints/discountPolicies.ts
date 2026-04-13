@@ -1,7 +1,7 @@
 // 할인 정책(discount_policies) API
 import { supabase } from '@/lib/supabase';
 
-const getBranchId = (): number => {
+const getBranchId = (): number => { if (typeof window === "undefined") return 1;
   const stored = localStorage.getItem('branchId');
   return stored ? Number(stored) : 1;
 };

@@ -1,3 +1,7 @@
+'use client';
+export const dynamic = 'force-dynamic';
+
+import { getBranchId } from '@/lib/getBranchId';
 import React, { useState, useEffect, useCallback } from "react";
 import {
   CheckCircle2,
@@ -56,7 +60,7 @@ export default function ScheduleRequests() {
   const [altTime, setAltTime] = useState('');
   const [altMemo, setAltMemo] = useState('');
 
-  const branchId = Number(localStorage.getItem('branchId') ?? 1);
+  const branchId = getBranchId();
 
   const fetchData = useCallback(async () => {
     setLoading(true);

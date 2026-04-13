@@ -35,11 +35,12 @@ export interface MemberWithdrawRequest {
 }
 
 const getTenantId = (): number => {
+  if (typeof window === 'undefined') return 1;
   const stored = localStorage.getItem('tenantId');
   return stored ? Number(stored) : 1;
 };
 
-const getBranchId = (): number => {
+const getBranchId = (): number => { if (typeof window === "undefined") return 1;
   const stored = localStorage.getItem('branchId');
   return stored ? Number(stored) : 1;
 };

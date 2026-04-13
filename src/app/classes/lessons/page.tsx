@@ -1,3 +1,7 @@
+'use client';
+export const dynamic = 'force-dynamic';
+
+import { getBranchId } from '@/lib/getBranchId';
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { toast } from 'sonner';
 import {
@@ -151,7 +155,7 @@ const fmtDateTime = (iso: string) => {
 
 // ─── 메인 컴포넌트 ────────────────────────────────────────────
 export default function LessonManagement() {
-  const branchId = Number(localStorage.getItem('branchId')) || 1;
+  const branchId = getBranchId();
 
   const [lessons, setLessons] = useState<Lesson[]>([]);
   const [staffList, setStaffList] = useState<Staff[]>([]);

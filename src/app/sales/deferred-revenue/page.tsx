@@ -1,3 +1,6 @@
+'use client';
+export const dynamic = 'force-dynamic';
+
 import React, { useState, useEffect, useMemo } from 'react';
 import { toast } from 'sonner';
 import { TrendingDown, CheckCircle, Clock, CalendarDays } from 'lucide-react';

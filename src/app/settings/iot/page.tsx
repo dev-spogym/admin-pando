@@ -1,3 +1,6 @@
+'use client';
+export const dynamic = 'force-dynamic';
+
 import React, { useState, useEffect, useCallback } from "react";
 import {
   DoorOpen,
@@ -77,7 +80,7 @@ const tabs = [
 
 // --- settings 저장/불러오기 헬퍼 ---
 const IOT_SETTINGS_KEY = "iot_settings";
-function getBranchId() { return localStorage.getItem("branchId") || "1"; }
+function getBranchId() { if (typeof window === "undefined") return "1"; return localStorage.getItem("branchId") || "1"; }
 function getIotStorageKey() { return `settings_${getBranchId()}_${IOT_SETTINGS_KEY}`; }
 
 interface IotSettingsData {

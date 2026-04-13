@@ -2,12 +2,14 @@
 // ModnCode Internal Shim - moveToPage / stackPage
 // ============================================================
 // 원래 ModnCode 플랫폼의 viewId 기반 네비게이션을
-// React Router 기반으로 변환
+// Next.js App Router 기반으로 변환
 
-let navigateFn: ((path: string) => void) | null = null;
+import type { AppRouterInstance } from 'next/dist/shared/lib/app-router-context.shared-runtime';
 
-export function setNavigate(fn: (path: string) => void) {
-  navigateFn = fn;
+let routerInstance: AppRouterInstance | null = null;
+
+export function setRouter(router: AppRouterInstance) {
+  routerInstance = router;
 }
 
 // viewId → route path 매핑
@@ -52,19 +54,23 @@ const VIEW_ID_MAP: Record<number, string> = {
   1003: '/branch-report',            // 지점 비교 리포트
 };
 
+export function getPathFromViewId(viewId: number): string | undefined {
+  return VIEW_ID_MAP[viewId];
+}
+
 export function moveToPage(viewId: number, params?: Record<string, string | number>) {
   const path = VIEW_ID_MAP[viewId];
-  if (path && navigateFn) {
+  if (path && routerInstance) {
     if (params) {
       const search = new URLSearchParams(
         Object.entries(params).map(([k, v]) => [k, String(v)])
       ).toString();
-      navigateFn(`${path}?${search}`);
+      routerInstance.push(`${path}?${search}`);
     } else {
-      navigateFn(path);
+      routerInstance.push(path);
     }
   } else {
-    console.warn(`[moveToPage] viewId ${viewId} → 경로를 찾을 수 없거나 네비게이터 미등록`);
+    console.warn(`[moveToPage] viewId ${viewId} → 경로를 찾을 수 없거나 라우터 미등록`);
   }
 }
 

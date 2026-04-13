@@ -1,5 +1,8 @@
+'use client';
+export const dynamic = 'force-dynamic';
+
 import React, { useState, useEffect } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useRouter, useSearchParams } from 'next/navigation';
 import {
   ArrowRightLeft,
   CheckCircle,
@@ -96,10 +99,10 @@ function CheckItem({ label, status, detail }: CheckItemProps) {
 // 메인 페이지
 // ────────────────────────────────────────────────────────────
 
-export default function MemberTransfer() {
-  const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
-  const memberId = Number(searchParams.get('memberId'));
+function MemberTransfer() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const memberId = Number(searchParams?.get('memberId'));
 
   // 데이터 상태
   const [member, setMember] = useState<Member | null>(null);
@@ -231,7 +234,7 @@ export default function MemberTransfer() {
         <PageHeader
           breadcrumb={
             <button
-              onClick={() => navigate(-1)}
+              onClick={() => router.back()}
               className="flex items-center gap-1 text-content-tertiary hover:text-content transition-colors"
             >
               <ChevronLeft className="w-3.5 h-3.5" />
@@ -497,7 +500,7 @@ export default function MemberTransfer() {
           {/* ── 섹션 4: 실행 버튼 */}
           <div className="flex justify-end gap-3">
             <button
-              onClick={() => navigate(-1)}
+              onClick={() => router.back()}
               className={cn(
                 'h-10 px-5 rounded-lg border border-border text-sm font-medium text-content',
                 'hover:bg-surface-secondary transition-colors'
@@ -616,5 +619,13 @@ function InfoRow({
       <span className="text-xs text-content-secondary shrink-0 w-20">{label}</span>
       <span className="text-sm text-content truncate">{value}</span>
     </div>
+  );
+}
+
+export default function MemberTransferPage() {
+  return (
+    <React.Suspense>
+      <MemberTransfer />
+    </React.Suspense>
   );
 }

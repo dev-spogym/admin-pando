@@ -1,3 +1,6 @@
+'use client';
+export const dynamic = 'force-dynamic';
+
 import React, { useState, useMemo, useEffect } from 'react';
 import {
   Search,
@@ -23,6 +26,7 @@ import { supabase } from '@/lib/supabase';
 import { checkDuplicatePayment, deductPoints, accruePoints } from '@/lib/businessLogic';
 
 const getBranchId = (): number => {
+  if (typeof window === 'undefined') return 1;
   const stored = localStorage.getItem('branchId');
   return stored ? Number(stored) : 1;
 };

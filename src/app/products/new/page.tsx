@@ -1,5 +1,8 @@
+'use client';
+export const dynamic = 'force-dynamic';
+
 import React, { useEffect, useState } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useSearchParams } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { AlertCircle, Search, X } from 'lucide-react';
@@ -45,6 +48,7 @@ const PAUSE_PERIOD_OPTIONS = ['선택', '3일', '7일', '15일', '30일', '60일
 const WEEKDAY_ROWS = ['월', '화', '수', '목', '금', '토', '일'];
 
 const getBranchId = (): number => {
+  if (typeof window === 'undefined') return 1;
   const stored = localStorage.getItem('branchId');
   return stored ? Number(stored) : 1;
 };
@@ -178,9 +182,9 @@ function SelectBox({
   );
 }
 
-export default function ProductForm() {
-  const [searchParams] = useSearchParams();
-  const editId = searchParams.get('id');
+function ProductForm() {
+  const searchParams = useSearchParams();
+  const editId = searchParams?.get('id') ?? null;
   const isEditMode = !!editId;
 
   const [isSaving, setIsSaving] = useState(false);
@@ -846,5 +850,13 @@ export default function ProductForm() {
         onCancel={() => setShowCancelConfirm(false)}
       />
     </AppLayout>
+  );
+}
+
+export default function ProductFormPage() {
+  return (
+    <React.Suspense>
+      <ProductForm />
+    </React.Suspense>
   );
 }

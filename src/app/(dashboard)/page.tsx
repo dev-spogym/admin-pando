@@ -1,3 +1,6 @@
+'use client';
+export const dynamic = 'force-dynamic';
+
 import React, { useState, useCallback, useEffect } from "react";
 import AppLayout from "@/components/layout/AppLayout";
 import PageHeader from "@/components/common/PageHeader";
@@ -42,7 +45,8 @@ function formatAmount(amount: number): string {
 }
 
 const getBranchId = (): number => {
-  const stored = localStorage.getItem("branchId");
+  if (typeof window === 'undefined') return 1;
+  const stored = localStorage.getItem('branchId');
   return stored ? Number(stored) : 1;
 };
 

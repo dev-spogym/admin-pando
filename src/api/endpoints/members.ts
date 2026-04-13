@@ -112,7 +112,7 @@ function rowToMember(row: Record<string, any>): Member {
 
 /** branchId 가져오기 (localStorage 또는 기본값 1) */
 function getCurrentBranchId(): number {
-  const raw = localStorage.getItem('branchId');
+  const raw = typeof window !== "undefined" ? localStorage.getItem('branchId') : null;
   const parsed = raw ? parseInt(raw, 10) : NaN;
   return isNaN(parsed) ? 1 : parsed;
 }

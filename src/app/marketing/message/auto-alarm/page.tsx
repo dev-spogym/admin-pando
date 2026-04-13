@@ -1,3 +1,6 @@
+'use client';
+export const dynamic = 'force-dynamic';
+
 ﻿import React, { useState, useEffect, useCallback } from "react";
 import {
   Bell,
@@ -247,7 +250,7 @@ function RuleCard({
 
 // --- settings 저장/불러오기 헬퍼 ---
 const ALARM_SETTINGS_KEY = "auto_alarm";
-function getBranchId() { return localStorage.getItem("branchId") || "1"; }
+function getBranchId() { if (typeof window === "undefined") return "1"; return localStorage.getItem("branchId") || "1"; }
 function getAlarmStorageKey() { return `settings_${getBranchId()}_${ALARM_SETTINGS_KEY}`; }
 
 interface AlarmSettingsData {

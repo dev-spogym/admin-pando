@@ -1,7 +1,7 @@
 // 상품분류(product_groups) API
 import { supabase } from '@/lib/supabase';
 
-const getBranchId = (): number => {
+const getBranchId = (): number => { if (typeof window === "undefined") return 1;
   const stored = localStorage.getItem('branchId');
   return stored ? Number(stored) : 1;
 };

@@ -6,7 +6,7 @@ import { createAuditLog, AUDIT_ACTIONS } from './auditLog';
 import type { ApiResponse, PaginatedResponse, PaginationParams } from '../types';
 
 /** branchId 가져오기 */
-const getBranchId = (): number => {
+const getBranchId = (): number => { if (typeof window === "undefined") return 1;
   const stored = localStorage.getItem('branchId');
   return stored ? Number(stored) : 1;
 };

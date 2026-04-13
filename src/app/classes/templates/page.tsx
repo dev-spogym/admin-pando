@@ -1,3 +1,7 @@
+'use client';
+export const dynamic = 'force-dynamic';
+
+import { getBranchId } from '@/lib/getBranchId';
 import React, { useState, useEffect, useMemo } from 'react';
 import { toast } from 'sonner';
 import { Plus, Edit2, Trash2, LayoutTemplate, CheckCircle, XCircle } from 'lucide-react';
@@ -80,7 +84,7 @@ const DEFAULT_FORM: TemplateForm = {
 };
 
 export default function ClassTemplates() {
-  const branchId = Number(localStorage.getItem('branchId')) || 1;
+  const branchId = getBranchId();
 
   const [templates, setTemplates] = useState<ClassTemplate[]>([]);
   const [loading, setLoading] = useState(false);

@@ -1,4 +1,8 @@
+'use client';
+export const dynamic = 'force-dynamic';
+
 import React, { useState, useEffect, useMemo } from 'react';
+import { getBranchId } from '@/lib/getBranchId';
 import { toast } from 'sonner';
 import { LogIn, LogOut, Calendar, Users, CheckCircle, AlertCircle, List } from 'lucide-react';
 import AppLayout from "@/components/layout/AppLayout";
@@ -42,8 +46,6 @@ export default function StaffAttendance() {
   const [staffList, setStaffList] = useState<{ id: number; name: string; role?: string }[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isMonthlyLoading, setIsMonthlyLoading] = useState(false);
-
-  const getBranchId = () => Number(localStorage.getItem('branchId')) || 1;
 
   const fetchAttendances = async () => {
     setIsLoading(true);

@@ -1,3 +1,7 @@
+'use client';
+export const dynamic = 'force-dynamic';
+
+import { getBranchId } from '@/lib/getBranchId';
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   Plus, Settings2, Timer, Users, ArrowRightLeft, Power,
@@ -53,7 +57,6 @@ const BAY_STATUS_CONFIG: Record<BayStatus, { label: string; color: string; bgCol
   maintenance: { label: '점검',   color: 'text-gray-500',   bgColor: 'bg-gray-50',    borderColor: 'border-gray-200' },
 };
 
-const getBranchId = () => Number(localStorage.getItem('branchId')) || 1;
 
 // ─── 초기 Mock 데이터 (DB 연동 전) ────────────────────────────
 const INITIAL_BAYS: GolfBay[] = Array.from({ length: 12 }, (_, i) => ({

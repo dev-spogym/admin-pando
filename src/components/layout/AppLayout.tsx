@@ -4,7 +4,7 @@ import AppSidebar from "@/components/layout/AppSidebar";
 import RightQuickPanel from "@/components/panels/RightQuickPanel";
 import { cn } from "@/lib/utils";
 import { moveToPage } from "@/internal";
-import { useLocation, useNavigate } from "react-router-dom";
+import { useRouter, usePathname } from "next/navigation";
 import { useAuthStore } from "@/stores/authStore";
 
 interface AppLayoutProps {
@@ -15,11 +15,11 @@ interface AppLayoutProps {
 const MOBILE_BREAKPOINT = 768;
 
 const AppLayout = ({ children }: AppLayoutProps) => {
-  const navigate = useNavigate();
-  const location = useLocation();
+  const router = useRouter();
+  const pathname = usePathname();
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
-  const [isMobile, setIsMobile] = useState(() => window.innerWidth < MOBILE_BREAKPOINT);
+  const [isMobile, setIsMobile] = useState(() => typeof window !== 'undefined' ? window.innerWidth < MOBILE_BREAKPOINT : false);
   const authUser = useAuthStore((s) => s.user);
 
   // 화면 크기 감지
@@ -88,9 +88,9 @@ const AppLayout = ({ children }: AppLayoutProps) => {
     if (targetViewId) {
       moveToPage(targetViewId);
     } else {
-      navigate(path);
+      router.push(path);
     }
-  }, [isMobile, navigate]);
+  }, [isMobile, router]);
 
   const handleToggleSidebar = useCallback(() => {
     if (isMobile) {
@@ -123,7 +123,7 @@ const AppLayout = ({ children }: AppLayoutProps) => {
         <AppSidebar
           collapsed={isMobile ? false : sidebarCollapsed}
           onNavigate={handleNavigate}
-          activePath={location.pathname}
+          activePath={pathname ?? '/'}
         />
       </div>
 

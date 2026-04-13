@@ -1,3 +1,6 @@
+'use client';
+export const dynamic = 'force-dynamic';
+
 import React, { useState, useEffect } from "react";
 import {
   Plus,
@@ -29,6 +32,7 @@ import { toast } from "sonner";
 import { exportToExcel } from "@/lib/exportExcel";
 
 const getBranchId = (): number => {
+  if (typeof window === 'undefined') return 1;
   const stored = localStorage.getItem('branchId');
   return stored ? Number(stored) : 1;
 };

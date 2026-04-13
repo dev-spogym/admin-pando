@@ -1,3 +1,7 @@
+'use client';
+export const dynamic = 'force-dynamic';
+
+import { getBranchId } from '@/lib/getBranchId';
 import React, { useState, useEffect, useMemo, useCallback } from "react";
 import {
   Calendar as CalendarIcon,
@@ -358,7 +362,7 @@ export default function Attendance() {
   const [searchValue, setSearchValue] = useState("");
   const [filterValues, setFilterValues] = useState<Record<string, string>>({});
 
-  const branchId = Number(localStorage.getItem("branchId") ?? 1);
+  const branchId = getBranchId();
 
   useEffect(() => {
     const fetchData = async () => {

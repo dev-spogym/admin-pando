@@ -5,7 +5,7 @@ import type { LessonSchedule } from "@/api/endpoints/lessons";
 
 // ─── 헬퍼 ──────────────────────────────────────────────────────────────────
 
-const getBranchId = (): number => {
+const getBranchId = (): number => { if (typeof window === "undefined") return 1;
   const stored = localStorage.getItem("branchId");
   return stored ? Number(stored) : 1;
 };

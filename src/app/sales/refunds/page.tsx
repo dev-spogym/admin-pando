@@ -1,3 +1,6 @@
+'use client';
+export const dynamic = 'force-dynamic';
+
 import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import { toast } from 'sonner';
 import {
@@ -43,6 +46,7 @@ const fmtLocal = (d: Date) => {
 };
 
 const getBranchId = (): number => {
+  if (typeof window === 'undefined') return 1;
   const stored = localStorage.getItem('branchId');
   return stored ? Number(stored) : 1;
 };

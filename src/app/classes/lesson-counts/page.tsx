@@ -1,3 +1,7 @@
+'use client';
+export const dynamic = 'force-dynamic';
+
+import { getBranchId } from '@/lib/getBranchId';
 import React, { useState, useEffect, useMemo } from 'react';
 import { toast } from 'sonner';
 import { Minus, Eye, Hash, Users, CheckCircle, Pencil } from 'lucide-react';
@@ -59,7 +63,7 @@ interface MemberOption {
 }
 
 export default function LessonCounts() {
-  const branchId = Number(localStorage.getItem('branchId')) || 1;
+  const branchId = getBranchId();
 
   const [counts, setCounts] = useState<LessonCount[]>([]);
   const [loading, setLoading] = useState(false);

@@ -13,7 +13,7 @@ import { supabase } from './supabase';
 import { readBranchJson } from './branchStorage';
 
 /** branchId 가져오기 */
-const getBranchId = (): number => {
+const getBranchId = (): number => { if (typeof window === "undefined") return 1;
   const stored = localStorage.getItem('branchId');
   return stored ? Number(stored) : 1;
 };
@@ -874,7 +874,7 @@ export const runDailySync = async (): Promise<{
   // 하루 1번만 실행 (중복 방지)
   const STORAGE_KEY = 'daily_sync_last_run';
   const today = new Date().toISOString().slice(0, 10);
-  const lastRun = localStorage.getItem(STORAGE_KEY);
+  const lastRun = typeof window !== 'undefined' ? localStorage.getItem(STORAGE_KEY) : null;
   if (lastRun === today) {
     return { expiredMembers: 0, expiredLockers: 0, expiredCoupons: 0, autoCompletedClasses: 0, autoOpenedReservations: 0, skipped: true };
   }
@@ -887,7 +887,7 @@ export const runDailySync = async (): Promise<{
     syncAutoOpenReservations(),
   ]);
 
-  localStorage.setItem(STORAGE_KEY, today);
+  if (typeof window !== 'undefined') localStorage.setItem(STORAGE_KEY, today);
   return { expiredMembers, expiredLockers, expiredCoupons, autoCompletedClasses, autoOpenedReservations };
 };
 

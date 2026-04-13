@@ -1,3 +1,6 @@
+'use client';
+export const dynamic = 'force-dynamic';
+
 import React, { useState, useEffect, useCallback } from 'react';
 import { Shirt, Plus, Search, Download, RefreshCw, QrCode, ScanLine } from 'lucide-react';
 import { toast } from 'sonner';
@@ -51,7 +54,7 @@ const STATUS_MAP: Record<string, { label: string; variant: 'success' | 'warning'
 };
 
 function getBranchId() {
-  return localStorage.getItem('branchId') || '1';
+  if (typeof window === 'undefined') return '1'; return localStorage.getItem('branchId') || '1';
 }
 
 // ─── 메인 컴포넌트 ─────────────────────────────────────────────────────────

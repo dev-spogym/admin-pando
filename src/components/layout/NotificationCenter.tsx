@@ -84,6 +84,7 @@ const NotificationCenter: React.FC<NotificationCenterProps> = ({ collapsed = fal
   const [logs, setLogs] = useState<AuditLogEntry[]>([]);
   const [loading, setLoading] = useState(false);
   const [lastReadAt, setLastReadAt] = useState<Date | null>(() => {
+    if (typeof window === 'undefined') return null;
     const stored = localStorage.getItem(STORAGE_KEY);
     return stored ? new Date(stored) : null;
   });

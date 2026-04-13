@@ -1,3 +1,6 @@
+'use client';
+export const dynamic = 'force-dynamic';
+
 import React, { useState, useEffect } from "react";
 import {
   Save,
@@ -178,7 +181,7 @@ function KioskPreview({ settings }: { settings: SettingsData }) {
 
 // --- settings 저장/불러오기 헬퍼 ---
 const KIOSK_SETTINGS_KEY = "kiosk_settings";
-function getBranchId() { return localStorage.getItem("branchId") || "1"; }
+function getBranchId() { if (typeof window === "undefined") return "1"; return localStorage.getItem("branchId") || "1"; }
 function getKioskStorageKey() { return `settings_${getBranchId()}_${KIOSK_SETTINGS_KEY}`; }
 
 async function loadKioskSettings(): Promise<SettingsData | null> {

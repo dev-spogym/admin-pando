@@ -1,4 +1,8 @@
+'use client';
+export const dynamic = 'force-dynamic';
 
+
+import { getBranchId } from '@/lib/getBranchId';
 import React, { useState, useMemo, useEffect, useCallback } from "react";
 import { toast } from "sonner";
 import { supabase } from "@/lib/supabase";
@@ -86,7 +90,7 @@ export default function CouponManagement() {
   const [coupons, setCoupons] = useState<any[]>([]);
   const [issuanceLogs] = useState<any[]>([]);
 
-  const branchId = Number(localStorage.getItem('branchId')) || 1;
+  const branchId = getBranchId();
 
   const fetchCoupons = useCallback(async () => {
     setLoading(true);
@@ -832,7 +836,7 @@ function IssueCouponModal({ coupon, onClose, onIssue }: any) {
   const [isSearching, setIsSearching] = useState(false);
   const [issuing, setIssuing] = useState(false);
 
-  const branchId = Number(localStorage.getItem('branchId')) || 1;
+  const branchId = getBranchId();
 
   // 회원 검색
   useEffect(() => {

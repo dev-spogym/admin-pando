@@ -1,5 +1,8 @@
+'use client';
+export const dynamic = 'force-dynamic';
+
 import React, { useState, useEffect, useRef } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useSearchParams } from "next/navigation";
 import {
   User,
   Phone,
@@ -36,6 +39,7 @@ import {
 } from "@/lib/validations";
 
 const getBranchId = (): number => {
+  if (typeof window === 'undefined') return 1;
   const stored = localStorage.getItem('branchId');
   return stored ? Number(stored) : 1;
 };
@@ -102,10 +106,10 @@ interface StaffOption {
   label: string;
 }
 
-export default function MemberForm() {
-  const [searchParams] = useSearchParams();
-  const urlMemberId = searchParams.get('id');
-  const isEditRoute = window.location.pathname.includes("/edit");
+function MemberForm() {
+  const searchParams = useSearchParams();
+  const urlMemberId = searchParams?.get('id') ?? null;
+  const isEditRoute = typeof window !== 'undefined' ? window.location.pathname.includes("/edit") : false;
 
   const createMember = useCreateMember();
   const [currentStep, setCurrentStep] = useState<"step1" | "step2">("step1");
@@ -1056,5 +1060,13 @@ export default function MemberForm() {
         </div>
       )}
     </AppLayout>
+  );
+}
+
+export default function MemberFormPage() {
+  return (
+    <React.Suspense>
+      <MemberForm />
+    </React.Suspense>
   );
 }

@@ -36,6 +36,7 @@ const STORAGE_KEY_USER = 'auth_user';
 
 // localStorage에서 초기값 복원
 function restoreFromStorage(): Pick<AuthState, 'user' | 'token' | 'isAuthenticated'> {
+  if (typeof window === 'undefined') return { user: null, token: null, isAuthenticated: false };
   try {
     const token = localStorage.getItem(STORAGE_KEY_TOKEN);
     const userRaw = localStorage.getItem(STORAGE_KEY_USER);

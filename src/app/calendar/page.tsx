@@ -1,3 +1,7 @@
+'use client';
+export const dynamic = 'force-dynamic';
+
+import { getBranchId } from '@/lib/getBranchId';
 import React, { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import {
   Calendar as CalendarIcon,
@@ -40,7 +44,7 @@ import listPlugin from "@fullcalendar/list";
 import koLocale from "@fullcalendar/core/locales/ko";
 import type { EventClickArg, EventDropArg, EventContentArg } from "@fullcalendar/core";
 import type { DateClickArg, EventResizeDoneArg } from "@fullcalendar/interaction";
-import { useLocation, useNavigate } from "react-router-dom";
+import { usePathname, useRouter } from "next/navigation";
 
 /**
  * SCR-021: 수업/캘린더
@@ -786,8 +790,8 @@ function ValidLessonsTab({ lessons }: { lessons: Lesson[] }) {
 }
 
 export default function Calendar() {
-  const location = useLocation();
-  const navigate = useNavigate();
+  const pathname = usePathname();
+  const router = useRouter();
   const calendarRef = useRef<FullCalendar>(null);
 
   const [selectedEvent, setSelectedEvent] = useState<ScheduleEvent | null>(null);
@@ -859,18 +863,18 @@ export default function Calendar() {
   const [lessons, setLessons] = useState<Lesson[]>([]);
   const [lessonSchedules, setLessonSchedules] = useState<LessonSchedule[]>([]);
 
-  const branchId = Number(localStorage.getItem("branchId") ?? 1);
+  const branchId = getBranchId();
   const activeTab = useMemo(() => {
-    const routeTab = PATH_TO_TAB[location.pathname];
+    const routeTab = pathname ? PATH_TO_TAB[pathname] : undefined;
     if (routeTab) return routeTab;
-    const queryTab = new URLSearchParams(location.search).get("tab");
+    const queryTab = new URLSearchParams(typeof window !== "undefined" ? window.location.search : "").get("tab");
     return queryTab === "valid" ? "valid" : "schedule";
-  }, [location.pathname, location.search]);
+  }, [pathname]);
 
   const handleTabChange = useCallback((tab: string) => {
     const nextPath = TAB_TO_PATH[tab] ?? "/calendar";
-    navigate(nextPath);
-  }, [navigate]);
+    router.push(nextPath);
+  }, [router]);
 
   // --- Supabase 데이터 로드 ---
   const fetchData = useCallback(async () => {

@@ -1,3 +1,7 @@
+'use client';
+export const dynamic = 'force-dynamic';
+
+import { getBranchId } from '@/lib/getBranchId';
 import React, { useState, useEffect, useCallback } from "react";
 import AppLayout from "@/components/layout/AppLayout";
 import PageHeader from "@/components/common/PageHeader";
@@ -50,7 +54,7 @@ interface NewMemberRow {
 }
 
 export default function OnboardingDashboard() {
-  const branchId = Number(localStorage.getItem("branchId")) || 1;
+  const branchId = getBranchId();
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState<OnboardingStats>({
     newLeadsCount: 0, leadsContactedCount: 0, leadsVisitedCount: 0, leadsConvertedCount: 0,

@@ -1,3 +1,6 @@
+'use client';
+export const dynamic = 'force-dynamic';
+
 import React, { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import {
   UserPlus,
@@ -339,7 +342,7 @@ export default function MemberList() {
     ];
     // 전체 회원 데이터를 가져와서 엑셀 다운로드
     try {
-      const branchId = localStorage.getItem('branchId') || '1';
+      const branchId = typeof window !== 'undefined' ? localStorage.getItem('branchId') || '1' : '1';
       const { data, error } = await supabase
         .from('members')
         .select('*')
@@ -361,7 +364,7 @@ export default function MemberList() {
 
   // 서버사이드 정렬 적용 — 클라이언트 정렬 불필요
 
-  const getBranchId = () => localStorage.getItem('branchId') || '1';
+  const getBranchId = () => typeof window !== 'undefined' ? localStorage.getItem('branchId') || '1' : '1';
 
   /** 일괄 액션: 상태 변경 — 모달 열기 */
   const handleStatusChange = () => {

@@ -1,3 +1,7 @@
+'use client';
+export const dynamic = 'force-dynamic';
+
+import { getBranchId } from '@/lib/getBranchId';
 import React, { useState, useEffect, useCallback, useMemo } from "react";
 import AppLayout from "@/components/layout/AppLayout";
 import PageHeader from "@/components/common/PageHeader";
@@ -53,7 +57,7 @@ const EMPTY_FORM: Omit<CreateLeadInput, "branchId"> = {
 };
 
 export default function LeadManagement() {
-  const branchId = Number(localStorage.getItem("branchId")) || 1;
+  const branchId = getBranchId();
 
   const [leads, setLeads] = useState<Lead[]>([]);
   const [loading, setLoading] = useState(true);

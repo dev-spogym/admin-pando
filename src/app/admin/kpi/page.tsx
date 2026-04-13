@@ -1,3 +1,7 @@
+'use client';
+export const dynamic = 'force-dynamic';
+
+import { getBranchId } from '@/lib/getBranchId';
 import React, { useState, useEffect, useCallback } from "react";
 import AppLayout from "@/components/layout/AppLayout";
 import PageHeader from "@/components/common/PageHeader";
@@ -81,7 +85,7 @@ function TargetModal({
   onSaved: (value: number) => void;
 }) {
   const storageKey = `kpi_monthly_target_${branchId}_${yearMonth}`;
-  const saved = localStorage.getItem(storageKey);
+  const saved = typeof window !== 'undefined' ? localStorage.getItem(storageKey) : null;
   const [inputValue, setInputValue] = useState(
     saved ? Number(saved).toLocaleString("ko-KR") : ""
   );
@@ -549,7 +553,7 @@ function FunnelAnalysis({ branchId }: { branchId: number }) {
 }
 
 export default function KpiDashboard() {
-  const branchId = Number(localStorage.getItem("branchId")) || 1;
+  const branchId = getBranchId();
   const [loading, setLoading] = useState(true);
   const [metrics, setMetrics] = useState<KpiMetrics>(EMPTY_METRICS);
 
@@ -558,7 +562,8 @@ export default function KpiDashboard() {
 
   const [showTargetModal, setShowTargetModal] = useState(false);
   const [monthlyTarget, setMonthlyTarget] = useState<number | null>(() => {
-    const saved = localStorage.getItem(`kpi_monthly_target_${Number(localStorage.getItem("branchId")) || 1}_${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, "0")}`);
+    if (typeof window === 'undefined') return null;
+    const saved = localStorage.getItem(`kpi_monthly_target_${getBranchId()}_${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, "0")}`);
     return saved ? Number(saved) : null;
   });
 

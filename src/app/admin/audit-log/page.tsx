@@ -1,3 +1,6 @@
+'use client';
+export const dynamic = 'force-dynamic';
+
 import { useState, useEffect, useCallback } from 'react';
 import { Shield, Search, ChevronLeft, ChevronRight } from 'lucide-react';
 import { toast } from 'sonner';

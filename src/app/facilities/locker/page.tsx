@@ -1,3 +1,7 @@
+'use client';
+export const dynamic = 'force-dynamic';
+
+import { getBranchId } from '@/lib/getBranchId';
 import React, { useState, useMemo, useEffect } from "react";
 import {
   Plus,
@@ -241,7 +245,7 @@ export default function Locker() {
   const [memberSearch, setMemberSearch] = useState("");
   const [selectedMemberForAssign, setSelectedMemberForAssign] = useState<MemberOption | null>(null);
 
-  const branchId = Number(localStorage.getItem("branchId") ?? 1);
+  const branchId = getBranchId();
 
   useEffect(() => {
     const fetchData = async () => {

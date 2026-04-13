@@ -1,3 +1,4 @@
+import { getBranchId } from '@/lib/getBranchId';
 import React, { useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import { ChevronDown, ChevronRight, Plus, Save, Search, Trash2, X } from 'lucide-react';
@@ -106,7 +107,6 @@ const radioLabelClass = 'inline-flex items-center gap-1 text-[11px] text-[#222]'
 const checkLabelClass = 'inline-flex min-h-5 items-center gap-1.5 leading-none text-[11px] text-[#444]';
 const rowClass = 'flex min-w-0 items-center gap-2';
 
-const getBranchId = (): number => Number(localStorage.getItem('branchId')) || 1;
 const formatNum = (v: number | null | undefined): string => (v != null ? Number(v).toLocaleString() : '');
 const parseNum = (v: string): number | null => {
   const n = parseInt(v.replace(/[^0-9]/g, ''), 10);

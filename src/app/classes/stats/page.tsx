@@ -1,3 +1,7 @@
+'use client';
+export const dynamic = 'force-dynamic';
+
+import { getBranchId } from '@/lib/getBranchId';
 import React, { useState, useEffect, useMemo } from 'react';
 import AppLayout from "@/components/layout/AppLayout";
 import PageHeader from "@/components/common/PageHeader";
@@ -57,7 +61,7 @@ const getPeriodRange = (key: string): { start: string; end: string } => {
 };
 
 export default function ClassStats() {
-  const branchId = Number(localStorage.getItem('branchId')) || 1;
+  const branchId = getBranchId();
 
   const [period, setPeriod] = useState('month');
   const [loading, setLoading] = useState(false);

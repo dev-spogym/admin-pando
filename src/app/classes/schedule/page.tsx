@@ -1,3 +1,7 @@
+'use client';
+export const dynamic = 'force-dynamic';
+
+import { getBranchId } from '@/lib/getBranchId';
 import React, { useState, useEffect, useMemo } from 'react';
 import { toast } from 'sonner';
 import { CalendarPlus, Eye } from 'lucide-react';
@@ -86,7 +90,7 @@ const buildPreviewRows = (
 };
 
 export default function ClassSchedule() {
-  const branchId = Number(localStorage.getItem('branchId')) || 1;
+  const branchId = getBranchId();
 
   const [templates, setTemplates] = useState<ClassTemplate[]>([]);
   const [staffList, setStaffList] = useState<Staff[]>([]);

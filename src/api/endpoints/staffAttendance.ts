@@ -1,7 +1,7 @@
 // 직원 근태(staff_attendance) API
 import { supabase } from '@/lib/supabase';
 
-const getBranchId = (): number => {
+const getBranchId = (): number => { if (typeof window === "undefined") return 1;
   const stored = localStorage.getItem('branchId');
   return stored ? Number(stored) : 1;
 };

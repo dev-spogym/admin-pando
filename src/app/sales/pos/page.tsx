@@ -1,3 +1,6 @@
+'use client';
+export const dynamic = 'force-dynamic';
+
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import {
   Plus,
@@ -19,6 +22,7 @@ import { moveToPage } from '@/internal';
 import { supabase } from '@/lib/supabase';
 
 const getBranchId = (): number => {
+  if (typeof window === 'undefined') return 1;
   const stored = localStorage.getItem('branchId');
   return stored ? Number(stored) : 1;
 };

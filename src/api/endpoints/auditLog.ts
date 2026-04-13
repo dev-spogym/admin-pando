@@ -37,6 +37,7 @@ export interface AuditLogParams extends PaginationParams {
 
 /** tenantId 가져오기 */
 const getTenantId = (): number => {
+  if (typeof window === 'undefined') return 1;
   const stored = localStorage.getItem('tenantId');
   return stored ? Number(stored) : 1;
 };

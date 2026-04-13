@@ -1,3 +1,7 @@
+'use client';
+export const dynamic = 'force-dynamic';
+
+import { getBranchId } from '@/lib/getBranchId';
 import React, { useState, useEffect, useMemo } from 'react';
 import { toast } from 'sonner';
 import { Plus, Trash2, AlertTriangle, Ban, Clock, Minus, Settings, ToggleLeft, ToggleRight } from 'lucide-react';
@@ -61,7 +65,7 @@ const DEFAULT_FORM: PenaltyForm = {
 };
 
 export default function PenaltyManagement() {
-  const branchId = Number(localStorage.getItem('branchId')) || 1;
+  const branchId = getBranchId();
   const authUser = useAuthStore((s) => s.user);
 
   const [penalties, setPenalties] = useState<Penalty[]>([]);

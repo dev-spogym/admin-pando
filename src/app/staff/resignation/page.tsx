@@ -1,5 +1,9 @@
+'use client';
+export const dynamic = 'force-dynamic';
+
+import { Suspense } from 'react';
 import { useState, useEffect } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useSearchParams } from 'next/navigation';
 import {
   UserMinus,
   ArrowRight,
@@ -96,9 +100,9 @@ function StepIndicator({ current }: { current: number }) {
 
 // ── 메인 컴포넌트 ─────────────────────────────────────────────────────────────
 
-export default function StaffResignation() {
-  const [searchParams] = useSearchParams();
-  const preselectedId = searchParams.get('staffId');
+function StaffResignation() {
+  const searchParams = useSearchParams();
+  const preselectedId = searchParams?.get('staffId') ?? null;
 
   const [currentStep, setCurrentStep] = useState(1);
 
@@ -758,5 +762,15 @@ export default function StaffResignation() {
         )}
       </div>
     </AppLayout>
+  );
+}
+
+
+
+export default function StaffResignationPage() {
+  return (
+    <Suspense>
+      <StaffResignation />
+    </Suspense>
   );
 }
