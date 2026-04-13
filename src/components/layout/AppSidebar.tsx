@@ -182,7 +182,9 @@ const AppSidebar: React.FC<AppSidebarProps> = ({
   const authUser = useAuthStore((s) => s.user);
   const switchBranch = useAuthStore((s) => s.switchBranch);
   const userRole = authUser?.role || '';
-  const isSuperAdmin = authUser?.isSuperAdmin ?? false;
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => { setMounted(true); }, []);
+  const isSuperAdmin = mounted ? (authUser?.isSuperAdmin ?? false) : false;
 
   // 슈퍼관리자인 경우 지점 목록 로드
   useEffect(() => {
