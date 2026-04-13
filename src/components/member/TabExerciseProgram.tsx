@@ -3,8 +3,8 @@ import React, { useState, useEffect } from "react";
 import { toast } from "sonner";
 import { Plus, Trash2, X, Dumbbell } from "lucide-react";
 import { cn } from "@/lib/utils";
-import StatusBadge from "@/components/StatusBadge";
-import ConfirmDialog from "@/components/ConfirmDialog";
+import StatusBadge from "@/components/common/StatusBadge";
+import ConfirmDialog from "@/components/ui/ConfirmDialog";
 import {
   getExercisePrograms,
   getMemberPrograms,

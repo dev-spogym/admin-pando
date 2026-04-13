@@ -5,9 +5,9 @@ import { supabase } from "@/lib/supabase";
 import { useAuthStore } from "@/stores/authStore";
 import { Plus, X, Pause, Play, ArrowRightLeft, Tag, Coins } from "lucide-react";
 import { cn } from "@/lib/utils";
-import StatusBadge from "@/components/StatusBadge";
-import DataTable from "@/components/DataTable";
-import ConfirmDialog from "@/components/ConfirmDialog";
+import StatusBadge from "@/components/common/StatusBadge";
+import DataTable from "@/components/common/DataTable";
+import ConfirmDialog from "@/components/ui/ConfirmDialog";
 
 // ── 타입 ────────────────────────────────────────────────────────
 type HoldingRecord = {

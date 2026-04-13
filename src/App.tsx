@@ -1,9 +1,9 @@
 import React, { Suspense, useEffect } from 'react';
 import { Routes, Route, useNavigate } from 'react-router-dom';
 import { setNavigate } from '@/internal';
-import { ErrorBoundary } from '@/components/ErrorBoundary';
-import PrivateRoute from '@/components/PrivateRoute';
-import GlobalSearch from '@/components/GlobalSearch';
+import { ErrorBoundary } from '@/components/common/ErrorBoundary';
+import PrivateRoute from '@/components/common/PrivateRoute';
+import GlobalSearch from '@/components/layout/GlobalSearch';
 import { initAuthListener, restoreSupabaseSession } from '@/stores/authStore';
 import { runDailySync } from '@/lib/businessLogic';
 
@@ -17,79 +17,79 @@ function PageLoader() {
 }
 
 // --- Lazy Pages ---
-const Dashboard = React.lazy(() => import('@/pages/Dashboard'));
-const MemberList = React.lazy(() => import('@/pages/MemberList'));
-const MemberDetail = React.lazy(() => import('@/pages/MemberDetail'));
-const MemberForm = React.lazy(() => import('@/pages/MemberForm'));
-const BodyComposition = React.lazy(() => import('@/pages/BodyComposition'));
-const Attendance = React.lazy(() => import('@/pages/Attendance'));
-const Calendar = React.lazy(() => import('@/pages/Calendar'));
-const Sales = React.lazy(() => import('@/pages/Sales'));
-const SalesPos = React.lazy(() => import('@/pages/SalesPos'));
-const PosPayment = React.lazy(() => import('@/pages/PosPayment'));
-const ProductList = React.lazy(() => import('@/pages/ProductList'));
-const ProductForm = React.lazy(() => import('@/pages/ProductForm'));
-const Locker = React.lazy(() => import('@/pages/Locker'));
-const LockerManagement = React.lazy(() => import('@/pages/LockerManagement'));
-const RfidManagement = React.lazy(() => import('@/pages/RfidManagement'));
-const RoomManagement = React.lazy(() => import('@/pages/RoomManagement'));
-const StaffList = React.lazy(() => import('@/pages/StaffList'));
-const StaffForm = React.lazy(() => import('@/pages/StaffForm'));
-const StaffResignation = React.lazy(() => import('@/pages/StaffResignation'));
-const Payroll = React.lazy(() => import('@/pages/Payroll'));
-const PayrollStatement = React.lazy(() => import('@/pages/PayrollStatement'));
-const MessageSend = React.lazy(() => import('@/pages/MessageSend'));
-const AutoAlarm = React.lazy(() => import('@/pages/AutoAlarm'));
-const LeadManagement = React.lazy(() => import('@/pages/LeadManagement'));
-const CouponManagement = React.lazy(() => import('@/pages/CouponManagement'));
-const MileageManagement = React.lazy(() => import('@/pages/MileageManagement'));
-const ContractWizard = React.lazy(() => import('@/pages/ContractWizard'));
-const Settings = React.lazy(() => import('@/pages/Settings'));
-const PermissionSettings = React.lazy(() => import('@/pages/PermissionSettings'));
-const KioskSettings = React.lazy(() => import('@/pages/KioskSettings'));
-const IotSettings = React.lazy(() => import('@/pages/IotSettings'));
-const Subscription = React.lazy(() => import('@/pages/Subscription'));
-const BranchManagement = React.lazy(() => import('@/pages/BranchManagement'));
-const BranchReport = React.lazy(() => import('@/pages/BranchReport'));
-const Login = React.lazy(() => import('@/pages/Login'));
-const NotFound = React.lazy(() => import('@/pages/NotFound'));
-const Forbidden = React.lazy(() => import('@/pages/Forbidden'));
+const Dashboard = React.lazy(() => import('@/app/(dashboard)/page'));
+const MemberList = React.lazy(() => import('@/app/members/page'));
+const MemberDetail = React.lazy(() => import('@/app/members/detail/page'));
+const MemberForm = React.lazy(() => import('@/app/members/new/page'));
+const BodyComposition = React.lazy(() => import('@/app/members/body-composition/page'));
+const Attendance = React.lazy(() => import('@/app/attendance/page'));
+const Calendar = React.lazy(() => import('@/app/calendar/page'));
+const Sales = React.lazy(() => import('@/app/sales/page'));
+const SalesPos = React.lazy(() => import('@/app/sales/pos/page'));
+const PosPayment = React.lazy(() => import('@/app/sales/pos/payment/page'));
+const ProductList = React.lazy(() => import('@/app/products/page'));
+const ProductForm = React.lazy(() => import('@/app/products/new/page'));
+const Locker = React.lazy(() => import('@/app/facilities/locker/page'));
+const LockerManagement = React.lazy(() => import('@/app/facilities/locker/management/page'));
+const RfidManagement = React.lazy(() => import('@/app/facilities/rfid/page'));
+const RoomManagement = React.lazy(() => import('@/app/facilities/rooms/page'));
+const StaffList = React.lazy(() => import('@/app/staff/page'));
+const StaffForm = React.lazy(() => import('@/app/staff/new/page'));
+const StaffResignation = React.lazy(() => import('@/app/staff/resignation/page'));
+const Payroll = React.lazy(() => import('@/app/staff/payroll/page'));
+const PayrollStatement = React.lazy(() => import('@/app/staff/payroll/statements/page'));
+const MessageSend = React.lazy(() => import('@/app/marketing/message/page'));
+const AutoAlarm = React.lazy(() => import('@/app/marketing/message/auto-alarm/page'));
+const LeadManagement = React.lazy(() => import('@/app/marketing/leads/page'));
+const CouponManagement = React.lazy(() => import('@/app/marketing/message/coupon/page'));
+const MileageManagement = React.lazy(() => import('@/app/marketing/mileage/page'));
+const ContractWizard = React.lazy(() => import('@/app/marketing/contracts/new/page'));
+const Settings = React.lazy(() => import('@/app/settings/page'));
+const PermissionSettings = React.lazy(() => import('@/app/settings/permissions/page'));
+const KioskSettings = React.lazy(() => import('@/app/settings/kiosk/page'));
+const IotSettings = React.lazy(() => import('@/app/settings/iot/page'));
+const Subscription = React.lazy(() => import('@/app/settings/subscription/page'));
+const BranchManagement = React.lazy(() => import('@/app/admin/branches/page'));
+const BranchReport = React.lazy(() => import('@/app/admin/branch-report/page'));
+const Login = React.lazy(() => import('@/app/(auth)/login/page'));
+const NotFound = React.lazy(() => import('@/app/_error/not-found/page'));
+const Forbidden = React.lazy(() => import('@/app/_error/forbidden/page'));
 
 // --- 멀티테넌트 페이지 ---
-const SuperDashboard = React.lazy(() => import('@/pages/SuperDashboard'));
-const AuditLog = React.lazy(() => import('@/pages/AuditLog'));
-const MemberTransfer = React.lazy(() => import('@/pages/MemberTransfer'));
+const SuperDashboard = React.lazy(() => import('@/app/admin/super-dashboard/page'));
+const AuditLog = React.lazy(() => import('@/app/admin/audit-log/page'));
+const MemberTransfer = React.lazy(() => import('@/app/members/transfer/page'));
 
-const KpiDashboard = React.lazy(() => import('@/pages/KpiDashboard'));
-const OnboardingDashboard = React.lazy(() => import('@/pages/OnboardingDashboard'));
+const KpiDashboard = React.lazy(() => import('@/app/admin/kpi/page'));
+const OnboardingDashboard = React.lazy(() => import('@/app/admin/onboarding/page'));
 
 // --- Sprint 3 신규 페이지 ---
-const ScheduleRequests = React.lazy(() => import('@/pages/ScheduleRequests'));
+const ScheduleRequests = React.lazy(() => import('@/app/calendar/schedule-requests/page'));
 
 // --- BROJ CRM 신규 페이지 ---
-const RefundManagement = React.lazy(() => import('@/pages/RefundManagement'));
-const UnpaidManagement = React.lazy(() => import('@/pages/UnpaidManagement'));
-const SalesStats = React.lazy(() => import('@/pages/SalesStats'));
-const StatisticsManagement = React.lazy(() => import('@/pages/StatisticsManagement'));
-const ClothingManagement = React.lazy(() => import('@/pages/ClothingManagement'));
+const RefundManagement = React.lazy(() => import('@/app/sales/refunds/page'));
+const UnpaidManagement = React.lazy(() => import('@/app/sales/unpaid/page'));
+const SalesStats = React.lazy(() => import('@/app/sales/stats/page'));
+const StatisticsManagement = React.lazy(() => import('@/app/sales/statistics/page'));
+const ClothingManagement = React.lazy(() => import('@/app/facilities/clothing/page'));
 
 // --- Sprint 4: 수업 관리 강화 ---
-const ClassTemplates = React.lazy(() => import('@/pages/ClassTemplates'));
-const ClassSchedule = React.lazy(() => import('@/pages/ClassSchedule'));
-const ClassStats = React.lazy(() => import('@/pages/ClassStats'));
-const InstructorStatus = React.lazy(() => import('@/pages/InstructorStatus'));
+const ClassTemplates = React.lazy(() => import('@/app/classes/templates/page'));
+const ClassSchedule = React.lazy(() => import('@/app/classes/schedule/page'));
+const ClassStats = React.lazy(() => import('@/app/classes/stats/page'));
+const InstructorStatus = React.lazy(() => import('@/app/classes/instructor-status/page'));
 
 // --- 골프 타석 관리 ---
-const GolfBayManagement = React.lazy(() => import('@/pages/GolfBayManagement'));
+const GolfBayManagement = React.lazy(() => import('@/app/facilities/golf-bays/page'));
 
 // --- Sprint 5: 매출/설정/전자계약/공통 ---
-const DeferredRevenue = React.lazy(() => import('@/pages/DeferredRevenue'));
-const DiscountSettings = React.lazy(() => import('@/pages/DiscountSettings'));
-const StaffAttendancePage = React.lazy(() => import('@/pages/StaffAttendance'));
-const ExerciseProgramManagement = React.lazy(() => import('@/pages/ExerciseProgramManagement'));
-const Notices = React.lazy(() => import('@/pages/Notices'));
-const KpiPreviewCenter = React.lazy(() => import('@/pages/KpiPreviewCenter'));
-const TodayTasks = React.lazy(() => import('@/pages/TodayTasks'));
+const DeferredRevenue = React.lazy(() => import('@/app/sales/deferred-revenue/page'));
+const DiscountSettings = React.lazy(() => import('@/app/products/discount-settings/page'));
+const StaffAttendancePage = React.lazy(() => import('@/app/staff/attendance/page'));
+const ExerciseProgramManagement = React.lazy(() => import('@/app/classes/exercise-programs/page'));
+const Notices = React.lazy(() => import('@/app/notices/page'));
+const KpiPreviewCenter = React.lazy(() => import('@/app/admin/kpi-preview/page'));
+const TodayTasks = React.lazy(() => import('@/app/admin/today-tasks/page'));
 
 // localStorage의 theme_mode를 읽어 document에 다크모드 클래스/속성 적용
 function applyTheme() {

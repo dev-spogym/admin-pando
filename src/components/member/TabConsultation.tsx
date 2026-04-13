@@ -3,10 +3,10 @@ import React, { useState, useEffect } from "react";
 import { toast } from "sonner";
 import { Plus, Edit, Trash2, X, MessageSquare } from "lucide-react";
 import { cn } from "@/lib/utils";
-import StatusBadge from "@/components/StatusBadge";
-import StatCard from "@/components/StatCard";
-import DataTable from "@/components/DataTable";
-import ConfirmDialog from "@/components/ConfirmDialog";
+import StatusBadge from "@/components/common/StatusBadge";
+import StatCard from "@/components/common/StatCard";
+import DataTable from "@/components/common/DataTable";
+import ConfirmDialog from "@/components/ui/ConfirmDialog";
 import {
   getConsultations,
   createConsultation,

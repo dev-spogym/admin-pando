@@ -3,8 +3,8 @@ import React, { useState, useEffect } from "react";
 import { toast } from "sonner";
 import { Plus, Trash2, X, Dumbbell } from "lucide-react";
 import { cn } from "@/lib/utils";
-import StatCard from "@/components/StatCard";
-import ConfirmDialog from "@/components/ConfirmDialog";
+import StatCard from "@/components/common/StatCard";
+import ConfirmDialog from "@/components/ui/ConfirmDialog";
 import {
   getExerciseLogs,
   createExerciseLog,

@@ -3,9 +3,9 @@ import React, { useState, useEffect } from "react";
 import { toast } from "sonner";
 import { Plus, Edit, Trash2, X, Star } from "lucide-react";
 import { cn } from "@/lib/utils";
-import StatusBadge from "@/components/StatusBadge";
-import DataTable from "@/components/DataTable";
-import ConfirmDialog from "@/components/ConfirmDialog";
+import StatusBadge from "@/components/common/StatusBadge";
+import DataTable from "@/components/common/DataTable";
+import ConfirmDialog from "@/components/ui/ConfirmDialog";
 import {
   getMemberEvaluations,
   createMemberEvaluation,

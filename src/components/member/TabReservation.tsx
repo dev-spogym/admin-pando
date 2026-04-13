@@ -1,8 +1,8 @@
 // 예약내역 탭 — BROJ CRM 스타일 (월간 미니캘린더 + 상태 카운트 + 테이블)
 import React, { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabase";
-import StatusBadge from "@/components/StatusBadge";
-import DataTable from "@/components/DataTable";
+import StatusBadge from "@/components/common/StatusBadge";
+import DataTable from "@/components/common/DataTable";
 import { CalendarIcon, CheckCircle2, XCircle, Clock } from "lucide-react";
 import { cn } from "@/lib/utils";
 

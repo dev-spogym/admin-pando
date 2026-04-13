@@ -3,10 +3,10 @@ import React, { useState } from "react";
 import { toast } from "sonner";
 import { X } from "lucide-react";
 import { supabase } from "@/lib/supabase";
-import StatusBadge from "@/components/StatusBadge";
-import StatCard from "@/components/StatCard";
-import DataTable from "@/components/DataTable";
-import ConfirmDialog from "@/components/ConfirmDialog";
+import StatusBadge from "@/components/common/StatusBadge";
+import StatCard from "@/components/common/StatCard";
+import DataTable from "@/components/common/DataTable";
+import ConfirmDialog from "@/components/ui/ConfirmDialog";
 import { CreditCard, Receipt, AlertCircle, RefreshCcw } from "lucide-react";
 
 type SaleRecord = {

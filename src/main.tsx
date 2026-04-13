@@ -3,7 +3,7 @@ import ReactDOM from 'react-dom/client';
 import { BrowserRouter } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import App from './App';
-import { Toast } from './components/Toast';
+import { Toast } from './components/ui/Toast';
 import './index.css';
 
 /** React Query 클라이언트 설정 */
