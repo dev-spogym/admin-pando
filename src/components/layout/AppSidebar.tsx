@@ -298,7 +298,7 @@ const AppSidebar: React.FC<AppSidebarProps> = ({
               placeholder="지점 검색..."
               value={branchSearch}
               onChange={(e) => setBranchSearch(e.target.value)}
-              className="w-full px-2 py-1 pr-6 text-xs border border-line rounded-md bg-background text-content placeholder:text-content-tertiary focus:outline-none focus:ring-1 focus:ring-primary"
+              className="w-full px-2 py-1 pr-6 text-xs border border-line rounded-md bg-surface text-content placeholder:text-content-tertiary focus:outline-none focus:ring-1 focus:ring-primary"
             />
             {branchSearch && (
               <button
@@ -311,7 +311,7 @@ const AppSidebar: React.FC<AppSidebarProps> = ({
             )}
           </div>
           <select
-            className="w-full mt-1 px-2 py-1.5 text-sm border border-line rounded-md bg-background text-content focus:outline-none focus:ring-1 focus:ring-primary"
+            className="w-full mt-1 px-2 py-1.5 text-sm border border-line rounded-md bg-surface text-content focus:outline-none focus:ring-1 focus:ring-primary"
             value={authUser?.currentBranchId || 'all'}
             onChange={(e) => {
               const val = e.target.value;
