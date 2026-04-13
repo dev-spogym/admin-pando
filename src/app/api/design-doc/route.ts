@@ -89,6 +89,94 @@ const ROUTE_TO_DOC: Record<string, { file: string; keywords: string[] }> = {
   '/discount-settings': { file: '상품관리.md', keywords: ['할인 설정', '3. 할인 설정'] },
 };
 
+// 라우트 -> 시스템 모듈 정의서 관련 섹션 매핑
+const ROUTE_TO_MODULE: Record<string, { module: string; section?: string }> = {
+  // 모듈 1: 통합 관제 대시보드
+  '/': { module: '모듈 1', section: '주요 기능' },
+  '/super-dashboard': { module: '모듈 1', section: '주요 기능' },
+  '/branch-report': { module: '모듈 1', section: '주요 기능' },
+  '/kpi': { module: '모듈 1', section: '주요 기능' },
+  '/kpi-preview': { module: '모듈 1', section: '주요 기능' },
+
+  // 모듈 2: 지능형 회원 관리
+  '/members': { module: '모듈 2', section: '주요 기능' },
+  '/members/new': { module: '모듈 2', section: '주요 기능' },
+  '/members/edit': { module: '모듈 2', section: '주요 기능' },
+  '/members/detail': { module: '모듈 2', section: '주요 기능' },
+  '/members/transfer': { module: '모듈 2', section: '주요 기능' },
+  '/body-composition': { module: '모듈 2', section: '주요 기능' },
+  '/lessons': { module: '모듈 2', section: '강습(PT) 관리 고도화' },
+  '/lesson-counts': { module: '모듈 2', section: '강습(PT) 관리 고도화' },
+
+  // 모듈 3: 영업 및 마케팅 자동화
+  '/leads': { module: '모듈 3', section: 'I. 신규회원 유입 강화' },
+  '/message': { module: '모듈 3', section: '주요 기능' },
+  '/message/auto-alarm': { module: '모듈 3', section: 'II. 기존회원 유지율 향상' },
+  '/message/coupon': { module: '모듈 3', section: 'II. 기존회원 유지율 향상' },
+  '/mileage': { module: '모듈 3', section: 'II. 기존회원 유지율 향상' },
+  '/contracts/new': { module: '모듈 3', section: '주요 기능' },
+
+  // 모듈 4: 스마트 예약 및 스케줄 관리
+  '/calendar': { module: '모듈 4', section: '주요 기능' },
+  '/class-schedule': { module: '모듈 4', section: '주요 기능' },
+  '/class-templates': { module: '모듈 4', section: '주요 기능' },
+  '/attendance': { module: '모듈 4', section: '주요 기능' },
+  '/class-stats': { module: '모듈 4' },
+  '/instructor-status': { module: '모듈 4' },
+
+  // 모듈 5: 자동 결제 및 정산
+  '/sales': { module: '모듈 5', section: '주요 기능' },
+  '/pos': { module: '모듈 5', section: '주요 기능' },
+  '/pos/payment': { module: '모듈 5', section: '주요 기능' },
+  '/refunds': { module: '모듈 5', section: '주요 기능' },
+  '/unpaid': { module: '모듈 5', section: '주요 기능' },
+  '/deferred-revenue': { module: '모듈 5', section: '주요 기능' },
+  '/payroll': { module: '모듈 5', section: '주요 기능' },
+  '/payroll/statements': { module: '모듈 5', section: '주요 기능' },
+
+  // 모듈 6: 다차원 리포트 및 분석
+  '/sales/stats': { module: '모듈 6', section: '주요 기능' },
+  '/sales/statistics-management': { module: '모듈 6', section: '주요 기능' },
+  '/reports': { module: '모듈 6', section: '주요 기능' },
+};
+
+// 시스템 모듈 정의서에서 관련 모듈 섹션 추출
+function extractModuleSection(content: string, moduleName: string, sectionName?: string): string {
+  const lines = content.split('\n');
+  let capturing = false;
+  let moduleFound = false;
+  const result: string[] = [];
+  let currentLevel = 0;
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    const trimmed = line.trim();
+
+    // ## 모듈 N: 매칭
+    if (trimmed.startsWith('## ') && trimmed.includes(moduleName)) {
+      moduleFound = true;
+      capturing = true;
+      result.push(line);
+      currentLevel = 2;
+      continue;
+    }
+
+    // 다른 ## 모듈이 나오면 중단
+    if (moduleFound && capturing && trimmed.startsWith('## ') && !trimmed.includes(moduleName)) {
+      break;
+    }
+
+    if (capturing) {
+      result.push(line);
+    }
+  }
+
+  if (result.length === 0) return '';
+
+  // sectionName이 지정된 경우 해당 섹션만 하이라이트 (전체는 유지)
+  return result.join('\n');
+}
+
 // 파일명에서 카테고리명 추출
 const FILE_TO_CATEGORY: Record<string, string> = {
   '본사관리.md': '본사관리',
@@ -119,11 +207,26 @@ export async function GET(request: NextRequest) {
 
   try {
     const docPath = path.join(process.cwd(), 'docs', '기능명세서', mapping.file);
-    const content = fs.readFileSync(docPath, 'utf-8');
+    let content = fs.readFileSync(docPath, 'utf-8');
     const category = FILE_TO_CATEGORY[mapping.file] || '';
 
     // 첫 번째 키워드를 페이지 제목으로 사용
     const title = mapping.keywords[0] || routePath;
+
+    // 시스템 모듈 정의서에서 관련 모듈 섹션 추가
+    const moduleMapping = ROUTE_TO_MODULE[routePath];
+    if (moduleMapping) {
+      try {
+        const modulePath = path.join(process.cwd(), 'docs', '시스템_모듈_정의서.md');
+        const moduleContent = fs.readFileSync(modulePath, 'utf-8');
+        const moduleSection = extractModuleSection(moduleContent, moduleMapping.module, moduleMapping.section);
+        if (moduleSection) {
+          content += '\n\n---\n\n# 📋 관련 시스템 모듈\n\n' + moduleSection;
+        }
+      } catch {
+        // 시스템 모듈 정의서 파일이 없어도 에러 무시
+      }
+    }
 
     return NextResponse.json({
       title,
@@ -133,6 +236,27 @@ export async function GET(request: NextRequest) {
       keywords: mapping.keywords,
     });
   } catch {
+    // 기능명세서 파일이 없어도 시스템 모듈 정의서에서 시도
+    const moduleMapping = ROUTE_TO_MODULE[routePath];
+    let moduleContent = '';
+    if (moduleMapping) {
+      try {
+        const modulePath = path.join(process.cwd(), 'docs', '시스템_모듈_정의서.md');
+        const fullContent = fs.readFileSync(modulePath, 'utf-8');
+        moduleContent = extractModuleSection(fullContent, moduleMapping.module, moduleMapping.section);
+      } catch { /* ignore */ }
+    }
+
+    if (moduleContent) {
+      return NextResponse.json({
+        title: mapping.keywords[0] || routePath,
+        file: '시스템_모듈_정의서.md',
+        category: FILE_TO_CATEGORY[mapping.file] || '',
+        content: moduleContent,
+        keywords: mapping.keywords,
+      });
+    }
+
     return NextResponse.json({
       title: routePath,
       file: mapping.file,

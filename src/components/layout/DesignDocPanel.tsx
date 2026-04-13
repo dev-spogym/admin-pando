@@ -1,9 +1,18 @@
 import React, { useState, useEffect, useMemo, useRef, useCallback } from "react";
-import { X, ChevronDown, ChevronRight, FileText, Search, Loader2 } from "lucide-react";
+import { X, ChevronDown, ChevronRight, FileText, Search, Loader2, Maximize2, Minimize2, ArrowUp } from "lucide-react";
 import { usePathname } from "next/navigation";
 import { useUiStore } from "@/stores/uiStore";
 import { getRouteMapping } from "@/lib/designDocMap";
 import { renderMarkdown } from "@/lib/renderMarkdown";
+import mermaid from "mermaid";
+
+// Mermaid 초기화
+mermaid.initialize({
+  startOnLoad: false,
+  theme: "neutral",
+  securityLevel: "loose",
+  fontFamily: "inherit",
+});
 
 // ─── 카테고리 배지 색상 매핑 ─────────────────────────────────────────────────
 
@@ -152,31 +161,30 @@ const AccordionSection = ({
   return (
     <div
       ref={sectionRef}
-      className={`border-b border-line last:border-b-0 ${
+      className={`border-b border-line last:border-b-0 relative ${
         section.isRelevant && !isSubSection
           ? "bg-primary/[0.03]"
           : ""
       }`}
     >
+      {/* 관련 섹션 왼쪽 컬러바 */}
+      {section.isRelevant && !isSubSection && (
+        <div className="absolute left-0 top-0 bottom-0 w-[3px] bg-primary rounded-r" />
+      )}
       <button
-        className={`flex w-full items-center gap-sm text-left hover:bg-surface-secondary transition-colors ${
+        className={`flex w-full items-center gap-sm text-left hover:bg-surface-secondary/70 transition-colors ${
           isSubSection
-            ? "px-lg py-[8px] pl-[44px]"
-            : "px-lg py-[10px]"
+            ? "px-lg py-[10px] pl-[44px]"
+            : "px-lg py-[12px]"
         }`}
         onClick={() => setOpen(!open)}
       >
-        {open ? (
+        <span className={`shrink-0 transition-transform duration-150 ${open ? "rotate-0" : "-rotate-90"}`}>
           <ChevronDown
             size={isSubSection ? 12 : 14}
-            className="text-content-tertiary shrink-0"
+            className="text-content-tertiary"
           />
-        ) : (
-          <ChevronRight
-            size={isSubSection ? 12 : 14}
-            className="text-content-tertiary shrink-0"
-          />
-        )}
+        </span>
         <span
           className={`font-semibold text-content ${
             isSubSection ? "text-[12px]" : "text-[13px]"
@@ -185,15 +193,15 @@ const AccordionSection = ({
           {section.title}
         </span>
         {section.isRelevant && !isSubSection && (
-          <span className="ml-auto shrink-0 px-1.5 py-[1px] rounded text-[10px] font-medium bg-primary/10 text-primary">
+          <span className="ml-auto shrink-0 px-2 py-[2px] rounded-full text-[10px] font-medium bg-primary/10 text-primary">
             현재 페이지
           </span>
         )}
       </button>
       {open && (
         <div
-          className={`pb-md ${
-            isSubSection ? "px-lg pl-[60px]" : "px-lg pl-[44px]"
+          className={`pb-lg animate-in fade-in slide-in-from-top-1 duration-150 ${
+            isSubSection ? "px-lg pl-[60px]" : "px-lg pl-[44px] pr-lg"
           }`}
           dangerouslySetInnerHTML={{ __html: renderedHtml }}
         />
@@ -222,6 +230,9 @@ const DesignDocPanel = () => {
   const [keywords, setKeywords] = useState<string[]>([]);
   const [error, setError] = useState("");
 
+  // 전체보기
+  const [fullscreen, setFullscreen] = useState(false);
+
   // 검색
   const [searchQuery, setSearchQuery] = useState("");
   const [showSearch, setShowSearch] = useState(false);
@@ -245,6 +256,7 @@ const DesignDocPanel = () => {
       });
     } else {
       setVisible(false);
+      setFullscreen(false);
       const timer = setTimeout(() => setMounted(false), 200);
       return () => clearTimeout(timer);
     }
@@ -291,6 +303,43 @@ const DesignDocPanel = () => {
         s.content.toLowerCase().includes(q)
     );
   }, [sections, searchQuery]);
+
+  // 스크롤 프로그레스 + 맨위로 버튼
+  const [scrollProgress, setScrollProgress] = useState(0);
+  const [showBackToTop, setShowBackToTop] = useState(false);
+
+  useEffect(() => {
+    const el = scrollContainerRef.current;
+    if (!el) return;
+    const handleScroll = () => {
+      const { scrollTop, scrollHeight, clientHeight } = el;
+      const progress = scrollHeight > clientHeight ? scrollTop / (scrollHeight - clientHeight) : 0;
+      setScrollProgress(Math.min(progress * 100, 100));
+      setShowBackToTop(scrollTop > 300);
+    };
+    el.addEventListener("scroll", handleScroll, { passive: true });
+    return () => el.removeEventListener("scroll", handleScroll);
+  }, [mounted]);
+
+  // Mermaid 다이어그램 렌더링
+  useEffect(() => {
+    if (loading || !docContent) return;
+    const timer = setTimeout(async () => {
+      const containers = document.querySelectorAll(".mermaid-container[data-mermaid]");
+      for (const container of containers) {
+        const code = container.getAttribute("data-mermaid");
+        if (!code || container.querySelector("svg")) continue;
+        try {
+          const id = `mermaid-render-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+          const { svg } = await mermaid.render(id, code);
+          container.innerHTML = svg;
+        } catch {
+          container.innerHTML = `<pre class="text-[11px] text-content-tertiary font-mono">${code}</pre>`;
+        }
+      }
+    }, 200);
+    return () => clearTimeout(timer);
+  }, [loading, docContent, filteredSections]);
 
   // 관련 섹션으로 자동 스크롤
   useEffect(() => {
@@ -364,9 +413,9 @@ const DesignDocPanel = () => {
 
       {/* 패널 */}
       <div
-        className={`fixed right-0 top-0 bottom-0 z-[61] w-[50vw] max-w-[800px] min-w-[400px] bg-surface border-l-2 border-primary shadow-2xl flex flex-col transition-transform duration-200 ease-out ${
+        className={`fixed right-0 top-0 bottom-0 z-[61] bg-surface border-l-2 border-primary shadow-2xl flex flex-col transition-all duration-200 ease-out ${
           visible ? "translate-x-0" : "translate-x-full"
-        }`}
+        } ${fullscreen ? "w-full max-w-none" : "w-[50vw] max-w-[800px] min-w-[400px]"}`}
       >
         {/* 상단 헤더 */}
         <div className="flex items-center justify-between px-lg py-md border-b border-line shrink-0">
@@ -399,6 +448,17 @@ const DesignDocPanel = () => {
               title="검색 (Ctrl+F)"
             >
               <Search size={14} />
+            </button>
+            <button
+              className={`flex h-7 w-7 items-center justify-center rounded-md transition-colors ${
+                fullscreen
+                  ? "bg-primary/10 text-primary hover:bg-primary/20"
+                  : "text-content-secondary hover:bg-surface-tertiary hover:text-content"
+              }`}
+              onClick={() => setFullscreen(!fullscreen)}
+              title={fullscreen ? "반으로 줄이기" : "전체보기"}
+            >
+              {fullscreen ? <Minimize2 size={14} /> : <Maximize2 size={14} />}
             </button>
             <button
               className="flex h-7 w-7 items-center justify-center rounded-md text-content-secondary hover:bg-surface-tertiary hover:text-content transition-colors"
@@ -451,8 +511,18 @@ const DesignDocPanel = () => {
           </div>
         )}
 
+        {/* 읽기 프로그레스바 */}
+        {!loading && docContent && (
+          <div className="h-[2px] bg-surface-secondary shrink-0">
+            <div
+              className="h-full bg-gradient-to-r from-primary to-primary/60 transition-all duration-150 ease-out"
+              style={{ width: `${scrollProgress}%` }}
+            />
+          </div>
+        )}
+
         {/* 본문 */}
-        <div className="flex-1 overflow-y-auto" ref={scrollContainerRef}>
+        <div className="flex-1 overflow-y-auto relative" ref={scrollContainerRef}>
           {loading ? (
             <div className="flex flex-col items-center justify-center h-full text-content-tertiary gap-md p-lg">
               <Loader2 size={32} className="animate-spin opacity-50" />
@@ -504,16 +574,34 @@ const DesignDocPanel = () => {
           )}
         </div>
 
+        {/* 맨 위로 버튼 */}
+        {showBackToTop && (
+          <button
+            className="absolute bottom-16 right-6 z-10 w-9 h-9 rounded-full bg-primary text-white shadow-lg flex items-center justify-center hover:bg-primary-dark active:scale-95 transition-all animate-in fade-in zoom-in-75 duration-200"
+            onClick={() => scrollContainerRef.current?.scrollTo({ top: 0, behavior: "smooth" })}
+            title="맨 위로"
+          >
+            <ArrowUp size={16} />
+          </button>
+        )}
+
         {/* 하단 */}
         <div className="border-t border-line px-lg py-sm shrink-0">
-          <p className="text-[11px] text-content-tertiary text-center">
-            FitGenie CRM 화면설계서 &middot; 기능명세서 기반 자동 생성
-            {docFile && (
-              <span className="ml-1 text-content-quaternary">
-                ({docFile})
-              </span>
+          <div className="flex items-center justify-between">
+            <p className="text-[11px] text-content-tertiary">
+              FitGenie CRM 화면설계서
+              {docFile && (
+                <span className="ml-1 text-content-quaternary">
+                  · {docFile}
+                </span>
+              )}
+            </p>
+            {sections.length > 0 && (
+              <p className="text-[10px] text-content-quaternary">
+                {filteredSections.length}개 섹션 · {Math.round(scrollProgress)}%
+              </p>
             )}
-          </p>
+          </div>
         </div>
       </div>
     </>
