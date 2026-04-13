@@ -55,3 +55,16 @@ qa-test.mjs
 .next/
 out/
 next-env.d.ts
+
+# 빌드/임시
+dist/
+generated/
+excel/
+qa-reports/
+qa-screenshots/
+test-results/
+playwright-report/
+*.tsbuildinfo
+vite.config.*
+qa-test.*
+package-lock.json
