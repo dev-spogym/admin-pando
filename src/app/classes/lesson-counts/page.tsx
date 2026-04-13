@@ -4,6 +4,7 @@ import { Minus, Eye, Hash, Users, CheckCircle, Pencil } from 'lucide-react';
 import AppLayout from "@/components/layout/AppLayout";
 import PageHeader from "@/components/common/PageHeader";
 import StatCard from "@/components/common/StatCard";
+import StatCardGrid from "@/components/common/StatCardGrid";
 import DataTable from "@/components/common/DataTable";
 import StatusBadge from "@/components/common/StatusBadge";
 import TabNav from "@/components/common/TabNav";
@@ -370,11 +371,11 @@ export default function LessonCounts() {
       />
 
       {/* 통계 카드 */}
-      <div className="grid grid-cols-2 lg:grid-cols-3 gap-md mb-lg">
+      <StatCardGrid cols={3} className="mb-lg">
         <StatCard label="전체 수강권" value={stats.total} icon={<Hash />} />
         <StatCard label="이용중" value={stats.active} icon={<CheckCircle />} variant="mint" />
         <StatCard label="잔여 세션 합계" value={`${stats.totalRemain}회`} icon={<Users />} variant="peach" />
-      </div>
+      </StatCardGrid>
 
       {/* 필터 영역 */}
       <div className="bg-surface border border-line rounded-xl p-md mb-md flex flex-wrap gap-md items-end">

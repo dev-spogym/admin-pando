@@ -2,8 +2,11 @@ import React, { useState, useCallback, useEffect } from "react";
 import AppLayout from "@/components/layout/AppLayout";
 import PageHeader from "@/components/common/PageHeader";
 import StatCard from "@/components/common/StatCard";
+import StatCardGrid from "@/components/common/StatCardGrid";
 import StatusBadge from "@/components/common/StatusBadge";
 import DataTable from "@/components/common/DataTable";
+import Button from "@/components/ui/Button";
+import { formatNumber } from "@/lib/format";
 import {
   Users,
   UserCheck,
@@ -416,7 +419,7 @@ export default function Dashboard() {
           return {
             id: s.id,
             name: s.memberName ?? "",
-            amount: (Number(s.unpaid) || Number(s.amount) || 0).toLocaleString("ko-KR"),
+            amount: formatNumber(Number(s.unpaid) || Number(s.amount) || 0),
             item: s.productName ?? "",
             overdueDays,
           };
@@ -517,7 +520,7 @@ export default function Dashboard() {
   const memberStats = [
     {
       label: "전체 회원",
-      value: stats.totalMembers.toLocaleString("ko-KR"),
+      value: formatNumber(stats.totalMembers),
       icon: <Users />,
       change: { value: 0, label: "전월 대비" },
       variant: "default" as const,
@@ -525,7 +528,7 @@ export default function Dashboard() {
     },
     {
       label: "활성 회원",
-      value: stats.activeMembers.toLocaleString("ko-KR"),
+      value: formatNumber(stats.activeMembers),
       icon: <UserCheck />,
       change: {
         value: 0,
@@ -538,7 +541,7 @@ export default function Dashboard() {
     },
     {
       label: "만료 임박",
-      value: stats.expiringCount.toLocaleString("ko-KR"),
+      value: formatNumber(stats.expiringCount),
       icon: <Clock />,
       change: { value: 0, label: "30일 이내" },
       variant: "peach" as const,
@@ -546,7 +549,7 @@ export default function Dashboard() {
     },
     {
       label: "만료 회원",
-      value: stats.expiredMembers.toLocaleString("ko-KR"),
+      value: formatNumber(stats.expiredMembers),
       icon: <UserMinus />,
       change: {
         value: 0,
@@ -559,7 +562,7 @@ export default function Dashboard() {
     },
     {
       label: "오늘 출석",
-      value: stats.todayAttendance.toLocaleString("ko-KR"),
+      value: formatNumber(stats.todayAttendance),
       icon: <Calendar />,
       change: { value: 0, label: "어제 대비" },
       variant: "default" as const,
@@ -579,7 +582,7 @@ export default function Dashboard() {
       icon: <TrendingUp />,
       change: {
         value: 0,
-        label: `${stats.activeMembers.toLocaleString("ko-KR")} / ${stats.totalMembers.toLocaleString("ko-KR")}명`,
+        label: `${formatNumber(stats.activeMembers)} / ${formatNumber(stats.totalMembers)}명`,
       },
       variant: "mint" as const,
       pageId: 967,
@@ -590,7 +593,7 @@ export default function Dashboard() {
       icon: <RefreshCw />,
       change: {
         value: 0,
-        label: `이번달 출석 ${stats.monthlyAttendance.toLocaleString("ko-KR")}건`,
+        label: `이번달 출석 ${formatNumber(stats.monthlyAttendance)}건`,
       },
       variant: "default" as const,
       pageId: 968,
@@ -608,7 +611,7 @@ export default function Dashboard() {
     },
     {
       label: "이번달 환불",
-      value: `${stats.monthlyRefundCount.toLocaleString("ko-KR")}건`,
+      value: `${formatNumber(stats.monthlyRefundCount)}건`,
       icon: <RefreshCw />,
       change: {
         value: 0,
@@ -669,22 +672,19 @@ export default function Dashboard() {
                 <RefreshCw size={13} />
               </button>
             </div>
-            <button
-              className="rounded-lg bg-primary px-md py-[6px] text-[12px] font-semibold text-white hover:bg-primary-dark transition-colors"
-              onClick={() => moveToPage(986)}
-            >
+            <Button variant="primary" size="sm" onClick={() => moveToPage(986)}>
               회원 신규 등록
-            </button>
+            </Button>
           </div>
         }
       />
 
       {/* 통계 카드 */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-6 gap-md mb-xl">
+      <StatCardGrid cols={6} className="mb-xl">
         {memberStats.map((stat, idx) => (
           <StatCard key={idx} {...stat} loading={isLoading} onClick={() => moveToPage(stat.pageId)} />
         ))}
-      </div>
+      </StatCardGrid>
 
       {/* 운영 현황 차트 */}
       <div className="mb-xl">
@@ -797,7 +797,7 @@ export default function Dashboard() {
             <div className="mt-md flex items-center justify-between rounded-lg bg-surface-secondary p-md">
               <div>
                 <p className="text-[11px] text-content-secondary">오늘 총 방문</p>
-                <p className="text-[18px] font-bold text-content">{stats.todayAttendance.toLocaleString("ko-KR")}명</p>
+                <p className="text-[18px] font-bold text-content">{formatNumber(stats.todayAttendance)}명</p>
               </div>
               <div className="text-right">
                 <p className="text-[11px] text-content-tertiary">실시간</p>
@@ -846,7 +846,7 @@ export default function Dashboard() {
               <div className="rounded-lg bg-surface-secondary p-sm">
                 <p className="text-[11px] text-content-tertiary">활성 회원</p>
                 <div className="flex items-center justify-between mt-[2px]">
-                  <span className="text-[14px] font-bold text-content">{stats.activeMembers.toLocaleString("ko-KR")}명</span>
+                  <span className="text-[14px] font-bold text-content">{formatNumber(stats.activeMembers)}명</span>
                 </div>
               </div>
             </div>

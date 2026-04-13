@@ -13,6 +13,7 @@ import {
 import AppLayout from "@/components/layout/AppLayout";
 import PageHeader from "@/components/common/PageHeader";
 import StatCard from "@/components/common/StatCard";
+import StatCardGrid from "@/components/common/StatCardGrid";
 import StatusBadge from "@/components/common/StatusBadge";
 import TabNav from "@/components/common/TabNav";
 import { useAuthStore } from "@/stores/authStore";
@@ -187,12 +188,12 @@ export default function TodayTasks() {
         }
       />
 
-      <div className="grid grid-cols-1 gap-md md:grid-cols-4">
+      <StatCardGrid cols={4}>
         <StatCard label="오늘 배정" value={`${allTasks.length}건`} description="본사 업무 풀 기준" icon={<ListTodo />} />
         <StatCard label="대기" value={`${waitingCount}건`} description="즉시 처리 필요 업무" icon={<CircleAlert />} variant="peach" />
         <StatCard label="진행중" value={`${progressCount}건`} description="현재 처리 중" icon={<Clock3 />} variant="mint" />
         <StatCard label="완료" value={`${doneCount}건`} description="오늘 처리 완료" icon={<CheckCircle2 />} />
-      </div>
+      </StatCardGrid>
 
       <div className="mt-lg">
         <TabNav

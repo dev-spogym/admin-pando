@@ -17,12 +17,14 @@ import {
 import AppLayout from "@/components/layout/AppLayout";
 import PageHeader from "@/components/common/PageHeader";
 import StatCard from "@/components/common/StatCard";
+import StatCardGrid from "@/components/common/StatCardGrid";
 import DataTable from "@/components/common/DataTable";
 import StatusBadge from "@/components/common/StatusBadge";
 import SearchFilter from "@/components/common/SearchFilter";
 import ConfirmDialog from "@/components/ui/ConfirmDialog";
 import { moveToPage } from "@/internal";
 import { cn } from "@/lib/utils";
+import Button from "@/components/ui/Button";
 import { supabase } from "@/lib/supabase";
 import { toast } from "sonner";
 import { exportToExcel } from "@/lib/exportExcel";
@@ -245,22 +247,19 @@ export default function StaffList() {
           title="직원 관리"
           description="센터의 직원 정보를 관리합니다."
           actions={
-            <button
-              className="flex items-center gap-xs px-md py-sm bg-primary text-white rounded-button text-Label font-semibold hover:opacity-90 transition-all"
-              onClick={() => moveToPage(998)}
-            >
-              <Plus size={16} /> 직원 등록
-            </button>
+            <Button variant="primary" icon={<Plus size={16} />} onClick={() => moveToPage(998)}>
+              직원 등록
+            </Button>
           }
         />
 
         {/* 통계 카드 4개 */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-lg mb-lg">
+        <StatCardGrid cols={4} className="mb-lg">
           <StatCard label="전체 직원"  value={`${total}명`}   icon={<Users />}     description="등록된 총 인원"    variant="default" />
           <StatCard label="재직 중"    value={`${active}명`}  icon={<UserCheck />} description="현재 근무 인원"   variant="mint" />
           <StatCard label="휴직 중"    value={`${onLeave}명`} icon={<Clock />}     description="휴직자 현황"      variant="peach" />
           <StatCard label="퇴사"       value={`${resigned}명`} icon={<UserMinus />} description="퇴사 처리 인원"  variant="default" />
-        </div>
+        </StatCardGrid>
 
         {/* 검색 & 필터 */}
         <div className="flex flex-col gap-md mb-lg">
@@ -299,29 +298,32 @@ export default function StaffList() {
 
           {/* 액션 버튼 */}
           <div className="flex flex-wrap items-center gap-sm">
-            <button
-              className="flex items-center gap-xs px-md py-sm bg-primary-light text-primary rounded-button text-Label font-semibold hover:bg-primary hover:text-white transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+            <Button
+              variant="outline"
+              icon={<MessageSquare size={16} />}
               disabled={selectedRows.size === 0}
               onClick={() => moveToPage(980)}
             >
-              <MessageSquare size={16} /> 메시지 전송
-            </button>
-            <button
-              className="flex items-center gap-xs px-md py-sm bg-white border border-line text-content-secondary rounded-button text-Label font-semibold hover:border-primary hover:text-primary transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+              메시지 전송
+            </Button>
+            <Button
+              variant="outline"
+              icon={<Settings2 size={16} />}
               disabled={selectedRows.size === 0}
             >
-              <Settings2 size={16} /> 상태 변경
-            </button>
-            <button
-              className="flex items-center gap-xs px-md py-sm bg-white border border-line text-error rounded-button text-Label font-semibold hover:bg-error hover:text-white transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+              상태 변경
+            </Button>
+            <Button
+              variant="danger"
+              icon={<UserMinus size={16} />}
               disabled={selectedRows.size === 0}
               onClick={() => setIsRetireDialogOpen(true)}
             >
-              <UserMinus size={16} /> 퇴사 처리
-            </button>
-            <button className="flex items-center gap-xs px-md py-sm bg-white border border-line text-content-secondary rounded-button text-Label font-semibold hover:bg-surface-secondary transition-all">
-              <Download size={16} /> 명단 다운로드
-            </button>
+              퇴사 처리
+            </Button>
+            <Button variant="outline" icon={<Download size={16} />}>
+              명단 다운로드
+            </Button>
           </div>
         </div>
 

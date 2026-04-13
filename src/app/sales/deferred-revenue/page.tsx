@@ -4,6 +4,8 @@ import { TrendingDown, CheckCircle, Clock, CalendarDays } from 'lucide-react';
 import AppLayout from "@/components/layout/AppLayout";
 import PageHeader from "@/components/common/PageHeader";
 import StatCard from "@/components/common/StatCard";
+import StatCardGrid from "@/components/common/StatCardGrid";
+import { formatKRW } from "@/lib/format";
 import DataTable from "@/components/common/DataTable";
 import { getDeferredRevenues, type DeferredRevenueItem } from '@/api/endpoints/deferredRevenue';
 
@@ -61,15 +63,15 @@ export default function DeferredRevenue() {
     { key: 'productName', header: '상품명', width: 200 },
     {
       key: 'totalAmount', header: '총액', width: 130, align: 'right' as const,
-      render: (v: number) => <span className="tabular-nums font-semibold">₩{v.toLocaleString()}</span>,
+      render: (v: number) => <span className="tabular-nums font-semibold">{formatKRW(v)}</span>,
     },
     {
       key: 'recognizedAmount', header: '인식완료', width: 130, align: 'right' as const,
-      render: (v: number) => <span className="tabular-nums text-state-success">₩{v.toLocaleString()}</span>,
+      render: (v: number) => <span className="tabular-nums text-state-success">{formatKRW(v)}</span>,
     },
     {
       key: 'remainingAmount', header: '잔여', width: 130, align: 'right' as const,
-      render: (v: number) => <span className="tabular-nums text-primary font-semibold">₩{v.toLocaleString()}</span>,
+      render: (v: number) => <span className="tabular-nums text-primary font-semibold">{formatKRW(v)}</span>,
     },
     { key: 'startDate', header: '시작일', width: 110, align: 'center' as const },
     { key: 'endDate', header: '종료일', width: 110, align: 'center' as const },
@@ -101,12 +103,12 @@ export default function DeferredRevenue() {
       />
 
       {/* 통계 카드 */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-md mb-xl">
-        <StatCard label="총 선수익금" value={`₩${stats.total.toLocaleString()}`} variant="peach" icon={<TrendingDown />} />
-        <StatCard label="인식 완료" value={`₩${stats.recognized.toLocaleString()}`} variant="mint" icon={<CheckCircle />} />
-        <StatCard label="잔여 선수익금" value={`₩${stats.remaining.toLocaleString()}`} icon={<Clock />} />
-        <StatCard label="이번달 인식 예정" value={`₩${stats.thisMonthExpected.toLocaleString()}`} icon={<CalendarDays />} />
-      </div>
+      <StatCardGrid cols={4} className="mb-xl">
+        <StatCard label="총 선수익금" value={formatKRW(stats.total)} variant="peach" icon={<TrendingDown />} />
+        <StatCard label="인식 완료" value={formatKRW(stats.recognized)} variant="mint" icon={<CheckCircle />} />
+        <StatCard label="잔여 선수익금" value={formatKRW(stats.remaining)} icon={<Clock />} />
+        <StatCard label="이번달 인식 예정" value={formatKRW(stats.thisMonthExpected)} icon={<CalendarDays />} />
+      </StatCardGrid>
 
       {/* 기간 필터 */}
       <div className="bg-surface rounded-xl border border-line p-lg mb-xl flex flex-wrap items-center gap-md">

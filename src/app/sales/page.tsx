@@ -12,14 +12,17 @@ import { moveToPage } from '@/internal';
 
 import PageHeader from "@/components/common/PageHeader";
 import StatCard from "@/components/common/StatCard";
+import StatCardGrid from "@/components/common/StatCardGrid";
 import SearchFilter, { FilterOption } from "@/components/common/SearchFilter";
 import TabNav from "@/components/common/TabNav";
 import DataTable from "@/components/common/DataTable";
 import StatusBadge from "@/components/common/StatusBadge";
 import AppLayout from "@/components/layout/AppLayout";
 import Modal from "@/components/ui/Modal";
+import Button from "@/components/ui/Button";
 import { supabase } from '@/lib/supabase';
 import { exportToExcel } from '@/lib/exportExcel';
+import { formatKRW, formatNumber } from '@/lib/format';
 
 type SaleItem = {
   id: number;
@@ -303,8 +306,8 @@ export default function Sales() {
   }, [filteredData]);
 
   // 탭별 테이블 데이터/컬럼
-  const amtRender = (v: number) => <span className="font-semibold tabular-nums">₩{v.toLocaleString()}</span>;
-  const cntRender = (v: number) => <span className="tabular-nums">{v.toLocaleString()}건</span>;
+  const amtRender = (v: number) => <span className="font-semibold tabular-nums">{formatKRW(v)}</span>;
+  const cntRender = (v: number) => <span className="tabular-nums">{formatNumber(v)}건</span>;
 
   const aggregateColumns: Record<string, { key: string; header: string; width?: number; align?: 'left' | 'center' | 'right'; render?: (v: unknown) => React.ReactNode }[]> = {
     'TAB-002': [
@@ -380,27 +383,27 @@ export default function Sales() {
     },
     { key: 'manager', header: '담당자', width: 100 },
     { key: 'salePrice', header: '금액', width: 110, align: 'right' as const,
-      render: (v: number) => <span className="font-semibold tabular-nums">₩{v.toLocaleString()}</span> },
+      render: (v: number) => <span className="font-semibold tabular-nums">{formatKRW(v)}</span> },
     { key: 'paymentTool', header: '결제수단', width: 90, align: 'center' as const },
     { key: 'cash', header: '현금', width: 90, align: 'right' as const,
-      render: (v: number) => <span className="tabular-nums">{v.toLocaleString()}</span> },
+      render: (v: number) => <span className="tabular-nums">{formatNumber(v)}</span> },
     { key: 'card', header: '카드', width: 90, align: 'right' as const,
-      render: (v: number) => <span className="tabular-nums">{v.toLocaleString()}</span> },
+      render: (v: number) => <span className="tabular-nums">{formatNumber(v)}</span> },
     { key: 'mileage', header: '마일리지', width: 90, align: 'right' as const,
-      render: (v: number) => <span className="tabular-nums">{v.toLocaleString()}</span> },
+      render: (v: number) => <span className="tabular-nums">{formatNumber(v)}</span> },
     { key: 'unpaid', header: '미수금', width: 90, align: 'right' as const,
       render: (v: number) => (
         <span className={cn('tabular-nums', v > 0 && 'text-state-error font-bold')}>
-          {v.toLocaleString()}
+          {formatNumber(v)}
         </span>
       )
     },
     { key: 'quantity', header: '수량', width: 70, align: 'center' as const,
       render: (v: number) => <span className="tabular-nums">{v}</span> },
     { key: 'originalPrice', header: '정가', width: 100, align: 'right' as const,
-      render: (v: number) => <span className="tabular-nums">{v > 0 ? `₩${v.toLocaleString()}` : '-'}</span> },
+      render: (v: number) => <span className="tabular-nums">{v > 0 ? formatKRW(v) : '-'}</span> },
     { key: 'discountPrice', header: '할인', width: 90, align: 'right' as const,
-      render: (v: number) => <span className="tabular-nums">{v > 0 ? `₩${v.toLocaleString()}` : '-'}</span> },
+      render: (v: number) => <span className="tabular-nums">{v > 0 ? formatKRW(v) : '-'}</span> },
     { key: 'cardCompany', header: '카드사', width: 90, align: 'center' as const,
       render: (v: string) => <span>{v || '-'}</span> },
     { key: 'cardNumber', header: '카드번호', width: 130,
@@ -516,41 +519,33 @@ export default function Sales() {
         description="센터의 매출 거래 전체를 조회하고 분석합니다."
         actions={
           <div className="flex items-center gap-sm">
-            <button
-              onClick={() => moveToPage(982)}
-              className="flex items-center gap-xs px-md py-sm bg-primary text-surface rounded-button text-[13px] font-semibold shadow-sm hover:bg-primary-dark transition-colors"
-            >
-              <CreditCard size={15} />
+            <Button variant="primary" size="sm" icon={<CreditCard size={15} />} onClick={() => moveToPage(982)}>
               신규 결제 (POS)
-            </button>
-            <button
-              onClick={handleDownloadExcel}
-              className="flex items-center gap-xs px-md py-sm bg-surface border border-line text-content-secondary rounded-button text-[13px] font-semibold hover:bg-surface-tertiary transition-colors"
-            >
-              <Download size={15} />
+            </Button>
+            <Button variant="outline" size="sm" icon={<Download size={15} />} onClick={handleDownloadExcel}>
               엑셀 다운로드
-            </button>
+            </Button>
           </div>
         }
       />
 
       {/* 요약 카드 */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-md mb-xl">
+      <StatCardGrid cols={4} className="mb-xl">
         <StatCard
           label="순 매출"
-          value={`₩${netTotal.toLocaleString()}`}
+          value={formatKRW(netTotal)}
           variant="peach"
           icon={<DollarSign />}
         />
-        <StatCard label="카드 결제" value={`₩${summary.card.toLocaleString()}`} icon={<CreditCard />} />
-        <StatCard label="현금 결제" value={`₩${summary.cash.toLocaleString()}`} icon={<Wallet />} />
+        <StatCard label="카드 결제" value={formatKRW(summary.card)} icon={<CreditCard />} />
+        <StatCard label="현금 결제" value={formatKRW(summary.cash)} icon={<Wallet />} />
         <StatCard
           label="미수금"
-          value={`₩${summary.unpaid.toLocaleString()}`}
+          value={formatKRW(summary.unpaid)}
           icon={<AlertCircle />}
           className={summary.unpaid > 0 ? 'border-state-error/20' : ''}
         />
-      </div>
+      </StatCardGrid>
 
       {/* 필터 영역 */}
       <div className="space-y-md mb-lg">
@@ -650,38 +645,38 @@ export default function Sales() {
         <div className="flex flex-wrap gap-xl">
           <div>
             <p className="text-[11px] text-content-tertiary mb-xs">총 매출액</p>
-            <p className="text-[18px] font-bold text-primary tabular-nums">₩{summary.total.toLocaleString()}</p>
+            <p className="text-[18px] font-bold text-primary tabular-nums">{formatKRW(summary.total)}</p>
           </div>
           <div>
             <p className="text-[11px] text-content-tertiary mb-xs">순 매출액 <span className="text-[10px]">(환불 차감)</span></p>
-            <p className="text-[18px] font-bold text-accent tabular-nums">₩{netTotal.toLocaleString()}</p>
+            <p className="text-[18px] font-bold text-accent tabular-nums">{formatKRW(netTotal)}</p>
           </div>
           <div className="hidden sm:block w-px h-10 bg-line" />
           <div>
             <p className="text-[11px] text-content-tertiary mb-xs">현금 합계</p>
-            <p className="text-[18px] font-bold text-content tabular-nums">₩{summary.cash.toLocaleString()}</p>
+            <p className="text-[18px] font-bold text-content tabular-nums">{formatKRW(summary.cash)}</p>
           </div>
           <div>
             <p className="text-[11px] text-content-tertiary mb-xs">카드 합계</p>
-            <p className="text-[18px] font-bold text-content tabular-nums">₩{summary.card.toLocaleString()}</p>
+            <p className="text-[18px] font-bold text-content tabular-nums">{formatKRW(summary.card)}</p>
           </div>
           <div>
             <p className="text-[11px] text-content-tertiary mb-xs">마일리지 합계</p>
-            <p className="text-[18px] font-bold text-content tabular-nums">₩{summary.mileage.toLocaleString()}</p>
+            <p className="text-[18px] font-bold text-content tabular-nums">{formatKRW(summary.mileage)}</p>
           </div>
         </div>
         <div className="flex gap-xl">
           <div className="text-right">
             <p className="text-[11px] text-content-tertiary mb-xs">환불 금액</p>
-            <p className="text-[15px] font-semibold text-state-error tabular-nums">₩{summary.refund.toLocaleString()}</p>
+            <p className="text-[15px] font-semibold text-state-error tabular-nums">{formatKRW(summary.refund)}</p>
           </div>
           <div className="text-right">
             <p className="text-[11px] text-content-tertiary mb-xs">미납금</p>
-            <p className="text-[15px] font-semibold text-state-error tabular-nums">₩{summary.unpaid.toLocaleString()}</p>
+            <p className="text-[15px] font-semibold text-state-error tabular-nums">{formatKRW(summary.unpaid)}</p>
           </div>
           <div className="text-right">
             <p className="text-[11px] text-content-tertiary mb-xs">할인 합계</p>
-            <p className="text-[15px] font-semibold text-content-secondary tabular-nums">₩{summary.discount.toLocaleString()}</p>
+            <p className="text-[15px] font-semibold text-content-secondary tabular-nums">{formatKRW(summary.discount)}</p>
           </div>
         </div>
       </div>
@@ -760,17 +755,17 @@ export default function Sales() {
               <div className="grid grid-cols-3 gap-sm">
                 <div>
                   <p className="text-[11px] text-content-tertiary mb-xs">정가</p>
-                  <p className="text-[13px] tabular-nums text-content">₩{selectedSale.originalPrice.toLocaleString()}</p>
+                  <p className="text-[13px] tabular-nums text-content">{formatKRW(selectedSale.originalPrice)}</p>
                 </div>
                 <div>
                   <p className="text-[11px] text-content-tertiary mb-xs">할인</p>
                   <p className="text-[13px] tabular-nums text-state-error">
-                    {selectedSale.discountPrice > 0 ? `-₩${selectedSale.discountPrice.toLocaleString()}` : '-'}
+                    {selectedSale.discountPrice > 0 ? `-${formatKRW(selectedSale.discountPrice)}` : '-'}
                   </p>
                 </div>
                 <div>
                   <p className="text-[11px] text-content-tertiary mb-xs">판매가</p>
-                  <p className="text-[14px] font-bold tabular-nums text-primary">₩{selectedSale.salePrice.toLocaleString()}</p>
+                  <p className="text-[14px] font-bold tabular-nums text-primary">{formatKRW(selectedSale.salePrice)}</p>
                 </div>
               </div>
             </div>
@@ -783,20 +778,20 @@ export default function Sales() {
               <div className="grid grid-cols-2 gap-sm">
                 <div>
                   <p className="text-[11px] text-content-tertiary mb-xs">카드</p>
-                  <p className="text-[13px] tabular-nums text-content">₩{selectedSale.card.toLocaleString()}</p>
+                  <p className="text-[13px] tabular-nums text-content">{formatKRW(selectedSale.card)}</p>
                 </div>
                 <div>
                   <p className="text-[11px] text-content-tertiary mb-xs">현금</p>
-                  <p className="text-[13px] tabular-nums text-content">₩{selectedSale.cash.toLocaleString()}</p>
+                  <p className="text-[13px] tabular-nums text-content">{formatKRW(selectedSale.cash)}</p>
                 </div>
                 <div>
                   <p className="text-[11px] text-content-tertiary mb-xs">마일리지</p>
-                  <p className="text-[13px] tabular-nums text-content">₩{selectedSale.mileage.toLocaleString()}</p>
+                  <p className="text-[13px] tabular-nums text-content">{formatKRW(selectedSale.mileage)}</p>
                 </div>
                 <div>
                   <p className="text-[11px] text-content-tertiary mb-xs">미수금</p>
                   <p className={cn('text-[13px] tabular-nums font-semibold', selectedSale.unpaid > 0 ? 'text-state-error' : 'text-content')}>
-                    ₩{selectedSale.unpaid.toLocaleString()}
+                    {formatKRW(selectedSale.unpaid)}
                   </p>
                 </div>
               </div>

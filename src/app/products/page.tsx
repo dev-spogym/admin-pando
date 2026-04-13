@@ -25,6 +25,8 @@ import { useAuthStore } from '@/stores/authStore';
 import { hasFeature } from '@/lib/permissions';
 import PageHeader from "@/components/common/PageHeader";
 import StatCard from "@/components/common/StatCard";
+import StatCardGrid from "@/components/common/StatCardGrid";
+import { formatKRW } from "@/lib/format";
 import StatusBadge from "@/components/common/StatusBadge";
 import TabNav from "@/components/common/TabNav";
 import { cn } from '@/lib/utils';
@@ -425,7 +427,7 @@ export default function ProductList() {
       {mainTab === 'products' && (
         <>
           {/* 통계 요약 */}
-          <div className="mb-xl grid grid-cols-2 lg:grid-cols-4 gap-md">
+          <StatCardGrid cols={4} className="mb-xl">
             {statItems.map((stat, idx) => (
               <StatCard
                 key={idx}
@@ -435,7 +437,7 @@ export default function ProductList() {
                 variant={stat.variant}
               />
             ))}
-          </div>
+          </StatCardGrid>
 
           {/* 필터 바 */}
           <div className="mb-md space-y-md">
@@ -625,13 +627,13 @@ export default function ProductList() {
                             {/* 현금가 */}
                             <td className="px-sm py-[5px] text-right">
                               <span className="text-[12px] font-medium tabular-nums text-content">
-                                {product.cashPrice != null ? `₩${Number(product.cashPrice).toLocaleString()}` : `₩${Number(product.price).toLocaleString()}`}
+                                {product.cashPrice != null ? formatKRW(Number(product.cashPrice)) : formatKRW(Number(product.price))}
                               </span>
                             </td>
                             {/* 카드가 */}
                             <td className="px-sm py-[5px] text-right">
                               <span className="text-[12px] tabular-nums text-content-secondary">
-                                {product.cardPrice != null ? `₩${Number(product.cardPrice).toLocaleString()}` : '-'}
+                                {product.cardPrice != null ? formatKRW(Number(product.cardPrice)) : '-'}
                               </span>
                             </td>
                             {/* 기간 */}

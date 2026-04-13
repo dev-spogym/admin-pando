@@ -61,6 +61,8 @@ import StatCard from "@/components/common/StatCard";
 import DataTable from "@/components/common/DataTable";
 import FormSection from "@/components/common/FormSection";
 import ConfirmDialog from "@/components/ui/ConfirmDialog";
+import Button from "@/components/ui/Button";
+import { formatNumber } from "@/lib/format";
 // BROJ 서브 컴포넌트
 import TabPaymentDetail from "@/components/member/TabPaymentDetail";
 import TabReservation from "@/components/member/TabReservation";
@@ -631,7 +633,7 @@ function TabPayment({ sales, memberId, memberName }: { sales: SaleRecord[]; memb
       key: "salePrice",
       header: "금액",
       align: "right" as const,
-      render: (v: number) => <span className="font-bold text-content">{Number(v).toLocaleString()}원</span>,
+      render: (v: number) => <span className="font-bold text-content">{formatNumber(Number(v))}원</span>,
     },
     {
       key: "paymentMethod",
@@ -683,7 +685,7 @@ function TabPayment({ sales, memberId, memberName }: { sales: SaleRecord[]; memb
       <ConfirmDialog
         open={refundTarget !== null}
         title="환불 처리"
-        description={`[${refundTarget?.itemName}] ${Number(refundTarget?.salePrice).toLocaleString()}원 결제 건을 환불 처리하시겠습니까?`}
+        description={`[${refundTarget?.itemName}] ${formatNumber(Number(refundTarget?.salePrice))}원 결제 건을 환불 처리하시겠습니까?`}
         confirmLabel="환불 처리"
         variant="danger"
         onConfirm={async () => {
@@ -733,10 +735,10 @@ function TabPayment({ sales, memberId, memberName }: { sales: SaleRecord[]; memb
               {[
                 { label: "상품명", value: detailTarget.itemName || "-" },
                 { label: "결제일", value: detailTarget.saleDate ? detailTarget.saleDate.slice(0, 10) : "-" },
-                { label: "결제금액", value: `${Number(detailTarget.salePrice).toLocaleString()}원` },
-                { label: "카드", value: `${Number(detailTarget.card).toLocaleString()}원` },
-                { label: "현금", value: `${Number(detailTarget.cash).toLocaleString()}원` },
-                { label: "미수금", value: `${Number(detailTarget.unpaid).toLocaleString()}원` },
+                { label: "결제금액", value: `${formatNumber(Number(detailTarget.salePrice))}원` },
+                { label: "카드", value: `${formatNumber(Number(detailTarget.card))}원` },
+                { label: "현금", value: `${formatNumber(Number(detailTarget.cash))}원` },
+                { label: "미수금", value: `${formatNumber(Number(detailTarget.unpaid))}원` },
                 { label: "결제방법", value: detailTarget.paymentMethod || "-" },
                 { label: "상태", value: detailTarget.status || "완료" },
               ].map(item => (
@@ -1705,7 +1707,7 @@ export default function MemberDetail() {
               <div className="hidden md:flex items-center gap-sm shrink-0">
                 <div className="flex flex-col items-center px-sm py-xs bg-surface-secondary rounded-lg border border-line min-w-[56px]">
                   <span className="text-[10px] text-content-secondary">미수금</span>
-                  <span className="text-[12px] font-bold text-state-error">{sales.reduce((acc, s) => acc + s.unpaid, 0).toLocaleString()}원</span>
+                  <span className="text-[12px] font-bold text-state-error">{formatNumber(sales.reduce((acc, s) => acc + s.unpaid, 0))}원</span>
                 </div>
                 <div className="flex flex-col items-center px-sm py-xs bg-surface-secondary rounded-lg border border-line min-w-[56px]">
                   <span className="text-[10px] text-content-secondary">마일리지</span>
@@ -1725,8 +1727,10 @@ export default function MemberDetail() {
 
               {/* 액션 버튼 */}
               <div className="flex items-center gap-xs shrink-0">
-                <button
-                  className="flex items-center gap-xs px-sm py-xs bg-state-success text-white rounded-button font-semibold text-[12px] hover:opacity-90 transition-all"
+                <Button
+                  size="sm"
+                  className="bg-state-success text-white hover:opacity-90"
+                  icon={<CheckCircle2 size={13} />}
                   onClick={async () => {
                     const { error } = await supabase.from('attendance').insert({
                       branchId: Number(localStorage.getItem('branchId') || '1'),
@@ -1750,49 +1754,28 @@ export default function MemberDetail() {
                     if (data) setAttendances(data as AttendanceRecord[]);
                   }}
                 >
-                  <CheckCircle2 size={13} />
                   수동출석
-                </button>
+                </Button>
                 {canEdit && (
-                  <button
-                    className="flex items-center gap-xs px-sm py-xs bg-surface-secondary text-content rounded-button font-semibold text-[12px] border border-line hover:bg-surface-tertiary transition-all"
-                    onClick={() => moveToPage(987, { id: memberId ?? '' })}
-                  >
-                    <Edit size={13} />
+                  <Button variant="outline" size="sm" icon={<Edit size={13} />} onClick={() => moveToPage(987, { id: memberId ?? '' })}>
                     수정
-                  </button>
+                  </Button>
                 )}
-                <button
-                  className="flex items-center gap-xs px-sm py-xs bg-accent-light text-accent rounded-button font-semibold text-[12px] hover:bg-accent hover:text-white transition-all"
-                  onClick={() => moveToPage(971, { memberId: memberId ?? '' })}
-                >
-                  <ShoppingBag size={13} />
+                <Button variant="secondary" size="sm" icon={<ShoppingBag size={13} />} onClick={() => moveToPage(971, { memberId: memberId ?? '' })}>
                   상품구매
-                </button>
-                <button
-                  className="flex items-center gap-xs px-sm py-xs bg-surface-secondary text-content rounded-button font-semibold text-[12px] border border-line hover:bg-surface-tertiary transition-all"
-                  onClick={() => moveToPage(980)}
-                >
-                  <MessageSquare size={13} />
+                </Button>
+                <Button variant="outline" size="sm" icon={<MessageSquare size={13} />} onClick={() => moveToPage(980)}>
                   메시지
-                </button>
+                </Button>
                 {canTransfer && (
-                  <button
-                    className="flex items-center gap-xs px-sm py-xs bg-surface-secondary text-content rounded-button font-semibold text-[12px] border border-line hover:bg-surface-tertiary transition-all"
-                    onClick={() => moveToPage(968, { id: memberId ?? '' })}
-                  >
-                    <ArrowRightLeft size={13} />
+                  <Button variant="outline" size="sm" icon={<ArrowRightLeft size={13} />} onClick={() => moveToPage(968, { id: memberId ?? '' })}>
                     지점이관
-                  </button>
+                  </Button>
                 )}
                 {canWithdraw && (
-                  <button
-                    className="flex items-center gap-xs px-sm py-xs border border-state-warning/40 text-state-warning rounded-button font-semibold text-[12px] hover:bg-state-warning hover:text-white transition-all"
-                    onClick={() => setIsWithdrawModalOpen(true)}
-                  >
-                    <UserMinus size={13} />
+                  <Button variant="danger" size="sm" icon={<UserMinus size={13} />} onClick={() => setIsWithdrawModalOpen(true)}>
                     탈퇴
-                  </button>
+                  </Button>
                 )}
               </div>
             </div>

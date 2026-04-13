@@ -25,6 +25,8 @@ import { exportToExcel } from '@/lib/exportExcel';
 import AppLayout from "@/components/layout/AppLayout";
 import PageHeader from "@/components/common/PageHeader";
 import StatCard from "@/components/common/StatCard";
+import StatCardGrid from "@/components/common/StatCardGrid";
+import { formatNumber } from "@/lib/format";
 import TabNav from "@/components/common/TabNav";
 import SearchFilter from "@/components/common/SearchFilter";
 import DataTable from "@/components/common/DataTable";
@@ -428,14 +430,14 @@ export default function MileageManagement() {
         </div>
       )
     },
-    { key: 'earned', header: '적립 마일리지', align: 'right' as const, render: (val: number) => `${val.toLocaleString()} P` },
-    { key: 'used', header: '사용 마일리지', align: 'right' as const, render: (val: number) => `${val.toLocaleString()} P` },
+    { key: 'earned', header: '적립 마일리지', align: 'right' as const, render: (val: number) => `${formatNumber(val)} P` },
+    { key: 'used', header: '사용 마일리지', align: 'right' as const, render: (val: number) => `${formatNumber(val)} P` },
     {
       key: 'balance',
       header: '잔여 마일리지',
       align: 'right' as const,
       render: (val: number) => (
-        <span className="font-bold text-primary">{val.toLocaleString()} P</span>
+        <span className="font-bold text-primary">{formatNumber(val)} P</span>
       )
     },
     { key: 'lastEarnedAt', header: '최근 적립일', align: 'center' as const },
@@ -489,11 +491,11 @@ export default function MileageManagement() {
       align: 'right' as const,
       render: (val: number) => (
         <span className={cn("font-medium", val > 0 ? "text-state-success" : "text-state-error")}>
-          {val > 0 ? `+${val.toLocaleString()}` : val.toLocaleString()} P
+          {val > 0 ? `+${formatNumber(val)}` : formatNumber(val)} P
         </span>
       )
     },
-    { key: 'balance', header: '잔액', align: 'right' as const, render: (val: number) => `${val.toLocaleString()} P` },
+    { key: 'balance', header: '잔액', align: 'right' as const, render: (val: number) => `${formatNumber(val)} P` },
     { key: 'reason', header: '사유' },
     { key: 'admin', header: '처리자', align: 'center' as const },
     {
@@ -564,12 +566,12 @@ export default function MileageManagement() {
         />
 
         {/* Summary Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-md">
-          <StatCard label="전체 발행 마일리지" value={summary.totalIssued.toLocaleString()} icon={<Coins className="text-primary" />} variant="peach" description="현재까지 누적 발행된 총액" />
-          <StatCard label="전체 사용 마일리지" value={summary.totalUsed.toLocaleString()} icon={<ArrowDownRight className="text-accent" />} variant="mint" description="현재까지 사용 완료된 총액" />
-          <StatCard label="잔여 마일리지" value={summary.currentBalance.toLocaleString()} icon={<ArrowUpRight className="text-information" />} description="현재 회원들이 보유 중인 총액" />
-          <StatCard label="이번 달 적립" value={summary.monthlyEarned.toLocaleString()} icon={<CheckCircle2 className="text-state-success" />} description="당월 신규 적립된 마일리지" />
-        </div>
+        <StatCardGrid cols={4}>
+          <StatCard label="전체 발행 마일리지" value={formatNumber(summary.totalIssued)} icon={<Coins className="text-primary" />} variant="peach" description="현재까지 누적 발행된 총액" />
+          <StatCard label="전체 사용 마일리지" value={formatNumber(summary.totalUsed)} icon={<ArrowDownRight className="text-accent" />} variant="mint" description="현재까지 사용 완료된 총액" />
+          <StatCard label="잔여 마일리지" value={formatNumber(summary.currentBalance)} icon={<ArrowUpRight className="text-information" />} description="현재 회원들이 보유 중인 총액" />
+          <StatCard label="이번 달 적립" value={formatNumber(summary.monthlyEarned)} icon={<CheckCircle2 className="text-state-success" />} description="당월 신규 적립된 마일리지" />
+        </StatCardGrid>
 
         {/* Tab Navigation */}
         <div className="bg-surface rounded-xl shadow-card overflow-hidden">

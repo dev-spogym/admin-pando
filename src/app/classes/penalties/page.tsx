@@ -4,6 +4,7 @@ import { Plus, Trash2, AlertTriangle, Ban, Clock, Minus, Settings, ToggleLeft, T
 import AppLayout from "@/components/layout/AppLayout";
 import PageHeader from "@/components/common/PageHeader";
 import StatCard from "@/components/common/StatCard";
+import StatCardGrid from "@/components/common/StatCardGrid";
 import DataTable from "@/components/common/DataTable";
 import StatusBadge from "@/components/common/StatusBadge";
 import Modal from "@/components/ui/Modal";
@@ -289,12 +290,12 @@ export default function PenaltyManagement() {
       />
 
       {/* 통계 카드 */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-md mb-lg">
+      <StatCardGrid cols={4} className="mb-lg">
         <StatCard label="이번달 페널티" value={stats.total} icon={<AlertTriangle />} />
         <StatCard label="노쇼 건수" value={stats.noshow} icon={<Ban />} variant="peach" />
         <StatCard label="지각취소 건수" value={stats.lateCancel} icon={<Clock />} variant="mint" />
         <StatCard label="차감 총 횟수" value={`${stats.totalDeduct}회`} icon={<Minus />} />
-      </div>
+      </StatCardGrid>
 
       {/* 페널티 목록 테이블 */}
       <DataTable

@@ -20,6 +20,7 @@ import AppLayout from "@/components/layout/AppLayout";
 import PageHeader from "@/components/common/PageHeader";
 import FormSection from "@/components/common/FormSection";
 import StatCard from "@/components/common/StatCard";
+import StatCardGrid from "@/components/common/StatCardGrid";
 import StatusBadge from "@/components/common/StatusBadge";
 import TabNav from "@/components/common/TabNav";
 import { moveToPage } from "@/internal";
@@ -475,7 +476,7 @@ export default function KpiPreviewCenter() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 gap-md md:grid-cols-2 xl:grid-cols-4">
+      <StatCardGrid cols={4}>
         {board.metrics.map((metric) => (
           <StatCard
             key={`summary-${metric.label}`}
@@ -486,7 +487,7 @@ export default function KpiPreviewCenter() {
             variant={metric.variant}
           />
         ))}
-      </div>
+      </StatCardGrid>
 
       <div className="mt-lg grid gap-lg xl:grid-cols-[1.1fr_0.9fr]">
         <ActionQueue title={board.queueTitle} items={board.queue} />

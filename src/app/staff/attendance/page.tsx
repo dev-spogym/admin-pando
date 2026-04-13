@@ -4,6 +4,7 @@ import { LogIn, LogOut, Calendar, Users, CheckCircle, AlertCircle, List } from '
 import AppLayout from "@/components/layout/AppLayout";
 import PageHeader from "@/components/common/PageHeader";
 import StatCard from "@/components/common/StatCard";
+import StatCardGrid from "@/components/common/StatCardGrid";
 import DataTable from "@/components/common/DataTable";
 import StatusBadge from "@/components/common/StatusBadge";
 import { cn } from '@/lib/utils';
@@ -245,12 +246,12 @@ export default function StaffAttendance() {
       />
 
       {/* 통계 카드 */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-md mb-xl">
+      <StatCardGrid cols={4} className="mb-xl">
         <StatCard label="총 근무일" value={monthlySummary.total} icon={<Calendar />} variant="peach" />
         <StatCard label="정상 출근" value={monthlySummary.normal} icon={<CheckCircle />} variant="mint" />
         <StatCard label="지각" value={monthlySummary.late} icon={<AlertCircle />} />
         <StatCard label="결근" value={monthlySummary.absent} icon={<Users />} />
-      </div>
+      </StatCardGrid>
 
       {/* 뷰 모드 토글 */}
       <div className="flex items-center gap-xs mb-lg">

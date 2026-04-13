@@ -31,6 +31,7 @@ import AppLayout from "@/components/layout/AppLayout";
 import PageHeader from "@/components/common/PageHeader";
 import TabNav from "@/components/common/TabNav";
 import StatCard from "@/components/common/StatCard";
+import StatCardGrid from "@/components/common/StatCardGrid";
 import SearchFilter, { FilterOption } from "@/components/common/SearchFilter";
 import DataTable from "@/components/common/DataTable";
 import StatusBadge from "@/components/common/StatusBadge";
@@ -430,7 +431,7 @@ export default function CouponManagement() {
         />
 
         {/* Stats Section */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-md mb-xl">
+        <StatCardGrid cols={4} className="mb-xl">
           <StatCard label="전체 쿠폰" value={coupons.length} icon={<Ticket />} variant="default" />
           <StatCard
             label="활성 쿠폰"
@@ -450,7 +451,7 @@ export default function CouponManagement() {
             icon={<Gift />}
             variant="peach"
           />
-        </div>
+        </StatCardGrid>
 
         {/* Tabs & Search Filter */}
         <div className="bg-surface rounded-xl border border-line shadow-card overflow-hidden mb-lg">

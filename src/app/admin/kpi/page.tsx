@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from "react";
 import AppLayout from "@/components/layout/AppLayout";
 import PageHeader from "@/components/common/PageHeader";
 import StatCard from "@/components/common/StatCard";
+import StatCardGrid from "@/components/common/StatCardGrid";
 import {
   Users, TrendingUp, TrendingDown, UserCheck, UserMinus, DollarSign,
   CalendarCheck, BarChart3, Target, AlertCircle, RefreshCw, Settings,
@@ -692,23 +693,23 @@ export default function KpiDashboard() {
 
       {/* 회원 현황 */}
       <h3 className="text-[14px] font-bold text-content mb-sm mt-md">회원 현황</h3>
-      <div className="grid grid-cols-2 lg:grid-cols-6 gap-md mb-lg">
+      <StatCardGrid cols={6} className="mb-lg">
         <StatCard label="전체 회원" value={`${m.totalMembers}명`} icon={<Users size={18} />} />
         <StatCard label="활성 회원" value={`${m.activeMembers}명`} icon={<UserCheck size={18} />} variant="mint" />
         <StatCard label="활성 비율" value={`${activeRate}%`} icon={<Target size={18} />} />
         <StatCard label="이번달 신규" value={`${m.newMembersThisMonth}명`} icon={<TrendingUp size={18} />} variant="peach" />
         <StatCard label="만료 예정" value={`${m.expiringMembers}명`} icon={<AlertCircle size={18} />} />
         <StatCard label="만료 회원" value={`${m.expiredMembers}명`} icon={<UserMinus size={18} />} />
-      </div>
+      </StatCardGrid>
 
       {/* 매출 */}
       <h3 className="text-[14px] font-bold text-content mb-sm">매출</h3>
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-md mb-sm">
+      <StatCardGrid cols={4} className="mb-sm">
         <StatCard label="이번달 매출" value={`${formatAmount(m.monthlyRevenue)}원`} icon={<DollarSign size={18} />} variant="mint" />
         <StatCard label="전월 매출" value={`${formatAmount(m.prevMonthRevenue)}원`} icon={<DollarSign size={18} />} />
         <StatCard label="MoM 성장률" value={`${revenueMoM >= 0 ? '+' : ''}${revenueMoM}%`} icon={revenueMoM >= 0 ? <TrendingUp size={18} /> : <TrendingDown size={18} />} variant={revenueMoM >= 0 ? "mint" : "peach"} />
         <StatCard label="신규 MoM" value={`${newMemberMoM >= 0 ? '+' : ''}${newMemberMoM}%`} icon={revenueMoM >= 0 ? <TrendingUp size={18} /> : <TrendingDown size={18} />} />
-      </div>
+      </StatCardGrid>
       {/* 매출 달성률 게이지 */}
       <div className="bg-surface border border-line rounded-xl px-lg py-md mb-lg">
         <div className="flex items-center justify-between mb-xs">
@@ -726,30 +727,30 @@ export default function KpiDashboard() {
 
       {/* 상담/전환 */}
       <h3 className="text-[14px] font-bold text-content mb-sm">상담 / 전환</h3>
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-md mb-lg">
+      <StatCardGrid cols={4} className="mb-lg">
         <StatCard label="이번달 상담" value={`${m.totalConsultations}건`} icon={<CalendarCheck size={18} />} />
         <StatCard label="상담 완료" value={`${m.completedConsultations}건`} icon={<CalendarCheck size={18} />} variant="mint" />
         <StatCard label="상담 완료율" value={`${consultConvRate}%`} icon={<Target size={18} />} variant="peach" />
         <StatCard label="일평균 출석" value={`${m.avgWeeklyAttendance}명`} icon={<Users size={18} />} />
-      </div>
+      </StatCardGrid>
 
       {/* PT */}
       <h3 className="text-[14px] font-bold text-content mb-sm">PT 수업</h3>
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-md mb-lg">
+      <StatCardGrid cols={4} className="mb-lg">
         <StatCard label="이번달 PT 세션" value={`${m.totalPtSessions}건`} icon={<CalendarCheck size={18} />} />
         <StatCard label="PT 완료" value={`${m.completedPtSessions}건`} icon={<CalendarCheck size={18} />} variant="mint" />
         <StatCard label="PT 완료율" value={`${ptCompletionRate}%`} icon={<Target size={18} />} variant={ptCompletionRate >= 85 ? "mint" : "peach"} />
         <StatCard label="PT 노쇼율" value={`${ptNoShowRate}%`} icon={<AlertCircle size={18} />} variant={ptNoShowRate <= 5 ? "mint" : "peach"} />
-      </div>
+      </StatCardGrid>
 
       {/* GX 수업 */}
       <h3 className="text-[14px] font-bold text-content mb-sm">GX 수업</h3>
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-md mb-lg">
+      <StatCardGrid cols={4} className="mb-lg">
         <StatCard label="이번달 수업" value={`${m.totalClasses}건`} icon={<BarChart3 size={18} />} />
         <StatCard label="예약 수" value={`${m.totalClassBooked}건`} icon={<CalendarCheck size={18} />} />
         <StatCard label="출석 수" value={`${m.totalClassAttendees}건`} icon={<UserCheck size={18} />} variant="mint" />
         <StatCard label="수업 출석률" value={`${classAttendRate}%`} icon={<Target size={18} />} variant={classAttendRate >= 80 ? "mint" : "peach"} />
-      </div>
+      </StatCardGrid>
 
       {/* 코호트 분석 */}
       <h3 className="text-[14px] font-bold text-content mb-sm">코호트 분석</h3>

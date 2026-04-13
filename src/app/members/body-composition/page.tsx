@@ -17,6 +17,7 @@ import {
 import AppLayout from "@/components/layout/AppLayout";
 import PageHeader from "@/components/common/PageHeader";
 import StatCard from "@/components/common/StatCard";
+import StatCardGrid from "@/components/common/StatCardGrid";
 import DataTable from "@/components/common/DataTable";
 import TabNav from "@/components/common/TabNav";
 import ConfirmDialog from "@/components/ui/ConfirmDialog";
@@ -613,7 +614,7 @@ export default function BodyComposition() {
         />
 
         {/* UI-121 핵심 지표 요약 */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-md mb-lg">
+        <StatCardGrid cols={3} className="mb-lg">
           <StatCard
             label="현재 체중"
             value={`${latest.weight} kg`}
@@ -638,7 +639,7 @@ export default function BodyComposition() {
             change={getChange(latest.pbf, prev.pbf)}
             description="표준 범위: 18.0 ~ 28.0 %"
           />
-        </div>
+        </StatCardGrid>
 
         {/* 탭 */}
         <div className="bg-surface rounded-xl shadow-card overflow-hidden border border-line">

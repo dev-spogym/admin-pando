@@ -27,6 +27,8 @@ import AppLayout from "@/components/layout/AppLayout";
 import Modal from "@/components/ui/Modal";
 import PageHeader from "@/components/common/PageHeader";
 import StatCard from "@/components/common/StatCard";
+import StatCardGrid from "@/components/common/StatCardGrid";
+import { formatCount } from "@/lib/format";
 import DataTable from "@/components/common/DataTable";
 import StatusBadge from "@/components/common/StatusBadge";
 import { SearchFilter } from "@/components/common/SearchFilter";
@@ -878,7 +880,7 @@ export default function Attendance() {
         {!loading && viewMode === "day" && (
           <>
             {/* 상단 통계 카드 — 총 건수, 성공, 실패 + 기존 카드 */}
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-7 gap-lg">
+            <StatCardGrid cols={5} className="lg:grid-cols-7">
               {/* UX-10: 선택 날짜 기준으로 동적 라벨 표시 */}
               <StatCard label={todayLabel} value={`${todayTotal}건`} icon={<Users />} description="총 출석 시도 건수" />
               <StatCard label="출석 성공" value={`${todaySuccess}건`} variant="mint" icon={<CheckCircle2 />} description="성공 체크인 건수" />
@@ -888,7 +890,7 @@ export default function Attendance() {
               <StatCard label="신규 방문" value={`${todayNew}명`} icon={<User />} description="첫 방문 회원 수" />
               {/* #12 현재 재실 인원 */}
               <StatCard label="현재 재실" value={`${currentPresence}명`} variant="mint" icon={<Building2 />} description="현재 센터 내 인원" />
-            </div>
+            </StatCardGrid>
 
             {/* 출석 유형 범례 */}
             <div className="bg-surface rounded-xl border border-line px-lg py-sm shadow-xs">
@@ -960,22 +962,22 @@ export default function Attendance() {
 
         {!loading && viewMode === "week" && (
           <>
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-lg">
-              <StatCard label="주간 총 출석" value={`${weekTotal.toLocaleString()}건`} icon={<Users />} description="이번 주 출석" />
+            <StatCardGrid cols={3}>
+              <StatCard label="주간 총 출석" value={formatCount(weekTotal)} icon={<Users />} description="이번 주 출석" />
               <StatCard label="주간 PT 수업" value={`${weekPT}건`} variant="mint" icon={<CheckCircle2 />} description="이번 주 PT" />
               <StatCard label="주간 GX 수업" value={`${weekGX}건`} variant="peach" icon={<MapPin />} description="이번 주 GX" />
-            </div>
+            </StatCardGrid>
             <WeeklyView data={weekData} weekLabel={weekLabel} />
           </>
         )}
 
         {!loading && viewMode === "month" && (
           <>
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-lg">
-              <StatCard label="월간 총 출석" value={`${monthTotal.toLocaleString()}건`} icon={<Users />} description={`${currentMonth}월 출석`} />
+            <StatCardGrid cols={3}>
+              <StatCard label="월간 총 출석" value={formatCount(monthTotal)} icon={<Users />} description={`${currentMonth}월 출석`} />
               <StatCard label="월간 PT 수업" value={`${monthPT}건`} variant="mint" icon={<CheckCircle2 />} description={`${currentMonth}월 PT`} />
               <StatCard label="월간 신규 방문" value={`${monthNew}명`} variant="peach" icon={<User />} description="첫 방문 회원" />
-            </div>
+            </StatCardGrid>
             <MonthlyView data={monthlyData} year={currentYear} month={currentMonth} todayDay={todayDayOfMonth} />
           </>
         )}

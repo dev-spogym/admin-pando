@@ -4,6 +4,7 @@ import { toast } from 'sonner';
 import AppLayout from "@/components/layout/AppLayout";
 import PageHeader from "@/components/common/PageHeader";
 import StatCard from "@/components/common/StatCard";
+import StatCardGrid from "@/components/common/StatCardGrid";
 import DataTable from "@/components/common/DataTable";
 import StatusBadge from "@/components/common/StatusBadge";
 import TabNav from "@/components/common/TabNav";
@@ -358,12 +359,12 @@ export default function ClothingManagement() {
       />
 
       {/* 통계 카드 */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-md mb-lg">
+      <StatCardGrid cols={4} className="mb-lg">
         <StatCard label="전체" value={`${stats.total}벌`} icon={<Shirt />} />
         <StatCard label="대기" value={`${stats.available}벌`} icon={<Shirt />} variant="mint" />
         <StatCard label="대여중" value={`${stats.rented}벌`} icon={<Shirt />} variant="peach" />
         <StatCard label="세탁중" value={`${stats.washing}벌`} icon={<RefreshCw />} />
-      </div>
+      </StatCardGrid>
 
       {/* 상태 탭 */}
       <TabNav

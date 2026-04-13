@@ -8,6 +8,7 @@ import { toast } from 'sonner';
 import AppLayout from "@/components/layout/AppLayout";
 import PageHeader from "@/components/common/PageHeader";
 import StatCard from "@/components/common/StatCard";
+import StatCardGrid from "@/components/common/StatCardGrid";
 import StatusBadge from "@/components/common/StatusBadge";
 import Modal from "@/components/ui/Modal";
 import ConfirmDialog from "@/components/ui/ConfirmDialog";
@@ -280,13 +281,13 @@ export default function GolfBayManagement() {
       />
 
       {/* 통계 카드 */}
-      <div className="grid grid-cols-2 lg:grid-cols-5 gap-md mb-lg">
+      <StatCardGrid cols={5} className="mb-lg">
         <StatCard label="전체 타석" value={`${stats.total}석`} icon={<Monitor />} />
         <StatCard label="사용중" value={`${stats.inUse}석`} icon={<Play />} variant="peach" />
         <StatCard label="대기중" value={`${stats.available}석`} icon={<Clock />} variant="mint" />
         <StatCard label="예약" value={`${stats.reserved}석`} icon={<UserCheck />} variant="mint" />
         <StatCard label="대기열" value={`${stats.waitCount}명`} icon={<Users />} variant={stats.waitCount > 0 ? 'peach' : undefined} />
-      </div>
+      </StatCardGrid>
 
       <div className="flex gap-lg">
         {/* ── 좌측: 타석 현황 보드 ── */}

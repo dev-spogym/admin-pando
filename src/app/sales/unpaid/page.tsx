@@ -13,6 +13,8 @@ import { cn } from '@/lib/utils';
 
 import PageHeader from "@/components/common/PageHeader";
 import StatCard from "@/components/common/StatCard";
+import StatCardGrid from "@/components/common/StatCardGrid";
+import { formatKRW } from "@/lib/format";
 import TabNav from "@/components/common/TabNav";
 import DataTable from "@/components/common/DataTable";
 import StatusBadge from "@/components/common/StatusBadge";
@@ -300,7 +302,7 @@ export default function UnpaidManagement() {
     {
       key: 'amount', header: '미수금액', width: 130, align: 'right' as const,
       render: (v: number) => (
-        <span className="font-semibold tabular-nums text-state-error">₩{v.toLocaleString()}</span>
+        <span className="font-semibold tabular-nums text-state-error">{formatKRW(v)}</span>
       ),
     },
     { key: 'dueDate', header: '결제기한', width: 130,
@@ -369,10 +371,10 @@ export default function UnpaidManagement() {
       />
 
       {/* 통계 카드 */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-md mb-xl">
+      <StatCardGrid cols={4} className="mb-xl">
         <StatCard
           label="미수금 총액"
-          value={`₩${stats.totalAmount.toLocaleString()}`}
+          value={formatKRW(stats.totalAmount)}
           variant="peach"
           icon={<DollarSign />}
         />
@@ -389,11 +391,11 @@ export default function UnpaidManagement() {
         />
         <StatCard
           label="이번달 회수"
-          value={`₩${stats.recovered.toLocaleString()}`}
+          value={formatKRW(stats.recovered)}
           variant="mint"
           icon={<TrendingDown />}
         />
-      </div>
+      </StatCardGrid>
 
       {/* 탭 + 검색 + 테이블 */}
       <div className="bg-surface rounded-xl border border-line shadow-card overflow-hidden">

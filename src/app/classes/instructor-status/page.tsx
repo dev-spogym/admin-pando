@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import AppLayout from "@/components/layout/AppLayout";
 import PageHeader from "@/components/common/PageHeader";
 import StatCard from "@/components/common/StatCard";
+import StatCardGrid from "@/components/common/StatCardGrid";
 import Modal from "@/components/ui/Modal";
 import { Users, Clock, CalendarCheck, BookOpen, Activity, AlertTriangle } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
@@ -273,13 +274,13 @@ export default function InstructorStatus() {
       />
 
       {/* 요약 통계 카드 */}
-      <div className="grid grid-cols-2 lg:grid-cols-5 gap-md mb-lg">
+      <StatCardGrid cols={5} className="mb-lg">
         <StatCard label="총 강사 수" value={`${summary.totalInstructors}명`} icon={<Users />} />
         <StatCard label="총 수업 수" value={`${summary.totalClasses}회`} icon={<CalendarCheck />} variant="mint" />
         <StatCard label="총 근무시간" value={`${summary.totalHours}h`} icon={<Clock />} variant="peach" />
         <StatCard label="평균 출석률" value={`${summary.avgAttendanceRate}%`} icon={<Activity />} description="예약 대비 참석" />
         <StatCard label="평균 노쇼율" value={`${summary.avgNoShowRate}%`} icon={<AlertTriangle />} description="예약 대비 미참석" variant="peach" />
-      </div>
+      </StatCardGrid>
 
       {/* 강사 카드 그리드 */}
       {loading ? (

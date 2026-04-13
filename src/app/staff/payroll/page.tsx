@@ -14,10 +14,13 @@ import {
   DollarSign
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import Button from "@/components/ui/Button";
 import { moveToPage } from "@/internal";
 import AppLayout from "@/components/layout/AppLayout";
 import PageHeader from "@/components/common/PageHeader";
 import StatCard from "@/components/common/StatCard";
+import StatCardGrid from "@/components/common/StatCardGrid";
+import { formatNumber } from "@/lib/format";
 import DataTable from "@/components/common/DataTable";
 import StatusBadge from "@/components/common/StatusBadge";
 import SearchFilter from "@/components/common/SearchFilter";
@@ -186,25 +189,25 @@ export default function Payroll() {
       key: "baseSalary",
       header: <SortHeader col="baseSalary" label="기본급" />,
       align: "right" as const,
-      render: (val: number) => <span>{val.toLocaleString()}원</span>
+      render: (val: number) => <span>{formatNumber(val)}원</span>
     },
     {
       key: "incentive",
       header: <SortHeader col="incentive" label="인센티브" />,
       align: "right" as const,
-      render: (val: number) => <span className="text-state-success">+{val.toLocaleString()}원</span>
+      render: (val: number) => <span className="text-state-success">+{formatNumber(val)}원</span>
     },
     {
       key: "deduction",
       header: <SortHeader col="deduction" label="공제" />,
       align: "right" as const,
-      render: (val: number) => <span className="text-error">-{val.toLocaleString()}원</span>
+      render: (val: number) => <span className="text-error">-{formatNumber(val)}원</span>
     },
     {
       key: "netPay",
       header: <SortHeader col="netPay" label="실지급액" />,
       align: "right" as const,
-      render: (val: number) => <span className="font-bold text-primary">{val.toLocaleString()}원</span>
+      render: (val: number) => <span className="font-bold text-primary">{formatNumber(val)}원</span>
     },
     {
       key: "status",
@@ -267,8 +270,9 @@ export default function Payroll() {
                   ))}
                 </select>
               </div>
-              <button
-                className="flex items-center gap-xs px-md py-sm bg-primary text-white rounded-button text-Label font-semibold hover:opacity-90 transition-all"
+              <Button
+                variant="primary"
+                icon={<CheckCircle2 size={16} />}
                 onClick={async () => {
                   if (!window.confirm("전 직원 급여를 확정하시겠습니까?")) return;
                   const unpaid = payrollData.filter(r => r.status !== "paid");
@@ -280,10 +284,11 @@ export default function Payroll() {
                   setPayrollData(prev => prev.map(r => ids.includes(r.id) ? { ...r, status: "paid" } : r));
                 }}
               >
-                <CheckCircle2 size={16} />급여 확정
-              </button>
-              <button
-                className="flex items-center gap-xs px-md py-sm border border-line text-content-secondary rounded-button text-Label font-semibold hover:bg-surface-secondary transition-all"
+                급여 확정
+              </Button>
+              <Button
+                variant="outline"
+                icon={<Download size={16} />}
                 onClick={() => {
                   const exportColumns = [
                     { key: 'name', header: '직원명' },
@@ -303,19 +308,19 @@ export default function Payroll() {
                   toast.success("엑셀 다운로드가 완료되었습니다.");
                 }}
               >
-                <Download size={16} />내보내기
-              </button>
+                내보내기
+              </Button>
             </div>
           }
         />
 
         {/* 요약 카드 */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-lg">
+        <StatCardGrid cols={4}>
           <StatCard label="총 지급 대상" value={`${filtered.length}명`}        icon={<Users />}        variant="default" />
-          <StatCard label="총 실지급액"  value={`${totals.netPay.toLocaleString()}원`} icon={<DollarSign />}  variant="mint" description={`${selectedMonth.replace("-", "년 ")}월`} />
+          <StatCard label="총 실지급액"  value={`${formatNumber(totals.netPay)}원`} icon={<DollarSign />}  variant="mint" description={`${selectedMonth.replace("-", "년 ")}월`} />
           <StatCard label="지급완료"     value={`${paidCount}명`}               icon={<CheckCircle2 />} variant="mint" />
           <StatCard label="미지급/보류"  value={`${pendingCount + filtered.filter(r => r.status === "hold").length}명`} icon={<Clock />} variant="peach" />
-        </div>
+        </StatCardGrid>
 
         {/* 검색 & 필터 */}
         <SearchFilter
@@ -374,23 +379,23 @@ export default function Payroll() {
               <div className="flex items-center gap-xl flex-wrap">
                 <div className="text-right">
                   <p className="text-[11px] text-content-secondary mb-[2px]">기본급 합계</p>
-                  <p className="text-Body-2 font-bold text-content">{totals.baseSalary.toLocaleString()}원</p>
-                  <p className="text-[11px] text-content-secondary">평균 {Math.round(totals.baseSalary / filtered.length).toLocaleString()}원</p>
+                  <p className="text-Body-2 font-bold text-content">{formatNumber(totals.baseSalary)}원</p>
+                  <p className="text-[11px] text-content-secondary">평균 {formatNumber(Math.round(totals.baseSalary / filtered.length))}원</p>
                 </div>
                 <div className="text-right">
                   <p className="text-[11px] text-content-secondary mb-[2px]">인센티브 합계</p>
-                  <p className="text-Body-2 font-bold text-state-success">{totals.incentive.toLocaleString()}원</p>
-                  <p className="text-[11px] text-content-secondary">평균 {Math.round(totals.incentive / filtered.length).toLocaleString()}원</p>
+                  <p className="text-Body-2 font-bold text-state-success">{formatNumber(totals.incentive)}원</p>
+                  <p className="text-[11px] text-content-secondary">평균 {formatNumber(Math.round(totals.incentive / filtered.length))}원</p>
                 </div>
                 <div className="text-right">
                   <p className="text-[11px] text-content-secondary mb-[2px]">공제 합계</p>
-                  <p className="text-Body-2 font-bold text-error">{totals.deduction.toLocaleString()}원</p>
-                  <p className="text-[11px] text-content-secondary">평균 {Math.round(totals.deduction / filtered.length).toLocaleString()}원</p>
+                  <p className="text-Body-2 font-bold text-error">{formatNumber(totals.deduction)}원</p>
+                  <p className="text-[11px] text-content-secondary">평균 {formatNumber(Math.round(totals.deduction / filtered.length))}원</p>
                 </div>
                 <div className="text-right border-l border-line pl-xl">
                   <p className="text-[11px] text-content-secondary mb-[2px]">실지급액 합계</p>
-                  <p className="text-Heading-2 font-bold text-primary">{totals.netPay.toLocaleString()}원</p>
-                  <p className="text-[11px] text-content-secondary">평균 {Math.round(totals.netPay / filtered.length).toLocaleString()}원</p>
+                  <p className="text-Heading-2 font-bold text-primary">{formatNumber(totals.netPay)}원</p>
+                  <p className="text-[11px] text-content-secondary">평균 {formatNumber(Math.round(totals.netPay / filtered.length))}원</p>
                 </div>
               </div>
             </div>
@@ -398,7 +403,7 @@ export default function Payroll() {
               <p className="text-[11px] text-content-secondary">
                 <span className="font-semibold text-accent">계산식</span>: 실지급액 = 기본급 + 인센티브 - 공제액
                 &nbsp;|&nbsp;
-                {totals.baseSalary.toLocaleString()} + {totals.incentive.toLocaleString()} - {totals.deduction.toLocaleString()} = <span className="font-bold text-primary">{totals.netPay.toLocaleString()}원</span>
+                {formatNumber(totals.baseSalary)} + {formatNumber(totals.incentive)} - {formatNumber(totals.deduction)} = <span className="font-bold text-primary">{formatNumber(totals.netPay)}원</span>
               </p>
             </div>
           </div>

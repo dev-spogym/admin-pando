@@ -14,7 +14,10 @@ import {
 import { toast } from 'sonner';
 import AppLayout from "@/components/layout/AppLayout";
 import PageHeader from "@/components/common/PageHeader";
+import StatCard from "@/components/common/StatCard";
+import StatCardGrid from "@/components/common/StatCardGrid";
 import DataTable from "@/components/common/DataTable";
+import { formatNumber, formatKRW } from '@/lib/format';
 import { supabase } from '@/lib/supabase';
 import { exportToExcel } from '@/lib/exportExcel';
 
@@ -44,28 +47,6 @@ function getMonthOptions() {
   return options;
 }
 
-// --- StatCard (인라인 경량 버전) ---
-interface KpiCardProps {
-  label: string;
-  value: string;
-  sub?: string;
-  icon: React.ReactNode;
-  colorClass: string;
-}
-function KpiCard({ label, value, sub, icon, colorClass }: KpiCardProps) {
-  return (
-    <div className="p-lg bg-surface rounded-xl border border-line shadow-card flex items-start gap-md">
-      <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 ${colorClass}`}>
-        {icon}
-      </div>
-      <div className="min-w-0">
-        <p className="text-Label text-content-secondary">{label}</p>
-        <p className="text-KPI-Large font-bold text-content mt-xs">{value}</p>
-        {sub && <p className="text-Label text-content-secondary mt-xs">{sub}</p>}
-      </div>
-    </div>
-  );
-}
 
 // --- 바 차트 (div 기반) ---
 interface BarChartProps {
@@ -251,7 +232,7 @@ export default function BranchReport() {
       sortedStats.map(b => ({
         label: b.name,
         value: b.totalSales,
-        formattedValue: `${b.totalSales.toLocaleString()}원`,
+        formattedValue: `${formatNumber(b.totalSales)}원`,
       })),
     [sortedStats]
   );
@@ -261,7 +242,7 @@ export default function BranchReport() {
       sortedStats.map(b => ({
         label: b.name,
         value: b.totalMembers,
-        formattedValue: `${b.totalMembers.toLocaleString()}명`,
+        formattedValue: `${formatNumber(b.totalMembers)}명`,
       })),
     [sortedStats]
   );
@@ -288,7 +269,7 @@ export default function BranchReport() {
       key: 'totalMembers',
       header: <SortHeader label="총회원" colKey="totalMembers" />,
       align: 'right' as const,
-      render: (v: number) => <span>{v.toLocaleString()}명</span>,
+      render: (v: number) => <span>{formatNumber(v)}명</span>,
     },
     {
       key: 'newMembers',
@@ -296,7 +277,7 @@ export default function BranchReport() {
       align: 'right' as const,
       render: (v: number) => (
         <span className={v > 0 ? 'text-primary font-semibold' : 'text-content-secondary'}>
-          {v.toLocaleString()}명
+          {formatNumber(v)}명
         </span>
       ),
     },
@@ -304,25 +285,25 @@ export default function BranchReport() {
       key: 'activeMembers',
       header: <SortHeader label="활성회원" colKey="activeMembers" />,
       align: 'right' as const,
-      render: (v: number) => <span className="text-state-success font-medium">{v.toLocaleString()}명</span>,
+      render: (v: number) => <span className="text-state-success font-medium">{formatNumber(v)}명</span>,
     },
     {
       key: 'expiredMembers',
       header: <SortHeader label="만료회원" colKey="expiredMembers" />,
       align: 'right' as const,
-      render: (v: number) => <span className="text-content-secondary">{v.toLocaleString()}명</span>,
+      render: (v: number) => <span className="text-content-secondary">{formatNumber(v)}명</span>,
     },
     {
       key: 'totalSales',
       header: <SortHeader label="총매출" colKey="totalSales" />,
       align: 'right' as const,
-      render: (v: number) => <span className="font-semibold">{v.toLocaleString()}원</span>,
+      render: (v: number) => <span className="font-semibold">{formatNumber(v)}원</span>,
     },
     {
       key: 'avgSales',
       header: <SortHeader label="객단가" colKey="avgSales" />,
       align: 'right' as const,
-      render: (v: number) => <span>{v.toLocaleString()}원</span>,
+      render: (v: number) => <span>{formatNumber(v)}원</span>,
     },
     {
       key: 'attendanceRate',
@@ -395,36 +376,34 @@ export default function BranchReport() {
       </p>
 
       {/* KPI 카드 */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-md mb-lg">
-        <KpiCard
+      <StatCardGrid cols={4} className="mb-lg">
+        <StatCard
           label="전체 총매출"
-          value={`${kpi.totalSales.toLocaleString()}원`}
-          sub={`${branchStats.length}개 지점 합산`}
-          icon={<TrendingUp size={20} className="text-peach" />}
-          colorClass="bg-peach/10"
+          value={`${formatNumber(kpi.totalSales)}원`}
+          description={`${branchStats.length}개 지점 합산`}
+          icon={<TrendingUp size={20} />}
+          variant="peach"
         />
-        <KpiCard
+        <StatCard
           label="전체 총회원"
-          value={`${kpi.totalMembers.toLocaleString()}명`}
-          sub="전 지점 누적"
-          icon={<Users size={20} className="text-primary" />}
-          colorClass="bg-primary-light"
+          value={`${formatNumber(kpi.totalMembers)}명`}
+          description="전 지점 누적"
+          icon={<Users size={20} />}
         />
-        <KpiCard
+        <StatCard
           label="신규 가입"
-          value={`${kpi.newMembers.toLocaleString()}명`}
-          sub={selectedLabel + ' 기준'}
-          icon={<UserPlus size={20} className="text-accent" />}
-          colorClass="bg-accent-light"
+          value={`${formatNumber(kpi.newMembers)}명`}
+          description={selectedLabel + ' 기준'}
+          icon={<UserPlus size={20} />}
+          variant="mint"
         />
-        <KpiCard
+        <StatCard
           label="활성 회원"
-          value={`${kpi.activeMembers.toLocaleString()}명`}
-          sub="이용권 유효"
-          icon={<UserCheck size={20} className="text-state-success" />}
-          colorClass="bg-state-success/10"
+          value={`${formatNumber(kpi.activeMembers)}명`}
+          description="이용권 유효"
+          icon={<UserCheck size={20} />}
         />
-      </div>
+      </StatCardGrid>
 
       {/* 차트 영역 */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-md mb-lg">

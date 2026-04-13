@@ -4,6 +4,7 @@ import { Plus, Edit2, Trash2, LayoutTemplate, CheckCircle, XCircle } from 'lucid
 import AppLayout from "@/components/layout/AppLayout";
 import PageHeader from "@/components/common/PageHeader";
 import StatCard from "@/components/common/StatCard";
+import StatCardGrid from "@/components/common/StatCardGrid";
 import DataTable from "@/components/common/DataTable";
 import StatusBadge from "@/components/common/StatusBadge";
 import Modal from "@/components/ui/Modal";
@@ -301,11 +302,11 @@ export default function ClassTemplates() {
       />
 
       {/* 통계 카드 */}
-      <div className="grid grid-cols-2 lg:grid-cols-3 gap-md mb-lg">
+      <StatCardGrid cols={3} className="mb-lg">
         <StatCard label="전체 템플릿" value={stats.total} icon={<LayoutTemplate />} />
         <StatCard label="활성 템플릿" value={stats.active} icon={<CheckCircle />} variant="mint" />
         <StatCard label="비활성 템플릿" value={stats.inactive} icon={<XCircle />} variant="peach" />
-      </div>
+      </StatCardGrid>
 
       {/* 템플릿 목록 테이블 */}
       <DataTable

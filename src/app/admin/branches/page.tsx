@@ -30,6 +30,8 @@ import AppLayout from "@/components/layout/AppLayout";
 import PageHeader from "@/components/common/PageHeader";
 import TabNav from "@/components/common/TabNav";
 import StatCard from "@/components/common/StatCard";
+import StatCardGrid from "@/components/common/StatCardGrid";
+import { formatNumber } from "@/lib/format";
 import DataTable from "@/components/common/DataTable";
 import StatusBadge from "@/components/common/StatusBadge";
 import SearchFilter from "@/components/common/SearchFilter";
@@ -140,7 +142,7 @@ export default function BranchManagement() {
           return {
             branch: b.name,
             members: memberCount ?? 0,
-            sales: totalSales.toLocaleString(),
+            sales: formatNumber(totalSales),
             attendance: '-',
           };
         }));
@@ -326,8 +328,8 @@ export default function BranchManagement() {
     { key: 'code', header: '지점 코드', width: 120 },
     { key: 'address', header: '주소' },
     { key: 'phone', header: '연락처', width: 140 },
-    { key: 'members', header: '회원 수', width: 100, align: 'right' as const, render: (v: number) => (v ?? 0).toLocaleString() },
-    { key: 'staffs', header: '직원 수', width: 100, align: 'right' as const, render: (v: number) => (v ?? 0).toLocaleString() },
+    { key: 'members', header: '회원 수', width: 100, align: 'right' as const, render: (v: number) => formatNumber(v ?? 0) },
+    { key: 'staffs', header: '직원 수', width: 100, align: 'right' as const, render: (v: number) => formatNumber(v ?? 0) },
     {
       key: 'status',
       header: '상태',
@@ -400,7 +402,7 @@ export default function BranchManagement() {
 
   const integratedColumns = [
     { key: 'branch', header: '지점명' },
-    { key: 'members', header: '회원 수', align: 'right' as const, render: (v: number) => (v ?? 0).toLocaleString() },
+    { key: 'members', header: '회원 수', align: 'right' as const, render: (v: number) => formatNumber(v ?? 0) },
     { key: 'sales', header: '매출액 (원)', align: 'right' as const },
     { key: 'attendance', header: '평균 출석률', align: 'right' as const },
   ];
@@ -436,12 +438,12 @@ export default function BranchManagement() {
       {/* --- TAB: 지점 목록 --- */}
       {activeTab === 'list' && (
         <div className="space-y-lg animate-in fade-in duration-300" >
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-md" >
+          <StatCardGrid cols={4}>
             <StatCard label="총 지점 수" value={`${branches.length}개`} icon={<Building2 />} variant="default"/>
-            <StatCard label="총 회원 수" value={`${integratedStats.reduce((s, i) => s + (i.members ?? 0), 0).toLocaleString()}명`} icon={<Users />} variant="mint"/>
-            <StatCard label="이번 달 매출" value={`${integratedStats.reduce((s, i) => s + Number(String(i.sales).replace(/,/g, '') || 0), 0).toLocaleString()}원`} icon={<TrendingUp />} variant="peach"/>
+            <StatCard label="총 회원 수" value={`${formatNumber(integratedStats.reduce((s, i) => s + (i.members ?? 0), 0))}명`} icon={<Users />} variant="mint"/>
+            <StatCard label="이번 달 매출" value={`${formatNumber(integratedStats.reduce((s, i) => s + Number(String(i.sales).replace(/,/g, '') || 0), 0))}원`} icon={<TrendingUp />} variant="peach"/>
             <StatCard label="활성 지점" value={`${branches.filter((b: any) => b.status === 'active' || b.status === '운영중').length}개`} icon={<CheckCircle2 />} description={`${branches.filter((b: any) => b.status !== 'active' && b.status !== '운영중').length}개 비활성`} variant="default"/>
-          </div>
+          </StatCardGrid>
 
           <SearchFilter searchPlaceholder="지점명 또는 주소 검색" filters={[
               {
@@ -521,7 +523,7 @@ export default function BranchManagement() {
                   <div className="absolute inset-[-12px] rounded-full border-[12px] border-accent border-t-transparent border-b-transparent border-l-transparent rotate-[-30deg]" />
                   <div className="text-center" >
                     <p className="text-Label text-content-secondary" >전체 회원</p>
-                    <p className="text-xl font-bold text-content">{integratedStats.reduce((s, i) => s + (i.members ?? 0), 0).toLocaleString()}</p>
+                    <p className="text-xl font-bold text-content">{formatNumber(integratedStats.reduce((s, i) => s + (i.members ?? 0), 0))}</p>
                   </div>
                 </div>
                 <div className="mt-lg grid grid-cols-2 gap-sm w-full" >
@@ -558,11 +560,11 @@ export default function BranchManagement() {
       {/* --- TAB: 지점 간 이동 --- */}
       {activeTab === 'history' && (
         <div className="space-y-lg animate-in fade-in duration-300" >
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-md" >
+          <StatCardGrid cols={3}>
             <StatCard label="이달의 지점 이동" value="12건" icon={<ArrowLeftRight />} variant="default"/>
             <StatCard label="주요 유입 지점" value="강남점" icon={<UserPlus />} description="최근 30일 기준" variant="mint"/>
             <StatCard label="주요 유출 지점" value="여의도점" icon={<X size={24} />} description="거주지 이전 사유 80%" variant="default"/>
-          </div>
+          </StatCardGrid>
 
           <SearchFilter searchPlaceholder="회원명 검색" filters={[
               {
@@ -882,7 +884,7 @@ export default function BranchManagement() {
                     <div className="grid grid-cols-2 gap-md">
                       <div className="bg-surface rounded-xl p-md text-center border border-line">
                         <p className="text-KPI-Large font-bold text-primary">
-                          {(deactivateTarget.members ?? 0).toLocaleString()}명
+                          {formatNumber(deactivateTarget.members ?? 0)}명
                         </p>
                         <p className="text-Label text-content-secondary mt-xs">소속 회원</p>
                       </div>
@@ -900,7 +902,7 @@ export default function BranchManagement() {
                       </p>
                       <p className="text-sm text-content-secondary flex items-start gap-xs">
                         <AlertCircle size={14} className="flex-shrink-0 mt-xs text-amber-600"/>
-                        소속 회원 {(deactivateTarget.members ?? 0).toLocaleString()}명의 이용 내역이 일시 동결됩니다.
+                        소속 회원 {formatNumber(deactivateTarget.members ?? 0)}명의 이용 내역이 일시 동결됩니다.
                       </p>
                       {deactivateTarget.activeContracts > 0 && (
                         <p className="text-sm text-state-error flex items-start gap-xs">
@@ -984,13 +986,13 @@ export default function BranchManagement() {
                     <div className="grid grid-cols-2 gap-md">
                       <div className="bg-surface rounded-xl p-md text-center border border-line">
                         <p className="text-KPI-Large font-bold text-primary">
-                          {statusChangeInfo.activeMembers.toLocaleString()}명
+                          {formatNumber(statusChangeInfo.activeMembers)}명
                         </p>
                         <p className="text-Label text-content-secondary mt-xs">활성 회원</p>
                       </div>
                       <div className="bg-surface rounded-xl p-md text-center border border-line">
                         <p className="text-KPI-Large font-bold text-amber-600">
-                          {statusChangeInfo.activeStaff.toLocaleString()}명
+                          {formatNumber(statusChangeInfo.activeStaff)}명
                         </p>
                         <p className="text-Label text-content-secondary mt-xs">재직 직원</p>
                       </div>

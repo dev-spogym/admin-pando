@@ -16,6 +16,7 @@ import AppLayout from "@/components/layout/AppLayout";
 import PageHeader from "@/components/common/PageHeader";
 import TabNav from "@/components/common/TabNav";
 import StatCard from "@/components/common/StatCard";
+import StatCardGrid from "@/components/common/StatCardGrid";
 import StatusBadge from "@/components/common/StatusBadge";
 import ConfirmDialog from "@/components/ui/ConfirmDialog";
 import { cn } from "@/lib/utils";
@@ -519,12 +520,12 @@ export default function RoomManagement() {
         />
 
         {/* 통계 카드 */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-md">
+        <StatCardGrid cols={4}>
           <StatCard label="전체 운동룸"   value={rooms.length}                           icon={<Grid />} />
           <StatCard label="운영 중"       value={rooms.filter(r => r.status === "운영중").length} icon={<CheckCircle2 />} variant="mint" />
           <StatCard label="점검/고장/미사용" value={rooms.filter(r => r.status !== "운영중").length} icon={<XCircle />} variant="peach" />
           <StatCard label="GX룸 / PT룸"  value={`${rooms.filter(r => r.type === "GX").length} / ${rooms.filter(r => r.type === "PT").length}`} icon={<Users />} />
-        </div>
+        </StatCardGrid>
 
         {/* 탭 + 필터 */}
         <div className="flex items-center justify-between">

@@ -16,6 +16,7 @@ import { moveToPage } from "@/internal";
 import AppLayout from "@/components/layout/AppLayout";
 import PageHeader from "@/components/common/PageHeader";
 import StatCard from "@/components/common/StatCard";
+import StatCardGrid from "@/components/common/StatCardGrid";
 import StatusBadge from "@/components/common/StatusBadge";
 import ConfirmDialog from "@/components/ui/ConfirmDialog";
 import { supabase } from "@/lib/supabase";
@@ -424,13 +425,13 @@ export default function LockerManagement() {
       />
 
       {/* 통계 카드 */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-md mb-xl">
+      <StatCardGrid cols={5} className="mb-xl">
         <StatCard label="총 사물함"     value={stats.total}     icon={<User />} />
         <StatCard label="사용 가능"     value={stats.available} icon={<CheckCircle2 />} variant="mint" />
         <StatCard label="사용 중"       value={stats.inUse}     icon={<User />} />
         <StatCard label="시간 초과"     value={stats.overtime}  icon={<AlertTriangle />} variant="peach" />
         <StatCard label="상태 비정상"   value={stats.abnormal}  icon={<XCircle />} />
-      </div>
+      </StatCardGrid>
 
       {/* 탭 + 콘텐츠 */}
       <div className="bg-surface rounded-xl border border-line shadow-sm overflow-hidden">

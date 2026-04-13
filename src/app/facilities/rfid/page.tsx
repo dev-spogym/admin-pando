@@ -17,6 +17,7 @@ import {
 import AppLayout from "@/components/layout/AppLayout";
 import PageHeader from "@/components/common/PageHeader";
 import StatCard from "@/components/common/StatCard";
+import StatCardGrid from "@/components/common/StatCardGrid";
 import { SearchFilter } from "@/components/common/SearchFilter";
 import DataTable from "@/components/common/DataTable";
 import StatusBadge from "@/components/common/StatusBadge";
@@ -539,11 +540,11 @@ export default function RfidManagement() {
         />
 
         {/* 통계 카드 */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-md">
+        <StatCardGrid cols={3}>
           <StatCard label="전체 카드"        value={cards.length}                                   icon={<CreditCard />} />
           <StatCard label="활성 (사용 중)"   value={cards.filter(c => c.status === "활성").length}  icon={<UserCheck />}  variant="mint" />
           <StatCard label="미사용/해제/분실" value={cards.filter(c => c.status !== "활성").length}  icon={<ShieldCheck />} variant="peach" />
-        </div>
+        </StatCardGrid>
 
         {/* 검색/필터 */}
         <SearchFilter

@@ -21,6 +21,7 @@ import Modal from "@/components/ui/Modal";
 import PageHeader from "@/components/common/PageHeader";
 import TabNav from "@/components/common/TabNav";
 import StatCard from "@/components/common/StatCard";
+import StatCardGrid from "@/components/common/StatCardGrid";
 import { SearchFilter } from "@/components/common/SearchFilter";
 import StatusBadge from "@/components/common/StatusBadge";
 import DataTable from "@/components/common/DataTable";
@@ -676,12 +677,12 @@ export default function Locker() {
       />
 
       {/* 통계 카드 */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-lg mb-xl">
+      <StatCardGrid cols={4} className="mb-xl">
         <StatCard label="전체 락커 수"  value={stats.total}    icon={<Lock />} />
         <StatCard label="사용중"        value={stats.inUse}    icon={<User />}    variant="mint" />
         <StatCard label="만료임박"      value={stats.expiring} icon={<Clock />}   variant="peach" description="7일 이내 만료" />
         <StatCard label="고장"          value={stats.broken}   icon={<XCircle />} />
-      </div>
+      </StatCardGrid>
 
       {loading && (
         <div className="flex items-center justify-center py-xl text-[13px] text-content-secondary">

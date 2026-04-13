@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback, useMemo } from "react";
 import AppLayout from "@/components/layout/AppLayout";
 import PageHeader from "@/components/common/PageHeader";
 import StatCard from "@/components/common/StatCard";
+import StatCardGrid from "@/components/common/StatCardGrid";
 import StatusBadge from "@/components/common/StatusBadge";
 import DataTable from "@/components/common/DataTable";
 import ConfirmDialog from "@/components/ui/ConfirmDialog";
@@ -169,13 +170,13 @@ export default function LeadManagement() {
       />
 
       {/* 통계 카드 */}
-      <div className="grid grid-cols-2 lg:grid-cols-5 gap-md mb-lg">
+      <StatCardGrid cols={5} className="mb-lg">
         <StatCard label="전체 리드" value={`${stats.total}건`} icon={<Users size={18} />} />
         <StatCard label="등록 전환" value={`${stats.converted}건`} icon={<UserPlus size={18} />} variant="mint" />
         <StatCard label="전환율" value={`${stats.conversionRate}%`} icon={<TrendingUp size={18} />} variant="peach" />
         <StatCard label="대기 중" value={`${stats.pending}건`} icon={<Phone size={18} />} />
         <StatCard label="미전환율" value={`${stats.missedRate}%`} icon={<AlertCircle size={18} />} />
-      </div>
+      </StatCardGrid>
 
       {/* 필터 + 뷰 토글 */}
       <div className="flex flex-wrap items-center justify-between gap-sm mb-md">

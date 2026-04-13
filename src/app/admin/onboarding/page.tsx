@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from "react";
 import AppLayout from "@/components/layout/AppLayout";
 import PageHeader from "@/components/common/PageHeader";
 import StatCard from "@/components/common/StatCard";
+import StatCardGrid from "@/components/common/StatCardGrid";
 import DataTable from "@/components/common/DataTable";
 import StatusBadge from "@/components/common/StatusBadge";
 import {
@@ -258,31 +259,31 @@ export default function OnboardingDashboard() {
 
       {/* 프리-온보딩 퍼널 */}
       <h3 className="text-[14px] font-bold text-content mb-sm mt-md">프리-온보딩 (리드 퍼널)</h3>
-      <div className="grid grid-cols-2 lg:grid-cols-5 gap-md mb-lg">
+      <StatCardGrid cols={5} className="mb-lg">
         <StatCard label="신규 리드" value={`${s.newLeadsCount}건`} icon={<UserPlus size={18} />} />
         <StatCard label="연락 완료" value={`${s.leadsContactedCount}건`} icon={<Clock size={18} />} />
         <StatCard label="방문 완료" value={`${s.leadsVisitedCount}건`} icon={<CalendarCheck size={18} />} variant="mint" />
         <StatCard label="등록 전환" value={`${s.leadsConvertedCount}건`} icon={<UserCheck size={18} />} variant="peach" />
         <StatCard label="리드 전환율" value={`${leadConvRate}%`} icon={<Target size={18} />} />
-      </div>
+      </StatCardGrid>
 
       {/* 신규 유치 */}
       <h3 className="text-[14px] font-bold text-content mb-sm">신규 유치</h3>
-      <div className="grid grid-cols-2 lg:grid-cols-3 gap-md mb-lg">
+      <StatCardGrid cols={3} className="mb-lg">
         <StatCard label="이번달 신규 등록" value={`${s.newMembersThisMonth}명`} icon={<UserPlus size={18} />} variant="mint" />
         <StatCard label="온라인 유입 비중" value="집계 중" icon={<TrendingUp size={18} />} />
         <StatCard label="리드 누락률" value={s.newLeadsCount > 0 ? `${Math.round(((s.newLeadsCount - s.leadsContactedCount) / s.newLeadsCount) * 100)}%` : "0%"} icon={<AlertCircle size={18} />} variant="peach" />
-      </div>
+      </StatCardGrid>
 
       {/* 신규 안정 */}
       <h3 className="text-[14px] font-bold text-content mb-sm">신규 안정 (온보딩)</h3>
-      <div className="grid grid-cols-2 lg:grid-cols-5 gap-md mb-lg">
+      <StatCardGrid cols={5} className="mb-lg">
         <StatCard label="7일 이용률" value={`${day7Rate}%`} icon={<Target size={18} />} variant={day7Rate >= 40 ? "mint" : "peach"} />
         <StatCard label="30일 활동률" value={`${day30Rate}%`} icon={<Target size={18} />} variant={day30Rate >= 50 ? "mint" : "peach"} />
         <StatCard label="PT 체험 참여율" value={`${ptTrialRate}%`} icon={<CalendarCheck size={18} />} />
         <StatCard label="GX 첫 참여율" value={`${gxRate}%`} icon={<Users size={18} />} />
         <StatCard label="초기 이탈" value={`${s.day30ChurnCount}명`} icon={<AlertCircle size={18} />} variant="peach" />
-      </div>
+      </StatCardGrid>
 
       {/* 온보딩 단계별 진행률 */}
       <h3 className="text-[14px] font-bold text-content mb-sm">온보딩 단계별 진행률</h3>

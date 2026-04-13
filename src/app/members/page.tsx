@@ -15,14 +15,17 @@ import {
 import { toast } from 'sonner';
 import AppLayout from "@/components/layout/AppLayout";
 import Modal from "@/components/ui/Modal";
+import Button from "@/components/ui/Button";
 import PageHeader from "@/components/common/PageHeader";
 import StatCard from "@/components/common/StatCard";
+import StatCardGrid from "@/components/common/StatCardGrid";
 import TabNav from "@/components/common/TabNav";
 import SearchFilter from "@/components/common/SearchFilter";
 import DataTable from "@/components/common/DataTable";
 import StatusBadge from "@/components/common/StatusBadge";
 import type { BadgeVariant } from "@/components/common/StatusBadge";
 import { cn } from '@/lib/utils';
+import { formatNumber } from '@/lib/format';
 import { moveToPage } from '@/internal';
 import { useMembers, useMemberStats } from '@/api/hooks/useMembers';
 import type { Member } from '@/api/endpoints/members';
@@ -455,26 +458,26 @@ export default function MemberList() {
         actions={
           <div className="flex gap-sm">
             {canExcel && (
-              <button className="bg-surface text-content-secondary border border-line px-md py-[6px] rounded-lg flex items-center gap-xs text-[13px] font-medium hover:bg-surface-tertiary transition-colors" onClick={handleExcelDownload}>
-                <Download size={14} /> 엑셀 다운로드
-              </button>
+              <Button variant="outline" size="sm" icon={<Download size={14} />} onClick={handleExcelDownload}>
+                엑셀 다운로드
+              </Button>
             )}
             {canAddMember && (
-              <button className="bg-primary text-white px-md py-[6px] rounded-lg flex items-center gap-xs text-[13px] font-medium hover:bg-primary-dark transition-colors" onClick={() => moveToPage(986)}>
-                <UserPlus size={14} /> 회원 추가
-              </button>
+              <Button variant="primary" size="sm" icon={<UserPlus size={14} />} onClick={() => moveToPage(986)}>
+                회원 추가
+              </Button>
             )}
           </div>
         }
       />
 
       {/* 통계 */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-md mb-lg">
-        <StatCard label="전체 회원" value={stats?.total?.toLocaleString() ?? '-'} icon={<Users size={20} />} variant="default" />
-        <StatCard label="활성 회원" value={stats?.active?.toLocaleString() ?? '-'} icon={<UserCheck size={20} />} variant="mint" />
-        <StatCard label="만료 예정(D-30)" value={stats?.expiringCount?.toLocaleString() ?? '-'} icon={<Clock size={20} />} variant="peach" />
-        <StatCard label="이번달 만료" value={stats?.expiredThisMonth?.toLocaleString() ?? '-'} icon={<AlertTriangle size={20} />} variant="default" />
-      </div>
+      <StatCardGrid cols={4} className="mb-lg">
+        <StatCard label="전체 회원" value={formatNumber(stats?.total)} icon={<Users size={20} />} variant="default" />
+        <StatCard label="활성 회원" value={formatNumber(stats?.active)} icon={<UserCheck size={20} />} variant="mint" />
+        <StatCard label="만료 예정(D-30)" value={formatNumber(stats?.expiringCount)} icon={<Clock size={20} />} variant="peach" />
+        <StatCard label="이번달 만료" value={formatNumber(stats?.expiredThisMonth)} icon={<AlertTriangle size={20} />} variant="default" />
+      </StatCardGrid>
 
       {/* 메인 탭 */}
       <div className="mb-md">
@@ -496,7 +499,7 @@ export default function MemberList() {
                 onClick={() => setSelectedProductName(prev => prev === type ? 'all' : type)}
               >
                 <span className="text-[12px] font-semibold text-content-secondary">{MEMBERSHIP_TYPE_LABEL[type] ?? type}</span>
-                <span className="text-[22px] font-bold text-content tabular-nums">{list.length.toLocaleString()}<span className="text-[13px] font-normal text-content-secondary ml-xs">명</span></span>
+                <span className="text-[22px] font-bold text-content tabular-nums">{formatNumber(list.length)}<span className="text-[13px] font-normal text-content-secondary ml-xs">명</span></span>
                 <span className="text-[11px] text-content-secondary">
                   활성 {list.filter(m => m.status === 'ACTIVE').length}명
                 </span>

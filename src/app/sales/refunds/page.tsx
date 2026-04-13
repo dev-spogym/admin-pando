@@ -11,6 +11,8 @@ import { cn } from '@/lib/utils';
 
 import PageHeader from "@/components/common/PageHeader";
 import StatCard from "@/components/common/StatCard";
+import StatCardGrid from "@/components/common/StatCardGrid";
+import { formatKRW } from "@/lib/format";
 import DataTable from "@/components/common/DataTable";
 import StatusBadge from "@/components/common/StatusBadge";
 import AppLayout from "@/components/layout/AppLayout";
@@ -224,7 +226,7 @@ export default function RefundManagement() {
     {
       key: 'amount', header: '환불금액', width: 130, align: 'right' as const,
       render: (v: number) => (
-        <span className="font-semibold tabular-nums text-state-error">₩{v.toLocaleString()}</span>
+        <span className="font-semibold tabular-nums text-state-error">{formatKRW(v)}</span>
       ),
     },
     { key: 'method', header: '환불방법', width: 100, align: 'center' as const },
@@ -258,10 +260,10 @@ export default function RefundManagement() {
       />
 
       {/* 통계 카드 */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-md mb-xl">
+      <StatCardGrid cols={3} className="mb-xl">
         <StatCard
           label="이번달 환불 총액"
-          value={`₩${stats.totalAmount.toLocaleString()}`}
+          value={formatKRW(stats.totalAmount)}
           variant="peach"
           icon={<DollarSign />}
         />
@@ -272,10 +274,10 @@ export default function RefundManagement() {
         />
         <StatCard
           label="평균 환불액"
-          value={`₩${stats.avgAmount.toLocaleString()}`}
+          value={formatKRW(stats.avgAmount)}
           icon={<BarChart2 />}
         />
-      </div>
+      </StatCardGrid>
 
       {/* 날짜 필터 */}
       <div className="bg-surface rounded-xl border border-line p-lg mb-lg flex flex-wrap items-center gap-md">
