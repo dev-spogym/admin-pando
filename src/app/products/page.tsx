@@ -37,6 +37,8 @@ import { cn } from '@/lib/utils';
 import { supabase } from '@/lib/supabase';
 import { exportToExcel } from '@/lib/exportExcel';
 import ProductDetailPanel, { type ProductRow, type UsageRestrictions } from "@/app/products/_components/ProductDetailPanel";
+import SimpleTable from '@/components/common/SimpleTable';
+import AsyncBoundary from '@/components/common/AsyncBoundary';
 
 // 요일 라벨 (레슨북 스타일 — 월~일 순서)
 const DAY_LABELS_ORDERED = [
@@ -380,48 +382,22 @@ export default function ProductList() {
 
           {/* 분류 목록 */}
           <div className="bg-surface rounded-xl border border-line shadow-card overflow-hidden">
-            {groupsLoading ? (
-              <div className="flex items-center justify-center py-xl">
-                <div className="w-6 h-6 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
-              </div>
-            ) : groups.length === 0 ? (
-              <div className="text-center py-xl text-[13px] text-content-secondary">등록된 분류가 없습니다.</div>
-            ) : (
-              <table className="w-full">
-                <thead className="bg-surface-secondary">
-                  <tr>
-                    {['분류명', '정렬순서', '상태', ''].map(h => (
-                      <th key={h} className="px-md py-sm text-[11px] font-semibold text-content-secondary text-left">{h}</th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-line-light">
-                  {groups.map(g => (
-                    <tr key={g.id} className="hover:bg-surface-secondary transition-colors">
-                      <td className="px-md py-sm text-[13px] text-content font-medium">{g.name}</td>
-                      <td className="px-md py-sm text-[13px] text-content-secondary">{g.sortOrder}</td>
-                      <td className="px-md py-sm">
-                        <span className={cn('text-[11px] font-semibold px-xs py-[2px] rounded-full', g.isActive ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500')}>
-                          {g.isActive ? '활성' : '비활성'}
-                        </span>
-                      </td>
-                      <td className="px-md py-sm">
-                        <div className="flex items-center gap-xs justify-end">
-                          <button
-                            className="p-xs text-content-tertiary hover:text-accent transition-colors"
-                            onClick={() => { setEditingGroupId(g.id); setGroupForm({ name: g.name, sortOrder: g.sortOrder, isActive: g.isActive }); }}
-                          ><Edit2 size={14} /></button>
-                          <button
-                            className="p-xs text-content-tertiary hover:text-state-error transition-colors"
-                            onClick={() => handleGroupDelete(g.id)}
-                          ><Trash2 size={14} /></button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            )}
+            <AsyncBoundary isLoading={groupsLoading} isEmpty={groups.length === 0} emptyMessage="등록된 분류가 없습니다.">
+              <SimpleTable
+                columns={[
+                  { key: 'name', header: '분류명', render: (v: string) => <span className="text-[13px] text-content font-medium">{v}</span> },
+                  { key: 'sortOrder', header: '정렬순서', render: (v: number) => <span className="text-[13px] text-content-secondary">{v}</span> },
+                  { key: 'isActive', header: '상태', render: (v: boolean) => <span className={cn('text-[11px] font-semibold px-xs py-[2px] rounded-full', v ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500')}>{v ? '활성' : '비활성'}</span> },
+                  { key: 'actions', header: '', render: (_: unknown, g: ProductGroup) => (
+                    <div className="flex items-center gap-xs justify-end">
+                      <button className="p-xs text-content-tertiary hover:text-accent transition-colors" onClick={() => { setEditingGroupId(g.id); setGroupForm({ name: g.name, sortOrder: g.sortOrder, isActive: g.isActive }); }}><Edit2 size={14} /></button>
+                      <button className="p-xs text-content-tertiary hover:text-state-error transition-colors" onClick={() => handleGroupDelete(g.id)}><Trash2 size={14} /></button>
+                    </div>
+                  )},
+                ]}
+                data={groups}
+              />
+            </AsyncBoundary>
           </div>
         </div>
       )}
@@ -546,11 +522,8 @@ export default function ProductList() {
 
               {/* 테이블 */}
               <div className="overflow-x-auto flex-1">
-                {loading ? (
-                  <div className="flex items-center justify-center py-xl">
-                    <div className="w-6 h-6 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
-                  </div>
-                ) : filteredData.length === 0 ? (
+                <AsyncBoundary isLoading={loading}>
+                  {filteredData.length === 0 ? (
                   <div className="flex flex-col items-center justify-center py-xl gap-sm text-content-secondary">
                     <Package size={36} className="text-line" />
                     <p className="text-[14px]">상품이 없습니다.</p>
@@ -563,7 +536,7 @@ export default function ProductList() {
                       </button>
                     )}
                   </div>
-                ) : (
+                  ) : (
                   <table className="w-full border-collapse">
                     <thead className="bg-surface-secondary sticky top-0 z-10">
                       <tr>
@@ -711,7 +684,8 @@ export default function ProductList() {
                       })}
                     </tbody>
                   </table>
-                )}
+                  )}
+                </AsyncBoundary>
               </div>
             </div>
 

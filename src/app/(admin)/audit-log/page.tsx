@@ -10,6 +10,7 @@ import { getBranches, type Branch } from '@/api/endpoints/auth';
 import { useAuthStore } from '@/stores/authStore';
 import { cn } from '@/lib/utils';
 import Select from '@/components/ui/Select';
+import SimpleTable from '@/components/common/SimpleTable';
 
 // 날짜 포맷: yyyy-MM-dd HH:mm:ss
 const fmtDatetime = (iso: string): string => {
@@ -322,34 +323,11 @@ export default function AuditLog() {
             </span>
           </div>
 
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="bg-surface-secondary border-b border-line">
-                  <th className="text-left px-4 py-3 font-medium text-content-secondary whitespace-nowrap w-44">
-                    시간
-                  </th>
-                  <th className="text-left px-4 py-3 font-medium text-content-secondary whitespace-nowrap w-24">
-                    사용자
-                  </th>
-                  <th className="text-left px-4 py-3 font-medium text-content-secondary whitespace-nowrap w-28">
-                    액션
-                  </th>
-                  <th className="text-left px-4 py-3 font-medium text-content-secondary whitespace-nowrap w-20">
-                    대상
-                  </th>
-                  <th className="text-left px-4 py-3 font-medium text-content-secondary">
-                    상세
-                  </th>
-                  <th className="text-left px-4 py-3 font-medium text-content-secondary whitespace-nowrap w-36">
-                    IP
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {isLoading ? (
-                  // 로딩 스켈레톤
-                  Array.from({ length: 8 }).map((_, i) => (
+          {isLoading ? (
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <tbody>
+                  {Array.from({ length: 8 }).map((_, i) => (
                     <tr key={i} className="border-b border-line last:border-0">
                       {Array.from({ length: 6 }).map((_, j) => (
                         <td key={j} className="px-4 py-3">
@@ -357,69 +335,31 @@ export default function AuditLog() {
                         </td>
                       ))}
                     </tr>
-                  ))
-                ) : logs.length === 0 ? (
-                  <tr>
-                    <td colSpan={6} className="px-4 py-16 text-center text-content-tertiary">
-                      <div className="flex flex-col items-center gap-2">
-                        <Shield className="w-8 h-8 text-gray-300" />
-                        <span>감사 로그가 없습니다.</span>
-                      </div>
-                    </td>
-                  </tr>
-                ) : (
-                  logs.map((log) => {
-                    const badge = getActionBadge(log.action);
-                    return (
-                      <tr
-                        key={log.id}
-                        className="border-b border-line last:border-0 hover:bg-surface-secondary/50 transition-colors"
-                      >
-                        {/* 시간 */}
-                        <td className="px-4 py-3 text-content-secondary whitespace-nowrap font-mono text-xs">
-                          {fmtDatetime(log.createdAt)}
-                        </td>
-                        {/* 사용자 */}
-                        <td className="px-4 py-3 text-content-primary whitespace-nowrap">
-                          {log.userName ?? `ID ${log.userId}`}
-                        </td>
-                        {/* 액션 배지 */}
-                        <td className="px-4 py-3 whitespace-nowrap">
-                          <span
-                            className={cn(
-                              'inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium',
-                              badge.className
-                            )}
-                          >
-                            {badge.label}
-                          </span>
-                        </td>
-                        {/* 대상 유형 */}
-                        <td className="px-4 py-3 text-content-secondary whitespace-nowrap">
-                          {getTargetTypeLabel(log.targetType)}
-                          {log.targetId ? (
-                            <span className="ml-1 text-xs text-content-tertiary">
-                              #{log.targetId}
-                            </span>
-                          ) : null}
-                        </td>
-                        {/* 상세 */}
-                        <td className="px-4 py-3 text-content-secondary max-w-xs">
-                          <span className="truncate block" title={summarizeDetail(log)}>
-                            {summarizeDetail(log)}
-                          </span>
-                        </td>
-                        {/* IP */}
-                        <td className="px-4 py-3 text-content-tertiary whitespace-nowrap font-mono text-xs">
-                          {log.ipAddress ?? '-'}
-                        </td>
-                      </tr>
-                    );
-                  })
-                )}
-              </tbody>
-            </table>
-          </div>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <SimpleTable
+              columns={[
+                { key: 'createdAt', header: '시간', width: 176, render: (v: string) => <span className="whitespace-nowrap font-mono text-xs text-content-secondary">{fmtDatetime(v)}</span> },
+                { key: 'userName', header: '사용자', width: 96, render: (_: unknown, row: AuditLogEntry) => <span className="whitespace-nowrap">{row.userName ?? `ID ${row.userId}`}</span> },
+                { key: 'action', header: '액션', width: 112, render: (v: string) => {
+                  const badge = getActionBadge(v);
+                  return <span className={cn('inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium whitespace-nowrap', badge.className)}>{badge.label}</span>;
+                }},
+                { key: 'targetType', header: '대상', width: 80, render: (_: unknown, row: AuditLogEntry) => (
+                  <span className="whitespace-nowrap text-content-secondary">
+                    {getTargetTypeLabel(row.targetType)}
+                    {row.targetId ? <span className="ml-1 text-xs text-content-tertiary">#{row.targetId}</span> : null}
+                  </span>
+                )},
+                { key: 'detail', header: '상세', render: (_: unknown, row: AuditLogEntry) => <span className="truncate block max-w-xs text-content-secondary" title={summarizeDetail(row)}>{summarizeDetail(row)}</span> },
+                { key: 'ipAddress', header: 'IP', width: 144, render: (v: string | null) => <span className="whitespace-nowrap font-mono text-xs text-content-tertiary">{v ?? '-'}</span> },
+              ]}
+              data={logs}
+            />
+          )}
 
           {/* 페이지네이션 */}
           {!isLoading && totalPages > 1 && (

@@ -55,6 +55,7 @@ import { moveToPage } from "@/internal";
 import { supabase } from "@/lib/supabase";
 import Select from "@/components/ui/Select";
 import Textarea from "@/components/ui/Textarea";
+import Button from "@/components/ui/Button";
 import { readBranchJson, writeBranchJson } from "@/lib/branchStorage";
 import { getMemberGrade } from "@/lib/memberGrade";
 
@@ -67,7 +68,6 @@ import StatCard from "@/components/common/StatCard";
 import DataTable from "@/components/common/DataTable";
 import FormSection from "@/components/common/FormSection";
 import ConfirmDialog from "@/components/ui/ConfirmDialog";
-import Button from "@/components/ui/Button";
 import { formatNumber } from "@/lib/format";
 // BROJ 서브 컴포넌트
 import TabPaymentDetail from "@/components/member/TabPaymentDetail";
@@ -896,9 +896,7 @@ function TabBody({ initialRecords, memberHeight }: { initialRecords: BodyRecord[
                 <Plus className="text-primary" size={18} />
                 체성분 측정 추가
               </h2>
-              <button className="p-xs rounded-full hover:bg-surface-secondary text-content-secondary transition-colors" onClick={() => setShowAddModal(false)}>
-                <X size={18} />
-              </button>
+              <Button variant="ghost" size="sm" icon={<X size={18} />} onClick={() => setShowAddModal(false)} />
             </div>
             <div className="p-lg space-y-md">
               {[
@@ -1650,7 +1648,7 @@ function MemberDetail() {
       <div className="p-lg">
         {/* Breadcrumb */}
         <nav className="flex items-center gap-xs text-[13px] text-content-secondary mb-md">
-          <button className="hover:text-primary transition-colors" onClick={() => moveToPage(967)}>회원 목록</button>
+          <Button variant="ghost" size="sm" onClick={() => moveToPage(967)}>회원 목록</Button>
           <span className="text-content-tertiary">/</span>
           <span className="text-content font-medium">{member.name} 회원 상세</span>
         </nav>
@@ -1827,21 +1825,13 @@ function MemberDetail() {
                             </span>
                           </div>
                         </div>
-                        <button className="p-xs hover:bg-surface-secondary rounded-full transition-colors text-content-secondary">
-                          <MoreVertical size={16} />
-                        </button>
+                        <Button variant="ghost" size="sm" icon={<MoreVertical size={16} />} />
                       </div>
                     </div>
                   ))}
                 </div>
                 <div className="flex justify-center p-xl bg-surface rounded-xl border border-dashed border-line">
-                  <button
-                    className="flex items-center gap-sm px-xl py-md bg-primary-light text-primary rounded-button font-bold hover:bg-primary hover:text-white transition-all shadow-sm"
-                    onClick={() => moveToPage(971)}
-                  >
-                    <Plus size={20} />
-                    신규 이용권 / 상품 구매
-                  </button>
+                  <Button variant="primary" icon={<Plus size={20} />} onClick={() => moveToPage(971)}>신규 이용권 / 상품 구매</Button>
                 </div>
               </div>
             )}

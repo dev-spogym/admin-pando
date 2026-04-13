@@ -21,6 +21,8 @@ import {
 } from "@/api/endpoints/leads";
 import Select from "@/components/ui/Select";
 import Textarea from "@/components/ui/Textarea";
+import Button from "@/components/ui/Button";
+import Input from "@/components/ui/Input";
 
 const LEAD_SOURCES: LeadSource[] = ["간판", "인터넷", "전단지", "추천", "SNS", "카카오톡", "전화문의", "방문", "기타"];
 const LEAD_STATUSES: LeadStatus[] = ["신규", "연락완료", "상담예정", "방문완료", "등록완료", "미전환", "보류"];
@@ -156,8 +158,8 @@ export default function LeadManagement() {
       key: "actions", header: "관리", align: "center" as const,
       render: (_: unknown, row: Lead) => (
         <div className="flex items-center justify-center gap-xs">
-          <button className="p-xs rounded hover:bg-surface-secondary text-content-secondary hover:text-content transition-colors" onClick={() => openEdit(row)} title="수정"><Edit size={13} /></button>
-          <button className="p-xs rounded hover:bg-red-50 text-content-secondary hover:text-state-error transition-colors" onClick={() => setDeleteId(row.id)} title="삭제"><Trash2 size={13} /></button>
+          <Button variant="ghost" size="sm" icon={<Edit size={13} />} onClick={() => openEdit(row)} title="수정" />
+          <Button variant="ghost" size="sm" icon={<Trash2 size={13} />} onClick={() => setDeleteId(row.id)} title="삭제" />
         </div>
       ),
     },
@@ -169,9 +171,7 @@ export default function LeadManagement() {
         title="리드 관리"
         description="잠재 고객(문의/상담) 파이프라인을 관리합니다."
         actions={
-          <button className="flex items-center gap-xs px-md py-sm bg-primary text-white rounded-button text-[13px] font-semibold hover:bg-primary-dark transition-colors shadow-sm" onClick={openAdd}>
-            <Plus size={14} /> 리드 등록
-          </button>
+          <Button variant="primary" icon={<Plus size={14} />} onClick={openAdd}>리드 등록</Button>
         }
       />
 
@@ -296,16 +296,16 @@ export default function LeadManagement() {
                 <UserPlus size={16} className="text-primary" />
                 {editTarget ? "리드 수정" : "리드 등록"}
               </h2>
-              <button className="p-xs rounded-full hover:bg-surface-secondary text-content-secondary transition-colors" onClick={() => setShowModal(false)}><X size={18} /></button>
+              <Button variant="ghost" size="sm" icon={<X size={18} />} onClick={() => setShowModal(false)} />
             </div>
             <div className="p-lg space-y-md">
               <div className="flex items-center gap-md">
                 <label className="text-[13px] text-content-secondary w-[90px] shrink-0">이름 <span className="text-state-error">*</span></label>
-                <input type="text" className="flex-1 px-md py-sm rounded-input border border-line bg-surface-secondary text-[13px] outline-none focus:ring-2 focus:ring-primary/30" placeholder="이름" value={form.name} onChange={e => setForm(p => ({ ...p, name: e.target.value }))} />
+                <Input type="text" size="sm" className="flex-1" placeholder="이름" value={form.name} onChange={e => setForm(p => ({ ...p, name: e.target.value }))} />
               </div>
               <div className="flex items-center gap-md">
                 <label className="text-[13px] text-content-secondary w-[90px] shrink-0">연락처</label>
-                <input type="tel" className="flex-1 px-md py-sm rounded-input border border-line bg-surface-secondary text-[13px] outline-none focus:ring-2 focus:ring-primary/30" placeholder="010-0000-0000" value={form.phone ?? ""} onChange={e => setForm(p => ({ ...p, phone: e.target.value }))} />
+                <Input type="tel" size="sm" className="flex-1" placeholder="010-0000-0000" value={form.phone ?? ""} onChange={e => setForm(p => ({ ...p, phone: e.target.value }))} />
               </div>
               <div className="flex items-center gap-md">
                 <label className="text-[13px] text-content-secondary w-[90px] shrink-0">유입경로 <span className="text-state-error">*</span></label>
@@ -326,15 +326,15 @@ export default function LeadManagement() {
               </div>
               <div className="flex items-center gap-md">
                 <label className="text-[13px] text-content-secondary w-[90px] shrink-0">담당 FC</label>
-                <input type="text" className="flex-1 px-md py-sm rounded-input border border-line bg-surface-secondary text-[13px] outline-none focus:ring-2 focus:ring-primary/30" placeholder="담당자 이름" value={form.assignedFc ?? ""} onChange={e => setForm(p => ({ ...p, assignedFc: e.target.value }))} />
+                <Input type="text" size="sm" className="flex-1" placeholder="담당자 이름" value={form.assignedFc ?? ""} onChange={e => setForm(p => ({ ...p, assignedFc: e.target.value }))} />
               </div>
               <div className="flex items-center gap-md">
                 <label className="text-[13px] text-content-secondary w-[90px] shrink-0">문의일</label>
-                <input type="date" className="flex-1 px-md py-sm rounded-input border border-line bg-surface-secondary text-[13px] outline-none focus:ring-2 focus:ring-primary/30" value={form.inquiryDate ?? ""} onChange={e => setForm(p => ({ ...p, inquiryDate: e.target.value }))} />
+                <Input type="date" size="sm" className="flex-1" value={form.inquiryDate ?? ""} onChange={e => setForm(p => ({ ...p, inquiryDate: e.target.value }))} />
               </div>
               <div className="flex items-center gap-md">
                 <label className="text-[13px] text-content-secondary w-[90px] shrink-0">후속 예정일</label>
-                <input type="date" className="flex-1 px-md py-sm rounded-input border border-line bg-surface-secondary text-[13px] outline-none focus:ring-2 focus:ring-primary/30" value={form.followUpDate ?? ""} onChange={e => setForm(p => ({ ...p, followUpDate: e.target.value || null }))} />
+                <Input type="date" size="sm" className="flex-1" value={form.followUpDate ?? ""} onChange={e => setForm(p => ({ ...p, followUpDate: e.target.value || null }))} />
               </div>
               <div className="flex items-start gap-md">
                 <label className="text-[13px] text-content-secondary w-[90px] shrink-0 pt-sm">메모</label>
@@ -348,10 +348,8 @@ export default function LeadManagement() {
               </div>
             </div>
             <div className="flex justify-end gap-sm px-lg py-md border-t border-line">
-              <button className="px-lg py-sm border border-line text-content-secondary rounded-button text-[13px] hover:bg-surface-secondary transition-colors" onClick={() => setShowModal(false)}>취소</button>
-              <button className={cn("px-lg py-sm bg-primary text-white rounded-button text-[13px] font-bold hover:bg-primary-dark transition-colors shadow-sm", saving && "opacity-60 cursor-not-allowed")} onClick={handleSave} disabled={saving}>
-                {saving ? "저장 중..." : "저장"}
-              </button>
+              <Button variant="outline" onClick={() => setShowModal(false)}>취소</Button>
+              <Button variant="primary" onClick={handleSave} disabled={saving} loading={saving}>저장</Button>
             </div>
           </div>
         </div>

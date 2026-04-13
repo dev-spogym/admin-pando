@@ -7,6 +7,7 @@ import { toast } from 'sonner';
 import AppLayout from "@/components/layout/AppLayout";
 import { cn } from '@/lib/utils';
 import { supabase } from '@/lib/supabase';
+import Input from '@/components/ui/Input';
 
 type SalesSourceRow = {
   id: number;
@@ -387,9 +388,9 @@ export default function StatisticsManagement() {
           <div className="border-b border-[#a8a8a8] bg-[#efefef] px-2 py-2">
             <div className="grid grid-cols-[42px_110px_24px_110px_24px_150px_100px_150px_110px] items-center gap-1 text-[11px]">
               <span className="font-bold">일자</span>
-              <input value={dateFrom} onChange={e => setDateFrom(e.target.value)} className="h-5 border border-[#b6b6b6] bg-white px-1 outline-none" />
+              <Input type="date" size="sm" value={dateFrom} onChange={e => setDateFrom(e.target.value)} className="h-5 px-1 text-[11px]" />
               <span>부터</span>
-              <input value={dateTo} onChange={e => setDateTo(e.target.value)} className="h-5 border border-[#b6b6b6] bg-white px-1 outline-none" />
+              <Input type="date" size="sm" value={dateTo} onChange={e => setDateTo(e.target.value)} className="h-5 px-1 text-[11px]" />
               <span>까지</span>
               <select value={lessonType} onChange={e => setLessonType(e.target.value)} className="h-5 border border-[#b6b6b6] bg-white px-1 text-[11px] outline-none">
                 {lessonTypeOptions.map(option => (

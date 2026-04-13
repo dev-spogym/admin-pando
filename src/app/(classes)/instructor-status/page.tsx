@@ -10,6 +10,7 @@ import StatCardGrid from "@/components/common/StatCardGrid";
 import Modal from "@/components/ui/Modal";
 import { Users, Clock, CalendarCheck, BookOpen, Activity, AlertTriangle } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
+import AsyncBoundary from '@/components/common/AsyncBoundary';
 
 // 기간 필터
 const PERIOD_OPTIONS = [
@@ -287,13 +288,7 @@ export default function InstructorStatus() {
       </StatCardGrid>
 
       {/* 강사 카드 그리드 */}
-      {loading ? (
-        <div className="flex items-center justify-center py-xl">
-          <div className="w-6 h-6 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
-        </div>
-      ) : instructors.length === 0 ? (
-        <p className="text-center text-content-secondary text-[13px] py-xl">강사 데이터가 없습니다.</p>
-      ) : (
+      <AsyncBoundary isLoading={loading} isEmpty={instructors.length === 0} emptyMessage="강사 데이터가 없습니다.">
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-md">
           {instructors.map((instr) => (
             <button
@@ -354,7 +349,7 @@ export default function InstructorStatus() {
             </button>
           ))}
         </div>
-      )}
+      </AsyncBoundary>
 
       {/* 강사 상세 모달 */}
       <Modal
@@ -363,13 +358,7 @@ export default function InstructorStatus() {
         title={`${detailTarget?.name ?? ''} 강사 — 수업 상세`}
         size="lg"
       >
-        {detailLoading ? (
-          <div className="flex items-center justify-center py-xl">
-            <div className="w-6 h-6 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
-          </div>
-        ) : detailClasses.length === 0 ? (
-          <p className="text-center text-content-secondary text-[13px] py-lg">해당 기간에 수업이 없습니다.</p>
-        ) : (
+        <AsyncBoundary isLoading={detailLoading} isEmpty={detailClasses.length === 0} emptyMessage="해당 기간에 수업이 없습니다.">
           <div className="flex flex-col gap-xs max-h-96 overflow-y-auto">
             {detailClasses.map((cls) => {
               const start_ = new Date(cls.startTime);
@@ -391,7 +380,7 @@ export default function InstructorStatus() {
               );
             })}
           </div>
-        )}
+        </AsyncBoundary>
       </Modal>
     </AppLayout>
   );

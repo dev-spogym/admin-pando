@@ -10,6 +10,7 @@ import DataTable from "@/components/common/DataTable";
 import StatusBadge from "@/components/common/StatusBadge";
 import ConfirmDialog from "@/components/ui/ConfirmDialog";
 import { cn } from '@/lib/utils';
+import Button from '@/components/ui/Button';
 import {
   getDiscountPolicies,
   createDiscountPolicy,
@@ -141,12 +142,8 @@ export default function DiscountSettings() {
       key: 'actions', header: '', width: 80, align: 'center' as const,
       render: (_: unknown, row: DiscountPolicy) => (
         <div className="flex items-center justify-center gap-xs">
-          <button className="p-xs text-content-tertiary hover:text-accent transition-colors" onClick={() => openEdit(row)} title="수정">
-            <Edit2 size={15} />
-          </button>
-          <button className="p-xs text-content-tertiary hover:text-state-error transition-colors" onClick={() => { setDeleteTarget(row.id); setDeleteDialogOpen(true); }} title="삭제">
-            <Trash2 size={15} />
-          </button>
+          <Button variant="ghost" size="sm" icon={<Edit2 size={15} />} onClick={() => openEdit(row)} title="수정" />
+          <Button variant="ghost" size="sm" icon={<Trash2 size={15} />} onClick={() => { setDeleteTarget(row.id); setDeleteDialogOpen(true); }} title="삭제" />
         </div>
       ),
     },
@@ -158,12 +155,7 @@ export default function DiscountSettings() {
         title="할인 설정"
         description="상품 판매 시 적용할 할인 정책을 관리합니다."
         actions={
-          <button
-            onClick={openCreate}
-            className="flex items-center gap-xs px-md py-sm bg-primary text-surface rounded-button text-[13px] font-bold shadow-sm hover:bg-primary-dark transition-colors"
-          >
-            <Plus size={16} /> 할인 추가
-          </button>
+          <Button variant="primary" icon={<Plus size={16} />} onClick={openCreate}>할인 추가</Button>
         }
       />
 
@@ -272,10 +264,8 @@ export default function DiscountSettings() {
             </div>
 
             <div className="flex gap-sm px-lg py-md border-t border-line">
-              <button onClick={() => setModalOpen(false)} className="flex-1 h-[38px] rounded-lg border border-line text-[13px] text-content-secondary hover:bg-surface-secondary transition-colors">취소</button>
-              <button onClick={handleSave} disabled={isSaving} className="flex-1 h-[38px] rounded-lg bg-primary text-[13px] font-semibold text-surface hover:bg-primary-dark disabled:opacity-50 transition-colors">
-                {isSaving ? '저장 중...' : (editTarget ? '수정 저장' : '등록')}
-              </button>
+              <Button variant="outline" fullWidth onClick={() => setModalOpen(false)}>취소</Button>
+              <Button variant="primary" fullWidth onClick={handleSave} disabled={isSaving} loading={isSaving}>{editTarget ? '수정 저장' : '등록'}</Button>
             </div>
           </div>
         </div>

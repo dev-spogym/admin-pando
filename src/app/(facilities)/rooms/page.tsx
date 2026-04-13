@@ -26,6 +26,8 @@ import { cn } from "@/lib/utils";
 import { supabase } from "@/lib/supabase";
 import Select from "@/components/ui/Select";
 import Textarea from "@/components/ui/Textarea";
+import SimpleTable from "@/components/common/SimpleTable";
+import Input from "@/components/ui/Input";
 import { toast } from "sonner";
 import { readBranchJson, writeBranchJson } from "@/lib/branchStorage";
 
@@ -290,18 +292,13 @@ const RoomModal = ({
 
         <div className="p-xl space-y-lg">
           {/* 룸명 (필수) */}
-          <div>
-            <label className="block text-[12px] font-semibold text-content-secondary mb-sm">
-              룸명 <span className="text-state-error">*</span>
-            </label>
-            <input
-              className="w-full h-11 rounded-lg bg-surface-secondary border border-line px-md text-[13px] focus:border-primary outline-none transition-all"
-              type="text"
-              placeholder="예: GX룸 A, PT룸 1"
-              value={name}
-              onChange={e => setName(e.target.value)}
-            />
-          </div>
+          <Input
+            label="룸명 *"
+            type="text"
+            placeholder="예: GX룸 A, PT룸 1"
+            value={name}
+            onChange={e => setName(e.target.value)}
+          />
 
           {/* 유형 (GX/PT/기타) */}
           <div>
@@ -330,13 +327,14 @@ const RoomModal = ({
           <div>
             <label className="block text-[12px] font-semibold text-content-secondary mb-sm">수용인원</label>
             <div className="flex items-center gap-sm">
-              <input
-                className="w-28 h-11 rounded-lg bg-surface-secondary border border-line px-md text-[13px] text-center focus:border-primary outline-none transition-all"
+              <Input
                 type="number"
+                size="md"
                 min={1}
                 max={100}
-                value={capacity}
+                value={String(capacity)}
                 onChange={e => setCapacity(Number(e.target.value))}
+                className="w-28 text-center"
               />
               <span className="text-[13px] text-content-secondary">명</span>
               <div className="flex items-center gap-xs ml-sm">
@@ -623,67 +621,27 @@ export default function RoomManagement() {
 
         {/* 목록 뷰 (간단 테이블) */}
         {activeTab === "list" && (
-          <div className="bg-surface rounded-xl border border-line shadow-xs overflow-hidden">
-            <table className="w-full border-collapse">
-              <thead className="bg-surface-secondary/50 border-b border-line">
-                <tr>
-                  {["운동룸명", "유형", "수용인원", "게이트", "상태", "메뉴"].map(h => (
-                    <th key={h} className="px-lg py-sm text-left text-[12px] font-semibold text-content-secondary">{h}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-line">
-                {filteredRooms.map(room => (
-                  <tr key={room.id} className="hover:bg-surface-secondary/20 transition-colors">
-                    <td className="px-lg py-md">
-                      <span className="text-[13px] font-semibold text-content">{room.name}</span>
-                    </td>
-                    <td className="px-lg py-md">
-                      <span className={cn("px-sm py-[2px] rounded text-[11px] font-bold border", ROOM_TYPE_STYLES[room.type])}>
-                        {room.type}
-                      </span>
-                    </td>
-                    <td className="px-lg py-md">
-                      <span className="text-[13px] text-content flex items-center gap-xs">
-                        <Users size={13} className="text-content-secondary" /> {room.capacity}명
-                      </span>
-                    </td>
-                    <td className="px-lg py-md text-[13px] text-content-secondary">{room.gate}</td>
-                    <td className="px-lg py-md">
-                      <div className="flex items-center gap-sm">
-                        <StatusBadge variant={STATUS_VARIANT[room.status]} label={room.status} dot />
-                        <button
-                          className="p-[4px] hover:bg-surface-secondary rounded transition-colors text-content-secondary"
-                          onClick={() => handleToggle(room.id)}
-                        >
-                          <Settings size={13} />
-                        </button>
-                      </div>
-                    </td>
-                    <td className="px-lg py-md">
-                      <div className="flex items-center gap-sm">
-                        <button
-                          className="p-[5px] hover:bg-state-info/10 rounded text-state-info transition-colors"
-                          onClick={() => { setSelectedRoom(room); setRoomModal(true); }}
-                        >
-                          <Edit2 size={14} />
-                        </button>
-                        <button
-                          className="p-[5px] hover:bg-state-error/10 rounded text-state-error transition-colors"
-                          onClick={() => { setSelectedRoom(room); setDeleteOpen(true); }}
-                        >
-                          <Trash2 size={14} />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-            {filteredRooms.length === 0 && (
-              <div className="py-xxl text-center text-[13px] text-content-secondary">등록된 운동룸이 없습니다.</div>
-            )}
-          </div>
+          <SimpleTable
+            columns={[
+              { key: 'name', header: '운동룸명', render: (v: string) => <span className="text-[13px] font-semibold text-content">{v}</span> },
+              { key: 'type', header: '유형', render: (v: RoomType) => <span className={cn("px-sm py-[2px] rounded text-[11px] font-bold border", ROOM_TYPE_STYLES[v])}>{v}</span> },
+              { key: 'capacity', header: '수용인원', render: (v: number) => <span className="text-[13px] text-content flex items-center gap-xs"><Users size={13} className="text-content-secondary" /> {v}명</span> },
+              { key: 'gate', header: '게이트' },
+              { key: 'status', header: '상태', render: (v: RoomStatus, row: Room) => (
+                <div className="flex items-center gap-sm">
+                  <StatusBadge variant={STATUS_VARIANT[v]} label={v} dot />
+                  <button className="p-[4px] hover:bg-surface-secondary rounded transition-colors text-content-secondary" onClick={() => handleToggle(row.id)}><Settings size={13} /></button>
+                </div>
+              )},
+              { key: 'actions', header: '메뉴', render: (_: unknown, row: Room) => (
+                <div className="flex items-center gap-sm">
+                  <button className="p-[5px] hover:bg-state-info/10 rounded text-state-info transition-colors" onClick={() => { setSelectedRoom(row); setRoomModal(true); }}><Edit2 size={14} /></button>
+                  <button className="p-[5px] hover:bg-state-error/10 rounded text-state-error transition-colors" onClick={() => { setSelectedRoom(row); setDeleteOpen(true); }}><Trash2 size={14} /></button>
+                </div>
+              )},
+            ]}
+            data={filteredRooms}
+          />
         )}
       </div>
 

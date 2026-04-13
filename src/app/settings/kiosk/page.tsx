@@ -28,6 +28,8 @@ import { cn } from "@/lib/utils";
 import { moveToPage } from "@/internal";
 import Select from '@/components/ui/Select';
 import Textarea from '@/components/ui/Textarea';
+import SimpleTable from '@/components/common/SimpleTable';
+import Input from '@/components/ui/Input';
 import { toast } from "sonner";
 import { supabase } from "@/lib/supabase";
 
@@ -408,37 +410,32 @@ export default function KioskSettings() {
 
           <FormSection title="시스템 설정" columns={2}>
             <div className="space-y-xs">
-              <label className="text-Label text-content-secondary">화면 대기 시간 (초)</label>
-              <input
-                className="w-full bg-surface-secondary p-md rounded-input border-none focus:ring-2 focus:ring-accent/20 outline-none"
+              <Input
+                label="화면 대기 시간 (초)"
                 type="number"
-                value={settings.screenTimeout}
+                value={String(settings.screenTimeout)}
                 onChange={e => setSettings({ ...settings, screenTimeout: Number(e.target.value) })}
+                hint="미사용 시 대기 화면 전환 시간"
               />
-              <p className="text-[11px] text-content-secondary">미사용 시 대기 화면 전환 시간</p>
             </div>
             <div className="space-y-xs">
-              <label className="text-Label text-content-secondary">자동 초기화 시간 (초)</label>
-              <input
-                className="w-full bg-surface-secondary p-md rounded-input border-none focus:ring-2 focus:ring-accent/20 outline-none"
+              <Input
+                label="자동 초기화 시간 (초)"
                 type="number"
-                value={settings.autoLogout}
+                value={String(settings.autoLogout)}
                 onChange={e => setSettings({ ...settings, autoLogout: Number(e.target.value) })}
+                hint="체크인 완료 후 초기화 대기"
               />
-              <p className="text-[11px] text-content-secondary">체크인 완료 후 초기화 대기</p>
             </div>
             <div className="space-y-xs">
-              <label className="text-Label text-content-secondary">관리자 PIN</label>
-              <div className="relative">
-                <input
-                  className="w-full bg-surface-secondary p-md rounded-input border-none focus:ring-2 focus:ring-accent/20 outline-none pl-11"
-                  type="password"
-                  value={settings.adminPin}
-                  onChange={e => setSettings({ ...settings, adminPin: e.target.value })}
-                  placeholder="4~6자리 숫자"
-                />
-                <Lock className="absolute left-md top-1/2 -translate-y-1/2 text-content-secondary" size={16} />
-              </div>
+              <Input
+                label="관리자 PIN"
+                type="password"
+                value={settings.adminPin}
+                onChange={e => setSettings({ ...settings, adminPin: e.target.value })}
+                placeholder="4~6자리 숫자"
+                leftIcon={<Lock size={16} />}
+              />
             </div>
           </FormSection>
 
@@ -518,9 +515,8 @@ export default function KioskSettings() {
         </div>
 
         <div className="space-y-sm">
-          <label className="text-Label text-content-secondary">환영 문구</label>
-          <input
-            className="w-full bg-surface-secondary p-md rounded-input border-none focus:ring-2 focus:ring-accent/20 outline-none"
+          <Input
+            label="환영 문구"
             type="text"
             value={settings.welcomeMessage}
             onChange={e => setSettings({ ...settings, welcomeMessage: e.target.value })}
@@ -604,45 +600,37 @@ export default function KioskSettings() {
   const renderTTS = () => (
     <div className="flex flex-col gap-lg">
       <FormSection title="안내 메시지 편집" description="이벤트별 음성 안내 메시지를 설정합니다. {이름}, {N} 등 변수를 사용할 수 있습니다." columns={1}>
-        <div className="col-span-full overflow-hidden border border-line rounded-xl">
-          <table className="w-full border-collapse">
-            <thead>
-              <tr className="bg-surface-secondary border-b border-line text-left">
-                <th className="p-md text-Label text-content-secondary font-bold w-[180px]">이벤트</th>
-                <th className="p-md text-Label text-content-secondary font-bold">안내 메시지</th>
-                <th className="p-md text-Label text-content-secondary font-bold w-[80px] text-center">재생</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-line bg-surface">
-              {settings.ttsMessages.map(item => (
-                <tr key={item.id} className="hover:bg-primary-light/20 transition-colors group">
-                  <td className="p-md">
-                    <span className="text-Body-2 font-semibold text-content">{item.event}</span>
-                    <p className="text-[11px] text-content-secondary mt-[2px]">{item.description}</p>
-                  </td>
-                  <td className="p-md">
-                    <input
-                      className="w-full bg-surface-secondary p-sm rounded-input border border-transparent focus:border-accent/30 focus:bg-surface transition-all outline-none text-Body-2"
-                      type="text"
-                      value={item.message}
-                      onChange={e => {
-                        const next = settings.ttsMessages.map(m => m.id === item.id ? { ...m, message: e.target.value } : m);
-                        setSettings({ ...settings, ttsMessages: next });
-                      }}
-                    />
-                  </td>
-                  <td className="p-md text-center">
-                    <button
-                      className="w-9 h-9 flex items-center justify-center mx-auto rounded-full bg-accent-light text-accent hover:bg-accent hover:text-white transition-all shadow-sm"
-                      onClick={() => playTTS(item.message)}
-                    >
-                      <Play size={14} fill="currentColor" />
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+        <div className="col-span-full">
+          <SimpleTable
+            columns={[
+              { key: 'event', header: '이벤트', width: 180, render: (v: string, row: typeof settings.ttsMessages[0]) => (
+                <div>
+                  <span className="text-Body-2 font-semibold text-content">{v}</span>
+                  <p className="text-[11px] text-content-secondary mt-[2px]">{row.description}</p>
+                </div>
+              )},
+              { key: 'message', header: '안내 메시지', render: (v: string, row: typeof settings.ttsMessages[0]) => (
+                <Input
+                  type="text"
+                  size="sm"
+                  value={v}
+                  onChange={e => {
+                    const next = settings.ttsMessages.map(m => m.id === row.id ? { ...m, message: e.target.value } : m);
+                    setSettings({ ...settings, ttsMessages: next });
+                  }}
+                />
+              )},
+              { key: 'actions', header: '재생', width: 80, align: 'center', render: (_: unknown, row: typeof settings.ttsMessages[0]) => (
+                <button
+                  className="w-9 h-9 flex items-center justify-center mx-auto rounded-full bg-accent-light text-accent hover:bg-accent hover:text-white transition-all shadow-sm"
+                  onClick={() => playTTS(row.message)}
+                >
+                  <Play size={14} fill="currentColor" />
+                </button>
+              )},
+            ]}
+            data={settings.ttsMessages}
+          />
         </div>
       </FormSection>
     </div>
@@ -655,25 +643,19 @@ export default function KioskSettings() {
         <div className="space-y-sm">
           <label className="text-Label text-content-secondary">출입 가능 시간</label>
           <div className="flex items-center gap-sm">
-            <div className="relative flex-1">
-              <input
-                className="w-full bg-surface-secondary p-md rounded-input border-none focus:ring-2 focus:ring-accent/20 outline-none"
-                type="time"
-                value={settings.accessStartTime}
-                onChange={e => setSettings({ ...settings, accessStartTime: e.target.value })}
-              />
-              <Clock className="absolute right-md top-1/2 -translate-y-1/2 text-content-secondary pointer-events-none" size={14} />
-            </div>
+            <Input
+              type="time"
+              value={settings.accessStartTime}
+              onChange={e => setSettings({ ...settings, accessStartTime: e.target.value })}
+              rightIcon={<Clock size={14} />}
+            />
             <span className="text-content-secondary">~</span>
-            <div className="relative flex-1">
-              <input
-                className="w-full bg-surface-secondary p-md rounded-input border-none focus:ring-2 focus:ring-accent/20 outline-none"
-                type="time"
-                value={settings.accessEndTime}
-                onChange={e => setSettings({ ...settings, accessEndTime: e.target.value })}
-              />
-              <Clock className="absolute right-md top-1/2 -translate-y-1/2 text-content-secondary pointer-events-none" size={14} />
-            </div>
+            <Input
+              type="time"
+              value={settings.accessEndTime}
+              onChange={e => setSettings({ ...settings, accessEndTime: e.target.value })}
+              rightIcon={<Clock size={14} />}
+            />
           </div>
         </div>
 
@@ -698,11 +680,11 @@ export default function KioskSettings() {
         <div className="space-y-sm">
           <label className="text-Label text-content-secondary">만료 임박 안내 시점</label>
           <div className="flex items-center gap-sm">
-            <input
-              className="w-24 bg-surface-secondary p-md rounded-input border-none focus:ring-2 focus:ring-accent/20 outline-none"
+            <Input
               type="number"
-              value={settings.expirationWarningDays}
+              value={String(settings.expirationWarningDays)}
               onChange={e => setSettings({ ...settings, expirationWarningDays: Number(e.target.value) })}
+              className="w-24"
             />
             <span className="text-Body-2">일 전부터 음성 안내</span>
           </div>
@@ -720,11 +702,12 @@ export default function KioskSettings() {
           </div>
           {settings.preventDuplicateCheckIn && (
             <div className="flex items-center gap-sm mt-sm">
-              <input
-                className="w-20 bg-surface-secondary p-sm rounded-input border-none outline-none"
+              <Input
                 type="number"
-                value={settings.duplicatePreventionMinutes}
+                size="sm"
+                value={String(settings.duplicatePreventionMinutes)}
                 onChange={e => setSettings({ ...settings, duplicatePreventionMinutes: Number(e.target.value) })}
+                className="w-20"
               />
               <span className="text-Label text-content-secondary">분 이내 재체크인 차단</span>
             </div>

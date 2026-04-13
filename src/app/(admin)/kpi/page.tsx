@@ -15,6 +15,7 @@ import {
 import { cn } from "@/lib/utils";
 import { supabase } from "@/lib/supabase";
 import { toast } from "sonner";
+import SimpleTable from '@/components/common/SimpleTable';
 
 /**
  * KPI 대시보드 — 회사 성장 & Team Health KPI 종합
@@ -305,63 +306,25 @@ function CohortAnalysis({ branchId }: { branchId: number }) {
         </div>
       ) : (
         <div className="overflow-x-auto">
-          <table className="w-full text-[12px] border-collapse">
-            <thead>
-              <tr>
-                <th className="text-left px-sm py-xs text-content-secondary font-semibold bg-surface-secondary rounded-tl-lg border border-line min-w-[100px]">
-                  등록 코호트
-                </th>
-                <th className="text-center px-sm py-xs text-content-secondary font-semibold bg-surface-secondary border border-line min-w-[60px]">
-                  등록수
-                </th>
-                {[1, 2, 3, 4, 5, 6].map((m) => (
-                  <th
-                    key={m}
-                    className="text-center px-sm py-xs text-content-secondary font-semibold bg-surface-secondary border border-line min-w-[72px]"
-                  >
-                    {m}개월
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((row) => (
-                <tr key={row.cohortLabel}>
-                  <td className="px-sm py-xs font-semibold text-content border border-line bg-surface">
-                    {row.cohortLabel}
-                  </td>
-                  <td className="text-center px-sm py-xs text-content border border-line bg-surface">
-                    {row.total > 0 ? `${row.total}명` : "-"}
-                  </td>
-                  {row.retention.map((rate, idx) => (
-                    <td
-                      key={idx}
-                      className={cn(
-                        "text-center px-sm py-xs border border-line font-medium",
-                        cohortCellBg(rate)
-                      )}
-                    >
-                      {rate === null ? (
-                        <span className="text-content-secondary">-</span>
-                      ) : (
-                        `${rate}%`
-                      )}
-                    </td>
-                  ))}
-                </tr>
-              ))}
-              {rows.length === 0 && (
-                <tr>
-                  <td
-                    colSpan={8}
-                    className="text-center py-lg text-content-secondary border border-line"
-                  >
-                    코호트 데이터가 없습니다.
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
+          <SimpleTable
+            columns={[
+              { key: 'cohortLabel', header: '등록 코호트', width: 100 },
+              { key: 'total', header: '등록수', width: 60, align: 'center', render: (v: number) => v > 0 ? `${v}명` : '-' },
+              ...[1, 2, 3, 4, 5, 6].map((m, idx) => ({
+                key: `retention_${idx}`,
+                header: `${m}개월`,
+                width: 72,
+                align: 'center' as const,
+                render: (_: unknown, row: { cohortLabel: string; total: number; retention: (number | null)[] }) => {
+                  const rate = row.retention[idx];
+                  return rate === null
+                    ? <span className="text-content-secondary">-</span>
+                    : <span className={cn('font-medium', cohortCellBg(rate))}>{rate}%</span>;
+                },
+              })),
+            ]}
+            data={rows}
+          />
         </div>
       )}
 

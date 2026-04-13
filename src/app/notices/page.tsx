@@ -11,6 +11,7 @@ import StatusBadge from "@/components/common/StatusBadge";
 import ConfirmDialog from "@/components/ui/ConfirmDialog";
 import { cn } from '@/lib/utils';
 import Textarea from '@/components/ui/Textarea';
+import Button from '@/components/ui/Button';
 import {
   getNotices,
   createNotice,
@@ -131,12 +132,8 @@ export default function Notices() {
       key: 'actions', header: '', width: 80, align: 'center' as const,
       render: (_: unknown, row: Notice) => (
         <div className="flex items-center justify-center gap-xs">
-          <button className="p-xs text-content-tertiary hover:text-accent transition-colors" onClick={() => openEdit(row)} title="수정">
-            <Edit2 size={15} />
-          </button>
-          <button className="p-xs text-content-tertiary hover:text-state-error transition-colors" onClick={() => { setDeleteTarget(row.id); setDeleteDialogOpen(true); }} title="삭제">
-            <Trash2 size={15} />
-          </button>
+          <Button variant="ghost" size="sm" icon={<Edit2 size={15} />} onClick={() => openEdit(row)} title="수정" />
+          <Button variant="ghost" size="sm" icon={<Trash2 size={15} />} onClick={() => { setDeleteTarget(row.id); setDeleteDialogOpen(true); }} title="삭제" />
         </div>
       ),
     },
@@ -148,12 +145,7 @@ export default function Notices() {
         title="공지사항"
         description="센터 공지사항을 작성하고 관리합니다."
         actions={
-          <button
-            onClick={openCreate}
-            className="flex items-center gap-xs px-md py-sm bg-primary text-surface rounded-button text-[13px] font-bold shadow-sm hover:bg-primary-dark transition-colors"
-          >
-            <Plus size={16} /> 공지 작성
-          </button>
+          <Button variant="primary" icon={<Plus size={16} />} onClick={openCreate}>공지 작성</Button>
         }
       />
 
@@ -225,10 +217,8 @@ export default function Notices() {
             </div>
 
             <div className="flex gap-sm px-lg py-md border-t border-line">
-              <button onClick={() => setModalOpen(false)} className="flex-1 h-[38px] rounded-lg border border-line text-[13px] text-content-secondary hover:bg-surface-secondary transition-colors">취소</button>
-              <button onClick={handleSave} disabled={isSaving} className="flex-1 h-[38px] rounded-lg bg-primary text-[13px] font-semibold text-surface hover:bg-primary-dark disabled:opacity-50 transition-colors">
-                {isSaving ? '저장 중...' : (editTarget ? '수정 저장' : '등록')}
-              </button>
+              <Button variant="outline" fullWidth onClick={() => setModalOpen(false)}>취소</Button>
+              <Button variant="primary" fullWidth onClick={handleSave} disabled={isSaving} loading={isSaving}>{editTarget ? '수정 저장' : '등록'}</Button>
             </div>
           </div>
         </div>
@@ -251,15 +241,15 @@ export default function Notices() {
                   <h3 className="text-[16px] font-bold text-content">{detailNotice.title}</h3>
                   <p className="text-[12px] text-content-tertiary mt-xs">{detailNotice.authorName} · {fmtDate(detailNotice.createdAt)}</p>
                 </div>
-                <button onClick={() => setDetailNotice(null)} className="text-content-tertiary hover:text-content transition-colors text-[20px] leading-none">×</button>
+                <Button variant="ghost" size="sm" onClick={() => setDetailNotice(null)}>×</Button>
               </div>
             </div>
             <div className="p-lg">
               <p className="text-[14px] text-content whitespace-pre-wrap leading-relaxed">{detailNotice.content}</p>
             </div>
             <div className="px-lg py-md border-t border-line flex justify-end gap-sm">
-              <button onClick={() => { const n = detailNotice; setDetailNotice(null); openEdit(n); }} className="px-md py-xs text-[13px] border border-line rounded-button text-content-secondary hover:bg-surface-secondary transition-colors">수정</button>
-              <button onClick={() => setDetailNotice(null)} className="px-md py-xs text-[13px] bg-primary text-surface rounded-button hover:bg-primary-dark transition-colors">닫기</button>
+              <Button variant="outline" onClick={() => { const n = detailNotice; setDetailNotice(null); openEdit(n); }}>수정</Button>
+              <Button variant="primary" onClick={() => setDetailNotice(null)}>닫기</Button>
             </div>
           </div>
         </div>

@@ -227,7 +227,7 @@ export default function MemberList() {
     {
       key: 'name', header: '회원명', width: 110, sortable: true,
       render: (value: unknown, row: Member) => (
-        <button className="text-primary font-medium hover:underline transition-all text-[13px]" onClick={() => moveToPage(985, { id: row.id })}>{String(value)}</button>
+        <Button variant="ghost" size="sm" onClick={() => moveToPage(985, { id: row.id })}>{String(value)}</Button>
       ),
     },
     {
@@ -255,7 +255,7 @@ export default function MemberList() {
     {
       key: 'name', header: '회원명', width: 110,
       render: (value: unknown, row: Member) => (
-        <button className="text-primary font-medium hover:underline transition-all text-[13px]" onClick={() => moveToPage(985, { id: row.id })}>{String(value)}</button>
+        <Button variant="ghost" size="sm" onClick={() => moveToPage(985, { id: row.id })}>{String(value)}</Button>
       ),
     },
     { key: 'membershipType', header: '이용권', width: 120, render: (v: unknown) => {
@@ -312,7 +312,7 @@ export default function MemberList() {
     {
       key: 'name', header: '회원명', width: 110,
       render: (value: unknown, row: Member) => (
-        <button className="text-primary font-medium hover:underline transition-all text-[13px]" onClick={() => moveToPage(985, { id: row.id })}>{String(value)}</button>
+        <Button variant="ghost" size="sm" onClick={() => moveToPage(985, { id: row.id })}>{String(value)}</Button>
       ),
     },
     {

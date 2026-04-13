@@ -28,6 +28,7 @@ import StatCard from "@/components/common/StatCard";
 import StatCardGrid from "@/components/common/StatCardGrid";
 import { SearchFilter } from "@/components/common/SearchFilter";
 import Textarea from '@/components/ui/Textarea';
+import Button from '@/components/ui/Button';
 import StatusBadge from "@/components/common/StatusBadge";
 import DataTable from "@/components/common/DataTable";
 import ConfirmDialog from "@/components/ui/ConfirmDialog";
@@ -979,8 +980,8 @@ export default function Locker() {
         size="sm"
         footer={
           <div className="flex gap-sm justify-end">
-            <button className="px-md py-[7px] rounded-lg border border-line text-[13px] text-content-secondary hover:bg-surface-tertiary" onClick={() => setActionModal(null)}>취소</button>
-            <button className="px-md py-[7px] rounded-lg bg-primary text-white text-[13px] font-medium hover:opacity-90" onClick={handleMove}>이동</button>
+            <Button variant="outline" onClick={() => setActionModal(null)}>취소</Button>
+            <Button variant="primary" onClick={handleMove}>이동</Button>
           </div>
         }
       >
@@ -1029,8 +1030,8 @@ export default function Locker() {
         size="md"
         footer={
           <div className="flex gap-sm justify-end">
-            <button className="px-md py-[7px] rounded-lg border border-line text-[13px] text-content-secondary hover:bg-surface-tertiary" onClick={() => setActionModal(null)}>취소</button>
-            <button className="px-md py-[7px] rounded-lg bg-primary text-white text-[13px] font-medium hover:opacity-90" onClick={handleAssign}>배정</button>
+            <Button variant="outline" onClick={() => setActionModal(null)}>취소</Button>
+            <Button variant="primary" onClick={handleAssign}>배정</Button>
           </div>
         }
       >
@@ -1086,17 +1087,8 @@ export default function Locker() {
         size="md"
         footer={
           <div className="flex gap-sm justify-end">
-            <button
-              className="px-md py-[7px] rounded-lg border border-line text-[13px] text-content-secondary hover:bg-surface-tertiary"
-              onClick={() => { setBulkAssignOpen(false); setBulkMode(false); setSelectedBulkIds(new Set()); }}
-            >취소</button>
-            <button
-              className="px-md py-[7px] rounded-lg bg-primary text-white text-[13px] font-medium hover:opacity-90 disabled:opacity-40"
-              disabled={selectedBulkIds.size === 0 || !selectedMemberForAssign}
-              onClick={handleBulkAssign}
-            >
-              {selectedBulkIds.size}개 락커 배정
-            </button>
+            <Button variant="outline" onClick={() => { setBulkAssignOpen(false); setBulkMode(false); setSelectedBulkIds(new Set()); }}>취소</Button>
+            <Button variant="primary" disabled={selectedBulkIds.size === 0 || !selectedMemberForAssign} onClick={handleBulkAssign}>{selectedBulkIds.size}개 락커 배정</Button>
           </div>
         }
       >

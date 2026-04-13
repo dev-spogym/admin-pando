@@ -20,6 +20,9 @@ import AppLayout from "@/components/layout/AppLayout";
 import PageHeader from "@/components/common/PageHeader";
 import Select from '@/components/ui/Select';
 import Textarea from '@/components/ui/Textarea';
+import SimpleTable from '@/components/common/SimpleTable';
+import Input from '@/components/ui/Input';
+import RadioGroup from '@/components/ui/RadioGroup';
 import { cn } from '@/lib/utils';
 import { moveToPage } from '@/internal';
 import {
@@ -365,7 +368,7 @@ function StaffResignation() {
                 <label className="text-Label font-semibold text-content-secondary">
                   퇴사 예정일 <span className="text-error">*</span>
                 </label>
-                <input
+                <Input
                   type="date"
                   value={resignDate}
                   min={new Date().toISOString().split('T')[0]}
@@ -373,14 +376,8 @@ function StaffResignation() {
                     setResignDate(e.target.value);
                     if (step1Errors.resignDate) setStep1Errors((p) => ({ ...p, resignDate: '' }));
                   }}
-                  className={cn(
-                    'w-full px-md py-md bg-surface-secondary border rounded-input text-Body-2 outline-none focus:ring-2 focus:ring-primary transition-all',
-                    step1Errors.resignDate ? 'border-error' : 'border-line'
-                  )}
+                  error={step1Errors.resignDate}
                 />
-                {step1Errors.resignDate && (
-                  <p className="text-Label text-error">{step1Errors.resignDate}</p>
-                )}
               </div>
 
               <div className="space-y-xs">
@@ -460,53 +457,26 @@ function StaffResignation() {
                 </div>
               ) : (
                 <div className="overflow-x-auto">
-                  <table className="w-full text-Body-2">
-                    <thead>
-                      <tr className="border-b border-line">
-                        <th className="text-left py-sm px-md text-Label font-semibold text-content-secondary">
-                          회원명
-                        </th>
-                        <th className="text-left py-sm px-md text-Label font-semibold text-content-secondary">
-                          연락처
-                        </th>
-                        <th className="text-left py-sm px-md text-Label font-semibold text-content-secondary">
-                          PT 잔여
-                        </th>
-                        <th className="text-left py-sm px-md text-Label font-semibold text-content-secondary">
-                          재배정 담당자
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {members.map((m) => (
-                        <tr
-                          key={m.id}
-                          className="border-b border-line/50 hover:bg-surface-secondary transition-colors"
-                        >
-                          <td className="py-sm px-md text-content font-medium">{m.name}</td>
-                          <td className="py-sm px-md text-content-secondary">{m.phone}</td>
-                          <td className="py-sm px-md">
-                            {m.hasPtRemaining ? (
-                              <span className="text-[11px] bg-error/10 text-error border border-error/20 px-xs py-[2px] rounded-full font-semibold">
-                                PT잔여
-                              </span>
-                            ) : (
-                              <span className="text-Label text-content-secondary">-</span>
-                            )}
-                          </td>
-                          <td className="py-sm px-md">
-                            <Select
-                              options={activeFcList.map((fc) => ({ value: String(fc.id), label: fc.name }))}
-                              value={m.assignedStaffId !== null ? String(m.assignedStaffId) : ''}
-                              onChange={(v) => handleMemberAssign(m.id, v ? Number(v) : null)}
-                              placeholder="담당자 선택"
-                              error={m.hasPtRemaining && m.assignedStaffId === null ? ' ' : undefined}
-                            />
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                  <SimpleTable
+                    columns={[
+                      { key: 'name', header: '회원명', render: (v: string) => <span className="text-content font-medium">{v}</span> },
+                      { key: 'phone', header: '연락처', render: (v: string) => <span className="text-content-secondary">{v}</span> },
+                      { key: 'hasPtRemaining', header: 'PT 잔여', render: (v: boolean) => v
+                        ? <span className="text-[11px] bg-error/10 text-error border border-error/20 px-xs py-[2px] rounded-full font-semibold">PT잔여</span>
+                        : <span className="text-Label text-content-secondary">-</span>
+                      },
+                      { key: 'assignedStaffId', header: '재배정 담당자', render: (_: unknown, m: MemberRow) => (
+                        <Select
+                          options={activeFcList.map((fc) => ({ value: String(fc.id), label: fc.name }))}
+                          value={m.assignedStaffId !== null ? String(m.assignedStaffId) : ''}
+                          onChange={(v) => handleMemberAssign(m.id, v ? Number(v) : null)}
+                          placeholder="담당자 선택"
+                          error={m.hasPtRemaining && m.assignedStaffId === null ? ' ' : undefined}
+                        />
+                      )},
+                    ]}
+                    data={members}
+                  />
                 </div>
               )}
             </div>
@@ -547,79 +517,30 @@ function StaffResignation() {
               ) : (
                 <>
                   <div className="overflow-x-auto">
-                    <table className="w-full text-Body-2">
-                      <thead>
-                        <tr className="border-b border-line">
-                          <th className="text-left py-sm px-md text-Label font-semibold text-content-secondary">
-                            스케줄명
-                          </th>
-                          <th className="text-left py-sm px-md text-Label font-semibold text-content-secondary">
-                            유형
-                          </th>
-                          <th className="text-left py-sm px-md text-Label font-semibold text-content-secondary">
-                            날짜
-                          </th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {futureSchedules.map((s) => (
-                          <tr
-                            key={s.id}
-                            className="border-b border-line/50 hover:bg-surface-secondary transition-colors"
-                          >
-                            <td className="py-sm px-md text-content font-medium">{s.title}</td>
-                            <td className="py-sm px-md">
-                              <span
-                                className={cn(
-                                  'text-[11px] px-xs py-[2px] rounded-full font-semibold',
-                                  s.type === 'PT'
-                                    ? 'bg-primary/10 text-primary'
-                                    : 'bg-success/10 text-success'
-                                )}
-                              >
-                                {s.type}
-                              </span>
-                            </td>
-                            <td className="py-sm px-md text-content-secondary">{s.date}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
+                    <SimpleTable
+                      columns={[
+                        { key: 'title', header: '스케줄명', render: (v: string) => <span className="text-content font-medium">{v}</span> },
+                        { key: 'type', header: '유형', render: (v: 'PT' | 'GX') => (
+                          <span className={cn('text-[11px] px-xs py-[2px] rounded-full font-semibold', v === 'PT' ? 'bg-primary/10 text-primary' : 'bg-success/10 text-success')}>{v}</span>
+                        )},
+                        { key: 'date', header: '날짜', render: (v: string) => <span className="text-content-secondary">{v}</span> },
+                      ]}
+                      data={futureSchedules}
+                    />
                   </div>
 
                   {/* 처리 옵션 */}
                   <div className="space-y-sm">
                     <p className="text-Label font-semibold text-content-secondary">처리 방법</p>
-                    <div className="flex flex-col gap-sm">
-                      {(
-                        [
-                          { value: 'transfer', label: '후임에게 일괄 이관', desc: '재배정된 담당자에게 스케줄을 이관합니다.' },
-                          { value: 'cancel', label: '일괄 취소', desc: '모든 스케줄을 취소합니다.' },
-                        ] as { value: ScheduleAction; label: string; desc: string }[]
-                      ).map((opt) => (
-                        <label
-                          key={opt.value}
-                          className={cn(
-                            'flex items-start gap-md p-md border rounded-input cursor-pointer transition-all',
-                            scheduleAction === opt.value
-                              ? 'border-primary bg-primary-light'
-                              : 'border-line bg-surface-secondary hover:border-primary/40'
-                          )}
-                        >
-                          <input
-                            type="radio"
-                            value={opt.value}
-                            checked={scheduleAction === opt.value}
-                            onChange={() => setScheduleAction(opt.value)}
-                            className="mt-[2px] accent-primary"
-                          />
-                          <div>
-                            <p className="text-Body-2 font-semibold text-content">{opt.label}</p>
-                            <p className="text-Label text-content-secondary">{opt.desc}</p>
-                          </div>
-                        </label>
-                      ))}
-                    </div>
+                    <RadioGroup
+                      options={[
+                        { value: 'transfer', label: '후임에게 일괄 이관', description: '재배정된 담당자에게 스케줄을 이관합니다.' },
+                        { value: 'cancel', label: '일괄 취소', description: '모든 스케줄을 취소합니다.' },
+                      ]}
+                      value={scheduleAction}
+                      onChange={(v) => setScheduleAction(v as ScheduleAction)}
+                      direction="vertical"
+                    />
                   </div>
                 </>
               )}

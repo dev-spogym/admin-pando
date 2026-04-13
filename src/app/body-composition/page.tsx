@@ -27,6 +27,7 @@ import ConfirmDialog from "@/components/ui/ConfirmDialog";
 import { moveToPage } from "@/internal";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import Button from "@/components/ui/Button";
 import { supabase } from "@/lib/supabase";
 import { useSearchParams } from "next/navigation";
 
@@ -570,9 +571,7 @@ function BodyComposition() {
     {
       key: "actions", header: "리포트", align: "center" as const,
       render: () => (
-        <button className="p-xs text-content-secondary hover:text-primary transition-colors">
-          <FileText size={16} />
-        </button>
+        <Button variant="ghost" size="sm" icon={<FileText size={16} />} />
       ),
     },
   ];
@@ -601,17 +600,8 @@ function BodyComposition() {
           description={`최근 측정일: ${latest?.date?.slice(0, 10) ?? '-'} | 목표 체중: ${goals.weight}kg | 목표 체지방률: ${goals.pbf}%`}
           actions={
             <div className="flex gap-sm">
-              <button className="flex items-center gap-xs px-md py-sm bg-surface border border-line text-content rounded-button text-[13px] hover:bg-surface-secondary transition-all">
-                <Download size={15} />
-                전체 기록 추출
-              </button>
-              <button
-                className="flex items-center gap-xs px-md py-sm bg-primary text-white rounded-button text-[13px] font-bold shadow-sm hover:bg-primary-dark transition-all"
-                onClick={openAddModal}
-              >
-                <Plus size={15} />
-                새 측정 기록 추가
-              </button>
+              <Button variant="outline" icon={<Download size={15} />}>전체 기록 추출</Button>
+              <Button variant="primary" icon={<Plus size={15} />} onClick={openAddModal}>새 측정 기록 추가</Button>
             </div>
           }
         />

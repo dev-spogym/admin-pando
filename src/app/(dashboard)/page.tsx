@@ -647,15 +647,8 @@ export default function Dashboard() {
             </div>
           </div>
           <div className="flex items-center gap-sm">
-            <button
-              className="rounded-lg bg-primary px-md py-[6px] text-[12px] font-semibold text-white hover:bg-primary-dark transition-colors"
-              onClick={() => moveToPage(977)}
-            >
-              기능 보기
-            </button>
-            <button className="text-content-tertiary hover:text-content transition-colors" onClick={() => setShowBanner(false)}>
-              <X size={16} />
-            </button>
+            <Button variant="primary" size="sm" onClick={() => moveToPage(977)}>기능 보기</Button>
+            <Button variant="ghost" size="sm" icon={<X size={16} />} onClick={() => setShowBanner(false)} />
           </div>
         </div>
       )}
@@ -929,9 +922,7 @@ export default function Dashboard() {
                     {
                       key: "action", header: "", align: "right",
                       render: (_val, row) => (
-                        <button className="p-xs text-content-tertiary hover:text-primary transition-colors" onClick={() => moveToPage(985, { id: String(row.id) })}>
-                          <ChevronRight size={14} />
-                        </button>
+                        <Button variant="ghost" size="sm" icon={<ChevronRight size={14} />} onClick={() => moveToPage(985, { id: String(row.id) })} />
                       ),
                     },
                   ]}
@@ -971,9 +962,7 @@ export default function Dashboard() {
                     {
                       key: "action", header: "", align: "right",
                       render: () => (
-                        <button className="rounded-md bg-primary-light px-[8px] py-[3px] text-[11px] font-medium text-primary hover:bg-primary hover:text-white transition-all" onClick={() => moveToPage(971)}>
-                          결제
-                        </button>
+                        <Button variant="ghost" size="sm" onClick={() => moveToPage(971)}>결제</Button>
                       ),
                     },
                   ]}
@@ -1011,9 +1000,7 @@ export default function Dashboard() {
                     {
                       key: "action", header: "", align: "right",
                       render: (_val, row) => (
-                        <button className="p-xs text-content-tertiary hover:text-primary transition-colors" onClick={() => moveToPage(985, { id: String(row.id) })}>
-                          <ChevronRight size={14} />
-                        </button>
+                        <Button variant="ghost" size="sm" icon={<ChevronRight size={14} />} onClick={() => moveToPage(985, { id: String(row.id) })} />
                       ),
                     },
                   ]}

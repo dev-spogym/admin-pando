@@ -16,6 +16,7 @@ import Modal from "@/components/ui/Modal";
 import Select from '@/components/ui/Select';
 import type { BadgeVariant } from "@/components/common/StatusBadge";
 import { supabase } from '@/lib/supabase';
+import AsyncBoundary from '@/components/common/AsyncBoundary';
 
 // 상태 탭
 const STATUS_TABS = [
@@ -544,13 +545,7 @@ export default function LessonCounts() {
         title={`차감 이력 — ${historyTarget?.memberName ?? ''}`}
         size="md"
       >
-        {historyLoading ? (
-          <div className="flex items-center justify-center py-xl">
-            <div className="w-6 h-6 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
-          </div>
-        ) : historyLogs.length === 0 ? (
-          <p className="text-center text-content-secondary text-[13px] py-lg">차감 이력이 없습니다.</p>
-        ) : (
+        <AsyncBoundary isLoading={historyLoading} isEmpty={historyLogs.length === 0} emptyMessage="차감 이력이 없습니다.">
           <div className="flex flex-col gap-xs max-h-80 overflow-y-auto">
             {/* 이력 테이블 헤더 */}
             <div className="grid grid-cols-3 px-md py-xs text-[11px] font-medium text-content-secondary bg-surface-secondary rounded-lg">
@@ -568,7 +563,7 @@ export default function LessonCounts() {
               </div>
             ))}
           </div>
-        )}
+        </AsyncBoundary>
       </Modal>
 
       {/* 횟수 조정 모달 */}

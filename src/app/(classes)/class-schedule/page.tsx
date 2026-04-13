@@ -9,6 +9,8 @@ import AppLayout from "@/components/layout/AppLayout";
 import PageHeader from "@/components/common/PageHeader";
 import Modal from "@/components/ui/Modal";
 import Select from '@/components/ui/Select';
+import SimpleTable from '@/components/common/SimpleTable';
+import Input from '@/components/ui/Input';
 import { supabase } from '@/lib/supabase';
 import { bulkCreateClasses } from '@/api/endpoints/classSchedule';
 
@@ -284,78 +286,58 @@ export default function ClassSchedule() {
 
           {/* 시작/종료 시간 */}
           <div className="grid grid-cols-2 gap-md">
-            <div>
-              <label className="block text-[12px] font-medium text-content-secondary mb-xs">
-                시작 시간 <span className="text-state-error">*</span>
-              </label>
-              <input
-                type="time"
-                className="w-full px-3 py-2 border border-line rounded-lg text-[13px] text-content bg-surface focus:outline-none focus:border-primary"
-                value={startTime}
-                onChange={(e) => setStartTime(e.target.value)}
-              />
-            </div>
-            <div>
-              <label className="block text-[12px] font-medium text-content-secondary mb-xs">
-                종료 시간 <span className="text-state-error">*</span>
-              </label>
-              <input
-                type="time"
-                className="w-full px-3 py-2 border border-line rounded-lg text-[13px] text-content bg-surface focus:outline-none focus:border-primary"
-                value={endTime}
-                onChange={(e) => setEndTime(e.target.value)}
-              />
-            </div>
+            <Input
+              label="시작 시간 *"
+              type="time"
+              size="sm"
+              value={startTime}
+              onChange={(e) => setStartTime(e.target.value)}
+            />
+            <Input
+              label="종료 시간 *"
+              type="time"
+              size="sm"
+              value={endTime}
+              onChange={(e) => setEndTime(e.target.value)}
+            />
           </div>
 
           {/* 적용 기간 */}
           <div className="grid grid-cols-2 gap-md">
-            <div>
-              <label className="block text-[12px] font-medium text-content-secondary mb-xs">
-                시작일 <span className="text-state-error">*</span>
-              </label>
-              <input
-                type="date"
-                className="w-full px-3 py-2 border border-line rounded-lg text-[13px] text-content bg-surface focus:outline-none focus:border-primary"
-                value={periodStart}
-                onChange={(e) => setPeriodStart(e.target.value)}
-              />
-            </div>
-            <div>
-              <label className="block text-[12px] font-medium text-content-secondary mb-xs">
-                종료일 <span className="text-state-error">*</span>
-              </label>
-              <input
-                type="date"
-                className="w-full px-3 py-2 border border-line rounded-lg text-[13px] text-content bg-surface focus:outline-none focus:border-primary"
-                value={periodEnd}
-                onChange={(e) => setPeriodEnd(e.target.value)}
-              />
-            </div>
+            <Input
+              label="시작일 *"
+              type="date"
+              size="sm"
+              value={periodStart}
+              onChange={(e) => setPeriodStart(e.target.value)}
+            />
+            <Input
+              label="종료일 *"
+              type="date"
+              size="sm"
+              value={periodEnd}
+              onChange={(e) => setPeriodEnd(e.target.value)}
+            />
           </div>
 
           {/* 정원 / 장소 */}
           <div className="grid grid-cols-2 gap-md">
-            <div>
-              <label className="block text-[12px] font-medium text-content-secondary mb-xs">정원 (명)</label>
-              <input
-                type="number"
-                min={1}
-                className="w-full px-3 py-2 border border-line rounded-lg text-[13px] text-content bg-surface focus:outline-none focus:border-primary"
-                value={capacity}
-                onChange={(e) => setCapacity(e.target.value)}
-              />
-            </div>
-            <div>
-              <label className="block text-[12px] font-medium text-content-secondary mb-xs">장소/룸</label>
-              <input
-                type="text"
-                className="w-full px-3 py-2 border border-line rounded-lg text-[13px] text-content bg-surface focus:outline-none focus:border-primary"
-                placeholder="예: 1스튜디오"
-                value={room}
-                onChange={(e) => setRoom(e.target.value)}
-              />
-            </div>
+            <Input
+              label="정원 (명)"
+              type="number"
+              size="sm"
+              min={1}
+              value={capacity}
+              onChange={(e) => setCapacity(e.target.value)}
+            />
+            <Input
+              label="장소/룸"
+              type="text"
+              size="sm"
+              placeholder="예: 1스튜디오"
+              value={room}
+              onChange={(e) => setRoom(e.target.value)}
+            />
           </div>
 
           {/* 버튼 */}
@@ -396,29 +378,18 @@ export default function ClassSchedule() {
               요일과 기간을 설정하면 미리보기가 표시됩니다.
             </p>
           ) : (
-            <div className="overflow-y-auto max-h-[480px] rounded-lg border border-line">
-              <table className="w-full text-[12px]">
-                <thead className="bg-surface-secondary sticky top-0">
-                  <tr>
-                    <th className="px-3 py-2 text-left text-content-secondary font-medium">날짜</th>
-                    <th className="px-3 py-2 text-left text-content-secondary font-medium">요일</th>
-                    <th className="px-3 py-2 text-left text-content-secondary font-medium">시간</th>
-                    <th className="px-3 py-2 text-left text-content-secondary font-medium">강사</th>
-                    <th className="px-3 py-2 text-center text-content-secondary font-medium">정원</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-line">
-                  {previewRows.map((row, idx) => (
-                    <tr key={idx} className="hover:bg-surface-secondary/50">
-                      <td className="px-3 py-2 text-content">{row.date}</td>
-                      <td className="px-3 py-2 text-content-secondary">{row.weekday}</td>
-                      <td className="px-3 py-2 text-content">{row.startTime} ~ {row.endTime}</td>
-                      <td className="px-3 py-2 text-content-secondary">{row.instructor}</td>
-                      <td className="px-3 py-2 text-center text-content">{row.capacity}명</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+            <div className="overflow-y-auto max-h-[480px]">
+              <SimpleTable
+                columns={[
+                  { key: 'date', header: '날짜' },
+                  { key: 'weekday', header: '요일' },
+                  { key: 'time', header: '시간', render: (_: unknown, row: PreviewRow) => `${row.startTime} ~ ${row.endTime}` },
+                  { key: 'instructor', header: '강사' },
+                  { key: 'capacity', header: '정원', align: 'center', render: (v: number) => `${v}명` },
+                ]}
+                data={previewRows}
+                stickyHeader
+              />
             </div>
           )}
         </div>
@@ -452,34 +423,22 @@ export default function ClassSchedule() {
             <span className="font-bold text-primary">{previewRows.length}개</span>의 수업이 생성됩니다. 진행하시겠습니까?
           </p>
           {previewRows.length > 0 && (
-            <div className="max-h-60 overflow-y-auto rounded-lg border border-line">
-              <table className="w-full text-[12px]">
-                <thead className="bg-surface-secondary sticky top-0">
-                  <tr>
-                    <th className="px-3 py-2 text-left text-content-secondary font-medium">날짜</th>
-                    <th className="px-3 py-2 text-left text-content-secondary font-medium">요일</th>
-                    <th className="px-3 py-2 text-left text-content-secondary font-medium">시간</th>
-                    <th className="px-3 py-2 text-left text-content-secondary font-medium">강사</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-line">
-                  {previewRows.slice(0, 20).map((row, idx) => (
-                    <tr key={idx} className="hover:bg-surface-secondary/50">
-                      <td className="px-3 py-1.5 text-content">{row.date}</td>
-                      <td className="px-3 py-1.5 text-content-secondary">{row.weekday}</td>
-                      <td className="px-3 py-1.5 text-content">{row.startTime} ~ {row.endTime}</td>
-                      <td className="px-3 py-1.5 text-content-secondary">{row.instructor}</td>
-                    </tr>
-                  ))}
-                  {previewRows.length > 20 && (
-                    <tr>
-                      <td colSpan={4} className="px-3 py-2 text-center text-[11px] text-content-tertiary">
-                        외 {previewRows.length - 20}개 더...
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
+            <div className="max-h-60 overflow-y-auto">
+              <SimpleTable
+                columns={[
+                  { key: 'date', header: '날짜' },
+                  { key: 'weekday', header: '요일' },
+                  { key: 'time', header: '시간', render: (_: unknown, row: PreviewRow) => `${row.startTime} ~ ${row.endTime}` },
+                  { key: 'instructor', header: '강사' },
+                ]}
+                data={previewRows.slice(0, 20)}
+                stickyHeader
+              />
+              {previewRows.length > 20 && (
+                <p className="px-3 py-2 text-center text-[11px] text-content-tertiary">
+                  외 {previewRows.length - 20}개 더...
+                </p>
+              )}
             </div>
           )}
         </div>

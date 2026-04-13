@@ -42,6 +42,7 @@ import FormSection from "@/components/common/FormSection";
 import ConfirmDialog from "@/components/ui/ConfirmDialog";
 import Select from '@/components/ui/Select';
 import Textarea from '@/components/ui/Textarea';
+import Button from '@/components/ui/Button';
 import { supabase } from '@/lib/supabase';
 import { exportToExcel } from '@/lib/exportExcel';
 import { useAuthStore } from '@/stores/authStore';
@@ -328,7 +329,7 @@ export default function BranchManagement() {
   const branchColumns = [
     { key: 'id', header: 'No', width: 60, align: 'center' as const },
     { key: 'name', header: '지점명', sortable: true, render: (v: string, row: any) => (
-      <button className="text-primary font-semibold hover:underline" onClick={(e) => { e.stopPropagation(); switchBranch(String(row.id), v); toast.success(`${v} 지점으로 전환되었습니다`); }}>{v}</button>
+      <Button variant="ghost" size="sm" onClick={(e) => { e.stopPropagation(); switchBranch(String(row.id), v); toast.success(`${v} 지점으로 전환되었습니다`); }}>{v}</Button>
     ) },
     { key: 'code', header: '지점 코드', width: 120 },
     { key: 'address', header: '주소' },
@@ -352,22 +353,11 @@ export default function BranchManagement() {
       align: 'center' as const,
       render: (_: any, row: any) => (
         <div className="flex items-center gap-xs" >
-          <button
-            className="text-content-secondary hover:text-primary p-xs" onClick={() => {
-              toast.info(`${row.name} 관리 모드로 전환합니다.`);
-              moveToPage(966);
-            }}>
-            관리
-          </button>
+          <Button variant="ghost" size="sm" onClick={() => { toast.info(`${row.name} 관리 모드로 전환합니다.`); moveToPage(966); }}>관리</Button>
           <div className="w-[1px] h-3 bg-line" />
-          <button className="text-content-secondary hover:text-primary p-xs" >수정</button>
+          <Button variant="ghost" size="sm">수정</Button>
           <div className="w-[1px] h-3 bg-line" />
-          <button
-            className="text-content-secondary hover:text-state-error p-xs"
-            onClick={() => openDeactivate(row)}
-          >
-            비활성
-          </button>
+          <Button variant="ghost" size="sm" onClick={() => openDeactivate(row)}>비활성</Button>
           <div className="w-[1px] h-3 bg-line" />
           <Select
             value=""
@@ -594,9 +584,7 @@ export default function BranchManagement() {
           <div className="w-full max-w-2xl bg-surface rounded-modal shadow-card max-h-[90vh] overflow-y-auto" >
             <div className="p-xl border-b border-line flex justify-between items-center sticky top-0 bg-surface z-10" >
               <h2 className="text-xl font-bold text-content" >신규 지점 등록</h2>
-              <button className="text-content-secondary hover:text-content" onClick={handleCloseAddBranch}>
-                <X size={24}/>
-              </button>
+              <Button variant="ghost" size="sm" icon={<X size={24}/>} onClick={handleCloseAddBranch} />
             </div>
 
             <div className="p-xl space-y-lg" >
@@ -783,14 +771,8 @@ export default function BranchManagement() {
             </div>
 
             <div className="p-xl border-t border-line flex justify-end gap-sm sticky bottom-0 bg-surface" >
-              <button className="px-lg py-sm text-content-secondary hover:bg-surface-secondary rounded-button transition-colors" onClick={handleCloseAddBranch}>취소</button>
-              <button
-                className="px-lg py-sm bg-primary text-white font-semibold rounded-button shadow-md hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-                onClick={handleAddBranchSubmit}
-                disabled={isSaving}
-              >
-                {isSaving ? "등록 중..." : "등록 완료"}
-              </button>
+              <Button variant="outline" onClick={handleCloseAddBranch}>취소</Button>
+              <Button variant="primary" onClick={handleAddBranchSubmit} disabled={isSaving} loading={isSaving}>등록 완료</Button>
             </div>
           </div>
         </div>
@@ -802,9 +784,7 @@ export default function BranchManagement() {
           <div className="w-full max-w-lg bg-surface rounded-modal shadow-card" >
             <div className="p-xl border-b border-line flex justify-between items-center" >
               <h2 className="text-xl font-bold text-content" >회원 지점 이동 신청</h2>
-              <button className="text-content-secondary hover:text-content" onClick={() => setIsMoveMemberOpen(false)}>
-                <X size={24}/>
-              </button>
+              <Button variant="ghost" size="sm" icon={<X size={24}/>} onClick={() => setIsMoveMemberOpen(false)} />
             </div>
 
             <div className="p-xl space-y-lg" >
@@ -859,8 +839,8 @@ export default function BranchManagement() {
             </div>
 
             <div className="p-xl border-t border-line flex justify-end gap-sm" >
-              <button className="px-lg py-sm text-content-secondary hover:bg-surface-secondary rounded-button transition-colors" onClick={() => setIsMoveMemberOpen(false)}>취소</button>
-              <button className="px-lg py-sm bg-accent text-white font-semibold rounded-button shadow-md hover:scale-[1.02] active:scale-[0.98] transition-all" >신청 완료</button>
+              <Button variant="outline" onClick={() => setIsMoveMemberOpen(false)}>취소</Button>
+              <Button variant="primary">신청 완료</Button>
             </div>
           </div>
         </div>
@@ -875,9 +855,7 @@ export default function BranchManagement() {
                 <AlertTriangle className="text-state-error" size={20}/>
                 지점 비활성화
               </h2>
-              <button className="text-content-secondary hover:text-content" onClick={() => setIsDeactivateOpen(false)}>
-                <X size={24}/>
-              </button>
+              <Button variant="ghost" size="sm" icon={<X size={24}/>} onClick={() => setIsDeactivateOpen(false)} />
             </div>
 
             <div className="p-xl space-y-lg">
@@ -920,18 +898,8 @@ export default function BranchManagement() {
                     </div>
                   </div>
                   <div className="flex justify-end gap-sm">
-                    <button
-                      className="px-lg py-sm text-content-secondary hover:bg-surface-secondary rounded-button transition-colors"
-                      onClick={() => setIsDeactivateOpen(false)}
-                    >
-                      취소
-                    </button>
-                    <button
-                      className="px-lg py-sm bg-state-error text-white font-semibold rounded-button hover:opacity-90 transition-opacity"
-                      onClick={handleDeactivateConfirm}
-                    >
-                      계속 진행
-                    </button>
+                    <Button variant="outline" onClick={() => setIsDeactivateOpen(false)}>취소</Button>
+                    <Button variant="danger" onClick={handleDeactivateConfirm}>계속 진행</Button>
                   </div>
                 </>
               ) : (
@@ -950,18 +918,8 @@ export default function BranchManagement() {
                     </p>
                   </div>
                   <div className="flex justify-end gap-sm">
-                    <button
-                      className="px-lg py-sm text-content-secondary hover:bg-surface-secondary rounded-button transition-colors"
-                      onClick={() => setDeactivateStep(1)}
-                    >
-                      이전
-                    </button>
-                    <button
-                      className="px-lg py-sm bg-state-error text-white font-semibold rounded-button hover:opacity-90 transition-opacity"
-                      onClick={handleDeactivateConfirm}
-                    >
-                      최종 비활성화
-                    </button>
+                    <Button variant="outline" onClick={() => setDeactivateStep(1)}>이전</Button>
+                    <Button variant="danger" onClick={handleDeactivateConfirm}>최종 비활성화</Button>
                   </div>
                 </>
               )}
@@ -978,9 +936,7 @@ export default function BranchManagement() {
                 <AlertTriangle className="text-state-error" size={20}/>
                 {statusChangeType === 'closed' ? '폐점 처리' : '임시휴업 처리'}
               </h2>
-              <button className="text-content-secondary hover:text-content" onClick={() => setIsStatusChangeOpen(false)}>
-                <X size={24}/>
-              </button>
+              <Button variant="ghost" size="sm" icon={<X size={24}/>} onClick={() => setIsStatusChangeOpen(false)} />
             </div>
 
             <div className="p-xl space-y-lg">
@@ -1022,19 +978,10 @@ export default function BranchManagement() {
               )}
 
               <div className="flex justify-end gap-sm">
-                <button
-                  className="px-lg py-sm text-content-secondary hover:bg-surface-secondary rounded-button transition-colors"
-                  onClick={() => setIsStatusChangeOpen(false)}
-                >
-                  취소
-                </button>
-                <button
-                  className="px-lg py-sm bg-state-error text-white font-semibold rounded-button hover:opacity-90 transition-opacity disabled:opacity-50"
-                  onClick={handleStatusChangeConfirm}
-                  disabled={isStatusChangeSaving}
-                >
-                  {isStatusChangeSaving ? '처리 중...' : (statusChangeType === 'closed' ? '폐점 확인' : '임시휴업 확인')}
-                </button>
+                <Button variant="outline" onClick={() => setIsStatusChangeOpen(false)}>취소</Button>
+                <Button variant="danger" onClick={handleStatusChangeConfirm} disabled={isStatusChangeSaving} loading={isStatusChangeSaving}>
+                  {statusChangeType === 'closed' ? '폐점 확인' : '임시휴업 확인'}
+                </Button>
               </div>
             </div>
           </div>

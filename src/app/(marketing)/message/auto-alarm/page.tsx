@@ -30,6 +30,7 @@ import FormSection from "@/components/common/FormSection";
 import { moveToPage } from "@/internal";
 import Select from "@/components/ui/Select";
 import Textarea from "@/components/ui/Textarea";
+import Button from "@/components/ui/Button";
 import { supabase } from "@/lib/supabase";
 import { toast } from "sonner";
 
@@ -515,9 +516,7 @@ export default function AutoAlarm() {
                   <p className="text-Body-2 text-content-secondary">자동 알림 템플릿 편집</p>
                 </div>
               </div>
-              <button className="text-content-secondary hover:text-content transition-colors" onClick={() => setIsModalOpen(false)}>
-                <X size={24} />
-              </button>
+              <Button variant="ghost" size="sm" icon={<X size={24} />} onClick={() => setIsModalOpen(false)} />
             </div>
 
             {/* 모달 본문 */}
@@ -630,9 +629,7 @@ export default function AutoAlarm() {
                     </div>
                   </div>
                 </div>
-                <button className="mt-md flex items-center gap-xs rounded-full bg-surface px-md py-sm border border-line text-[12px] text-content-secondary hover:text-primary transition-colors">
-                  <Smartphone size={13} />테스트 발송
-                </button>
+                <Button variant="outline" size="sm" icon={<Smartphone size={13} />} className="mt-md rounded-full">테스트 발송</Button>
               </div>
             </div>
 

@@ -34,6 +34,7 @@ import { moveToPage } from "@/internal";
 import { supabase } from "@/lib/supabase";
 import Select from "@/components/ui/Select";
 import Textarea from "@/components/ui/Textarea";
+import Button from "@/components/ui/Button";
 import { toast } from "sonner";
 import { exportToExcel } from "@/lib/exportExcel";
 
@@ -369,9 +370,7 @@ const EventDetailModal = ({
               </span>
             )}
           </div>
-          <button className="p-sm hover:bg-surface-secondary rounded-full transition-colors" onClick={onClose}>
-            <XCircle className="text-content-secondary" size={20} />
-          </button>
+          <Button variant="ghost" size="sm" icon={<XCircle size={20} />} onClick={onClose} />
         </div>
 
         <div className="p-xl space-y-md">
@@ -1447,21 +1446,8 @@ export default function Calendar() {
         description="PT 및 그룹 수업 스케줄을 관리하고 회원의 예약 현황을 확인합니다."
         actions={
           <div className="flex items-center gap-sm">
-            <button className="flex items-center gap-xs px-md py-sm bg-surface-secondary border border-line text-content-secondary hover:text-primary transition-all rounded-lg text-[13px] font-semibold">
-              <Settings2 size={15} />
-              스케줄 일괄 변경
-            </button>
-            <button
-              className="flex items-center gap-xs px-md py-sm bg-primary text-white hover:opacity-90 transition-all rounded-lg text-[13px] font-semibold shadow-sm"
-              onClick={() => {
-                setSelectedEvent(null);
-                resetForm();
-                setIsAddModalOpen(true);
-              }}
-            >
-              <Plus size={15} />
-              수업 등록
-            </button>
+            <Button variant="outline" icon={<Settings2 size={15} />}>스케줄 일괄 변경</Button>
+            <Button variant="primary" icon={<Plus size={15} />} onClick={() => { setSelectedEvent(null); resetForm(); setIsAddModalOpen(true); }}>수업 등록</Button>
           </div>
         }
       />
@@ -1945,9 +1931,7 @@ export default function Calendar() {
                   {
                     key: "actions", header: "관리", align: "center" as const,
                     render: () => (
-                      <button className="p-sm hover:bg-surface-secondary rounded-full text-content-secondary transition-colors">
-                        <MoreHorizontal size={15} />
-                      </button>
+                      <Button variant="ghost" size="sm" icon={<MoreHorizontal size={15} />} />
                     )
                   }
                 ]}
@@ -1983,16 +1967,14 @@ export default function Calendar() {
             <div className="space-y-md">
               <div className="flex items-center justify-between">
                 <h3 className="text-[15px] font-bold text-content">페널티 부여 내역</h3>
-                <button className="flex items-center gap-xs px-md py-sm border border-line rounded-lg text-[12px] font-semibold text-content-secondary hover:bg-surface-secondary transition-colors">
-                  <Filter size={13} /> 필터
-                </button>
+                <Button variant="outline" size="sm" icon={<Filter size={13} />}>필터</Button>
               </div>
               <DataTable
                 columns={[
                   {
                     key: "memberName", header: "회원명", sortable: true,
                     render: (val: string, row: any) => (
-                      <button className="text-primary font-bold hover:underline text-[13px]" onClick={() => moveToPage(985, { id: row.id })}>{val}</button>
+                      <Button variant="ghost" size="sm" onClick={() => moveToPage(985, { id: row.id })}>{val}</Button>
                     )
                   },
                   { key: "className", header: "수업명" },

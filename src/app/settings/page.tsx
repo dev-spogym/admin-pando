@@ -27,6 +27,7 @@ import FormSection from "@/components/common/FormSection";
 import { cn } from '@/lib/utils';
 import { moveToPage } from '@/internal';
 import Textarea from '@/components/ui/Textarea';
+import Button from '@/components/ui/Button';
 import { supabase } from '@/lib/supabase';
 
 type TabKey = 'basic' | 'notification' | 'theme' | 'supplies';
@@ -283,9 +284,7 @@ export default function Settings() {
               <ImageIcon className="text-content-secondary" size={28} />
               <span className="text-Label text-content-secondary">센터 로고</span>
             </div>
-            <button className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center text-white transition-opacity rounded-xl">
-              <Plus size={22} />
-            </button>
+            <Button variant="ghost" icon={<Plus size={22} />} className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center text-white transition-opacity rounded-xl" />
           </div>
           <div className="flex-1 grid grid-cols-2 gap-md">
             <div className="space-y-xs">
@@ -336,9 +335,7 @@ export default function Settings() {
               readOnly
               value={centerInfo.address}
             />
-            <button className="bg-accent-light text-accent px-lg rounded-button text-Body-2 font-semibold whitespace-nowrap">
-              주소검색
-            </button>
+            <Button variant="outline">주소검색</Button>
           </div>
         </div>
 

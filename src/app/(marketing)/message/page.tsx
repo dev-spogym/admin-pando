@@ -47,6 +47,8 @@ import FormSection from "@/components/common/FormSection";
 import Toggle from "@/components/ui/Toggle";
 import Select from "@/components/ui/Select";
 import Textarea from "@/components/ui/Textarea";
+import Checkbox from "@/components/ui/Checkbox";
+import RadioGroup from "@/components/ui/RadioGroup";
 
 // --- 채널 설정 ---
 const CHANNEL_CONFIG = {
@@ -139,10 +141,11 @@ function RecipientModal({
         </div>
 
         <div className="px-lg py-sm border-b border-line flex items-center justify-between bg-surface-secondary/20">
-          <label className="flex items-center gap-sm cursor-pointer text-Body-2 text-content">
-            <input type="checkbox" className="w-4 h-4 accent-primary" checked={isAllSelected} onChange={toggleAll} />
-            <span className="font-semibold">전체 선택</span>
-          </label>
+          <Checkbox
+            checked={isAllSelected}
+            onChange={toggleAll}
+            label="전체 선택"
+          />
           <span className="text-Label text-content-secondary">{filtered.length}명 표시 중</span>
         </div>
 
@@ -151,7 +154,7 @@ function RecipientModal({
             const checked = temp.some(s => s.id === m.id);
             return (
               <label key={m.id} className="flex items-center gap-md px-lg py-md cursor-pointer hover:bg-surface-secondary/20 transition-colors">
-                <input type="checkbox" className="w-4 h-4 accent-primary" checked={checked} onChange={() => toggle(m)} />
+                <Checkbox checked={checked} onChange={() => toggle(m)} />
                 <div className="flex-1">
                   <p className="text-Body-2 font-medium text-content">{m.name}</p>
                   <p className="text-Label text-content-secondary">{m.phone} · {m.group}</p>
@@ -640,14 +643,11 @@ export default function MessageSend() {
                     {/* 예약 발송 + UI-065 발송 버튼 */}
                     <div className="pt-md border-t border-line flex items-center justify-between">
                       <div className="flex items-center gap-sm">
-                        <input
-                          type="checkbox"
-                          id="reserve"
-                          className="w-4 h-4 accent-primary"
+                        <Checkbox
                           checked={sendForm.isReserved}
-                          onChange={e => setSendForm(prev => ({ ...prev, isReserved: e.target.checked }))}
+                          onChange={checked => setSendForm(prev => ({ ...prev, isReserved: checked }))}
+                          label="예약 발송"
                         />
-                        <label htmlFor="reserve" className="text-Body-2 text-content cursor-pointer">예약 발송</label>
                         {sendForm.isReserved && (
                           <input
                             type="datetime-local"

@@ -43,6 +43,7 @@ import ConfirmDialog from "@/components/ui/ConfirmDialog";
 import FormSection from "@/components/common/FormSection";
 import Select from "@/components/ui/Select";
 import Textarea from "@/components/ui/Textarea";
+import Button from "@/components/ui/Button";
 
 // -- 쿠폰 코드 자동 생성 유틸 --
 function generateCouponCode(): string {
@@ -656,9 +657,7 @@ function CouponFormModal({ coupon, onClose, onSave }: any) {
       <div className="w-full max-w-2xl bg-surface rounded-modal shadow-card max-h-[90vh] overflow-y-auto">
         <div className="px-xl py-lg border-b border-line flex justify-between items-center bg-surface sticky top-0 z-10">
           <h2 className="text-Heading-2 font-bold text-content">{coupon ? "쿠폰 수정" : "신규 쿠폰 생성"}</h2>
-          <button className="text-content-secondary hover:text-content transition-colors" onClick={onClose}>
-            <X size={20} />
-          </button>
+          <Button variant="ghost" size="sm" icon={<X size={20} />} onClick={onClose} />
         </div>
 
         <div className="p-xl space-y-lg">
@@ -817,8 +816,8 @@ function CouponFormModal({ coupon, onClose, onSave }: any) {
         </div>
 
         <div className="px-xl py-lg border-t border-line bg-surface-secondary/5 flex justify-end gap-md">
-          <button className="px-xl py-md rounded-button border border-line text-content-secondary hover:bg-surface transition-colors" onClick={onClose}>취소</button>
-          <button className="px-xl py-md rounded-button bg-primary text-white font-semibold hover:opacity-90 transition-opacity" onClick={() => onSave(formData)}>저장하기</button>
+          <Button variant="outline" onClick={onClose}>취소</Button>
+          <Button variant="primary" onClick={() => onSave(formData)}>저장하기</Button>
         </div>
       </div>
     </div>
@@ -913,9 +912,7 @@ function IssueCouponModal({ coupon, onClose, onIssue }: any) {
             <h2 className="text-Heading-2 font-bold text-content">쿠폰 발급</h2>
             <p className="text-Body-2 text-content-secondary mt-xs">{coupon.name}</p>
           </div>
-          <button className="text-content-secondary hover:text-content transition-colors" onClick={onClose}>
-            <X size={20} />
-          </button>
+          <Button variant="ghost" size="sm" icon={<X size={20} />} onClick={onClose} />
         </div>
 
         <div className="p-xl space-y-lg overflow-y-auto flex-1">
@@ -1002,9 +999,7 @@ function IssueCouponModal({ coupon, onClose, onIssue }: any) {
                       className="px-md py-xs bg-primary-light text-primary text-Label rounded-full flex items-center gap-xs border border-primary/20"
                     >
                       {m.name}
-                      <button onClick={() => removeMember(m.id)} className="hover:text-state-error transition-colors">
-                        <X size={12} />
-                      </button>
+                      <Button variant="ghost" size="sm" icon={<X size={12} />} onClick={() => removeMember(m.id)} />
                     </span>
                   ))}
                 </div>

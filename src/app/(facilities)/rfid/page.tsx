@@ -30,6 +30,9 @@ import { moveToPage } from "@/internal";
 import { supabase } from "@/lib/supabase";
 import { toast } from "sonner";
 import { exportToExcel } from "@/lib/exportExcel";
+import Button from "@/components/ui/Button";
+import SimpleTable from "@/components/common/SimpleTable";
+import RadioGroup from "@/components/ui/RadioGroup";
 
 const getBranchId = (): number => {
   if (typeof window === 'undefined') return 1;
@@ -98,9 +101,7 @@ const HistoryModal = ({ card, onClose }: { card: RfidCard; onClose: () => void }
             카드 ID: <span className="font-bold text-content">{card.cardNo}</span>
           </p>
         </div>
-        <button className="p-sm hover:bg-surface-secondary rounded-full transition-colors" onClick={onClose}>
-          <X className="text-content-secondary" size={22} />
-        </button>
+        <Button variant="ghost" size="sm" icon={<X size={22} />} onClick={onClose} />
       </div>
 
       <div className="flex-1 overflow-y-auto p-xl">
@@ -108,51 +109,28 @@ const HistoryModal = ({ card, onClose }: { card: RfidCard; onClose: () => void }
           <input className="rounded-lg border border-line px-md py-xs text-[13px] bg-surface-secondary outline-none focus:border-primary" type="date" defaultValue={new Date().toISOString().slice(0, 10)} />
           <span className="text-content-secondary">~</span>
           <input className="rounded-lg border border-line px-md py-xs text-[13px] bg-surface-secondary outline-none focus:border-primary" type="date" defaultValue={new Date().toISOString().slice(0, 10)} />
-          <button className="flex items-center gap-xs px-md py-xs bg-surface-secondary border border-line text-content-secondary rounded-lg text-[12px] font-semibold hover:bg-surface-tertiary transition-colors">
-            <RefreshCcw size={13} /> 조회
-          </button>
+          <Button variant="outline" size="sm" icon={<RefreshCcw size={13} />}>조회</Button>
         </div>
 
         {/* UI-110 카드 이력 테이블 — 등록일/카드번호/회원명/상태 */}
-        <div className="rounded-xl border border-line overflow-hidden">
-          <table className="w-full border-collapse">
-            <thead className="bg-surface-secondary/50">
-              <tr>
-                <th className="px-md py-sm text-left text-[12px] font-semibold text-content-secondary">등록일</th>
-                <th className="px-md py-sm text-left text-[12px] font-semibold text-content-secondary">카드번호</th>
-                <th className="px-md py-sm text-left text-[12px] font-semibold text-content-secondary">회원명</th>
-                <th className="px-md py-sm text-center text-[12px] font-semibold text-content-secondary">상태</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-line">
-              {[
-                { date: "2026-02-01 10:20", cardNo: card.cardNo, user: "홍길동", status: "활성" as CardStatus },
-                { date: "2026-01-20 15:45", cardNo: card.cardNo, user: "이수진", status: "해제" as CardStatus },
-                { date: "2026-01-05 09:10", cardNo: card.cardNo, user: "박철수", status: "활성" as CardStatus },
-                { date: "2025-12-28 18:30", cardNo: card.cardNo, user: "정미영", status: "분실" as CardStatus },
-              ].map((item, idx) => (
-                <tr key={idx} className="hover:bg-surface-secondary/20 transition-colors">
-                  <td className="px-md py-sm text-[12px] text-content font-mono">{item.date}</td>
-                  <td className="px-md py-sm text-[12px] text-content font-mono">{item.cardNo}</td>
-                  <td className="px-md py-sm">
-                    <button className="text-[13px] font-semibold text-primary hover:underline" onClick={() => moveToPage(985)}>
-                      {item.user}
-                    </button>
-                  </td>
-                  <td className="px-md py-sm text-center">
-                    <StatusBadge variant={CARD_STATUS_VARIANT[item.status]} label={item.status} dot />
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        <SimpleTable
+          columns={[
+            { key: 'date', header: '등록일', render: (v: string) => <span className="text-[12px] text-content font-mono">{v}</span> },
+            { key: 'cardNo', header: '카드번호', render: (v: string) => <span className="text-[12px] text-content font-mono">{v}</span> },
+            { key: 'user', header: '회원명', render: (v: string) => <Button variant="ghost" size="sm" onClick={() => moveToPage(985)}>{v}</Button> },
+            { key: 'status', header: '상태', align: 'center', render: (v: CardStatus) => <StatusBadge variant={CARD_STATUS_VARIANT[v]} label={v} dot /> },
+          ]}
+          data={[
+            { date: "2026-02-01 10:20", cardNo: card.cardNo, user: "홍길동", status: "활성" as CardStatus },
+            { date: "2026-01-20 15:45", cardNo: card.cardNo, user: "이수진", status: "해제" as CardStatus },
+            { date: "2026-01-05 09:10", cardNo: card.cardNo, user: "박철수", status: "활성" as CardStatus },
+            { date: "2025-12-28 18:30", cardNo: card.cardNo, user: "정미영", status: "분실" as CardStatus },
+          ]}
+        />
       </div>
 
       <div className="px-xl py-lg border-t border-line flex justify-end">
-        <button className="px-xl py-sm rounded-lg bg-surface-secondary text-content-secondary text-[13px] font-semibold hover:bg-surface-tertiary transition-colors" onClick={onClose}>
-          닫기
-        </button>
+        <Button variant="outline" onClick={onClose}>닫기</Button>
       </div>
     </div>
   </div>
@@ -203,9 +181,7 @@ const CardModal = ({
             </h2>
             <p className="text-[12px] text-content-secondary mt-xs">RFID 리더기를 통해 카드 번호를 자동 입력하거나 수동으로 입력하세요.</p>
           </div>
-          <button className="p-sm hover:bg-surface-secondary rounded-full transition-colors" onClick={onClose}>
-            <X className="text-content-secondary" size={22} />
-          </button>
+          <Button variant="ghost" size="sm" icon={<X size={22} />} onClick={onClose} />
         </div>
 
         <div className="flex-1 overflow-y-auto p-xl space-y-xl">
@@ -232,12 +208,7 @@ const CardModal = ({
                 <p className="text-[12px] text-content-secondary mt-xs">태그 시 카드 번호가 자동 입력됩니다.</p>
               </div>
               {isScanning && (
-                <button
-                  className="text-[12px] text-primary hover:underline font-semibold"
-                  onClick={handleScan}
-                >
-                  [시뮬레이션: 카드 스캔하기]
-                </button>
+                <Button variant="ghost" size="sm" onClick={handleScan}>[시뮬레이션: 카드 스캔하기]</Button>
               )}
             </div>
             <div className="flex gap-sm">
@@ -247,12 +218,7 @@ const CardModal = ({
                 value={cardNo}
                 onChange={e => setCardNo(e.target.value)}
               />
-              <button
-                className="px-lg h-10 rounded-lg bg-primary text-white text-[13px] font-bold hover:opacity-90 transition-all shadow-sm"
-                onClick={handleScan}
-              >
-                스캔
-              </button>
+              <Button variant="primary" onClick={handleScan}>스캔</Button>
             </div>
             {cardNo && (
               <div className="mt-xs flex items-center gap-xs text-state-success">
@@ -267,22 +233,15 @@ const CardModal = ({
             <label className="block text-[12px] font-semibold text-content-secondary mb-sm">
               사용자 유형 <span className="text-state-error">*</span>
             </label>
-            <div className="flex items-center gap-lg h-10">
-              {(["회원", "직원"] as const).map(type => (
-                <label key={type} className="flex items-center gap-xs cursor-pointer group">
-                  <input
-                    className="w-4 h-4 accent-primary"
-                    type="radio"
-                    name="userType"
-                    checked={userType === type}
-                    onChange={() => setUserType(type)}
-                  />
-                  <span className={cn("text-[13px] group-hover:text-primary transition-colors", userType === type ? "text-primary font-semibold" : "text-content")}>
-                    {type}
-                  </span>
-                </label>
-              ))}
-            </div>
+            <RadioGroup
+              options={[
+                { value: '회원', label: '회원' },
+                { value: '직원', label: '직원' },
+              ]}
+              value={userType}
+              onChange={(v) => setUserType(v as "회원" | "직원")}
+              direction="horizontal"
+            />
           </div>
 
           <div>
@@ -329,9 +288,7 @@ const CardModal = ({
                     <p className="text-[11px] text-content-secondary">{selectedMember.memberNo}</p>
                   )}
                 </div>
-                <button className="ml-auto text-content-tertiary hover:text-content-secondary" onClick={() => { setSelectedMember(null); setMemberSearch(""); }}>
-                  <X size={13} />
-                </button>
+                <Button variant="ghost" size="sm" icon={<X size={13} />} onClick={() => { setSelectedMember(null); setMemberSearch(""); }} className="ml-auto" />
               </div>
             )}
           </div>
@@ -348,17 +305,9 @@ const CardModal = ({
         </div>
 
         <div className="px-xl py-lg border-t border-line flex justify-end gap-sm">
-          <button
-            className="px-lg py-sm rounded-lg border border-line text-content-secondary text-[13px] font-semibold hover:bg-surface-secondary transition-colors"
-            onClick={onClose}
-          >
-            취소
-          </button>
-          <button
-            className={cn(
-              "px-xl py-sm rounded-lg text-[13px] font-bold shadow-sm transition-all",
-              isValid ? "bg-primary text-white hover:opacity-90" : "bg-surface-tertiary text-content-tertiary cursor-not-allowed"
-            )}
+          <Button variant="outline" onClick={onClose}>취소</Button>
+          <Button
+            variant="primary"
             disabled={!isValid}
             onClick={() => {
               if (!isValid || !selectedMember) return;
@@ -367,7 +316,7 @@ const CardModal = ({
             }}
           >
             {card?.cardNo ? "수정 완료" : "등록 완료"}
-          </button>
+          </Button>
         </div>
       </div>
     </div>
@@ -493,35 +442,10 @@ export default function RfidManagement() {
       header: "메뉴", width: 110, align: "center" as const,
       render: (_: any, row: RfidCard) => (
         <div className="flex items-center justify-center gap-xs">
-          <button
-            className="p-xs text-content-secondary hover:text-primary transition-colors"
-            title="이력 보기"
-            onClick={() => { setSelectedCard(row); setHistoryOpen(true); }}
-          >
-            <History size={15} />
-          </button>
-          <button
-            className="p-xs text-content-secondary hover:text-state-error transition-colors"
-            title="분실 처리"
-            onClick={() => handleMarkLost(row)}
-            disabled={row.status === "분실"}
-          >
-            <AlertCircle size={15} className={row.status === "분실" ? "opacity-30" : ""} />
-          </button>
-          <button
-            className="p-xs text-content-secondary hover:text-primary transition-colors"
-            title="수정"
-            onClick={() => { setSelectedCard(row); setAddModal(true); }}
-          >
-            <Edit2 size={15} />
-          </button>
-          <button
-            className="p-xs text-content-secondary hover:text-state-error transition-colors"
-            title="삭제"
-            onClick={() => { setSelectedCard(row); setDeleteOpen(true); }}
-          >
-            <Trash2 size={15} />
-          </button>
+          <Button variant="ghost" size="sm" icon={<History size={15} />} title="이력 보기" onClick={() => { setSelectedCard(row); setHistoryOpen(true); }} />
+          <Button variant="ghost" size="sm" icon={<AlertCircle size={15} />} title="분실 처리" onClick={() => handleMarkLost(row)} disabled={row.status === "분실"} />
+          <Button variant="ghost" size="sm" icon={<Edit2 size={15} />} title="수정" onClick={() => { setSelectedCard(row); setAddModal(true); }} />
+          <Button variant="ghost" size="sm" icon={<Trash2 size={15} />} title="삭제" onClick={() => { setSelectedCard(row); setDeleteOpen(true); }} />
         </div>
       )
     },
@@ -534,12 +458,7 @@ export default function RfidManagement() {
           title="밴드/카드 관리"
           description="RFID 밴드 및 카드를 등록하고 회원/직원과 연결하여 출입 및 시설 이용을 관리합니다."
           actions={
-            <button
-              className="flex items-center gap-sm bg-primary text-white px-lg py-sm rounded-lg text-[13px] font-bold shadow-sm hover:opacity-90 transition-all"
-              onClick={() => { setSelectedCard(null); setAddModal(true); }}
-            >
-              <Plus size={16} /> 신규 등록
-            </button>
+            <Button variant="primary" icon={<Plus size={16} />} onClick={() => { setSelectedCard(null); setAddModal(true); }}>신규 등록</Button>
           }
         />
 

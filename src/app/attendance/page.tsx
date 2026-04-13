@@ -41,6 +41,7 @@ import { toast } from "sonner";
 import { exportToExcel } from "@/lib/exportExcel";
 import { deductSession } from "@/lib/businessLogic";
 import { checkOutMember } from "@/api/endpoints/attendance";
+import Button from "@/components/ui/Button";
 
 /**
  * SCR-020: 출석 관리 (Attendance)
@@ -698,9 +699,7 @@ export default function Attendance() {
       header: "회원명",
       width: 120,
       render: (val: string, row: AttendanceRecord) => (
-        <button className="font-semibold text-primary hover:underline text-left text-[13px]" onClick={() => moveToPage(985, { id: row.memberId })}>
-          {val}
-        </button>
+        <Button variant="ghost" size="sm" onClick={() => moveToPage(985, { id: row.memberId })}>{val}</Button>
       )
     },
     {
@@ -805,9 +804,7 @@ export default function Attendance() {
             <div className="flex items-center gap-sm flex-wrap">
               {/* 날짜 네비게이션 + DatePicker */}
               <div className="flex items-center gap-xs bg-surface border border-line rounded-lg px-sm py-xs shadow-xs">
-                <button className="p-xs hover:bg-surface-secondary rounded-md transition-colors text-content-secondary" onClick={() => navigate(-1)}>
-                  <ChevronLeft size={18} />
-                </button>
+                <Button variant="ghost" size="sm" icon={<ChevronLeft size={18} />} onClick={() => navigate(-1)} />
                 <div className="flex items-center gap-xs px-xs">
                   <CalendarIcon size={15} className="text-primary" />
                   <input
@@ -817,9 +814,7 @@ export default function Attendance() {
                     className="text-[13px] font-mono font-semibold text-content bg-transparent border-none outline-none cursor-pointer"
                   />
                 </div>
-                <button className="p-xs hover:bg-surface-secondary rounded-md transition-colors text-content-secondary" onClick={() => navigate(1)}>
-                  <ChevronRight size={18} />
-                </button>
+                <Button variant="ghost" size="sm" icon={<ChevronRight size={18} />} onClick={() => navigate(1)} />
               </div>
 
               {/* 뷰 전환 (일/주/월) — UI-123 */}
@@ -1000,9 +995,7 @@ export default function Attendance() {
                 <div className="flex-1">
                   <div className="flex justify-between items-start">
                     <p className="text-[14px] font-bold text-content">{popup.name}</p>
-                    <button className="text-content-tertiary hover:text-content" onClick={() => setPopups(p => p.filter(x => x.id !== popup.id))}>
-                      <XCircle size={16} />
-                    </button>
+                    <Button variant="ghost" size="sm" icon={<XCircle size={16} />} onClick={() => setPopups(p => p.filter(x => x.id !== popup.id))} />
                   </div>
                   <StatusBadge variant="success" label={popup.status} dot className="mt-xs" />
                   <p className="text-[12px] text-content-secondary mt-xs flex items-center gap-xs">
