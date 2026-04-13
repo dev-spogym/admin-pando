@@ -23,8 +23,25 @@ const AppLayout = ({ children }: AppLayoutProps) => {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(() => typeof window !== 'undefined' ? window.innerWidth < MOBILE_BREAKPOINT : false);
   const authUser = useAuthStore((s) => s.user);
+  const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
   const designDocMode = useUiStore((s) => s.designDocMode);
   const toggleDesignDocMode = useUiStore((s) => s.toggleDesignDocMode);
+
+  // 인증 가드: 로그인 안 된 상태면 /login으로 리다이렉트
+  useEffect(() => {
+    if (!isAuthenticated) {
+      router.replace('/login');
+    }
+  }, [isAuthenticated, router]);
+
+  // 인증 안 된 상태에서는 빈 화면 (리다이렉트 대기)
+  if (!isAuthenticated) {
+    return (
+      <div className="flex h-screen w-full items-center justify-center bg-surface-secondary">
+        <div className="text-content-tertiary text-[13px]">로그인 페이지로 이동 중...</div>
+      </div>
+    );
+  }
 
   // Cmd/Ctrl + / 단축키로 화면설계서 모드 토글
   useEffect(() => {
