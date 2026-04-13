@@ -2,7 +2,9 @@
 import AppHeader from "@/components/layout/AppHeader";
 import AppSidebar from "@/components/layout/AppSidebar";
 import RightQuickPanel from "@/components/panels/RightQuickPanel";
+import DesignDocPanel from "@/components/layout/DesignDocPanel";
 import { cn } from "@/lib/utils";
+import { useUiStore } from "@/stores/uiStore";
 import { moveToPage } from "@/internal";
 import { useRouter, usePathname } from "next/navigation";
 import { useAuthStore } from "@/stores/authStore";
@@ -21,6 +23,7 @@ const AppLayout = ({ children }: AppLayoutProps) => {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(() => typeof window !== 'undefined' ? window.innerWidth < MOBILE_BREAKPOINT : false);
   const authUser = useAuthStore((s) => s.user);
+  const designDocMode = useUiStore((s) => s.designDocMode);
 
   // 화면 크기 감지
   useEffect(() => {
@@ -147,6 +150,9 @@ const AppLayout = ({ children }: AppLayoutProps) => {
 
       {/* 우측 퀵패널 — 모바일에서는 숨김 */}
       {!isMobile && <RightQuickPanel />}
+
+      {/* 화면설계서 오버레이 패널 */}
+      <DesignDocPanel />
     </div>
   );
 };

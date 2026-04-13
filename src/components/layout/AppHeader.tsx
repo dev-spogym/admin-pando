@@ -13,10 +13,12 @@ import {
   Eye,
   EyeOff,
   Loader2,
+  ClipboardList,
 } from "lucide-react";
 import { toast } from "sonner";
 import { moveToPage } from "@/internal";
 import { useAuthStore } from "@/stores/authStore";
+import { useUiStore } from "@/stores/uiStore";
 import { normalizeRole, hasPermission } from "@/lib/permissions";
 import { supabase } from "@/lib/supabase";
 import { changePassword } from "@/api/endpoints/auth";
@@ -87,6 +89,8 @@ const AppHeader = ({
 }: AppHeaderProps) => {
   const authUser = useAuthStore((s) => s.user);
   const setBranch = useAuthStore((s) => s.setBranch);
+  const designDocMode = useUiStore((s) => s.designDocMode);
+  const toggleDesignDocMode = useUiStore((s) => s.toggleDesignDocMode);
 
   // props 우선, 없으면 스토어 값 사용
   const displayBranchName = branchNameProp ?? authUser?.branchName ?? 'FitGenie CRM';
@@ -431,6 +435,23 @@ const AppHeader = ({
 
       {/* ── Right ── */}
       <div className="flex items-center gap-sm">
+        {/* ── 화면설계서 모드 토글 ── */}
+        <div className="relative group">
+          <button
+            className={`flex h-8 w-8 items-center justify-center rounded-md transition-colors ${
+              designDocMode
+                ? 'bg-primary/10 text-primary'
+                : 'text-content-secondary hover:bg-surface-tertiary hover:text-content'
+            }`}
+            onClick={toggleDesignDocMode}
+          >
+            <ClipboardList size={18} />
+          </button>
+          <span className="absolute -bottom-8 left-1/2 -translate-x-1/2 whitespace-nowrap rounded bg-content px-2 py-1 text-[11px] text-white opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50">
+            화면설계서 모드
+          </span>
+        </div>
+
         {/* ── 알림 드롭다운 ── */}
         <div className="relative">
           <button

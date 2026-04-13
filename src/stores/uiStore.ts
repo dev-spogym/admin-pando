@@ -8,6 +8,10 @@ interface UiState {
   // 현재 활성 경로
   activePath: string;
   setActivePath: (path: string) => void;
+  // 화면설계서 모드
+  designDocMode: boolean;
+  toggleDesignDocMode: () => void;
+  setDesignDocMode: (open: boolean) => void;
 }
 
 export const useUiStore = create<UiState>((set) => ({
@@ -21,5 +25,15 @@ export const useUiStore = create<UiState>((set) => ({
 
   setActivePath: (path) => {
     set({ activePath: path });
+  },
+
+  designDocMode: false,
+
+  toggleDesignDocMode: () => {
+    set((state) => ({ designDocMode: !state.designDocMode }));
+  },
+
+  setDesignDocMode: (open) => {
+    set({ designDocMode: open });
   },
 }));
