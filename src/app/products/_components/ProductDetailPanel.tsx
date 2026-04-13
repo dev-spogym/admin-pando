@@ -1,6 +1,7 @@
 import { getBranchId } from '@/lib/getBranchId';
 import React, { useEffect, useState } from 'react';
 import { toast } from 'sonner';
+import { formatNumber } from '@/lib/format';
 import { ChevronDown, ChevronRight, Plus, Save, Search, Trash2, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/lib/supabase';
@@ -299,7 +300,7 @@ export default function ProductDetailPanel({ product, isNew, onSave, onDelete, o
   const handlePriceChange = (value: string) => {
     const raw = value.replace(/[^0-9]/g, '');
     const num = parseInt(raw, 10);
-    setCashPrice(Number.isNaN(num) ? '' : num.toLocaleString());
+    setCashPrice(Number.isNaN(num) ? '' : formatNumber(num));
   };
 
   const handleSave = async () => {
@@ -905,7 +906,7 @@ export default function ProductDetailPanel({ product, isNew, onSave, onDelete, o
                         onChange={e => {
                           const raw = e.target.value.replace(/[^0-9]/g, '');
                           const num = parseInt(raw, 10);
-                          setPackagePrice(Number.isNaN(num) ? '' : num.toLocaleString());
+                          setPackagePrice(Number.isNaN(num) ? '' : formatNumber(num));
                         }}
                         placeholder="할인가 직접 입력"
                         className={cn(fieldClass, 'pr-10 text-right tabular-nums')}

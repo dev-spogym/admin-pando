@@ -156,12 +156,12 @@ export default function ExerciseProgramManagement() {
       key: 'actions', header: '', width: 80, align: 'center' as const,
       render: (_: unknown, row: ExerciseProgram) => (
         <div className="flex items-center justify-center gap-xs">
-          <button className="p-xs text-content-tertiary hover:text-accent transition-colors" onClick={() => openEdit(row)} title="수정">
+          <Button variant="ghost" size="sm" onClick={() => openEdit(row)} title="수정">
             <Edit2 size={15} />
-          </button>
-          <button className="p-xs text-content-tertiary hover:text-state-error transition-colors" onClick={() => { setDeleteTarget(row.id); setDeleteDialogOpen(true); }} title="삭제">
+          </Button>
+          <Button variant="ghost" size="sm" onClick={() => { setDeleteTarget(row.id); setDeleteDialogOpen(true); }} title="삭제">
             <Trash2 size={15} />
-          </button>
+          </Button>
         </div>
       ),
     },

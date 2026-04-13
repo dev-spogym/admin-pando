@@ -512,9 +512,9 @@ export default function PayrollStatement() {
                   <p className="text-Body-2 text-content-secondary whitespace-nowrap">{modalStaffName} · {modalStatement.paymentDate} 지급분</p>
                 </div>
               </div>
-              <button className="p-sm text-content-secondary hover:text-content transition-colors" onClick={() => setIsModalOpen(false)}>
+              <Button variant="ghost" size="sm" onClick={() => setIsModalOpen(false)}>
                 <X size={22} />
-              </button>
+              </Button>
             </div>
 
             {/* 모달 본문 */}

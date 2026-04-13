@@ -45,6 +45,7 @@ import FormSection from "@/components/common/FormSection";
 import Select from "@/components/ui/Select";
 import Textarea from "@/components/ui/Textarea";
 import Button from "@/components/ui/Button";
+import Input from "@/components/ui/Input";
 
 // -- 쿠폰 코드 자동 생성 유틸 --
 function generateCouponCode(): string {
@@ -665,9 +666,8 @@ function CouponFormModal({ coupon, onClose, onSave }: any) {
           <FormSection title="기본 정보" columns={1}>
             {/* 쿠폰명 */}
             <div className="space-y-sm">
-              <label className="text-Label text-content-secondary">쿠폰명 <span className="text-state-error">*</span></label>
-              <input
-                className="w-full bg-surface-secondary border-0 rounded-input px-md py-sm focus:ring-2 focus:ring-accent outline-none"
+              <Input
+                label="쿠폰명 *"
                 placeholder="쿠폰 이름을 입력하세요"
                 value={formData.name}
                 onChange={(e) => setFormData({ ...formData, name: e.target.value })}
@@ -690,13 +690,9 @@ function CouponFormModal({ coupon, onClose, onSave }: any) {
                     {codeCopied ? <Check size={16} className="text-state-success" /> : <Copy size={16} />}
                   </button>
                 </div>
-                <button
-                  className="flex items-center gap-xs px-md py-sm bg-accent-light text-accent rounded-button font-semibold text-Body-2 hover:bg-accent hover:text-white transition-colors"
-                  onClick={regenerateCode}
-                >
-                  <RefreshCw size={14} />
+                <Button variant="outline" size="sm" icon={<RefreshCw size={14} />} onClick={regenerateCode}>
                   재생성
-                </button>
+                </Button>
               </div>
               <p className="text-[11px] text-content-secondary">자동 생성된 코드이며, 재생성 버튼으로 새 코드를 만들 수 있습니다.</p>
             </div>
@@ -718,12 +714,11 @@ function CouponFormModal({ coupon, onClose, onSave }: any) {
 
             {/* 최대 사용 한도 */}
             <div className="space-y-sm">
-              <label className="text-Label text-content-secondary">최대 사용 한도 (선택)</label>
-              <input
-                className="w-full bg-surface-secondary border-0 rounded-input px-md py-sm focus:ring-2 focus:ring-accent outline-none"
+              <Input
+                label="최대 사용 한도 (선택)"
                 type="number"
                 placeholder="미입력 시 무제한"
-                value={formData.maxUsage}
+                value={formData.maxUsage ?? ''}
                 onChange={(e) => setFormData({ ...formData, maxUsage: e.target.value ? Number(e.target.value) : null })}
               />
               <p className="text-[11px] text-content-secondary">한도 도달 시 자동으로 "소진" 상태로 표시됩니다.</p>

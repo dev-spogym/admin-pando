@@ -296,8 +296,8 @@ function ProductForm() {
       setValue('category', category);
       setProductKind(mapCategoryToKind(category));
       setValue('name', data.name ?? '');
-      setValue('priceCash', data.cashPrice ? Number(data.cashPrice).toLocaleString() : '');
-      setValue('priceCard', data.cardPrice ? Number(data.cardPrice).toLocaleString() : '');
+      setValue('priceCash', data.cashPrice ? formatPrice(String(Number(data.cashPrice))) : '');
+      setValue('priceCard', data.cardPrice ? formatPrice(String(Number(data.cardPrice))) : '');
       setValue('period', data.duration?.toString() ?? '');
       setValue('count', data.sessions?.toString() ?? '');
       setValue('description', data.description ?? '');

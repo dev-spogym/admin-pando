@@ -32,6 +32,7 @@ import ConfirmDialog from "@/components/ui/ConfirmDialog";
 import { moveToPage } from "@/internal";
 import Select from '@/components/ui/Select';
 import Button from '@/components/ui/Button';
+import Input from '@/components/ui/Input';
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { supabase } from "@/lib/supabase";
@@ -469,7 +470,7 @@ export default function IotSettings() {
       {
         key: "memberName", header: "회원명",
         render: (val: string, row: any) => (
-          <button className="text-accent hover:underline font-medium" onClick={() => row.memberId && moveToPage(985, { id: row.memberId })}>{val}</button>
+          <Button variant="ghost" size="sm" onClick={() => row.memberId && moveToPage(985, { id: row.memberId })}>{val}</Button>
         )
       },
       { key: "memberNo", header: "회원번호" },
@@ -792,20 +793,17 @@ export default function IotSettings() {
           <div className="w-full max-w-md bg-surface rounded-modal shadow-card overflow-hidden">
             <div className="px-xl py-lg border-b border-line flex justify-between items-center">
               <h2 className="text-Heading-2 font-bold text-content">IoT 기기 추가</h2>
-              <button className="text-content-secondary hover:text-content" onClick={() => setIsAddDeviceOpen(false)}>
+              <Button variant="ghost" size="sm" onClick={() => setIsAddDeviceOpen(false)}>
                 <X size={20} />
-              </button>
+              </Button>
             </div>
             <div className="p-xl space-y-md">
-              <div className="space-y-xs">
-                <label className="text-Label text-content-secondary">기기명 <span className="text-state-error">*</span></label>
-                <input
-                  className="w-full bg-surface-secondary rounded-input px-md py-sm border-0 focus:ring-2 focus:ring-accent outline-none"
-                  placeholder="예: 운동룸 B 출입 RFID"
-                  value={newDevice.name}
-                  onChange={e => setNewDevice({ ...newDevice, name: e.target.value })}
-                />
-              </div>
+              <Input
+                label="기기명 *"
+                placeholder="예: 운동룸 B 출입 RFID"
+                value={newDevice.name}
+                onChange={e => setNewDevice({ ...newDevice, name: e.target.value })}
+              />
               <div className="space-y-xs">
                 <label className="text-Label text-content-secondary">기기 유형 <span className="text-state-error">*</span></label>
                 <Select
@@ -821,24 +819,20 @@ export default function IotSettings() {
                 />
               </div>
               <div className="grid grid-cols-2 gap-md">
-                <div className="space-y-xs">
-                  <label className="text-Label text-content-secondary">IP 주소 <span className="text-state-error">*</span></label>
-                  <input
-                    className="w-full bg-surface-secondary rounded-input px-md py-sm border-0 focus:ring-2 focus:ring-accent outline-none font-mono"
-                    placeholder="192.168.0.xxx"
-                    value={newDevice.ip}
-                    onChange={e => setNewDevice({ ...newDevice, ip: e.target.value })}
-                  />
-                </div>
-                <div className="space-y-xs">
-                  <label className="text-Label text-content-secondary">포트</label>
-                  <input
-                    className="w-full bg-surface-secondary rounded-input px-md py-sm border-0 focus:ring-2 focus:ring-accent outline-none font-mono"
-                    type="number"
-                    value={newDevice.port}
-                    onChange={e => setNewDevice({ ...newDevice, port: Number(e.target.value) })}
-                  />
-                </div>
+                <Input
+                  label="IP 주소 *"
+                  placeholder="192.168.0.xxx"
+                  value={newDevice.ip}
+                  onChange={e => setNewDevice({ ...newDevice, ip: e.target.value })}
+                  className="font-mono"
+                />
+                <Input
+                  label="포트"
+                  type="number"
+                  value={String(newDevice.port)}
+                  onChange={e => setNewDevice({ ...newDevice, port: Number(e.target.value) })}
+                  className="font-mono"
+                />
               </div>
             </div>
             <div className="px-xl py-lg border-t border-line flex justify-end gap-md bg-surface-secondary/5">

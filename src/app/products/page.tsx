@@ -397,8 +397,8 @@ export default function ProductList() {
                   { key: 'isActive', header: '상태', render: (v: boolean) => <span className={cn('text-[11px] font-semibold px-xs py-[2px] rounded-full', v ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500')}>{v ? '활성' : '비활성'}</span> },
                   { key: 'actions', header: '', render: (_: unknown, g: ProductGroup) => (
                     <div className="flex items-center gap-xs justify-end">
-                      <button className="p-xs text-content-tertiary hover:text-accent transition-colors" onClick={() => { setEditingGroupId(g.id); setGroupForm({ name: g.name, sortOrder: g.sortOrder, isActive: g.isActive }); }}><Edit2 size={14} /></button>
-                      <button className="p-xs text-content-tertiary hover:text-state-error transition-colors" onClick={() => handleGroupDelete(g.id)}><Trash2 size={14} /></button>
+                      <Button variant="ghost" size="sm" onClick={() => { setEditingGroupId(g.id); setGroupForm({ name: g.name, sortOrder: g.sortOrder, isActive: g.isActive }); }}><Edit2 size={14} /></Button>
+                      <Button variant="ghost" size="sm" onClick={() => handleGroupDelete(g.id)}><Trash2 size={14} /></Button>
                     </div>
                   )},
                 ]}

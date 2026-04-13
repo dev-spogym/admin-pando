@@ -238,9 +238,9 @@ export default function StaffList() {
       width: 60,
       align: "center" as const,
       render: () => (
-        <button className="p-xs text-content-secondary hover:text-content transition-colors">
+        <Button variant="ghost" size="sm">
           <MoreVertical size={16} />
-        </button>
+        </Button>
       )
     }
   ];

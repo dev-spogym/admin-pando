@@ -31,6 +31,7 @@ import { supabase } from "@/lib/supabase";
 import { toast } from "sonner";
 import { exportToExcel } from "@/lib/exportExcel";
 import Button from "@/components/ui/Button";
+import Input from "@/components/ui/Input";
 import SimpleTable from "@/components/common/SimpleTable";
 import RadioGroup from "@/components/ui/RadioGroup";
 
@@ -106,9 +107,9 @@ const HistoryModal = ({ card, onClose }: { card: RfidCard; onClose: () => void }
 
       <div className="flex-1 overflow-y-auto p-xl">
         <div className="mb-lg flex items-center gap-sm">
-          <input className="rounded-lg border border-line px-md py-xs text-[13px] bg-surface-secondary outline-none focus:border-primary" type="date" defaultValue={new Date().toISOString().slice(0, 10)} />
+          <Input type="date" defaultValue={new Date().toISOString().slice(0, 10)} />
           <span className="text-content-secondary">~</span>
-          <input className="rounded-lg border border-line px-md py-xs text-[13px] bg-surface-secondary outline-none focus:border-primary" type="date" defaultValue={new Date().toISOString().slice(0, 10)} />
+          <Input type="date" defaultValue={new Date().toISOString().slice(0, 10)} />
           <Button variant="outline" size="sm" icon={<RefreshCcw size={13} />}>조회</Button>
         </div>
 
@@ -212,8 +213,8 @@ const CardModal = ({
               )}
             </div>
             <div className="flex gap-sm">
-              <input
-                className="flex-1 h-10 rounded-lg bg-surface-secondary border border-line px-md text-[13px] font-mono focus:border-primary outline-none transition-all"
+              <Input
+                className="flex-1 font-mono"
                 placeholder="RF-XXXXXXXX (직접 입력)"
                 value={cardNo}
                 onChange={e => setCardNo(e.target.value)}
@@ -250,8 +251,8 @@ const CardModal = ({
             </label>
             <div className="relative">
               <Search className="absolute left-md top-1/2 -translate-y-1/2 text-content-secondary" size={15} />
-              <input
-                className="w-full h-10 pl-[36px] pr-md rounded-lg bg-surface-secondary border border-line text-[13px] focus:border-primary outline-none transition-all"
+              <Input
+                className="pl-[36px]"
                 placeholder={`${userType} 이름 또는 번호 검색`}
                 value={memberSearch}
                 onChange={e => { setMemberSearch(e.target.value); setSelectedMember(null); setIsDropdownOpen(true); }}
@@ -295,8 +296,7 @@ const CardModal = ({
 
           <div>
             <label className="block text-[12px] font-semibold text-content-secondary mb-sm">연결 사물함 번호</label>
-            <input
-              className="w-full h-10 rounded-lg bg-surface-secondary border border-line px-md text-[13px] focus:border-primary outline-none transition-all"
+            <Input
               placeholder="사물함 번호 입력 (선택)"
               value={lockerNo}
               onChange={e => setLockerNo(e.target.value)}

@@ -286,9 +286,9 @@ const RoomModal = ({
       <div className="bg-surface rounded-xl w-full max-w-[500px] shadow-2xl animate-in fade-in zoom-in duration-200 overflow-hidden">
         <div className="px-xl py-lg border-b border-line flex items-center justify-between">
           <h3 className="text-[16px] font-bold text-content">{room ? "운동룸 수정" : "새 운동룸 등록"}</h3>
-          <button className="p-sm hover:bg-surface-secondary rounded-full transition-colors text-content-secondary" onClick={onClose}>
+          <Button variant="ghost" size="sm" onClick={onClose}>
             <XCircle size={20} />
-          </button>
+          </Button>
         </div>
 
         <div className="p-xl space-y-lg">
@@ -627,13 +627,13 @@ export default function RoomManagement() {
               { key: 'status', header: '상태', render: (v: RoomStatus, row: Room) => (
                 <div className="flex items-center gap-sm">
                   <StatusBadge variant={STATUS_VARIANT[v]} label={v} dot />
-                  <button className="p-[4px] hover:bg-surface-secondary rounded transition-colors text-content-secondary" onClick={() => handleToggle(row.id)}><Settings size={13} /></button>
+                  <Button variant="ghost" size="sm" onClick={() => handleToggle(row.id)}><Settings size={13} /></Button>
                 </div>
               )},
               { key: 'actions', header: '메뉴', render: (_: unknown, row: Room) => (
                 <div className="flex items-center gap-sm">
-                  <button className="p-[5px] hover:bg-state-info/10 rounded text-state-info transition-colors" onClick={() => { setSelectedRoom(row); setRoomModal(true); }}><Edit2 size={14} /></button>
-                  <button className="p-[5px] hover:bg-state-error/10 rounded text-state-error transition-colors" onClick={() => { setSelectedRoom(row); setDeleteOpen(true); }}><Trash2 size={14} /></button>
+                  <Button variant="ghost" size="sm" onClick={() => { setSelectedRoom(row); setRoomModal(true); }}><Edit2 size={14} /></Button>
+                  <Button variant="ghost" size="sm" onClick={() => { setSelectedRoom(row); setDeleteOpen(true); }}><Trash2 size={14} /></Button>
                 </div>
               )},
             ]}

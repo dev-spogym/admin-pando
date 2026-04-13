@@ -712,15 +712,15 @@ export default function MemberList() {
                   { icon: CheckCircle, label: '출석 처리' },
                   { icon: Star, label: '관심회원' },
                 ].map((action) => (
-                  <button key={action.label} className="text-white/90 hover:text-white hover:bg-white/10 px-sm py-1 rounded-md text-[12px] font-medium flex items-center gap-[4px] transition-colors" onClick={() => handleAction(action.label)}>
+                  <Button key={action.label} variant="ghost" size="sm" className="text-white/90 hover:text-white hover:bg-white/10" onClick={() => handleAction(action.label)}>
                     <action.icon size={13} /> {action.label}
-                  </button>
+                  </Button>
                 ))}
               </div>
             </div>
-            <button className="text-white/70 hover:text-white text-[12px] font-medium" onClick={() => setSelectedRows(new Set())}>
+            <Button variant="ghost" size="sm" className="text-white/70 hover:text-white" onClick={() => setSelectedRows(new Set())}>
               선택 취소
-            </button>
+            </Button>
           </div>
         )}
 

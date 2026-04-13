@@ -111,7 +111,7 @@ function UsageBar({ label, current, limit, icon: Icon, unit = '' }: {
           <span className="text-Body-1 font-semibold text-content">{label}</span>
         </div>
         <span className="text-Body-2 text-content-secondary">
-          <span className="font-bold text-content">{current.toLocaleString()}</span> / {limit.toLocaleString()}{unit}
+          <span className="font-bold text-content">{formatNumber(current)}</span> / {formatNumber(limit)}{unit}
         </span>
       </div>
       <div className="h-2 w-full bg-surface-secondary rounded-full overflow-hidden">
@@ -180,12 +180,14 @@ export default function Subscription() {
               >
                 플랜 변경하기
               </Button>
-              <button
-                className="w-full py-md text-content-secondary hover:text-state-error transition-colors text-Body-2 font-medium"
+              <Button
+                variant="ghost"
+                fullWidth
+                className="text-content-secondary hover:text-state-error"
                 onClick={() => setIsCancelDialogOpen(true)}
               >
                 구독 취소 신청
-              </button>
+              </Button>
             </div>
           </div>
         </div>
@@ -196,7 +198,7 @@ export default function Subscription() {
             <h4 className="text-Body-1 font-bold text-content flex items-center gap-sm">
               <CreditCard className="text-primary" size={18} /> 결제 수단
             </h4>
-            <button className="text-Label text-primary hover:underline font-bold">관리</button>
+            <Button variant="ghost" size="sm">관리</Button>
           </div>
           <div className="flex-1 flex flex-col gap-sm">
             {paymentMethods.filter(m => m.isDefault).map(card => (
@@ -213,9 +215,9 @@ export default function Subscription() {
               </div>
             ))}
           </div>
-          <button className="mt-lg w-full py-sm border border-dashed border-primary text-primary rounded-button text-Label font-bold flex items-center justify-center gap-sm hover:bg-surface/50 transition-colors">
-            <Plus size={14} /> 새 카드 추가
-          </button>
+          <Button variant="outline" fullWidth className="mt-lg border-dashed border-primary text-primary" icon={<Plus size={14} />}>
+            새 카드 추가
+          </Button>
         </div>
       </div>
 
@@ -242,25 +244,28 @@ export default function Subscription() {
         <p className="text-Body-1 text-content-secondary">연간 결제 시 월 요금의 20%를 할인해 드립니다.</p>
         {/* 결제 주기 토글 */}
         <div className="flex items-center justify-center mt-lg gap-md">
-          <button
+          <Button
+            variant="ghost"
             onClick={() => setBillingCycle('monthly')}
-            className={cn("px-lg py-sm rounded-button text-Body-2 font-medium transition-all", billingCycle === 'monthly' ? "text-primary font-bold" : "text-content-secondary")}
+            className={cn(billingCycle === 'monthly' ? "text-primary font-bold" : "text-content-secondary")}
           >
             월간 결제
-          </button>
+          </Button>
           <button
+            type="button"
             onClick={() => setBillingCycle(prev => prev === 'annual' ? 'monthly' : 'annual')}
             className={cn("relative w-12 h-6 rounded-full transition-colors duration-200", billingCycle === 'annual' ? "bg-primary" : "bg-line")}
           >
             <div className={cn("absolute top-[2px] left-[2px] w-5 h-5 bg-white rounded-full shadow-sm transition-transform duration-200", billingCycle === 'annual' ? "translate-x-6" : "translate-x-0")} />
           </button>
-          <button
+          <Button
+            variant="ghost"
             onClick={() => setBillingCycle('annual')}
-            className={cn("px-lg py-sm rounded-button text-Body-2 font-medium transition-all flex items-center gap-xs", billingCycle === 'annual' ? "text-primary font-bold" : "text-content-secondary")}
+            className={cn("flex items-center gap-xs", billingCycle === 'annual' ? "text-primary font-bold" : "text-content-secondary")}
           >
             연간 결제
             <span className="text-[11px] bg-accent-light text-accent px-xs py-[1px] rounded-full border border-accent/20">20% 할인</span>
-          </button>
+          </Button>
         </div>
       </div>
 
@@ -380,9 +385,7 @@ export default function Subscription() {
             {
               key: 'invoice', header: '증빙서류',
               render: () => (
-                <button className="flex items-center gap-xs text-primary hover:underline text-Label font-bold">
-                  <Download size={14} /> 세금계산서
-                </button>
+                <Button variant="ghost" size="sm" icon={<Download size={14} />}>세금계산서</Button>
               ),
               align: 'right' as const
             }

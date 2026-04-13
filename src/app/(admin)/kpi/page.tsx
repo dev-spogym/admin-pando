@@ -89,7 +89,7 @@ function TargetModal({
   const storageKey = `kpi_monthly_target_${branchId}_${yearMonth}`;
   const saved = typeof window !== 'undefined' ? localStorage.getItem(storageKey) : null;
   const [inputValue, setInputValue] = useState(
-    saved ? Number(saved).toLocaleString("ko-KR") : ""
+    saved ? formatNumber(Number(saved)) : ""
   );
 
   function handleChange(e: React.ChangeEvent<HTMLInputElement>) {
@@ -98,7 +98,7 @@ function TargetModal({
       setInputValue("");
       return;
     }
-    setInputValue(Number(raw).toLocaleString("ko-KR"));
+    setInputValue(formatNumber(Number(raw)));
   }
 
   function handleSave() {

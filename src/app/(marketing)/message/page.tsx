@@ -125,9 +125,9 @@ function RecipientModal({
             <h2 className="text-Heading-2 font-bold text-content">수신자 검색</h2>
             <p className="text-Body-2 text-content-secondary mt-xs">{temp.length}명 선택됨</p>
           </div>
-          <button className="text-content-secondary hover:text-content transition-colors" onClick={onClose}>
+          <Button variant="ghost" size="sm" onClick={onClose}>
             <X size={20} />
-          </button>
+          </Button>
         </div>
 
         <div className="p-md border-b border-line">

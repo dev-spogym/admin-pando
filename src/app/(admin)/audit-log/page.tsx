@@ -321,20 +321,14 @@ export default function AuditLog() {
           </div>
 
           {isLoading ? (
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <tbody>
-                  {Array.from({ length: 8 }).map((_, i) => (
-                    <tr key={i} className="border-b border-line last:border-0">
-                      {Array.from({ length: 6 }).map((_, j) => (
-                        <td key={j} className="px-4 py-3">
-                          <div className="h-4 bg-gray-100 rounded animate-pulse" />
-                        </td>
-                      ))}
-                    </tr>
+            <div className="space-y-2 p-4">
+              {Array.from({ length: 8 }).map((_, i) => (
+                <div key={i} className="flex gap-4 border-b border-line pb-2 last:border-0">
+                  {Array.from({ length: 6 }).map((_, j) => (
+                    <div key={j} className="h-4 bg-gray-100 rounded animate-pulse flex-1" />
                   ))}
-                </tbody>
-              </table>
+                </div>
+              ))}
             </div>
           ) : (
             <SimpleTable

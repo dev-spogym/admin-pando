@@ -136,9 +136,9 @@ export default function Payroll() {
   };
 
   const SortHeader = ({ col, label }: { col: SortKey; label: string }) => (
-    <button className="flex items-center gap-[3px] hover:text-primary transition-colors" onClick={() => handleSort(col)}>
+    <Button variant="ghost" size="sm" className="flex items-center gap-[3px]" onClick={() => handleSort(col)}>
       {label}<SortIcon col={col} />
-    </button>
+    </Button>
   );
 
   const filtered = useMemo(() => {
