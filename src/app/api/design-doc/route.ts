@@ -3,7 +3,7 @@ import fs from 'fs';
 import path from 'path';
 
 // 라우트 -> 기능명세서 파일 + 관련 섹션 키워드 매핑
-const ROUTE_TO_DOC: Record<string, { file: string; keywords: string[] }> = {
+const ROUTE_TO_DOC: Record<string, { file: string; keywords: string[]; category?: string; directory?: string }> = {
   // ── 본사관리 ──
   '/': { file: '본사관리.md', keywords: ['대시보드', '1. 대시보드'] },
   '/login': { file: '본사관리.md', keywords: ['로그인', '11. 로그인'] },
@@ -21,9 +21,9 @@ const ROUTE_TO_DOC: Record<string, { file: string; keywords: string[] }> = {
   '/members': { file: '회원관리.md', keywords: ['회원 목록', '1. 회원 목록'] },
   '/members/new': { file: '회원관리.md', keywords: ['회원 등록', '2. 회원 등록'] },
   '/members/edit': { file: '회원관리.md', keywords: ['회원 등록/수정', '2. 회원 등록'] },
-  '/members/detail': { file: '회원관리.md', keywords: ['회원 상세', '3. 회원 상세'] },
+  '/members/detail': { file: '통합운영_IOT_헬스.md', keywords: ['회원 상세 건강/연동 요약', 'SCR-I007 회원 상세 건강/연동 요약'], category: '회원관리', directory: '화면설계서' },
   '/members/transfer': { file: '회원관리.md', keywords: ['회원 지점 이관', '4. 회원 지점 이관'] },
-  '/body-composition': { file: '회원관리.md', keywords: ['체성분 관리', '5. 체성분 관리'] },
+  '/body-composition': { file: '통합운영_IOT_헬스.md', keywords: ['체성분 통합 관리', 'SCR-I006 체성분 통합 관리'], category: '회원관리', directory: '화면설계서' },
 
   // ── 매출관리 ──
   '/sales': { file: '매출관리.md', keywords: ['매출 현황', '1. 매출 현황'] },
@@ -49,8 +49,8 @@ const ROUTE_TO_DOC: Record<string, { file: string; keywords: string[] }> = {
   '/exercise-programs': { file: '수업관리.md', keywords: ['운동 프로그램', '11. 운동 프로그램'] },
 
   // ── 시설관리 ──
-  '/locker': { file: '시설관리.md', keywords: ['락커 관리', '1. 락커 관리'] },
-  '/locker/management': { file: '시설관리.md', keywords: ['사물함 배정', '2. 사물함 배정'] },
+  '/locker': { file: '통합운영_IOT_헬스.md', keywords: ['옷 락커 운영 관리', 'SCR-I004 옷 락커 운영 관리'], category: '시설관리', directory: '화면설계서' },
+  '/locker/management': { file: '통합운영_IOT_헬스.md', keywords: ['고정 물품 락커 관리', 'SCR-I005 고정 물품 락커 관리'], category: '시설관리', directory: '화면설계서' },
   '/rfid': { file: '시설관리.md', keywords: ['밴드/카드', '3. 밴드/카드'] },
   '/rooms': { file: '시설관리.md', keywords: ['운동룸', '4. 운동룸'] },
   '/golf-bays': { file: '시설관리.md', keywords: ['골프 타석', '5. 골프 타석'] },
@@ -59,11 +59,11 @@ const ROUTE_TO_DOC: Record<string, { file: string; keywords: string[] }> = {
   // ── 설정관리 ──
   '/settings': { file: '설정관리.md', keywords: ['센터 설정', '1. 센터 설정'] },
   '/settings/permissions': { file: '설정관리.md', keywords: ['권한 설정', '2. 권한 설정'] },
-  '/settings/kiosk': { file: '설정관리.md', keywords: ['키오스크', '3. 키오스크'] },
-  '/settings/iot': { file: '설정관리.md', keywords: ['IoT', '4. IoT'] },
+  '/settings/kiosk': { file: '통합운영_IOT_헬스.md', keywords: ['키오스크 설정', 'SCR-I002 키오스크 설정'], category: '설정관리', directory: '화면설계서' },
+  '/settings/iot': { file: '통합운영_IOT_헬스.md', keywords: ['IoT 연동 관리', 'SCR-I003 IoT 연동 관리'], category: '설정관리', directory: '화면설계서' },
   '/subscription': { file: '설정관리.md', keywords: ['구독 관리', '5. 구독 관리'] },
   '/notices': { file: '설정관리.md', keywords: ['공지사항', '6. 공지사항'] },
-  '/attendance': { file: '설정관리.md', keywords: ['출석 관리', '7. 출석 관리'] },
+  '/attendance': { file: '통합운영_IOT_헬스.md', keywords: ['통합 출석 관리', 'SCR-I001 통합 출석 관리'], category: '설정관리', directory: '화면설계서' },
 
   // ── 마케팅 ──
   '/leads': { file: '마케팅.md', keywords: ['리드 관리', '1. 리드 관리'] },
@@ -244,6 +244,7 @@ const FILE_TO_CATEGORY: Record<string, string> = {
   '마케팅.md': '마케팅',
   '직원관리.md': '직원관리',
   '상품관리.md': '상품관리',
+  '통합운영_IOT_헬스.md': '통합운영',
 };
 
 export async function GET(request: NextRequest) {
@@ -262,9 +263,10 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    const docPath = path.join(process.cwd(), 'docs', '기능명세서', mapping.file);
+    const docDirectory = mapping.directory ?? '기능명세서';
+    const docPath = path.join(process.cwd(), 'docs', docDirectory, mapping.file);
     let content = fs.readFileSync(docPath, 'utf-8');
-    const category = FILE_TO_CATEGORY[mapping.file] || '';
+    const category = mapping.category || FILE_TO_CATEGORY[mapping.file] || '';
 
     // 첫 번째 키워드를 페이지 제목으로 사용
     const title = mapping.keywords[0] || routePath;
