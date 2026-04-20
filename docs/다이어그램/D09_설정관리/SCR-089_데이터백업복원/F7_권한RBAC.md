@@ -16,9 +16,9 @@ flowchart LR
     User([접근 시도\n/settings/backup])
     User -->|E_F7_089_01| RoleCheck{역할 확인}
 
-    RoleCheck -->|E_F7_089_02: primary| P[최고관리자\n전체 접근+백업+복원+설정]
-    RoleCheck -->|E_F7_089_03: owner| O[센터장\n전체 접근+백업+복원+설정]
-    RoleCheck -->|E_F7_089_04: manager 이하| Blocked[접근 차단\n403 리다이렉트]
+    RoleCheck -->|"E_F7_089_02: primary"| P[최고관리자\n전체 접근+백업+복원+설정]
+    RoleCheck -->|"E_F7_089_03: owner"| O[센터장\n전체 접근+백업+복원+설정]
+    RoleCheck -->|"E_F7_089_04: manager 이하"| Blocked[접근 차단\n403 리다이렉트]
 
     P & O -->|E_F7_089_05| FullAccess[백업 조회+수동백업+복원+설정변경]
 

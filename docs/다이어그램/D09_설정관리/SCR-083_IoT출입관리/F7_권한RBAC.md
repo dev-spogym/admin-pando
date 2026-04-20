@@ -16,9 +16,9 @@ flowchart LR
     User([접근 시도\n/settings/iot])
     User -->|E_F7_083_01| RoleCheck{역할 확인}
 
-    RoleCheck -->|E_F7_083_02: primary| P[최고관리자\n전체 접근+수정+장비제어]
-    RoleCheck -->|E_F7_083_03: owner| O[센터장\n전체 접근+수정+장비제어]
-    RoleCheck -->|E_F7_083_04: manager 이하| Blocked[접근 차단\n권한없음]
+    RoleCheck -->|"E_F7_083_02: primary"| P[최고관리자\n전체 접근+수정+장비제어]
+    RoleCheck -->|"E_F7_083_03: owner"| O[센터장\n전체 접근+수정+장비제어]
+    RoleCheck -->|"E_F7_083_04: manager 이하"| Blocked[접근 차단\n권한없음]
 
     P & O -->|E_F7_083_05| GateMgmt[게이트 장비 추가/삭제]
     P & O -->|E_F7_083_06| PolicyEdit[출입 정책 Toggle 편집]

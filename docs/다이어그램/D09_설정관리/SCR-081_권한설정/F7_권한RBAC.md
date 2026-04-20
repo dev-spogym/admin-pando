@@ -20,9 +20,9 @@ flowchart LR
 
     User -->|E_F7_081_01| RoleCheck{역할 확인}
 
-    RoleCheck -->|E_F7_081_02: primary| Primary[최고관리자\n전체 접근\n자신 역할 매트릭스 수정 불가]
-    RoleCheck -->|E_F7_081_03: owner| Owner[센터장\n접근 가능\n자신 이하 역할만 편집]
-    RoleCheck -->|E_F7_081_04: manager 이하| Blocked[접근 차단\n권한없음 메시지]
+    RoleCheck -->|"E_F7_081_02: primary"| Primary[최고관리자\n전체 접근\n자신 역할 매트릭스 수정 불가]
+    RoleCheck -->|"E_F7_081_03: owner"| Owner[센터장\n접근 가능\n자신 이하 역할만 편집]
+    RoleCheck -->|"E_F7_081_04: manager 이하"| Blocked[접근 차단\n권한없음 메시지]
 
     Primary -->|E_F7_081_05| P_View[모든 역할 조회]
     Primary -->|E_F7_081_06| P_Edit[owner~readonly 편집]

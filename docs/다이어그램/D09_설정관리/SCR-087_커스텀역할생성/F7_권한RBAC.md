@@ -16,9 +16,9 @@ flowchart LR
     User([접근 시도\n/settings/roles])
     User -->|E_F7_087_01| RoleCheck{역할 확인}
 
-    RoleCheck -->|E_F7_087_02: primary| P[최고관리자\n전체 접근+CRUD]
-    RoleCheck -->|E_F7_087_03: owner| O[센터장\n전체 접근+CRUD]
-    RoleCheck -->|E_F7_087_04: manager 이하| Blocked[접근 차단\n403 리다이렉트]
+    RoleCheck -->|"E_F7_087_02: primary"| P[최고관리자\n전체 접근+CRUD]
+    RoleCheck -->|"E_F7_087_03: owner"| O[센터장\n전체 접근+CRUD]
+    RoleCheck -->|"E_F7_087_04: manager 이하"| Blocked[접근 차단\n403 리다이렉트]
 
     P & O -->|E_F7_087_05| FullAccess[역할 조회+생성+수정+삭제]
 

@@ -15,12 +15,12 @@ lastUpdated: 2026-04-20
 flowchart LR
     LoginOK([로그인 성공]) -->|E_F7_100_01| RoleCheck{역할 확인}
 
-    RoleCheck -->|E_F7_100_02: primary| P[최고관리자\n/admin/dashboard 이동]
-    RoleCheck -->|E_F7_100_03: owner| O[센터장\n/owner/dashboard 이동]
-    RoleCheck -->|E_F7_100_04: manager| M[매니저\n/manager/dashboard 이동]
-    RoleCheck -->|E_F7_100_05: fc| FC[FC\n/fc/dashboard 이동]
-    RoleCheck -->|E_F7_100_06: staff| S[스태프\n/staff/dashboard 이동]
-    RoleCheck -->|E_F7_100_07: 역할 미지정| E_NoRole[역할 없음 오류\n관리자 문의 안내]
+    RoleCheck -->|"E_F7_100_02: primary"| P[최고관리자\n/admin/dashboard 이동]
+    RoleCheck -->|"E_F7_100_03: owner"| O[센터장\n/owner/dashboard 이동]
+    RoleCheck -->|"E_F7_100_04: manager"| M[매니저\n/manager/dashboard 이동]
+    RoleCheck -->|"E_F7_100_05: fc"| FC[FC\n/fc/dashboard 이동]
+    RoleCheck -->|"E_F7_100_06: staff"| S[스태프\n/staff/dashboard 이동]
+    RoleCheck -->|"E_F7_100_07: 역할 미지정"| E_NoRole[역할 없음 오류\n관리자 문의 안내]
 
     classDef screen fill:#E3F2FD,stroke:#1976D2,color:#0D47A1
     classDef success fill:#E8F5E9,stroke:#2E7D32,color:#1B5E20

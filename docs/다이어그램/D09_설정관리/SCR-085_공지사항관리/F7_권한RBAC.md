@@ -16,12 +16,12 @@ flowchart LR
     User([접근 시도\n/notices])
     User -->|E_F7_085_01| RoleCheck{역할 확인}
 
-    RoleCheck -->|E_F7_085_02: primary| P[최고관리자\n전체 접근+CRUD+알림발송]
-    RoleCheck -->|E_F7_085_03: owner| O[센터장\n전체 접근+CRUD+알림발송]
-    RoleCheck -->|E_F7_085_04: manager| M[매니저\n전체 접근+CRUD]
-    RoleCheck -->|E_F7_085_05: fc| FC[FC\n조회만 가능]
-    RoleCheck -->|E_F7_085_06: staff| S[스태프\n조회만 가능]
-    RoleCheck -->|E_F7_085_07: readonly| RO[조회전용\n조회만 가능]
+    RoleCheck -->|"E_F7_085_02: primary"| P[최고관리자\n전체 접근+CRUD+알림발송]
+    RoleCheck -->|"E_F7_085_03: owner"| O[센터장\n전체 접근+CRUD+알림발송]
+    RoleCheck -->|"E_F7_085_04: manager"| M[매니저\n전체 접근+CRUD]
+    RoleCheck -->|"E_F7_085_05: fc"| FC[FC\n조회만 가능]
+    RoleCheck -->|"E_F7_085_06: staff"| S[스태프\n조회만 가능]
+    RoleCheck -->|"E_F7_085_07: readonly"| RO[조회전용\n조회만 가능]
 
     P & O & M -->|E_F7_085_08| WriteActions[등록/수정/삭제/고정 가능]
     P & O -->|E_F7_085_09| NotifAction[알림 발송 가능\nX15 연결]

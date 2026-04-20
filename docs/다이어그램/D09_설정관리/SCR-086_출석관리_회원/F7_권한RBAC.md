@@ -16,12 +16,12 @@ flowchart LR
     User([접근 시도\n/attendance])
     User -->|E_F7_086_01| RoleCheck{역할 확인}
 
-    RoleCheck -->|E_F7_086_02: primary| P[최고관리자\n조회+수동체크인/아웃+엑셀]
-    RoleCheck -->|E_F7_086_03: owner| O[센터장\n조회+수동체크인/아웃+엑셀]
-    RoleCheck -->|E_F7_086_04: manager| M[매니저\n조회+수동체크인/아웃+엑셀]
-    RoleCheck -->|E_F7_086_05: fc| FC[FC\n조회+수동체크인/아웃]
-    RoleCheck -->|E_F7_086_06: staff| S[스태프\n조회+수동체크인/아웃]
-    RoleCheck -->|E_F7_086_07: readonly| RO[조회전용\n조회만 가능]
+    RoleCheck -->|"E_F7_086_02: primary"| P[최고관리자\n조회+수동체크인/아웃+엑셀]
+    RoleCheck -->|"E_F7_086_03: owner"| O[센터장\n조회+수동체크인/아웃+엑셀]
+    RoleCheck -->|"E_F7_086_04: manager"| M[매니저\n조회+수동체크인/아웃+엑셀]
+    RoleCheck -->|"E_F7_086_05: fc"| FC[FC\n조회+수동체크인/아웃]
+    RoleCheck -->|"E_F7_086_06: staff"| S[스태프\n조회+수동체크인/아웃]
+    RoleCheck -->|"E_F7_086_07: readonly"| RO[조회전용\n조회만 가능]
 
     P & O & M -->|E_F7_086_08| FullAccess[조회+수동처리+엑셀 내보내기]
     FC & S -->|E_F7_086_09| OperAccess[조회+수동체크인/아웃\n엑셀 버튼 숨김]

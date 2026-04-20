@@ -16,9 +16,9 @@ flowchart LR
     User([접근 시도\n/subscription])
     User -->|E_F7_084_01| RoleCheck{역할 확인}
 
-    RoleCheck -->|E_F7_084_02: primary| P[최고관리자\n전체 접근+플랜변경+해지]
-    RoleCheck -->|E_F7_084_03: owner| O[센터장\n전체 접근+플랜변경+해지]
-    RoleCheck -->|E_F7_084_04: manager 이하| Blocked[접근 차단]
+    RoleCheck -->|"E_F7_084_02: primary"| P[최고관리자\n전체 접근+플랜변경+해지]
+    RoleCheck -->|"E_F7_084_03: owner"| O[센터장\n전체 접근+플랜변경+해지]
+    RoleCheck -->|"E_F7_084_04: manager 이하"| Blocked[접근 차단]
 
     P & O -->|E_F7_084_05| ViewPlan[현재 플랜 조회]
     P & O -->|E_F7_084_06| ViewUsage[사용량 조회]

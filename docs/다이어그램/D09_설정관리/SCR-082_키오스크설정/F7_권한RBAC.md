@@ -16,9 +16,9 @@ flowchart LR
     User([접근 시도\n/settings/kiosk])
     User -->|E_F7_082_01| RoleCheck{역할 확인}
 
-    RoleCheck -->|E_F7_082_02: primary| P[최고관리자\n전체 접근+수정]
-    RoleCheck -->|E_F7_082_03: owner| O[센터장\n전체 접근+수정]
-    RoleCheck -->|E_F7_082_04: manager 이하| Blocked[접근 차단]
+    RoleCheck -->|"E_F7_082_02: primary"| P[최고관리자\n전체 접근+수정]
+    RoleCheck -->|"E_F7_082_03: owner"| O[센터장\n전체 접근+수정]
+    RoleCheck -->|"E_F7_082_04: manager 이하"| Blocked[접근 차단]
 
     P & O -->|E_F7_082_05| AllSections[디자인/체크인/표시/음성/보안\n전체 편집 가능]
     AllSections -->|E_F7_082_06| SaveBtn[저장하기 버튼 활성]

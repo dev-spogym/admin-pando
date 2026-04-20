@@ -17,11 +17,11 @@ lastUpdated: 2026-04-20
 flowchart LR
     OPEN([패널 오픈]) --> RoleCheck{역할 확인}
 
-    RoleCheck -->|E_F7_P_01: primary| P[슈퍼관리자\n전체 기능]
-    RoleCheck -->|E_F7_O_01: owner| O[센터장\n전체 기능]
-    RoleCheck -->|E_F7_M_01: manager| M[매니저\n전체 기능]
-    RoleCheck -->|E_F7_T_01: trainer| T[트레이너\n조회만]
-    RoleCheck -->|E_F7_F_01: front| F[프론트\n조회만]
+    RoleCheck -->|"E_F7_P_01: primary"| P[슈퍼관리자\n전체 기능]
+    RoleCheck -->|"E_F7_O_01: owner"| O[센터장\n전체 기능]
+    RoleCheck -->|"E_F7_M_01: manager"| M[매니저\n전체 기능]
+    RoleCheck -->|"E_F7_T_01: trainer"| T[트레이너\n조회만]
+    RoleCheck -->|"E_F7_F_01: front"| F[프론트\n조회만]
 
     P & O & M --> FullAccess[저장 버튼 표시\n상품삭제 버튼 표시\n가격이력 버튼 표시\n기존 상품 복사 버튼 표시\n모든 필드 편집 가능]
 

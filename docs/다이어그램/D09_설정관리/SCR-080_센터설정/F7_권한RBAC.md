@@ -20,12 +20,12 @@ flowchart LR
 
     User -->|E_F7_080_01| RoleCheck{역할 확인}
 
-    RoleCheck -->|E_F7_080_02: primary| Primary[최고관리자\n전체 접근 + 전체 수정\n역할 수정 불가 제외]
-    RoleCheck -->|E_F7_080_03: owner| Owner[센터장\n전체 접근 + 전체 수정]
-    RoleCheck -->|E_F7_080_04: manager| Manager_Blocked[매니저\n접근 불가\n권한없음 토스트]
-    RoleCheck -->|E_F7_080_05: fc| FC_Blocked[FC\n접근 불가]
-    RoleCheck -->|E_F7_080_06: staff| Staff_Blocked[스태프\n접근 불가]
-    RoleCheck -->|E_F7_080_07: readonly| RO_Blocked[조회전용\n접근 불가]
+    RoleCheck -->|"E_F7_080_02: primary"| Primary[최고관리자\n전체 접근 + 전체 수정\n역할 수정 불가 제외]
+    RoleCheck -->|"E_F7_080_03: owner"| Owner[센터장\n전체 접근 + 전체 수정]
+    RoleCheck -->|"E_F7_080_04: manager"| Manager_Blocked[매니저\n접근 불가\n권한없음 토스트]
+    RoleCheck -->|"E_F7_080_05: fc"| FC_Blocked[FC\n접근 불가]
+    RoleCheck -->|"E_F7_080_06: staff"| Staff_Blocked[스태프\n접근 불가]
+    RoleCheck -->|"E_F7_080_07: readonly"| RO_Blocked[조회전용\n접근 불가]
 
     Primary -->|E_F7_080_08| P_Basic[기본정보 탭\n조회+수정]
     Primary -->|E_F7_080_09| P_Notif[알림설정 탭\n조회+수정]
