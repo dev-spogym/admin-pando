@@ -14,7 +14,9 @@ type Node = {
 async function walk(dir: string, rel = ''): Promise<Node[]> {
   const entries = await fs.readdir(dir, { withFileTypes: true });
   const result: Node[] = [];
-  for (const e of entries.sort((a, b) => a.name.localeCompare(b.name, 'ko'))) {
+  for (const e of entries
+    .filter((e) => !e.name.startsWith('.'))
+    .sort((a, b) => a.name.localeCompare(b.name, 'ko'))) {
     const full = path.join(dir, e.name);
     const relPath = path.posix.join(rel, e.name);
     if (e.isDirectory()) {
