@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { TransformWrapper, TransformComponent, type ReactZoomPanPinchRef } from 'react-zoom-pan-pinch';
 import mermaid from 'mermaid';
+import { sanitizeMermaidSource } from '@/lib/mermaid-utils';
 
 type FileData = {
   path: string;
@@ -56,6 +57,18 @@ function ensureInit() {
   }
 }
 
+async function renderDiagram(id: string, source: string) {
+  try {
+    return await mermaid.render(id, source);
+  } catch (error) {
+    const sanitized = sanitizeMermaidSource(source);
+    if (sanitized === source) {
+      throw error;
+    }
+    return mermaid.render(id, sanitized);
+  }
+}
+
 export function MermaidView({ file }: { file: FileData }) {
   const [activeIdx, setActiveIdx] = useState(0);
   const [svg, setSvg] = useState<string>('');
@@ -78,8 +91,7 @@ export function MermaidView({ file }: { file: FileData }) {
     idRef.current += 1;
     const id = `mmd-${idRef.current}`;
     setError('');
-    mermaid
-      .render(id, code)
+    renderDiagram(id, code)
       .then(({ svg }) => setSvg(svg))
       .catch((e: Error) => {
         setError(e.message);
