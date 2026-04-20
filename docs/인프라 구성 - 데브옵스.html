@@ -1,0 +1,613 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FitGenie CRM 서버 인프라 견적서</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'Pretendard', -apple-system, 'Malgun Gothic', sans-serif;
+    color: #1a1a2e; font-size: 14px; line-height: 1.6; background: #f1f5f9; min-height: 100vh;
+  }
+  .top-bar {
+    background: #0f172a; color: #fff; padding: 16px 32px;
+    display: flex; justify-content: space-between; align-items: center;
+    position: sticky; top: 0; z-index: 100; box-shadow: 0 2px 12px rgba(0,0,0,0.2);
+  }
+  .top-bar h1 { font-size: 18px; font-weight: 700; }
+  .top-bar .badges { display: flex; gap: 8px; align-items: center; }
+  .confidential-badge { background: #dc2626; color: #fff; font-size: 11px; font-weight: 700; padding: 3px 10px; border-radius: 4px; }
+  .doc-badge { background: #334155; color: #94a3b8; font-size: 11px; padding: 3px 10px; border-radius: 4px; }
+  .container { max-width: 1200px; margin: 0 auto; padding: 24px; }
+
+  .mode-toggle { display: flex; background: #e2e8f0; border-radius: 8px; padding: 3px; margin-bottom: 20px; width: fit-content; }
+  .mode-btn {
+    padding: 8px 20px; border: none; background: transparent; border-radius: 6px;
+    font-size: 13px; font-weight: 600; color: #64748b; cursor: pointer; transition: all 0.2s;
+  }
+  .mode-btn.active { background: #fff; color: #0f172a; box-shadow: 0 1px 4px rgba(0,0,0,0.1); }
+
+  .summary-section { margin-bottom: 28px; }
+  .summary-section > h2 { font-size: 20px; font-weight: 800; margin-bottom: 6px; color: #0f172a; }
+  .summary-desc { font-size: 13px; color: #64748b; margin-bottom: 16px; }
+
+  .summary-cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-bottom: 20px; }
+  .summary-card {
+    background: #fff; border-radius: 12px; padding: 20px 24px; border: 2px solid #e2e8f0;
+    cursor: pointer; transition: all 0.2s; position: relative;
+  }
+  .summary-card:hover { border-color: #93c5fd; transform: translateY(-2px); box-shadow: 0 8px 24px rgba(0,0,0,0.08); }
+  .summary-card.active { border-color: #2563eb; box-shadow: 0 8px 24px rgba(37,99,235,0.15); }
+  .summary-card.recommended { border-color: #2563eb; }
+  .summary-card.recommended::after {
+    content: '\2605 추천'; position: absolute; top: -10px; right: 16px;
+    background: #2563eb; color: #fff; font-size: 11px; font-weight: 700; padding: 2px 10px; border-radius: 10px;
+  }
+  .card-plan { font-size: 12px; font-weight: 700; color: #64748b; letter-spacing: 1px; }
+  .card-title { font-size: 17px; font-weight: 800; color: #0f172a; margin: 4px 0; }
+  .card-subtitle { font-size: 12px; color: #64748b; }
+  .card-price { margin-top: 14px; padding-top: 14px; border-top: 1px solid #f1f5f9; }
+  .price-row { display: flex; justify-content: space-between; align-items: baseline; }
+  .price-main { font-size: 26px; font-weight: 800; color: #0f172a; }
+  .price-sub { font-size: 12px; color: #64748b; }
+  .card-users { display: inline-block; padding: 3px 10px; border-radius: 20px; font-size: 11px; font-weight: 600; }
+  .users-blue { background: #dbeafe; color: #1d4ed8; }
+  .users-green { background: #dcfce7; color: #16a34a; }
+  .users-purple { background: #f3e8ff; color: #7c3aed; }
+
+  .summary-table-wrap { background: #fff; border-radius: 12px; padding: 24px; border: 1px solid #e2e8f0; overflow-x: auto; }
+  .summary-table-wrap h3 { font-size: 15px; font-weight: 700; margin-bottom: 14px; color: #0f172a; }
+
+  .tabs { display: flex; gap: 4px; background: #e2e8f0; border-radius: 12px 12px 0 0; padding: 4px 4px 0 4px; }
+  .tab {
+    flex: 1; padding: 14px 20px; text-align: center; font-size: 14px; font-weight: 600;
+    color: #64748b; background: transparent; border: none; border-radius: 10px 10px 0 0; cursor: pointer; transition: all 0.2s;
+  }
+  .tab:hover { color: #1e293b; background: rgba(255,255,255,0.5); }
+  .tab.active { color: #0f172a; background: #fff; font-weight: 700; }
+  .tab .tab-price { display: block; font-size: 11px; color: #94a3b8; margin-top: 2px; }
+  .tab.active .tab-price { color: #2563eb; font-weight: 600; }
+
+  .tab-content { display: none; background: #fff; border-radius: 0 0 12px 12px; padding: 28px; border: 1px solid #e2e8f0; border-top: none; }
+  .tab-content.active { display: block; }
+  .content-header {
+    display: flex; justify-content: space-between; align-items: flex-start;
+    margin-bottom: 24px; padding-bottom: 20px; border-bottom: 2px solid #f1f5f9;
+  }
+  .content-header h2 { font-size: 22px; font-weight: 800; }
+  .content-header .desc { font-size: 13px; color: #64748b; margin-top: 4px; }
+
+  .section { margin-bottom: 24px; }
+  .section-title { font-size: 15px; font-weight: 700; color: #0f172a; border-left: 4px solid #2563eb; padding-left: 10px; margin-bottom: 12px; }
+
+  .arch-box {
+    background: #0f172a; color: #e2e8f0; border-radius: 8px; padding: 20px;
+    font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
+    font-size: 12.5px; line-height: 1.8; white-space: pre; overflow-x: auto; margin-bottom: 16px;
+  }
+  .arch-box .hl { color: #60a5fa; }
+  .arch-box .cm { color: #64748b; }
+
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th { background: #1e293b; color: #fff; padding: 10px 14px; text-align: left; font-weight: 600; font-size: 12px; }
+  td { padding: 9px 14px; border-bottom: 1px solid #f1f5f9; }
+  tr:hover td { background: #f8fafc; }
+  .total-row td { background: #eff6ff !important; font-weight: 700; border-top: 2px solid #2563eb; font-size: 14px; }
+  .text-right { text-align: right; }
+  .text-center { text-align: center; }
+  .hl-col { background: #eff6ff !important; }
+  .hl-col-head { background: #2563eb !important; }
+
+  .ok { color: #16a34a; font-weight: 700; }
+  .no { color: #dc2626; font-weight: 700; }
+  .partial { color: #ea580c; font-weight: 700; }
+
+  .badge { display: inline-block; padding: 2px 10px; border-radius: 12px; font-size: 11px; font-weight: 700; }
+  .badge-blue { background: #dbeafe; color: #1d4ed8; }
+  .badge-green { background: #dcfce7; color: #16a34a; }
+  .badge-purple { background: #f3e8ff; color: #7c3aed; }
+  .badge-red { background: #fee2e2; color: #dc2626; }
+  .badge-orange { background: #fff7ed; color: #ea580c; }
+
+  .recommend-box {
+    background: linear-gradient(135deg, #eff6ff 0%, #f0f9ff 100%);
+    border: 2px solid #2563eb; border-radius: 10px; padding: 18px 20px; margin-top: 16px;
+  }
+  .recommend-box .label { font-size: 12px; font-weight: 800; color: #2563eb; margin-bottom: 6px; }
+  .recommend-box p { font-size: 13px; color: #1e3a5f; line-height: 1.7; }
+
+  .note {
+    background: #fefce8; border-left: 4px solid #eab308;
+    padding: 10px 14px; font-size: 12px; color: #713f12; margin: 12px 0; border-radius: 0 6px 6px 0;
+  }
+
+  .pros-cons { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .pros, .cons { border-radius: 8px; padding: 16px; }
+  .pros { background: #f0fdf4; border: 1px solid #bbf7d0; }
+  .cons { background: #fef2f2; border: 1px solid #fecaca; }
+  .pros h4 { color: #16a34a; font-size: 13px; margin-bottom: 8px; }
+  .cons h4 { color: #dc2626; font-size: 13px; margin-bottom: 8px; }
+  .pros li, .cons li { font-size: 12.5px; margin-bottom: 4px; margin-left: 16px; }
+
+  .cost-check { margin-top: 12px; }
+  .cost-item {
+    display: flex; align-items: center; gap: 10px;
+    padding: 8px 12px; border-radius: 6px; margin-bottom: 4px; font-size: 12.5px;
+  }
+  .cost-item.keep { background: #f0fdf4; }
+  .cost-item.cut { background: #fefce8; }
+  .cost-icon { font-size: 14px; width: 20px; text-align: center; }
+  .cost-save { margin-left: auto; font-weight: 700; color: #16a34a; font-size: 12px; white-space: nowrap; }
+
+  .revenue-cards { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-top: 12px; }
+  .rev-card { background: #fff; border: 1px solid #e2e8f0; border-radius: 10px; padding: 16px; text-align: center; }
+  .rev-card .stage { font-size: 11px; font-weight: 700; margin-bottom: 6px; }
+  .rev-card .gyms { font-size: 20px; font-weight: 800; color: #0f172a; }
+  .rev-card .gyms-label { font-size: 11px; color: #64748b; }
+  .rev-card .rev-row { margin-top: 10px; padding-top: 10px; border-top: 1px solid #f1f5f9; font-size: 12px; }
+  .rev-card .rev-row span { display: block; }
+  .rev-card .margin { font-size: 18px; font-weight: 800; color: #16a34a; margin-top: 6px; }
+
+  .stack-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
+  .stack-item {
+    display: flex; align-items: center; gap: 10px; padding: 10px 14px;
+    background: #f8fafc; border-radius: 8px; border: 1px solid #e2e8f0;
+  }
+  .stack-icon { font-size: 18px; width: 28px; text-align: center; }
+  .stack-name { font-weight: 700; font-size: 13px; }
+  .stack-desc { font-size: 11px; color: #64748b; }
+
+  .page-footer { text-align: center; padding: 24px; font-size: 12px; color: #94a3b8; margin-top: 20px; }
+
+  @media (max-width: 768px) {
+    .summary-cards { grid-template-columns: 1fr; }
+    .revenue-cards { grid-template-columns: repeat(2, 1fr); }
+    .pros-cons { grid-template-columns: 1fr; }
+    .stack-grid { grid-template-columns: 1fr; }
+    .container { padding: 12px; }
+    .tab { font-size: 12px; padding: 10px 8px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="top-bar">
+  <h1>FitGenie CRM &mdash; 서버 인프라 견적서</h1>
+  <div class="badges">
+    <span class="confidential-badge">CONFIDENTIAL</span>
+    <span class="doc-badge">INFRA-2026-001</span>
+    <span class="doc-badge">판도컴퍼니</span>
+  </div>
+</div>
+
+<div class="container">
+
+  <div class="summary-section">
+    <h2>전체 요약</h2>
+    <div class="summary-desc">모든 가격은 <b>프로덕션 권장 스펙</b> 기준입니다. 가성비 구성은 필수 항목(RDS Multi-AZ, ALB 등)은 유지하고, 나중에 추가해도 공수가 들지 않는 항목만 절감합니다.</div>
+
+    <div class="mode-toggle">
+      <button class="mode-btn active" onclick="setMode('standard')">프로덕션 기본</button>
+      <button class="mode-btn" onclick="setMode('budget')">프로덕션 가성비</button>
+    </div>
+
+    <div class="summary-cards">
+      <div class="summary-card" onclick="switchTab(0)">
+        <div class="card-plan">PLAN A</div>
+        <div class="card-title">EC2 + RDS</div>
+        <div class="card-subtitle">실용형 &mdash; 단일 서버, 직접 관리</div>
+        <div class="card-price"><div class="price-row">
+          <div><div class="price-main price-std" data-std="₩150,000" data-budget="₩110,000">₩150,000</div><div class="price-sub">/ 월</div></div>
+          <span class="card-users users-blue">~1,000명</span>
+        </div></div>
+      </div>
+      <div class="summary-card recommended" onclick="switchTab(1)">
+        <div class="card-plan">PLAN B</div>
+        <div class="card-title">ECS Fargate + RDS</div>
+        <div class="card-subtitle">균형형 &mdash; 무중단 배포, 오토스케일</div>
+        <div class="card-price"><div class="price-row">
+          <div><div class="price-main price-std" data-std="₩245,000" data-budget="₩150,000">₩245,000</div><div class="price-sub">/ 월</div></div>
+          <span class="card-users users-green">~5,000명</span>
+        </div></div>
+      </div>
+      <div class="summary-card" onclick="switchTab(2)">
+        <div class="card-plan">PLAN C</div>
+        <div class="card-title">ECS + RDS 풀스택</div>
+        <div class="card-subtitle">엔터프라이즈 &mdash; 고가용성, 보안 완비</div>
+        <div class="card-price"><div class="price-row">
+          <div><div class="price-main price-std" data-std="₩960,000" data-budget="₩820,000">₩960,000</div><div class="price-sub">/ 월</div></div>
+          <span class="card-users users-purple">10,000+명</span>
+        </div></div>
+      </div>
+    </div>
+
+    <div class="summary-table-wrap">
+      <h3>3안 핵심 비교 (프로덕션 스펙)</h3>
+      <table>
+        <tr>
+          <th style="width:22%;">항목</th>
+          <th style="width:24%;">1안 &mdash; EC2</th>
+          <th class="hl-col-head" style="width:28%;">2안 &mdash; ECS Fargate ★</th>
+          <th style="width:26%;">3안 &mdash; 엔터프라이즈</th>
+        </tr>
+        <tr><td><b>월 비용</b></td><td><span class="price-cell" data-std="₩150,000" data-budget="₩110,000">₩150,000</span></td><td class="hl-col"><b><span class="price-cell" data-std="₩245,000" data-budget="₩150,000">₩245,000</span></b></td><td><span class="price-cell" data-std="₩960,000" data-budget="₩820,000">₩960,000</span></td></tr>
+        <tr><td><b>연 비용</b></td><td><span class="price-cell" data-std="₩1,800,000" data-budget="₩1,320,000">₩1,800,000</span></td><td class="hl-col"><b><span class="price-cell" data-std="₩2,940,000" data-budget="₩1,800,000">₩2,940,000</span></b></td><td><span class="price-cell" data-std="₩11,520,000" data-budget="₩9,840,000">₩11,520,000</span></td></tr>
+        <tr><td><b>적정 헬스장</b></td><td>~20개</td><td class="hl-col"><b>~500개</b></td><td>500~2,000개</td></tr>
+        <tr><td><b>무중단 배포</b></td><td><span class="no">X</span></td><td class="hl-col"><span class="ok">O</span></td><td><span class="ok">O</span></td></tr>
+        <tr><td><b>오토스케일</b></td><td><span class="no">X</span></td><td class="hl-col"><span class="ok">O</span></td><td><span class="ok">O</span></td></tr>
+        <tr><td><b>서버 관리</b></td><td>직접</td><td class="hl-col"><b>불필요</b></td><td>불필요</td></tr>
+        <tr><td><b>고가용성</b></td><td><span class="partial">DB만</span></td><td class="hl-col"><span class="ok">앱+DB</span></td><td><span class="ok">앱+DB+캐시</span></td></tr>
+        <tr><td><b>Redis 캐시</b></td><td><span class="no">X</span></td><td class="hl-col"><span class="price-cell" data-std="O" data-budget="X (절감)">O</span></td><td><span class="ok">O (클러스터)</span></td></tr>
+        <tr><td><b>웹 방화벽</b></td><td><span class="no">X</span></td><td class="hl-col"><span class="no">X</span></td><td><span class="ok">O (WAF)</span></td></tr>
+        <tr><td><b>감사 로그</b></td><td><span class="no">X</span></td><td class="hl-col"><span class="no">X</span></td><td><span class="ok">O (CloudTrail)</span></td></tr>
+      </table>
+
+      <h3 style="margin-top:24px;">비용 vs 매출 (구독료 월 10만원/지점, 2안 기준)</h3>
+      <div class="revenue-cards">
+        <div class="rev-card">
+          <div class="stage"><span class="badge badge-blue">초기</span></div>
+          <div class="gyms">20</div><div class="gyms-label">헬스장</div>
+          <div class="rev-row"><span>매출 200만</span><span>인프라 15~25만</span></div>
+          <div class="margin">88~93%</div>
+        </div>
+        <div class="rev-card">
+          <div class="stage"><span class="badge badge-green">성장</span></div>
+          <div class="gyms">100</div><div class="gyms-label">헬스장</div>
+          <div class="rev-row"><span>매출 1,000만</span><span>인프라 45만</span></div>
+          <div class="margin">96%</div>
+        </div>
+        <div class="rev-card">
+          <div class="stage"><span class="badge badge-purple">확장</span></div>
+          <div class="gyms">500</div><div class="gyms-label">헬스장</div>
+          <div class="rev-row"><span>매출 5,000만</span><span>인프라 120만</span></div>
+          <div class="margin">98%</div>
+        </div>
+        <div class="rev-card">
+          <div class="stage"><span class="badge badge-red">안정</span></div>
+          <div class="gyms">2,000</div><div class="gyms-label">헬스장</div>
+          <div class="rev-row"><span>매출 2억</span><span>인프라 350만</span></div>
+          <div class="margin">98%</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 탭 -->
+  <div class="tabs">
+    <button class="tab active" onclick="switchTab(0)">1안 &mdash; EC2<span class="tab-price tab-price-val" data-std="₩150,000/월" data-budget="₩110,000/월">₩150,000/월</span></button>
+    <button class="tab" onclick="switchTab(1)">2안 &mdash; ECS Fargate ★<span class="tab-price tab-price-val" data-std="₩245,000/월" data-budget="₩150,000/월">₩245,000/월</span></button>
+    <button class="tab" onclick="switchTab(2)">3안 &mdash; 엔터프라이즈<span class="tab-price tab-price-val" data-std="₩960,000/월" data-budget="₩820,000/월">₩960,000/월</span></button>
+  </div>
+
+  <!-- 1안 -->
+  <div class="tab-content active" id="tab-0">
+    <div class="content-header">
+      <div><h2>1안: EC2 + RDS</h2><div class="desc">실용형 &mdash; 단일 서버 직접 관리, 사용자 ~1,000명</div></div>
+      <span class="badge badge-blue" style="font-size:13px; padding:6px 14px;">~20 헬스장</span>
+    </div>
+
+    <div class="section">
+      <div class="section-title">사용 서비스</div>
+      <div class="stack-grid">
+        <div class="stack-item"><div class="stack-icon">🖥</div><div><div class="stack-name">EC2 (t4g.medium)</div><div class="stack-desc">2 vCPU, 4GB RAM + Nginx + PM2</div></div></div>
+        <div class="stack-item"><div class="stack-icon">🗄</div><div><div class="stack-name">RDS PostgreSQL</div><div class="stack-desc">db.t4g.small, Multi-AZ, 백업 7일</div></div></div>
+        <div class="stack-item"><div class="stack-icon">📦</div><div><div class="stack-name">S3</div><div class="stack-desc">파일 스토리지 50GB</div></div></div>
+        <div class="stack-item"><div class="stack-icon">🔐</div><div><div class="stack-name">Cognito</div><div class="stack-desc">인증 (JWT, 소셜 로그인)</div></div></div>
+        <div class="stack-item"><div class="stack-icon">📧</div><div><div class="stack-name">SES</div><div class="stack-desc">이메일 발송</div></div></div>
+        <div class="stack-item"><div class="stack-icon">🌐</div><div><div class="stack-name">CloudFlare</div><div class="stack-desc">CDN + SSL + DDoS (무료)</div></div></div>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-title">아키텍처</div>
+      <div class="arch-box"><span class="hl">[사용자]</span> → CloudFlare <span class="cm">(CDN + SSL + DDoS, 무료)</span>
+           ↓
+        <span class="hl">EC2 t4g.medium</span> (2vCPU 4GB)
+        ├─ Nginx      <span class="cm">← 리버스 프록시</span>
+        ├─ PM2        <span class="cm">← 클러스터 모드</span>
+        └─ Next.js    <span class="cm">← standalone</span>
+           ↓
+   ┌──────────────────────────────┐
+   │  <span class="hl">RDS PostgreSQL</span> (Multi-AZ)     <span class="cm">← db.t4g.small, 동시 연결 ~120</span>
+   │  <span class="hl">S3</span>  │  <span class="hl">Cognito</span>  │  <span class="hl">SES</span>
+   └──────────────────────────────┘</div>
+    </div>
+
+    <div class="section">
+      <div class="section-title">월 비용 (프로덕션 스펙)</div>
+      <table>
+        <tr><th>서비스</th><th>스펙</th><th class="text-center">필수</th><th class="text-right">USD</th><th class="text-right">KRW</th></tr>
+        <tr><td>EC2</td><td>t4g.medium (2 vCPU, 4GB)</td><td class="text-center"><span class="ok">필수</span></td><td class="text-right">$30</td><td class="text-right">₩41,200</td></tr>
+        <tr><td>RDS PostgreSQL</td><td>db.t4g.small, Multi-AZ, 20GB gp3</td><td class="text-center"><span class="ok">필수</span></td><td class="text-right">$50</td><td class="text-right">₩68,700</td></tr>
+        <tr><td>S3</td><td>50GB</td><td class="text-center"><span class="ok">필수</span></td><td class="text-right">$1</td><td class="text-right">₩1,400</td></tr>
+        <tr><td>CloudFlare</td><td>Free (CDN + SSL + DDoS)</td><td class="text-center"><span class="ok">필수</span></td><td class="text-right">$0</td><td class="text-right">₩0</td></tr>
+        <tr><td>Cognito + SES</td><td>무료 티어 (50K MAU)</td><td class="text-center"><span class="ok">필수</span></td><td class="text-right">$0</td><td class="text-right">₩0</td></tr>
+        <tr><td>CloudWatch</td><td>모니터링 + 알람</td><td class="text-center"><span class="ok">필수</span></td><td class="text-right">$5</td><td class="text-right">₩6,900</td></tr>
+        <tr><td>EBS 볼륨</td><td>30GB gp3</td><td class="text-center"><span class="ok">필수</span></td><td class="text-right">$2.5</td><td class="text-right">₩3,400</td></tr>
+        <tr><td>데이터 전송</td><td>~50GB 아웃바운드</td><td class="text-center"><span class="ok">필수</span></td><td class="text-right">$4.5</td><td class="text-right">₩6,200</td></tr>
+        <tr><td>Secrets Manager</td><td>시크릿 5개</td><td class="text-center"><span class="badge badge-orange">절감</span></td><td class="text-right">$2</td><td class="text-right">₩2,700</td></tr>
+        <tr class="total-row"><td colspan="3">프로덕션 기본 합계</td><td class="text-right">$109</td><td class="text-right">₩150,000</td></tr>
+        <tr class="total-row" style="background:#dcfce7 !important;"><td colspan="3" style="background:#dcfce7;">프로덕션 가성비 <span class="badge badge-green">-₩40,000</span></td><td class="text-right" style="background:#dcfce7;">$80</td><td class="text-right" style="background:#dcfce7;"><b>₩110,000</b></td></tr>
+      </table>
+    </div>
+
+    <div class="section">
+      <div class="section-title">오토스케일링</div>
+      <table>
+        <tr><th>계층</th><th>방식</th><th>설명</th></tr>
+        <tr><td>앱 서버</td><td><span class="partial">수동</span></td><td>t4g.medium → large → xlarge (5분 다운타임)</td></tr>
+        <tr><td>DB</td><td><span class="ok">자동</span></td><td>Multi-AZ 장애복구 + 스토리지 자동 확장</td></tr>
+        <tr><td>CDN</td><td><span class="ok">자동</span></td><td>CloudFlare 무제한</td></tr>
+      </table>
+      <div class="note">수평 확장 불가. 트래픽 증가 시 2안으로 전환 필요.</div>
+    </div>
+
+    <div class="section">
+      <div class="section-title">장단점</div>
+      <div class="pros-cons">
+        <div class="pros"><h4>장점</h4><ul>
+          <li>월 ₩110,000~150,000</li>
+          <li>SSH 접근, cron 작업 자유</li>
+          <li>구조 단순, 디버깅 쉬움</li>
+          <li>Multi-AZ DB로 데이터 안전</li>
+        </ul></div>
+        <div class="cons"><h4>단점</h4><ul>
+          <li>배포 시 PM2 재시작 ~3초 끊김</li>
+          <li>서버 1대 = 장애 시 수동 복구</li>
+          <li>수평 확장 불가</li>
+          <li>서버 보안패치 직접 관리</li>
+        </ul></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 2안 -->
+  <div class="tab-content" id="tab-1">
+    <div class="content-header">
+      <div><h2>2안: ECS Fargate + RDS <span style="color:#2563eb;">★ 추천</span></h2><div class="desc">균형형 &mdash; 무중단 배포, 오토스케일링, 사용자 ~5,000명</div></div>
+      <span class="badge badge-green" style="font-size:13px; padding:6px 14px;">~500 헬스장</span>
+    </div>
+
+    <div class="section">
+      <div class="section-title">사용 서비스</div>
+      <div class="stack-grid">
+        <div class="stack-item"><div class="stack-icon">🚀</div><div><div class="stack-name">ECS Fargate</div><div class="stack-desc">1 vCPU, 2GB x 2 컨테이너 (오토스케일)</div></div></div>
+        <div class="stack-item"><div class="stack-icon">⚖️</div><div><div class="stack-name">ALB</div><div class="stack-desc">로드밸런서 + 헬스체크 + 블루/그린</div></div></div>
+        <div class="stack-item"><div class="stack-icon">🗄</div><div><div class="stack-name">RDS PostgreSQL</div><div class="stack-desc">db.t4g.small, Multi-AZ, 백업 7일</div></div></div>
+        <div class="stack-item"><div class="stack-icon">⚡</div><div><div class="stack-name">ElastiCache Redis</div><div class="stack-desc">cache.t4g.small (가성비: 제외 가능)</div></div></div>
+        <div class="stack-item"><div class="stack-icon">📦</div><div><div class="stack-name">S3</div><div class="stack-desc">파일 스토리지 50GB</div></div></div>
+        <div class="stack-item"><div class="stack-icon">🔐</div><div><div class="stack-name">Cognito</div><div class="stack-desc">인증 (JWT, 소셜 로그인)</div></div></div>
+        <div class="stack-item"><div class="stack-icon">📧</div><div><div class="stack-name">SES</div><div class="stack-desc">이메일 발송</div></div></div>
+        <div class="stack-item"><div class="stack-icon">🌐</div><div><div class="stack-name">CloudFlare / CloudFront</div><div class="stack-desc">CDN + SSL (가성비: CloudFlare 무료)</div></div></div>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-title">아키텍처</div>
+      <div class="arch-box"><span class="hl">[사용자]</span> → CloudFront / CloudFlare <span class="cm">(CDN + SSL)</span>
+           ↓
+        <span class="hl">ALB</span> <span class="cm">(로드밸런서, 헬스체크, 블루/그린 배포)</span>
+           ↓
+   <span class="hl">ECS Fargate</span> <span class="cm">(오토스케일 min:2 → max:20)</span>
+   ┌──────────────┐  ┌──────────────┐
+   │ Next.js       │  │ Next.js       │  ...
+   │ 1vCPU / 2GB  │  │ 1vCPU / 2GB  │
+   └──────────────┘  └──────────────┘
+           ↓
+   ┌──────────────────────────────────┐
+   │  <span class="hl">RDS PostgreSQL</span> (Multi-AZ)          <span class="cm">← db.t4g.small, 동시 연결 ~120</span>
+   │  <span class="hl">ElastiCache Redis</span>                 <span class="cm">← cache.t4g.small (가성비: 제외)</span>
+   │  <span class="hl">S3</span>  │  <span class="hl">Cognito</span>  │  <span class="hl">SES</span>
+   └──────────────────────────────────┘</div>
+    </div>
+
+    <div class="section">
+      <div class="section-title">월 비용 (프로덕션 스펙)</div>
+      <table>
+        <tr><th>서비스</th><th>스펙</th><th class="text-center">필수</th><th class="text-right">USD</th><th class="text-right">KRW</th></tr>
+        <tr><td>ECS Fargate</td><td>1 vCPU, 2GB x 2 태스크</td><td class="text-center"><span class="ok">필수</span></td><td class="text-right">$60</td><td class="text-right">₩82,400</td></tr>
+        <tr><td>ALB</td><td>Application Load Balancer</td><td class="text-center"><span class="ok">필수</span></td><td class="text-right">$18</td><td class="text-right">₩24,700</td></tr>
+        <tr><td>RDS PostgreSQL</td><td>db.t4g.small, Multi-AZ, 20GB gp3</td><td class="text-center"><span class="ok">필수</span></td><td class="text-right">$50</td><td class="text-right">₩68,700</td></tr>
+        <tr><td>S3</td><td>50GB</td><td class="text-center"><span class="ok">필수</span></td><td class="text-right">$1</td><td class="text-right">₩1,400</td></tr>
+        <tr><td>ECR</td><td>컨테이너 이미지 저장소</td><td class="text-center"><span class="ok">필수</span></td><td class="text-right">$1</td><td class="text-right">₩1,400</td></tr>
+        <tr><td>Cognito + SES</td><td>무료 티어 (50K MAU)</td><td class="text-center"><span class="ok">필수</span></td><td class="text-right">$0</td><td class="text-right">₩0</td></tr>
+        <tr><td>데이터 전송</td><td>~100GB 아웃바운드</td><td class="text-center"><span class="ok">필수</span></td><td class="text-right">$9</td><td class="text-right">₩12,400</td></tr>
+        <tr><td>CloudWatch</td><td>로그 + 알람 + 대시보드</td><td class="text-center"><span class="ok">필수</span></td><td class="text-right">$10</td><td class="text-right">₩13,700</td></tr>
+        <tr><td>ElastiCache Redis</td><td>cache.t4g.small</td><td class="text-center"><span class="badge badge-orange">절감</span></td><td class="text-right">$25</td><td class="text-right">₩34,400</td></tr>
+        <tr><td>CloudFront</td><td>100GB 전송</td><td class="text-center"><span class="badge badge-orange">절감</span></td><td class="text-right">$9</td><td class="text-right">₩12,400</td></tr>
+        <tr><td>Secrets Manager</td><td>시크릿 5개</td><td class="text-center"><span class="badge badge-orange">절감</span></td><td class="text-right">$2</td><td class="text-right">₩2,700</td></tr>
+        <tr class="total-row"><td colspan="3">프로덕션 기본 합계</td><td class="text-right">$178</td><td class="text-right">₩245,000</td></tr>
+        <tr class="total-row" style="background:#dcfce7 !important;"><td colspan="3" style="background:#dcfce7;">프로덕션 가성비 <span class="badge badge-green">-₩95,000</span></td><td class="text-right" style="background:#dcfce7;">$109</td><td class="text-right" style="background:#dcfce7;"><b>₩150,000</b></td></tr>
+      </table>
+    </div>
+
+    <div class="section">
+      <div class="section-title">가성비 체크 — 빼도 되는 것 vs 안 되는 것</div>
+      <div class="cost-check">
+        <div class="cost-item keep"><span class="cost-icon">🔒</span><b>RDS Multi-AZ</b> — 빼면 안 됨. DB 장애 시 데이터 유실<span class="cost-save">유지</span></div>
+        <div class="cost-item keep"><span class="cost-icon">🔒</span><b>ALB</b> — Fargate 필수. 로드밸런싱 + 헬스체크<span class="cost-save">유지</span></div>
+        <div class="cost-item keep"><span class="cost-icon">🔒</span><b>ECS Fargate x2</b> — 1 vCPU, 2GB. 고가용성 최소 단위<span class="cost-save">유지</span></div>
+        <div class="cost-item keep"><span class="cost-icon">🔒</span><b>CloudWatch</b> — 프로덕션 모니터링 필수<span class="cost-save">유지</span></div>
+        <div class="cost-item cut"><span class="cost-icon">✂️</span><b>ElastiCache Redis</b> — 초기엔 없어도 됨. 10분만에 추가 가능<span class="cost-save">-$25</span></div>
+        <div class="cost-item cut"><span class="cost-icon">✂️</span><b>CloudFront</b> → CloudFlare 무료로 동일 효과<span class="cost-save">-$9</span></div>
+        <div class="cost-item cut"><span class="cost-icon">✂️</span><b>Secrets Manager</b> — ECS 환경변수로 직접 주입<span class="cost-save">-$2</span></div>
+        <div class="cost-item cut"><span class="cost-icon">✂️</span><b>NAT Gateway</b> — 퍼블릭 서브넷 + Security Group<span class="cost-save">미사용</span></div>
+      </div>
+      <div class="note">절감 항목은 전부 나중에 5~10분이면 추가 가능. 아키텍처 변경 없음.</div>
+    </div>
+
+    <div class="section">
+      <div class="section-title">오토스케일링 정책</div>
+      <table>
+        <tr><th>지표</th><th class="text-center">임계값</th><th>액션</th><th class="text-center">쿨다운</th></tr>
+        <tr><td>CPU 평균</td><td class="text-center">> 60% (3분)</td><td>태스크 +1</td><td class="text-center">60초</td></tr>
+        <tr><td>CPU 평균</td><td class="text-center">&lt; 30% (10분)</td><td>태스크 -1</td><td class="text-center">300초</td></tr>
+        <tr><td>요청 수/태스크</td><td class="text-center">> 1,000/분</td><td>태스크 +2</td><td class="text-center">60초</td></tr>
+        <tr><td>최소 태스크</td><td class="text-center">2</td><td>항상 유지</td><td class="text-center">-</td></tr>
+        <tr><td>최대 태스크</td><td class="text-center">20</td><td>비용 상한</td><td class="text-center">-</td></tr>
+      </table>
+    </div>
+
+    <div class="section">
+      <div class="section-title">성장 단계별 스펙 (구조 변경 없이 스펙만 조절)</div>
+      <table>
+        <tr><th>단계</th><th>헬스장</th><th>Fargate</th><th class="text-center">상시</th><th class="text-center">피크</th><th>RDS</th><th class="text-right">월 비용</th></tr>
+        <tr><td><span class="badge badge-blue">초기</span></td><td>~20</td><td>1v, 2G</td><td class="text-center">2</td><td class="text-center">4</td><td>t4g.small</td><td class="text-right">₩150,000~245,000</td></tr>
+        <tr><td><span class="badge badge-green">성장</span></td><td>~100</td><td>1v, 2G</td><td class="text-center">3</td><td class="text-center">8</td><td>t4g.medium</td><td class="text-right">₩350,000~450,000</td></tr>
+        <tr><td><span class="badge badge-purple">확장</span></td><td>~500</td><td>2v, 4G</td><td class="text-center">5</td><td class="text-center">15</td><td>r7g.large</td><td class="text-right">₩900,000~1,200,000</td></tr>
+        <tr><td><span class="badge badge-red">안정</span></td><td>~2,000</td><td>2v, 4G</td><td class="text-center">8</td><td class="text-center">20</td><td>r7g.xlarge</td><td class="text-right">₩2,500,000~3,500,000</td></tr>
+      </table>
+    </div>
+
+    <div class="section">
+      <div class="section-title">장단점</div>
+      <div class="pros-cons">
+        <div class="pros"><h4>장점</h4><ul>
+          <li>무중단 배포 (블루/그린)</li>
+          <li>CPU 기반 오토스케일링</li>
+          <li>서버 관리 불필요 (서버리스)</li>
+          <li>2대 이상 = 고가용성</li>
+          <li>구조 변경 없이 2,000 지점까지</li>
+        </ul></div>
+        <div class="cons"><h4>단점</h4><ul>
+          <li>1안 대비 비용 높음</li>
+          <li>ALB 고정비 $18</li>
+          <li>ECS/Fargate 학습 필요</li>
+        </ul></div>
+      </div>
+    </div>
+
+    <div class="recommend-box">
+      <div class="label">★ 추천 사유</div>
+      <p>프로덕션 가성비 월 ₩150,000 / 기본 월 ₩245,000으로 시작. 무중단 배포 + 오토스케일 확보. 헬스장이 늘어도 인프라 구조 변경 없이 스펙만 올리면 됨. 프로덕션 SaaS에 가장 현실적인 선택.</p>
+    </div>
+  </div>
+
+  <!-- 3안 -->
+  <div class="tab-content" id="tab-2">
+    <div class="content-header">
+      <div><h2>3안: ECS Fargate + RDS + 풀스택</h2><div class="desc">엔터프라이즈 &mdash; 고가용성, 보안 완비, 비동기 처리, 사용자 10,000+</div></div>
+      <span class="badge badge-purple" style="font-size:13px; padding:6px 14px;">500~2,000 헬스장</span>
+    </div>
+
+    <div class="section">
+      <div class="section-title">사용 서비스</div>
+      <div class="stack-grid">
+        <div class="stack-item"><div class="stack-icon">🚀</div><div><div class="stack-name">ECS Fargate</div><div class="stack-desc">2 vCPU, 4GB x 3~20 (오토스케일)</div></div></div>
+        <div class="stack-item"><div class="stack-icon">⚖️</div><div><div class="stack-name">ALB</div><div class="stack-desc">로드밸런서</div></div></div>
+        <div class="stack-item"><div class="stack-icon">🗄</div><div><div class="stack-name">RDS PostgreSQL</div><div class="stack-desc">db.r7g.large, Multi-AZ + Read Replica</div></div></div>
+        <div class="stack-item"><div class="stack-icon">⚡</div><div><div class="stack-name">ElastiCache Redis</div><div class="stack-desc">cache.r7g.large 클러스터</div></div></div>
+        <div class="stack-item"><div class="stack-icon">📦</div><div><div class="stack-name">S3 + Glacier</div><div class="stack-desc">파일 200GB + 아카이브</div></div></div>
+        <div class="stack-item"><div class="stack-icon">🌐</div><div><div class="stack-name">CloudFront + WAF</div><div class="stack-desc">CDN + 웹방화벽</div></div></div>
+        <div class="stack-item"><div class="stack-icon">🔐</div><div><div class="stack-name">Cognito (MFA)</div><div class="stack-desc">인증 + 다중인증</div></div></div>
+        <div class="stack-item"><div class="stack-icon">📧</div><div><div class="stack-name">SES</div><div class="stack-desc">이메일 발송</div></div></div>
+        <div class="stack-item"><div class="stack-icon">📬</div><div><div class="stack-name">SQS + Lambda</div><div class="stack-desc">비동기 (정산, 알림, 보고서)</div></div></div>
+        <div class="stack-item"><div class="stack-icon">⏰</div><div><div class="stack-name">EventBridge</div><div class="stack-desc">스케줄러 (만료, 정산)</div></div></div>
+        <div class="stack-item"><div class="stack-icon">🛡</div><div><div class="stack-name">GuardDuty</div><div class="stack-desc">위협 탐지</div></div></div>
+        <div class="stack-item"><div class="stack-icon">📋</div><div><div class="stack-name">CloudTrail</div><div class="stack-desc">감사 로그</div></div></div>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-title">아키텍처</div>
+      <div class="arch-box"><span class="hl">[사용자]</span> → CloudFront + <span class="hl">WAF</span> <span class="cm">(CDN + 웹방화벽)</span>
+           ↓
+        <span class="hl">ALB</span> <span class="cm">(로드밸런서)</span>
+           ↓
+   <span class="hl">ECS Fargate</span> <span class="cm">(2vCPU 4GB x3~20, 오토스케일)</span>
+           ↓
+   ┌────────────────────────────────────────┐
+   │  <span class="hl">RDS PostgreSQL</span> (Multi-AZ, r7g.large)   <span class="cm">← Writer, 동시 연결 ~600</span>
+   │  <span class="hl">RDS Read Replica</span> x 2~3               <span class="cm">← 리포트/분석</span>
+   │  <span class="hl">ElastiCache Redis</span> (클러스터)           <span class="cm">← 세션+캐시+Rate Limit</span>
+   │  <span class="hl">S3</span> + Glacier                          <span class="cm">← 파일+아카이브</span>
+   │  <span class="hl">SQS → Lambda</span>                          <span class="cm">← 정산, 알림, 보고서</span>
+   │  <span class="hl">EventBridge</span>                           <span class="cm">← 만료체크, 월정산</span>
+   │  <span class="hl">GuardDuty</span> + CloudTrail                <span class="cm">← 보안+감사</span>
+   └────────────────────────────────────────┘</div>
+    </div>
+
+    <div class="section">
+      <div class="section-title">월 비용 (프로덕션 스펙)</div>
+      <table>
+        <tr><th>서비스</th><th>스펙</th><th class="text-center">필수</th><th class="text-right">USD</th><th class="text-right">KRW</th></tr>
+        <tr><td>ECS Fargate</td><td>2 vCPU, 4GB x 3</td><td class="text-center"><span class="ok">필수</span></td><td class="text-right">$135</td><td class="text-right">₩185,500</td></tr>
+        <tr><td>ALB</td><td>Load Balancer</td><td class="text-center"><span class="ok">필수</span></td><td class="text-right">$18</td><td class="text-right">₩24,700</td></tr>
+        <tr><td>RDS PostgreSQL</td><td>db.r7g.large, Multi-AZ</td><td class="text-center"><span class="ok">필수</span></td><td class="text-right">$180</td><td class="text-right">₩247,300</td></tr>
+        <tr><td>RDS Read Replica</td><td>db.r7g.large x 1</td><td class="text-center"><span class="ok">필수</span></td><td class="text-right">$90</td><td class="text-right">₩123,700</td></tr>
+        <tr><td>ElastiCache Redis</td><td>cache.r7g.large 클러스터</td><td class="text-center"><span class="ok">필수</span></td><td class="text-right">$95</td><td class="text-right">₩130,500</td></tr>
+        <tr><td>S3 + CloudFront</td><td>200GB + 500GB 전송</td><td class="text-center"><span class="ok">필수</span></td><td class="text-right">$30</td><td class="text-right">₩41,200</td></tr>
+        <tr><td>SQS + Lambda</td><td>비동기 파이프라인</td><td class="text-center"><span class="ok">필수</span></td><td class="text-right">$10</td><td class="text-right">₩13,700</td></tr>
+        <tr><td>EventBridge</td><td>스케줄러</td><td class="text-center"><span class="ok">필수</span></td><td class="text-right">$1</td><td class="text-right">₩1,400</td></tr>
+        <tr><td>CloudWatch</td><td>로그 + 알람 + 대시보드</td><td class="text-center"><span class="ok">필수</span></td><td class="text-right">$15</td><td class="text-right">₩20,600</td></tr>
+        <tr><td>Cognito + SES</td><td>MFA 포함</td><td class="text-center"><span class="ok">필수</span></td><td class="text-right">$0</td><td class="text-right">₩0</td></tr>
+        <tr><td>ECR + Secrets Manager</td><td>이미지 + 시크릿</td><td class="text-center"><span class="ok">필수</span></td><td class="text-right">$5</td><td class="text-right">₩6,900</td></tr>
+        <tr><td>데이터 전송</td><td>~500GB</td><td class="text-center"><span class="ok">필수</span></td><td class="text-right">$45</td><td class="text-right">₩61,800</td></tr>
+        <tr><td>WAF</td><td>웹 방화벽</td><td class="text-center"><span class="badge badge-orange">절감</span></td><td class="text-right">$15</td><td class="text-right">₩20,600</td></tr>
+        <tr><td>GuardDuty</td><td>위협 탐지</td><td class="text-center"><span class="badge badge-orange">절감</span></td><td class="text-right">$15</td><td class="text-right">₩20,600</td></tr>
+        <tr><td>CloudTrail</td><td>감사 로그</td><td class="text-center"><span class="badge badge-orange">절감</span></td><td class="text-right">$5</td><td class="text-right">₩6,900</td></tr>
+        <tr class="total-row"><td colspan="3">프로덕션 기본 합계</td><td class="text-right">$699</td><td class="text-right">₩960,000</td></tr>
+        <tr class="total-row" style="background:#dcfce7 !important;"><td colspan="3" style="background:#dcfce7;">프로덕션 가성비 <span class="badge badge-green">-₩140,000</span></td><td class="text-right" style="background:#dcfce7;">$597</td><td class="text-right" style="background:#dcfce7;"><b>₩820,000</b></td></tr>
+      </table>
+    </div>
+
+    <div class="section">
+      <div class="section-title">가성비 체크</div>
+      <div class="cost-check">
+        <div class="cost-item keep"><span class="cost-icon">🔒</span><b>RDS Multi-AZ + Read Replica</b> — 이 규모에서 필수<span class="cost-save">유지</span></div>
+        <div class="cost-item keep"><span class="cost-icon">🔒</span><b>Redis 클러스터</b> — 이 규모에서 필수<span class="cost-save">유지</span></div>
+        <div class="cost-item keep"><span class="cost-icon">🔒</span><b>SQS + Lambda</b> — 정산/알림 분리 필수<span class="cost-save">유지</span></div>
+        <div class="cost-item cut"><span class="cost-icon">✂️</span><b>WAF</b> — CloudFlare 무료 방화벽으로 대체<span class="cost-save">-$15</span></div>
+        <div class="cost-item cut"><span class="cost-icon">✂️</span><b>GuardDuty</b> — 보안 사고 전까지 제외 가능<span class="cost-save">-$15</span></div>
+        <div class="cost-item cut"><span class="cost-icon">✂️</span><b>CloudTrail</b> — 컴플라이언스 필요 전까지 제외<span class="cost-save">-$5</span></div>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-title">장단점</div>
+      <div class="pros-cons">
+        <div class="pros"><h4>장점</h4><ul>
+          <li>엔터프라이즈 SLA 99.99%</li>
+          <li>보안 완비 (WAF + GuardDuty)</li>
+          <li>비동기 작업 분리 (정산, 보고서)</li>
+          <li>감사 로그 (컴플라이언스)</li>
+          <li>Read Replica로 리포트 분리</li>
+        </ul></div>
+        <div class="cons"><h4>단점</h4><ul>
+          <li>월 ₩820,000~960,000</li>
+          <li>초기 세팅 복잡</li>
+          <li>AWS 깊은 이해 필요</li>
+          <li>초기 단계에서 과잉 투자</li>
+        </ul></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="page-footer">CONFIDENTIAL &mdash; 판도컴퍼니 &mdash; FitGenie CRM 서버 인프라 비교 견적서</div>
+</div>
+
+<script>
+function switchTab(index) {
+  document.querySelectorAll('.tab').forEach((t, i) => t.classList.toggle('active', i === index));
+  document.querySelectorAll('.tab-content').forEach((c, i) => c.classList.toggle('active', i === index));
+  document.querySelectorAll('.summary-card').forEach((c, i) => c.classList.toggle('active', i === index));
+}
+function setMode(mode) {
+  document.querySelectorAll('.mode-btn').forEach(b => {
+    b.classList.toggle('active', b.textContent.includes(mode === 'standard' ? '기본' : '가성비'));
+  });
+  document.querySelectorAll('.price-std').forEach(el => {
+    el.textContent = mode === 'standard' ? el.dataset.std : el.dataset.budget;
+    el.style.color = mode === 'budget' ? '#16a34a' : '#0f172a';
+  });
+  document.querySelectorAll('.price-cell').forEach(el => {
+    el.textContent = mode === 'standard' ? el.dataset.std : el.dataset.budget;
+  });
+  document.querySelectorAll('.tab-price-val').forEach(el => {
+    el.textContent = mode === 'standard' ? el.dataset.std : el.dataset.budget;
+  });
+}
+</script>
+</body>
+</html>

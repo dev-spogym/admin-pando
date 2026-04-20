@@ -1,0 +1,79 @@
+name: 다이어그램/TC 매트릭스 검증
+
+on:
+  pull_request:
+    paths:
+      - 'docs/다이어그램/**'
+      - 'docs/화면설계서/**'
+      - 'scripts/diagram/**'
+  push:
+    branches: [main]
+    paths:
+      - 'docs/다이어그램/**'
+      - 'docs/화면설계서/**'
+      - 'scripts/diagram/**'
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: TC 매트릭스 자동 채움 (드라이 체크)
+        run: node scripts/diagram/auto-fill-tc-matrix.cjs
+
+      - name: SCR/DLG 일관성 검증
+        run: node scripts/diagram/verify-scr-dlg-consistency.cjs
+
+      - name: TC 매핑 커버리지 검증
+        id: cov
+        run: |
+          node scripts/diagram/verify-diagram-tc-mapping.cjs | tee cov.txt
+          coverage=$(grep -oE '[0-9]+\.[0-9]+%' cov.txt | head -1 | tr -d '%')
+          echo "coverage=$coverage" >> $GITHUB_OUTPUT
+          if (( $(echo "$coverage < 95" | bc -l) )); then
+            echo "❌ 커버리지 $coverage% < 95% 미달"
+            exit 1
+          fi
+
+      - name: SCR/DLG 채움률 체크
+        run: node scripts/diagram/diagram-coverage.cjs
+
+      - name: 검증 리포트 업로드
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: diagram-verification-report
+          path: |
+            docs/다이어그램/99_TC_매핑/검증리포트.md
+            docs/다이어그램/99_TC_매핑/SCR_DLG_일관성리포트.md
+            docs/다이어그램/99_TC_매핑/TC_커버리지_리포트.md
+
+      - name: PR 커멘트
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const reports = [
+              'docs/다이어그램/99_TC_매핑/검증리포트.md',
+              'docs/다이어그램/99_TC_매핑/TC_커버리지_리포트.md'
+            ];
+            let body = '## 📊 다이어그램/TC 매트릭스 검증 결과\n\n';
+            body += `- **TC 커버리지**: ${{ steps.cov.outputs.coverage }}%\n\n`;
+            for (const r of reports) {
+              if (fs.existsSync(r)) {
+                const content = fs.readFileSync(r, 'utf8').split('\n').slice(0, 30).join('\n');
+                body += `<details><summary>${r}</summary>\n\n\`\`\`\n${content}\n\`\`\`\n</details>\n\n`;
+              }
+            }
+            github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body
+            });

@@ -23,7 +23,9 @@ Thumbs.db
 excel/
 e2e/
 qa-reports/
-scripts/
+scripts/*
+!scripts/diagram/
+!scripts/diagram/**
 .env.cpgz
 
 # fry cache
