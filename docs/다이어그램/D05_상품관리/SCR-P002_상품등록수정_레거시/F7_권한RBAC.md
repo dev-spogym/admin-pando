@@ -1,11 +1,9 @@
 ---
-diagramId: F7_SCR-P002
 title: 상품 등록/수정 레거시 권한(RBAC) 분기 플로우
 type: flowchart
 scope: SCR-P002
 dependencies: []
 actors: [primary, owner, manager, trainer, front]
-tcMappings: [TC-P002-F7-01, TC-P002-F7-02]
 lastUpdated: 2026-04-20
 ---
 
@@ -17,11 +15,11 @@ lastUpdated: 2026-04-20
 flowchart LR
     USER([사용자]) --> RoleCheck{역할 확인}
 
-    RoleCheck -->|"E_F7_P_01: primary"| P[슈퍼관리자\n전체 접근]
-    RoleCheck -->|"E_F7_O_01: owner"| O[센터장\n전체 접근]
-    RoleCheck -->|"E_F7_M_01: manager"| M[매니저\n전체 접근]
-    RoleCheck -->|"E_F7_T_01: trainer"| T[트레이너\n접근 불가\n상품 목록으로 리다이렉트]
-    RoleCheck -->|"E_F7_F_01: front"| F[프론트\n접근 불가\n상품 목록으로 리다이렉트]
+    RoleCheck -->|": primary"|P[슈퍼관리자\n전체 접근]
+    RoleCheck -->|": owner"|O[센터장\n전체 접근]
+    RoleCheck -->|": manager"|M[매니저\n전체 접근]
+    RoleCheck -->|": trainer"|T[트레이너\n접근 불가\n상품 목록으로 리다이렉트]
+    RoleCheck -->|": front"|F[프론트\n접근 불가\n상품 목록으로 리다이렉트]
 
     P & O & M --> FullAccess[전체 폼 접근\n저장/삭제 가능]
     T & F --> Redirect[SCR-P001 리다이렉트]
@@ -36,7 +34,4 @@ flowchart LR
 
 ## TC 후보
 
-| TC ID | 타입 | Given | When | Then |
-|-------|------|-------|------|------|
-| TC-P002-F7-01 | positive | manager 로그인 | /products/new 진입 | 전체 폼 접근 가능 |
-| TC-P002-F7-02 | negative | trainer 로그인 | /products/new 진입 | 상품 목록으로 리다이렉트 |
+| TC ID | 타입 | Given | When | Then | |-------|------|-------|------|------| | TC-P002-F7-01 | positive | manager 로그인 | 진입 | 전체 폼 접근 가능 | | TC-P002-F7-02 | negative | trainer 로그인 | 진입 | 상품 목록으로 리다이렉트 |

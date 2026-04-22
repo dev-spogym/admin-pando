@@ -70,3 +70,6 @@ playwright-report/
 vite.config.*
 qa-test.*
 package-lock.json
+
+# 기획 납품본 생성 시 로컬 백업 (커밋 제외)
+docs/다이어그램.dev-backup-*/

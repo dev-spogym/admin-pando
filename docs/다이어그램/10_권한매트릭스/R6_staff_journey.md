@@ -1,5 +1,4 @@
 ---
-diagramId: RBAC_R6
 title: staff(스태프) 역할 Journey
 type: journey
 lastUpdated: 2026-04-20
@@ -21,20 +20,20 @@ journey
       공지사항 확인 /notices: 5: staff
 
     section 회원 출석 처리 (핵심 업무)
-      출석 관리 /attendance: 5: staff
-      회원 목록 조회(○) /members: 3: staff
-      회원 상세 조회(○) /members/detail: 3: staff
+      출석 관리 /: 5: staff
+      회원 목록 조회(○) /: 3: staff
+      회원 상세 조회(○) 3: staff
       캘린더 조회(○) /calendar: 3: staff
       수업 현황 조회(○) /class-stats: 2: staff
 
     section 시설 관리
       락커 관리 /locker: 4: staff
-      사물함 배정 /locker/management: 4: staff
+      사물함 배정 4: staff
       밴드/카드 관리 /rfid: 4: staff
       운동복 관리 /clothing: 4: staff
 
     section 전자계약 지원
-      전자계약 /contracts/new: 3: staff
+      전자계약 3: staff
 
     section 차단 업무 (대부분 차단)
       회원 등록/수정: 1: staff
@@ -49,29 +48,15 @@ journey
 
 ## staff 역할 접근 상세
 
-| 화면 | 라우트 | 접근 | 비고 |
-|------|--------|:---:|------|
-| 대시보드/할일 | `/`, `/today-tasks` | ● | |
+| 화면 | 라우트 | 접근 | 비고 | |------|--------|:---:|------| | 대시보드/할일 | `/`, `/today-tasks` | ● | |
 | KPI 프리뷰 | `/kpi-preview` | ● | |
 | 공지사항 | `/notices` | ● | |
-| 출석 관리 | `/attendance` | ● | |
-| 회원 목록 | `/members` | ○ | 조회만 |
-| 회원 상세 | `/members/detail` | ○ | 조회만 |
-| 회원 등록/수정/이관 | `/members/new`, `/members/edit`, `/members/transfer` | — | 차단 |
-| 캘린더 | `/calendar` | ○ | 조회만 |
-| 수업 관리 | `/lessons` | — | 차단 |
-| 수업 현황 | `/class-stats` | — | 차단 |
-| 전자계약 | `/contracts/new` | ● | |
+| 출석 관리 | `/` | ● | |
+| 회원 목록 | `/` | ○ | 조회만 | | 회원 상세 | `` | ○ | 조회만 | | 회원 등록/수정/이관 | ``, ``, `` | — | 차단 | | 캘린더 | `/calendar` | ○ | 조회만 | | 수업 관리 | `/lessons` | — | 차단 | | 수업 현황 | `/class-stats` | — | 차단 | | 전자계약 | `` | ● | |
 | 락커 관리 | `/locker` | ● | |
-| 사물함 배정 | `/locker/management` | ● | |
+| 사물함 배정 | `` | ● | |
 | 밴드/카드 | `/rfid` | ● | |
 | 운동복 | `/clothing` | ● | |
-| 운동룸/골프타석 | `/rooms`, `/golf-bays` | — | 차단 |
-| 매출 전체 | `/sales*`, `/pos*`, `/refunds*` | — | 차단 |
-| 상품 전체 | `/products*` | — | 차단 |
-| 직원/급여 | `/staff*`, `/payroll*` | — | 차단 |
-| 마케팅 전체 | `/leads`, `/message*`, `/mileage` | — | 차단 |
-| 설정 전체 | `/settings*` | — | 차단 |
-| 본사관리 | `/super-dashboard`, `/kpi`, `/audit-log` 등 | — | 차단 |
+| 운동룸/골프타석 | `/rooms`, `/golf-bays` | — | 차단 | | 매출 전체 | `/sales*`, `/pos*`, `/*` | — | 차단 | | 상품 전체 | `/*` | — | 차단 | | 직원/급여 | `/staff*`, `/payroll*` | — | 차단 | | 마케팅 전체 | `/`, `/message*`, `/mileage` | — | 차단 | | 설정 전체 | `/settings*` | — | 차단 | | 본사관리 | `/super-dashboard`, `/kpi`, `/audit-log` 등 | — | 차단 |
 
 **접근 가능: 13개 / 조회만: 2개 / 차단: 52개**

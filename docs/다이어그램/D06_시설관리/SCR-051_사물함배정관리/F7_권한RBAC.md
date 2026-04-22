@@ -1,11 +1,9 @@
 ---
-diagramId: F7_SCR-051
 title: 사물함 배정 관리 권한(RBAC) 분기 플로우
 type: flowchart
 scope: SCR-051
 dependencies: []
 actors: [primary, owner, manager, front, trainer]
-tcMappings: [TC-051-005]
 lastUpdated: 2026-04-20
 ---
 
@@ -17,11 +15,11 @@ lastUpdated: 2026-04-20
 flowchart LR
     USER([사용자]) --> RoleCheck{역할}
 
-    RoleCheck -->|E_F7_P_01| P[슈퍼관리자]
-    RoleCheck -->|E_F7_O_01| O[센터장]
-    RoleCheck -->|E_F7_M_01| M[매니저]
-    RoleCheck -->|E_F7_F_01| F[프론트/스태프]
-    RoleCheck -->|E_F7_T_01| T[트레이너/코치]
+    RoleCheck --> P[슈퍼관리자]
+    RoleCheck --> O[센터장]
+    RoleCheck --> M[매니저]
+    RoleCheck --> F[프론트/스태프]
+    RoleCheck --> T[트레이너/코치]
 
     P & O & M & F --> Full[전체 기능\n배정/해제/락커추가/동기화]
     T --> Blocked[접근 차단\n403 리다이렉트]
@@ -36,6 +34,4 @@ flowchart LR
 
 ## TC 후보
 
-| TC ID | 타입 | Given | When | Then |
-|-------|------|-------|------|------|
-| TC-051-005 | negative | trainer | 배정하기 버튼 클릭 | 접근 차단 |
+| TC ID | 타입 | Given | When | Then | |-------|------|-------|------|------| | TC-051-005 | negative | trainer | 배정하기 버튼 클릭 | 접근 차단 |

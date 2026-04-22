@@ -17,9 +17,11 @@ type FileData = {
   meta: string;
 };
 
+const HIDDEN_ROOT_NAMES = new Set(['README.md', 'INDEX.md']);
+const DEV_ONLY_ROOT_NAMES = new Set(['_관리']);
+const IS_DEV = process.env.NODE_ENV !== 'production';
+
 const SECTION_DESC: Record<string, { label: string; order: number; desc: string }> = {
-  'README.md': { label: '규칙집', order: 0, desc: '컨벤션·색상·노드 규칙' },
-  'INDEX.md': { label: '마스터 인덱스 (여기부터)', order: 1, desc: '전체 구조 한눈에' },
   '00_사이트맵': { label: '1. 사이트맵', order: 10, desc: '화면 간 이동 전체도' },
   '10_권한매트릭스': { label: '2. 권한 매트릭스', order: 11, desc: '6개 역할의 접근 범위' },
   '20_상태전이도': { label: '3. 상태 전이', order: 12, desc: '엔티티 16개 상태 흐름' },
@@ -54,10 +56,17 @@ export function DiagramBrowser() {
     fetch('/api/diagrams')
       .then((r) => r.json())
       .then((d) => {
-        const raw: Node[] = d.tree ?? [];
+        const raw: Node[] = (d.tree ?? []).filter((n: Node) => {
+          if (HIDDEN_ROOT_NAMES.has(n.name)) return false;
+          if (!IS_DEV && DEV_ONLY_ROOT_NAMES.has(n.name)) return false;
+          return true;
+        });
         raw.sort((a, b) => (SECTION_DESC[a.name]?.order ?? 999) - (SECTION_DESC[b.name]?.order ?? 999));
         setTree(raw);
-        if (!selected) setSelected('INDEX.md');
+        if (!selected) {
+          const firstFile = findFirstFile(raw);
+          if (firstFile) setSelected(firstFile);
+        }
       });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -141,7 +150,7 @@ export function DiagramBrowser() {
     <div className="flex h-screen bg-slate-50">
       <aside className="w-80 flex-shrink-0 border-r border-slate-200 bg-white flex flex-col">
         <div className="p-3 border-b border-slate-200">
-          <h1 className="text-lg font-bold text-slate-900 mb-2">📊 다이어그램 뷰어</h1>
+          <h1 className="text-lg font-bold text-slate-900 mb-2">다이어그램 뷰어</h1>
           <input
             type="text"
             value={query}
@@ -204,4 +213,15 @@ function countFiles(tree: Node[]): number {
     else if (n.children) count += countFiles(n.children);
   }
   return count;
+}
+
+function findFirstFile(tree: Node[]): string | null {
+  for (const n of tree) {
+    if (n.type === 'file') return n.path;
+    if (n.children) {
+      const found = findFirstFile(n.children);
+      if (found) return found;
+    }
+  }
+  return null;
 }
