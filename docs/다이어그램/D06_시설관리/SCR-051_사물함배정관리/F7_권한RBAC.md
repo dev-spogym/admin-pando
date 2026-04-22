@@ -34,4 +34,6 @@ flowchart LR
 
 ## TC 후보
 
-| TC ID | 타입 | Given | When | Then | |-------|------|-------|------|------| | TC-051-005 | negative | trainer | 배정하기 버튼 클릭 | 접근 차단 |
+| TC ID | 타입 | Given | When | Then |
+|-------|------|-------|------|------|
+| TC-051-005 | negative | trainer | 배정하기 버튼 클릭 | 접근 차단 |

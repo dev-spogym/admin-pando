@@ -34,4 +34,7 @@ flowchart LR
 
 ## TC 후보
 
-| TC ID | 타입 | Given | When | Then | |-------|------|-------|------|------| | TC-P008-F7-01 | positive | manager | 시즌 가격 관리 진입 | 등록/수정/삭제 모두 가능 | | TC-P008-F7-02 | negative | front | 시즌 가격 관리 메뉴 클릭 | 접근 차단, 403 리다이렉트 |
+| TC ID | 타입 | Given | When | Then |
+|-------|------|-------|------|------|
+| TC-P008-F7-01 | positive | manager | 시즌 가격 관리 진입 | 등록/수정/삭제 모두 가능 |
+| TC-P008-F7-02 | negative | front | 시즌 가격 관리 메뉴 클릭 | 접근 차단, 403 리다이렉트 |

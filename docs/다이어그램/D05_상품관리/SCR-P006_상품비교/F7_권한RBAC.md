@@ -34,4 +34,7 @@ flowchart LR
 
 ## TC 후보
 
-| TC ID | 타입 | Given | When | Then | |-------|------|-------|------|------| | TC-P006-F7-01 | positive | manager | 비교 화면 진입 | 바로 구매/내보내기 모두 가능 | | TC-P006-F7-02 | positive | front | 비교 화면 진입 | 바로 구매 버튼 숨김, 조회 전용 |
+| TC ID | 타입 | Given | When | Then |
+|-------|------|-------|------|------|
+| TC-P006-F7-01 | positive | manager | 비교 화면 진입 | 바로 구매/내보내기 모두 가능 |
+| TC-P006-F7-02 | positive | front | 비교 화면 진입 | 바로 구매 버튼 숨김, 조회 전용 |

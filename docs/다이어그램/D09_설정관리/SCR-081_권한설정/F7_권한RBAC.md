@@ -52,7 +52,14 @@ flowchart LR
 ```
 
 ## 역할별 접근 매트릭스
-| 역할 | 접근 | 조회 | 역할 편집 | 역할 생성/삭제 | |------|:---:|:---:|:--------:|:------------:| | primary | ✅ | ✅ | owner~readonly | ✅ | | owner | ✅ | ✅ | manager~readonly | 제한 | | manager | ❌ | ❌ | ❌ | ❌ | | fc | ❌ | ❌ | ❌ | ❌ | | staff | ❌ | ❌ | ❌ | ❌ | | readonly | ❌ | ❌ | ❌ | ❌ |
+| 역할 | 접근 | 조회 | 역할 편집 | 역할 생성/삭제 |
+|------|:---:|:---:|:--------:|:------------:|
+| primary | ✅ | ✅ | owner~readonly | ✅ |
+| owner | ✅ | ✅ | manager~readonly | 제한 |
+| manager | ❌ | ❌ | ❌ | ❌ |
+| fc | ❌ | ❌ | ❌ | ❌ |
+| staff | ❌ | ❌ | ❌ | ❌ |
+| readonly | ❌ | ❌ | ❌ | ❌ |
 
 ## TC 후보
 - TC-081-002: 최고관리자(primary) 선택 시 매트릭스 수정 불가

@@ -34,4 +34,7 @@ flowchart LR
 
 ## TC 후보
 
-| TC ID | 타입 | Given | When | Then | |-------|------|-------|------|------| | TC-P004-F7-01 | positive | manager | 할인 설정 진입 | 추가/수정/삭제 버튼 표시 | | TC-P004-F7-02 | positive | trainer | 할인 설정 진입 | 조회만, 버튼 없음 |
+| TC ID | 타입 | Given | When | Then |
+|-------|------|-------|------|------|
+| TC-P004-F7-01 | positive | manager | 할인 설정 진입 | 추가/수정/삭제 버튼 표시 |
+| TC-P004-F7-02 | positive | trainer | 할인 설정 진입 | 조회만, 버튼 없음 |

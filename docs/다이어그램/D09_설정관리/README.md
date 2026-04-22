@@ -23,19 +23,49 @@
 
 ## SCR 목록
 
-| SCR | 이름 | 경로 | 권한 | |-----|------|------|------| | SCR-080 | 센터 설정 | `/settings` | primary, owner | | SCR-081 | 권한 설정 | `` | primary, owner | | SCR-082 | 키오스크 설정 | `` | primary, owner | | SCR-083 | IoT/출입 관리 | `` | primary, owner | | SCR-084 | 구독/결제 관리 | `/subscription` | primary, owner | | SCR-085 | 공지사항 관리 | `/notices` | primary, owner, manager | | SCR-086 | 출석 관리 (회원) | `/` | primary, owner, manager, staff |
+| SCR | 이름 | 경로 | 권한 |
+|-----|------|------|------|
+| SCR-080 | 센터 설정 | `/settings` | primary, owner |
+| SCR-081 | 권한 설정 | `` | primary, owner |
+| SCR-082 | 키오스크 설정 | `` | primary, owner |
+| SCR-083 | IoT/출입 관리 | `` | primary, owner |
+| SCR-084 | 구독/결제 관리 | `/subscription` | primary, owner |
+| SCR-085 | 공지사항 관리 | `/notices` | primary, owner, manager |
+| SCR-086 | 출석 관리 (회원) | `/` | primary, owner, manager, staff |
 
 ---
 
 ## DLG 목록
 
-| DLG | 이름 | 소속 SCR | variant | |-----|------|---------|---------| | DLG-080-001 | 미저장 경고 | SCR-080 | warning | | DLG-081-001 | 권한 초기화 확인 | SCR-081 | danger | | DLG-081-002 | 충돌 경고 | SCR-081 | warning | | DLG-081-003 | 역할 생성 | SCR-081 | primary | | DLG-081-004 | 역할 삭제 확인 | SCR-081 | danger | | DLG-081-005 | 역할 복사 | SCR-081 | primary | | DLG-084-001 | 플랜 변경 확인 | SCR-084 | primary | | DLG-084-002 | 구독 해지 확인 | SCR-084 | danger | | DLG-085-001 | 공지 등록/수정 | SCR-085 | primary | | DLG-085-002 | 공지 삭제 확인 | SCR-085 | danger | | DLG-087-001 | 역할 삭제 (재배정) | SCR-087 | danger | | DLG-089-001 | 데이터 복원 확인 | SCR-089 | danger | | DLG-089-002 | 백업 설정 | SCR-089 | primary |
+| DLG | 이름 | 소속 SCR | variant |
+|-----|------|---------|---------|
+| DLG-080-001 | 미저장 경고 | SCR-080 | warning |
+| DLG-081-001 | 권한 초기화 확인 | SCR-081 | danger |
+| DLG-081-002 | 충돌 경고 | SCR-081 | warning |
+| DLG-081-003 | 역할 생성 | SCR-081 | primary |
+| DLG-081-004 | 역할 삭제 확인 | SCR-081 | danger |
+| DLG-081-005 | 역할 복사 | SCR-081 | primary |
+| DLG-084-001 | 플랜 변경 확인 | SCR-084 | primary |
+| DLG-084-002 | 구독 해지 확인 | SCR-084 | danger |
+| DLG-085-001 | 공지 등록/수정 | SCR-085 | primary |
+| DLG-085-002 | 공지 삭제 확인 | SCR-085 | danger |
+| DLG-087-001 | 역할 삭제 (재배정) | SCR-087 | danger |
+| DLG-089-001 | 데이터 복원 확인 | SCR-089 | danger |
+| DLG-089-002 | 백업 설정 | SCR-089 | primary |
 
 ---
 
 ## 다이어그램 세트 현황
 
-| SCR | F1 | F2 | F3 | F4 | F5 | F6 | F7 | F8 | F9 | |-----|----|----|----|----|----|----|----|----|----| | SCR-080 | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | | SCR-081 | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | | SCR-082 | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | | SCR-083 | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | | SCR-084 | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | | SCR-085 | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | | SCR-086 | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| SCR | F1 | F2 | F3 | F4 | F5 | F6 | F7 | F8 | F9 |
+|-----|----|----|----|----|----|----|----|----|----|
+| SCR-080 | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| SCR-081 | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| SCR-082 | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| SCR-083 | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| SCR-084 | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| SCR-085 | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| SCR-086 | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
 
 ---
 

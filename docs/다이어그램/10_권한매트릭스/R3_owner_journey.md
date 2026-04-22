@@ -62,4 +62,24 @@ journey
 
 ## owner 역할 접근/차단 화면
 
-| 화면 | 라우트 | 접근 | |------|--------|:---:| | 지점 대시보드 | `/` | ● | | KPI 대시보드 | `/kpi` | ● | | KPI 프리뷰 | `/kpi-preview` | ● | | 지점 관리 | `/branches` | ● | | 온보딩 | `/onboarding` | ● | | 감사 로그 | `/audit-log` | ● | | 구독 관리 | `/subscription` | ● | | 리포트 | `/reports` | ● | | 회원 전체 | `/*` | ● | | 수업 전체 | `/calendar`, `/lessons*` | ● | | 매출 전체 | `/sales*`, `/pos*`, `/*` | ● | | 상품 전체 | `/*`, `/discount-settings` | ● | | 시설 전체 | `/locker*`, `/rfid`, `/rooms*` | ● | | 직원 전체 | `/staff*` | ● | | 급여 전체 | `/payroll*` | ● | | 마케팅 전체 | `/`, `/message*`, `/mileage` | ● | | 설정 전체 | `/settings*` | ● | | **슈퍼 대시보드** | `/super-dashboard` | **—** | | **지점 리포트** | `/branch-report` | **—** |
+| 화면 | 라우트 | 접근 |
+|------|--------|:---:|
+| 지점 대시보드 | `/` | ● |
+| KPI 대시보드 | `/kpi` | ● |
+| KPI 프리뷰 | `/kpi-preview` | ● |
+| 지점 관리 | `/branches` | ● |
+| 온보딩 | `/onboarding` | ● |
+| 감사 로그 | `/audit-log` | ● |
+| 구독 관리 | `/subscription` | ● |
+| 리포트 | `/reports` | ● |
+| 회원 전체 | `/*` | ● |
+| 수업 전체 | `/calendar`, `/lessons*` | ● |
+| 매출 전체 | `/sales*`, `/pos*`, `/*` | ● |
+| 상품 전체 | `/*`, `/discount-settings` | ● |
+| 시설 전체 | `/locker*`, `/rfid`, `/rooms*` | ● |
+| 직원 전체 | `/staff*` | ● |
+| 급여 전체 | `/payroll*` | ● |
+| 마케팅 전체 | `/`, `/message*`, `/mileage` | ● |
+| 설정 전체 | `/settings*` | ● |
+| **슈퍼 대시보드** | `/super-dashboard` | **—** |
+| **지점 리포트** | `/branch-report` | **—** |
