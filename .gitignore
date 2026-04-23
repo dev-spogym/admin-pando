@@ -26,6 +26,7 @@ qa-reports/
 scripts/*
 !scripts/diagram/
 !scripts/diagram/**
+!scripts/sync-docs.ts
 .env.cpgz
 
 # fry cache

@@ -1,0 +1,34 @@
+name: 화면설계서 frontmatter 검증
+
+on:
+  pull_request:
+    paths:
+      - 'docs/화면설계서/**'
+      - 'scripts/sync-docs.ts'
+      - 'package.json'
+  push:
+    branches: [main]
+    paths:
+      - 'docs/화면설계서/**'
+      - 'scripts/sync-docs.ts'
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - name: 의존성 설치
+        run: pnpm install --frozen-lockfile
+
+      - name: frontmatter 검증
+        run: pnpm docs:check
