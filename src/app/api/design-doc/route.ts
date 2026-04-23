@@ -232,6 +232,47 @@ function extractStateLabel(fileName: string): string {
   return match ? match[1] : base;
 }
 
+// ─── route → 화면 폴더 자동 인덱스 (frontmatter.route 기반) ──────────────────
+// 모듈 초기화 시 1회 스캔 후 메모리 캐시.
+let screenIndex: Map<string, string> | null = null;
+
+function walkMasters(root: string, acc: string[] = []): string[] {
+  if (!fs.existsSync(root)) return acc;
+  const entries = fs.readdirSync(root, { withFileTypes: true });
+  for (const entry of entries) {
+    const full = path.join(root, entry.name);
+    if (entry.isDirectory()) walkMasters(full, acc);
+    else if (entry.name === '00-기본화면.md') acc.push(full);
+  }
+  return acc;
+}
+
+function buildScreenIndex(): Map<string, string> {
+  const idx = new Map<string, string>();
+  const root = path.join(process.cwd(), 'docs', '화면설계서');
+  const masters = walkMasters(root);
+  for (const file of masters) {
+    try {
+      const raw = fs.readFileSync(file, 'utf-8');
+      const parsed = matter(raw);
+      const route = typeof parsed.data?.route === 'string' ? parsed.data.route.trim() : null;
+      if (!route) continue;
+      const folder = path.relative(root, path.dirname(file));
+      // 동일 route에 여러 마스터가 있으면 첫 번째만 (일반적으로 중복 없어야 함)
+      if (!idx.has(route)) idx.set(route, folder);
+    } catch {
+      // 단일 파일 오류는 무시하고 인덱스는 계속 구축
+    }
+  }
+  return idx;
+}
+
+function getScreenIndex(): Map<string, string> {
+  if (screenIndex) return screenIndex;
+  screenIndex = buildScreenIndex();
+  return screenIndex;
+}
+
 function loadScreenDocs(folder: string): ScreenDocs | null {
   try {
     const fullPath = path.join(process.cwd(), 'docs', '화면설계서', folder);
@@ -333,7 +374,9 @@ export async function GET(request: NextRequest) {
   }
 
   // ── 2) 화면설계서 (screen) ──
-  const screen = mapping.screen ? loadScreenDocs(mapping.screen.folder) : null;
+  // 우선순위: 명시적 mapping.screen.folder → frontmatter.route 기반 자동 인덱스
+  const screenFolder = mapping.screen?.folder ?? getScreenIndex().get(routePath) ?? null;
+  const screen = screenFolder ? loadScreenDocs(screenFolder) : null;
 
   const category = mapping.category || (mapping.functional ? FILE_TO_CATEGORY[mapping.functional.file] ?? '' : '');
 
