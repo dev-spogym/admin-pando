@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import fs from 'fs';
 import path from 'path';
 import matter from 'gray-matter';
+import { stripDevSections } from '@/lib/stripDevSections';
 
 // ─── 라우트 매핑 (designDocMap.ts 와 구조 동일 · 서버 사이드 복사본) ──────────
 // 서버 측 독립 매핑을 유지하는 이유: 이 API는 fs 접근이 필요해 서버 전용.
@@ -289,7 +290,7 @@ function loadScreenDocs(folder: string): ScreenDocs | null {
       const raw = fs.readFileSync(path.join(fullPath, masterName), 'utf-8');
       const parsed = matter(raw);
       frontmatter = parsed.data as Record<string, unknown>;
-      masterContent = parsed.content.trim();
+      masterContent = stripDevSections(parsed.content.trim());
     }
 
     // 상태 파일 (01-*.md ~ 99-*.md) 정렬
@@ -304,7 +305,7 @@ function loadScreenDocs(folder: string): ScreenDocs | null {
       return {
         file,
         label: fmLabel || extractStateLabel(file),
-        content: parsed.content.trim(),
+        content: stripDevSections(parsed.content.trim()),
       };
     });
 
@@ -337,22 +338,22 @@ export async function GET(request: NextRequest) {
       const docPath = path.join(process.cwd(), 'docs', '기능명세서', mapping.functional.file);
       let content = fs.readFileSync(docPath, 'utf-8');
 
-      // 시스템 모듈 보너스 섹션
+      // 시스템 모듈 보너스 섹션 (plan/ 이동 후 경로 동기화)
       const moduleMapping = ROUTE_TO_MODULE[routePath];
       if (moduleMapping) {
         try {
-          const modulePath = path.join(process.cwd(), 'docs', '시스템_모듈_정의서.md');
+          const modulePath = path.join(process.cwd(), 'plan', '시스템_모듈_정의서.md');
           const moduleContent = fs.readFileSync(modulePath, 'utf-8');
           const moduleSection = extractModuleSection(moduleContent, moduleMapping.module);
           if (moduleSection) content += '\n\n---\n\n# 📋 관련 시스템 모듈\n\n' + moduleSection;
         } catch { /* 모듈 정의서 없어도 무시 */ }
       }
 
-      // KPI 보너스 섹션
+      // KPI 보너스 섹션 (plan/ 이동 후 경로 동기화)
       const kpiMapping = ROUTE_TO_KPI[routePath];
       if (kpiMapping) {
         try {
-          const kpiPath = path.join(process.cwd(), 'docs', 'KPI_정의서.md');
+          const kpiPath = path.join(process.cwd(), 'plan', 'KPI_정의서.md');
           const kpiContent = fs.readFileSync(kpiPath, 'utf-8');
           const kpiSection = extractKpiSection(kpiContent, kpiMapping.section);
           if (kpiSection) content += '\n\n---\n\n# 📊 관련 KPI\n\n' + kpiSection;
@@ -361,7 +362,7 @@ export async function GET(request: NextRequest) {
 
       functional = {
         file: mapping.functional.file,
-        content,
+        content: stripDevSections(content),
         keywords: mapping.functional.keywords,
       };
     } catch {
