@@ -28,6 +28,7 @@ scripts/*
 !scripts/diagram/**
 !scripts/sync-docs.ts
 !scripts/bootstrap-frontmatter.ts
+!scripts/enrich-frontmatter.ts
 .env.cpgz
 
 # fry cache
