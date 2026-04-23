@@ -35,9 +35,9 @@ export const ROUTE_TO_DOC: Record<string, { file: string; keywords: string[]; ti
   '/members': { file: '회원관리.md', keywords: ['회원 목록', '1. 회원 목록'], title: '회원 목록', category: '회원관리' },
   '/members/new': { file: '회원관리.md', keywords: ['회원 등록', '2. 회원 등록'], title: '회원 등록', category: '회원관리' },
   '/members/edit': { file: '회원관리.md', keywords: ['회원 등록/수정', '2. 회원 등록'], title: '회원 수정', category: '회원관리' },
-  '/members/detail': { file: '통합운영_IOT_헬스.md', keywords: ['회원 상세 건강/연동 요약', 'SCR-I007 회원 상세 건강/연동 요약'], title: '회원 상세', category: '회원관리', directory: '화면설계서' },
+  '/members/detail': { file: '통합운영_IOT_헬스.md', keywords: ['회원 상세 건강/연동 요약', 'SCR-I007 회원 상세 건강/연동 요약'], title: '회원 상세', category: '회원관리' },
   '/members/transfer': { file: '회원관리.md', keywords: ['회원 지점 이관', '4. 회원 지점 이관'], title: '회원 이관', category: '회원관리' },
-  '/body-composition': { file: '통합운영_IOT_헬스.md', keywords: ['체성분 통합 관리', 'SCR-I006 체성분 통합 관리'], title: '체성분 관리', category: '회원관리', directory: '화면설계서' },
+  '/body-composition': { file: '통합운영_IOT_헬스.md', keywords: ['체성분 통합 관리', 'SCR-I006 체성분 통합 관리'], title: '체성분 관리', category: '회원관리' },
 
   // ── 매출관리 ──
   '/sales': { file: '매출관리.md', keywords: ['매출 현황', '1. 매출 현황'], title: '매출 현황', category: '매출관리' },
@@ -63,8 +63,8 @@ export const ROUTE_TO_DOC: Record<string, { file: string; keywords: string[]; ti
   '/exercise-programs': { file: '수업관리.md', keywords: ['운동 프로그램', '11. 운동 프로그램'], title: '운동 프로그램', category: '수업관리' },
 
   // ── 시설관리 ──
-  '/locker': { file: '통합운영_IOT_헬스.md', keywords: ['옷 락커 운영 관리', 'SCR-I004 옷 락커 운영 관리'], title: '락커 관리', category: '시설관리', directory: '화면설계서' },
-  '/locker/management': { file: '통합운영_IOT_헬스.md', keywords: ['고정 물품 락커 관리', 'SCR-I005 고정 물품 락커 관리'], title: '사물함 배정', category: '시설관리', directory: '화면설계서' },
+  '/locker': { file: '통합운영_IOT_헬스.md', keywords: ['옷 락커 운영 관리', 'SCR-I004 옷 락커 운영 관리'], title: '락커 관리', category: '시설관리' },
+  '/locker/management': { file: '통합운영_IOT_헬스.md', keywords: ['고정 물품 락커 관리', 'SCR-I005 고정 물품 락커 관리'], title: '사물함 배정', category: '시설관리' },
   '/rfid': { file: '시설관리.md', keywords: ['밴드/카드', '3. 밴드/카드'], title: 'RFID 관리', category: '시설관리' },
   '/rooms': { file: '시설관리.md', keywords: ['운동룸', '4. 운동룸'], title: '운동룸 관리', category: '시설관리' },
   '/golf-bays': { file: '시설관리.md', keywords: ['골프 타석', '5. 골프 타석'], title: '골프 타석', category: '시설관리' },
@@ -73,11 +73,11 @@ export const ROUTE_TO_DOC: Record<string, { file: string; keywords: string[]; ti
   // ── 설정관리 ──
   '/settings': { file: '설정관리.md', keywords: ['센터 설정', '1. 센터 설정'], title: '센터 설정', category: '설정관리' },
   '/settings/permissions': { file: '설정관리.md', keywords: ['권한 설정', '2. 권한 설정'], title: '권한 설정', category: '설정관리' },
-  '/settings/kiosk': { file: '통합운영_IOT_헬스.md', keywords: ['키오스크 설정', 'SCR-I002 키오스크 설정'], title: '키오스크 설정', category: '설정관리', directory: '화면설계서' },
-  '/settings/iot': { file: '통합운영_IOT_헬스.md', keywords: ['IoT 연동 관리', 'SCR-I003 IoT 연동 관리'], title: 'IoT 설정', category: '설정관리', directory: '화면설계서' },
+  '/settings/kiosk': { file: '통합운영_IOT_헬스.md', keywords: ['키오스크 설정', 'SCR-I002 키오스크 설정'], title: '키오스크 설정', category: '설정관리' },
+  '/settings/iot': { file: '통합운영_IOT_헬스.md', keywords: ['IoT 연동 관리', 'SCR-I003 IoT 연동 관리'], title: 'IoT 설정', category: '설정관리' },
   '/subscription': { file: '설정관리.md', keywords: ['구독 관리', '5. 구독 관리'], title: '구독 관리', category: '설정관리' },
   '/notices': { file: '설정관리.md', keywords: ['공지사항', '6. 공지사항'], title: '공지사항', category: '설정관리' },
-  '/attendance': { file: '통합운영_IOT_헬스.md', keywords: ['통합 출석 관리', 'SCR-I001 통합 출석 관리'], title: '출석 관리', category: '설정관리', directory: '화면설계서' },
+  '/attendance': { file: '통합운영_IOT_헬스.md', keywords: ['통합 출석 관리', 'SCR-I001 통합 출석 관리'], title: '출석 관리', category: '설정관리' },
 
   // ── 마케팅 ──
   '/leads': { file: '마케팅.md', keywords: ['리드 관리', '1. 리드 관리'], title: '리드 관리', category: '마케팅' },
