@@ -1,58 +1,113 @@
-# SCR-P001 상품 관리 — 상태: 읽기 전용 (trainer)
+# SCR-P001 상품 관리 — 상태: 읽기 전용(trainer/fc/staff/front) (07-읽기전용-trainer)
+
+> 델타 문서. 공통 스펙은 `00-기본화면.md` 상속.
 
 ## 메타
 
 | 항목 | 값 |
 |------|----|
-| 화면 ID | SCR-P001 |
-| 상태 코드 | `readonly-trainer` |
-| 경로 | `/products` |
-| 역할 | trainer, front |
-| 우선순위 | P1 |
-| 이전 상태 | `02-정상-데이터있음` (trainer 역할) |
-| 다음 상태 | 행 클릭 → 패널(읽기 전용) |
+| 상태 코드 | `products-readonly-trainer` |
+| 다이어그램 노드 | `F7_권한RBAC.md` (trainer/fc/staff/front 분기) |
+| 이전 상태 | `01-로딩` |
+| 다음 상태 | `06-패널열림`(읽기 전용 variant) |
+| 역할 조건 | role ∈ `trainer`, `fc`, `staff`, `front` (읽기 허용, 편집 차단) |
 
-## 🧩 바이브코딩 프롬프트
+## 상태 진입 조건
+- `useProductsQuery` 성공 & 데이터 존재
+- `!can(role, 'edit')` (편집 차단 역할)
+- trainer: 상품 조회 가능, 가격이력 조회 가능
+- fc: 조회 + 가격이력 조회
+- staff/front: 최소 정보(이름/가격/상태) 조회
+
+## 비주얼 델타
 
 ```
-Next.js 15 App Router + TypeScript + Tailwind v4 CRM 관리자 화면을 작성하라.
-화면: SCR-P001 상품 관리 — 상태: 읽기 전용 (trainer/front 역할)
-
-파일: src/app/products/page.tsx (hasPermission('canEditProduct')=false + 데이터 있음)
-
-레이아웃:
-- AppLayout + PageHeader (제목: "상품 관리")
-- 우측 버튼 전체 숨김 (상품 등록, 전지점 배포, 상품 가져오기)
-- DataTable: 액션 컬럼 숨김 (수정/삭제 버튼 없음)
-- 행 클릭 → 패널 오픈 가능 (조회용)
-
-구현:
-const canEdit = hasPermission('canEditProduct') // false
-// 조건부 렌더링으로 버튼 및 액션 컬럼 제거
-
-사용 컴포넌트: AppLayout, PageHeader, DataTable, StatusBadge
-사용 유틸: hasPermission, useAuthStore
+┌─PageHeader  [상품목록|분류관리]                         [Excel]┐
+│  ("+ 상품 등록" "전 지점 배포" 비렌더)                          │
+│  상단에 "🔒 읽기 전용" 배지 (small, gray-100)                  │
+├──────────────────────────────────────────────────────────────┤
+│ StatCardGrid: 실제 값 표시 (읽기 전용)                         │
+├──────────────────────────────────────────────────────────────┤
+│ TabNav/필터/검색: 활성 (허용)                                  │
+├──────────────────────────────────────────────────────────────┤
+│ 테이블: 정상 렌더                                              │
+│  행 클릭 → 읽기 전용 패널 (SCR-P003 06-읽기전용)               │
+│  커서 cursor-pointer 유지 (조회 목적)                          │
+└──────────────────────────────────────────────────────────────┘
 ```
 
-## 📝 디스크립션
+| 요소 | 값/동작 |
+|---|---|
+| + 상품 등록 | 비렌더 |
+| 전 지점 배포 | 비렌더 |
+| Excel | 렌더 (다운로드 허용) |
+| 분류 관리 탭 | 렌더 (조회만, CRUD 버튼 hidden) |
+| 읽기 전용 배지 | PageHeader 우측 `bg-gray-100 text-gray-600 text-[10px] rounded px-2 py-0.5` |
+| 행 클릭 | 허용 → 읽기 전용 패널 |
+| 패널 내 저장/복사/삭제 | 비렌더 |
+| 가격 이력 버튼 | trainer/fc 에서 표시, staff/front 는 비렌더 |
 
-### 사용 시점 (Trigger)
-- 로딩 완료 + 데이터 있음 + `hasPermission('canEditProduct') = false`
-- trainer, front 역할 진입 시
+## 역할별 차이
 
-### 필수 데이터
-- 동일 (`products`, `product_groups`)
+| 역할 | 상세 |
+|---|---|
+| trainer | 조회 + 가격이력 조회, 패널 readOnly, 담당 회원 상품만 필터 가능(옵션) |
+| fc | 조회 + 가격이력 + 상담 컨텍스트 링크 |
+| staff | 최소 필드만 표시 (가격, 상태), 패널 간소화 variant |
+| front | 결제 시 필요한 상품 정보만 (현금가/카드가/기간/횟수), 그 외 collapse |
 
-### 인터랙션 (User Actions)
-1. 탭/검색/필터 → 조회 가능
-2. 행 클릭 → 패널 오픈 (읽기 전용 패널)
+## 상태 고유 인터랙션
+- 모든 CRUD 버튼 비렌더 + 클릭 시 toast(방어적) "권한이 없습니다".
+- 필터/검색/정렬/엑셀은 모두 허용.
+- 행 클릭 시 패널은 읽기 전용(SCR-P003 `06-읽기전용`).
+- 분류 관리 탭 진입 시 폼 입력 가능해 보이지만 저장 버튼 비렌더.
 
-### 비즈니스 룰
-- 상품 등록 / 전지점 배포 / 상품 가져오기 버튼 미노출
-- DataTable 액션 컬럼(수정/삭제) 숨김
+## 비즈니스 룰 델타
+- **권한 API 호출 가드**: 서버 RLS가 INSERT/UPDATE/DELETE 차단. 클라 가드는 UX 용도만.
+- **ACL 로깅**: 읽기 전용 역할이 권한 초과 액션 시도 시 `AUDIT.PRODUCT_FORBIDDEN_ATTEMPT` 기록.
+- **Excel 다운로드**: 허용하되 제한된 컬럼만(가격/기간/횟수/상태) export.
+- **URL 조작**으로 `?edit=1` 진입해도 서버 RLS로 차단.
 
-### 에지 케이스
-- 권한 변경 시 페이지 새로고침 필요
+## 에지 케이스
+- owner → trainer 로 역할 다운그레이드된 세션 → React Query cache invalidate 필요. `useAuthStore` 변경 시 products 리스트 refetch.
+- trainer에게 가격 이력이 개인정보를 노출하는지 여부 → 센터 정책에 따라 가격 이력 버튼 hidden 가능.
+- staff가 front로 전환 → 컬럼 세트가 더 축소(가격 중심).
 
-### 연결 화면
-- 행 클릭: SCR-P003 읽기 전용 패널
+## 바이브코딩 프롬프트 (델타)
+
+```
+상태: SCR-P001 / 07-읽기전용-trainer
+
+변경:
+- PageHeader actions 조건부 렌더 매트릭스
+- PageHeader 오른쪽에 "🔒 읽기 전용" 배지 (bg-gray-100 text-gray-600 text-[10px] rounded px-2 py-0.5)
+- 행 클릭 → ProductDetailPanel readOnly=true
+  (내부 input readOnly, select disabled, 저장/복사/삭제 hidden)
+- Excel COLS 축소 (trainer: 6컬럼 / staff,front: 4컬럼)
+- 가격이력 버튼: can(role,'viewPriceHistory') true 시만
+- 분류 관리 탭: 저장 버튼 hidden (조회 UX)
+- ACL audit.forbidden-attempt 이벤트 훅
+
+접근성:
+- 배지 aria-label="이 화면은 읽기 전용입니다"
+- hidden 버튼은 DOM 제거
+```
+
+## TC 후보
+
+| TC ID | 설명 | Given | When | Then |
+|---|---|---|---|---|
+| TC-P001-07-01 | trainer 진입 | role=trainer | - | 배지, 등록 버튼 없음 |
+| TC-P001-07-02 | trainer 패널 | 행 클릭 | - | readOnly, 저장 hidden |
+| TC-P001-07-03 | trainer 가격이력 | 패널 | 가격이력 클릭 | DLG-P003 조회 모달 |
+| TC-P001-07-04 | fc 조회 | role=fc | - | readonly + 모든 컬럼 조회 |
+| TC-P001-07-05 | staff 축소 | role=staff | Excel | 4컬럼만 |
+| TC-P001-07-06 | front 축소 | role=front | - | 최소 필드만 |
+| TC-P001-07-07 | URL 조작 차단 | role=fc | `?edit=1` | 서버 RLS 403 |
+| TC-P001-07-08 | 역할 다운그레이드 | owner→trainer | - | 캐시 invalidate |
+| TC-P001-07-09 | 분류 탭 조회 | role=trainer | 분류 탭 | 저장 버튼 없음 |
+
+## 다이어그램 링크
+- `F7_권한RBAC.md` (trainer/fc/staff/front 분기)
+- SCR-P003 `06-읽기전용.md`
+- `R1_역할화면_매트릭스.md`
