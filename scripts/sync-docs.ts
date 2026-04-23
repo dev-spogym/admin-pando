@@ -83,9 +83,10 @@ interface Frontmatter {
   errorCodes?: unknown;
 }
 
-const REQUIRED_FIELDS: (keyof Frontmatter)[] = [
-  'id', 'kind', 'domain', 'title', 'priority', 'roles', 'functional',
-];
+// Core 필수 — 이게 없으면 error (라우트 매핑·CI 식별에 필수)
+const CORE_REQUIRED: (keyof Frontmatter)[] = ['id', 'kind', 'domain', 'title'];
+// Recommended — 있으면 좋지만 없어도 warn (점진적 채움 대상)
+const RECOMMENDED: (keyof Frontmatter)[] = ['priority', 'roles', 'functional'];
 
 const ALLOWED_PRIORITIES = ['P0', 'P1', 'P2'];
 const ALLOWED_KINDS = ['screen', 'dialog'];
@@ -103,10 +104,16 @@ function validateMaster(filePath: string) {
     return;
   }
 
-  // 필수 필드
-  for (const key of REQUIRED_FIELDS) {
+  // Core 필수 (없으면 error)
+  for (const key of CORE_REQUIRED) {
     if (data[key] === undefined || data[key] === null || data[key] === '') {
-      addError(rel, `필수 필드 누락: ${key}`);
+      addError(rel, `Core 필수 필드 누락: ${key}`);
+    }
+  }
+  // Recommended (없으면 warn — 점진적 채움)
+  for (const key of RECOMMENDED) {
+    if (data[key] === undefined || data[key] === null) {
+      addWarn(rel, `권장 필드 미작성: ${key}`);
     }
   }
 
@@ -136,12 +143,12 @@ function validateMaster(filePath: string) {
     addError(rel, `domain이 폴더명과 불일치: frontmatter=${data.domain} vs folder=${domainFolder}`);
   }
 
-  // route/parentRoutes 필수성 (kind 기준)
+  // route/parentRoutes 조건부 권장 (있으면 매핑 용이)
   if (data.kind === 'screen' && !data.route) {
-    addError(rel, `kind: screen 은 route 필수`);
+    addWarn(rel, `kind: screen 에 route 권장`);
   }
   if (data.kind === 'dialog' && !data.parentRoutes) {
-    addError(rel, `kind: dialog 은 parentRoutes 필수`);
+    addWarn(rel, `kind: dialog 에 parentRoutes 권장`);
   }
 
   // functional 배열 형식
