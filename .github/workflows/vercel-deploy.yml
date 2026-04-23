@@ -1,0 +1,19 @@
+name: Vercel Deploy (Production)
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger Vercel Deploy Hook
+        env:
+          DEPLOY_HOOK: ${{ secrets.VERCEL_DEPLOY_HOOK_MAIN }}
+        run: |
+          if [ -z "$DEPLOY_HOOK" ]; then
+            echo "::error::VERCEL_DEPLOY_HOOK_MAIN secret이 설정되지 않았습니다."
+            exit 1
+          fi
+          curl -fsSL -X POST "$DEPLOY_HOOK"
