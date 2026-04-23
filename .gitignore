@@ -29,6 +29,7 @@ scripts/*
 !scripts/sync-docs.ts
 !scripts/bootstrap-frontmatter.ts
 !scripts/enrich-frontmatter.ts
+!scripts/enrich-functional.ts
 .env.cpgz
 
 # fry cache
