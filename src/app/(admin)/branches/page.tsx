@@ -451,6 +451,47 @@ export default function BranchManagement() {
               }
             ]}/>
 
+          {/* 지부별 그룹핑 뷰 */}
+          {(() => {
+            const districts = Array.from(new Set(branches.map((b: any) => b.districtName || '미설정'))).sort();
+            if (districts.length <= 1 && districts[0] === undefined) return null;
+            return (
+              <div className="space-y-md">
+                <h3 className="text-base font-semibold text-content">지부별 현황</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-md">
+                  {districts.map((district) => {
+                    const districtBranches = branches.filter((b: any) => (b.districtName || '미설정') === district);
+                    const districtCode = districtBranches[0]?.districtCode || '';
+                    return (
+                      <div key={district} className="p-md bg-surface rounded-xl border border-line shadow-card">
+                        <div className="flex items-center justify-between mb-sm">
+                          <div className="flex items-center gap-xs">
+                            <span className="text-sm font-semibold text-content">{district}</span>
+                            {districtCode && districtCode !== '-' && (
+                              <span className="text-Label text-content-secondary bg-surface-secondary px-xs py-[2px] rounded-md">{districtCode}</span>
+                            )}
+                          </div>
+                          <span className="text-Label text-content-secondary">{districtBranches.length}개 지점</span>
+                        </div>
+                        <div className="flex flex-wrap gap-xs">
+                          {districtBranches.map((b: any) => (
+                            <span
+                              key={b.id}
+                              className="text-Label px-xs py-[2px] rounded-md border border-line bg-surface-secondary text-content-secondary cursor-pointer hover:bg-accent-light/30 transition-colors"
+                              onClick={() => { switchBranch(String(b.id), b.name); toast.success(`${b.name} 지점으로 전환되었습니다`); }}
+                            >
+                              {b.name}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          })()}
+
           <DataTable title="지점 현황 목록" columns={branchColumns} data={branches} onDownloadExcel={() => {
             const exportColumns = [
               { key: 'id', header: 'No' },

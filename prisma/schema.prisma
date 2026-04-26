@@ -165,6 +165,8 @@ model Branch {
   tenantId     Int          @default(1)          // FK → Tenant
   isHq         Boolean      @default(false)       // 본사 여부
   branchCode   String       @default("")          // 지점 코드 (테넌트 내 고유)
+  districtCode String       @default("")          // 지부 코드 (A-1, A-2 등)
+  districtName String       @default("")          // 지부명 (1지부, 2지부 등)
   branchStatus BranchStatus @default(ACTIVE)      // 상세 운영 상태
   maxMembers   Int?                               // 최대 회원 수 제한
   maxStaff     Int?                               // 최대 직원 수 제한

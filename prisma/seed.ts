@@ -24,24 +24,41 @@ async function upsertById(table: string, cols: string[], vals: unknown[]): Promi
 async function main() {
   console.log('🌱 시드 데이터 생성 시작...');
 
+  // 지부 컬럼이 없으면 추가 (멱등)
+  await prisma.$executeRawUnsafe(`ALTER TABLE "branches" ADD COLUMN IF NOT EXISTS "districtCode" TEXT DEFAULT ''`);
+  await prisma.$executeRawUnsafe(`ALTER TABLE "branches" ADD COLUMN IF NOT EXISTS "districtName" TEXT DEFAULT ''`);
+
   // ============================================================
-  // 1. 지점 (branches)
+  // 1. 지점 (branches) - 16개 실제 지점
   // ============================================================
-  const branchRows = [
-    { id: 1, name: '강남 본점', address: '서울시 강남구 테헤란로 123', phone: '02-1234-5678', status: '운영중',   managerName: '김관리' },
-    { id: 2, name: '서초점',    address: '서울시 서초구 서초대로 456', phone: '02-2345-6789', status: '운영중',   managerName: '이매니저' },
-    { id: 3, name: '송파점',    address: '서울시 송파구 올림픽로 789', phone: '02-3456-7890', status: '임시휴업', managerName: '박지점' },
+  const branchList = [
+    { id: 1,  branchCode: 'BR001', name: '광화문',   districtName: '1지부', districtCode: 'A-1', address: '서울시 종로구', phone: '02-1234-5678' },
+    { id: 2,  branchCode: 'BR002', name: '을지로',   districtName: '1지부', districtCode: 'A-1', address: '서울시 중구',   phone: '02-1234-5679' },
+    { id: 3,  branchCode: 'BR003', name: '종각',     districtName: '1지부', districtCode: 'A-1', address: '서울시 종로구', phone: '02-1234-5680' },
+    { id: 4,  branchCode: 'BR004', name: '종로',     districtName: '1지부', districtCode: 'A-1', address: '서울시 종로구', phone: '02-1234-5681' },
+    { id: 5,  branchCode: 'BR005', name: '서교',     districtName: '1지부', districtCode: 'A-1', address: '서울시 마포구', phone: '02-1234-5682' },
+    { id: 6,  branchCode: 'BR006', name: '신당',     districtName: '1지부', districtCode: 'A-1', address: '서울시 중구',   phone: '02-1234-5683' },
+    { id: 7,  branchCode: 'BR007', name: '가양',     districtName: '1지부', districtCode: 'A-1', address: '서울시 강서구', phone: '02-1234-5684' },
+    { id: 8,  branchCode: 'BR008', name: '고덕역',   districtName: '1지부', districtCode: 'A-1', address: '서울시 강동구', phone: '02-1234-5685' },
+    { id: 9,  branchCode: 'BR009', name: '양천향교', districtName: '1지부', districtCode: 'A-1', address: '서울시 양천구', phone: '02-1234-5686' },
+    { id: 10, branchCode: 'BR010', name: '용산',     districtName: '2지부', districtCode: 'A-2', address: '서울시 용산구', phone: '02-1234-5687' },
+    { id: 11, branchCode: 'BR011', name: '판교',     districtName: '2지부', districtCode: 'A-2', address: '경기도 성남시', phone: '031-1234-5688' },
+    { id: 12, branchCode: 'BR012', name: '판교역',   districtName: '2지부', districtCode: 'A-2', address: '경기도 성남시', phone: '031-1234-5689' },
+    { id: 13, branchCode: 'BR013', name: '대치',     districtName: '2지부', districtCode: 'A-2', address: '서울시 강남구', phone: '02-1234-5690' },
+    { id: 14, branchCode: 'BR014', name: '고척',     districtName: '2지부', districtCode: 'A-2', address: '서울시 구로구', phone: '02-1234-5691' },
+    { id: 15, branchCode: 'BR015', name: '부천',     districtName: '2지부', districtCode: 'A-2', address: '경기도 부천시', phone: '032-1234-5692' },
+    { id: 16, branchCode: 'BR016', name: '목동',     districtName: '미설정', districtCode: '-',  address: '서울시 양천구', phone: '02-1234-5693' },
   ];
-  for (const b of branchRows) {
-    await prisma.$executeRawUnsafe(
-      `INSERT INTO branches (id, name, address, phone, status, "managerName")
-       VALUES ($1,$2,$3,$4,$5,$6)
-       ON CONFLICT (id) DO UPDATE SET name=EXCLUDED.name, address=EXCLUDED.address,
-         phone=EXCLUDED.phone, status=EXCLUDED.status, "managerName"=EXCLUDED."managerName"`,
-      b.id, b.name, b.address, b.phone, b.status, b.managerName
-    );
+
+  for (const b of branchList) {
+    await prisma.$executeRawUnsafe(`
+      INSERT INTO "branches" (id, name, address, phone, status, "isActive", "tenantId", "branchCode", "districtCode", "districtName", "branchStatus", "createdAt", "updatedAt")
+      VALUES ($1,$2,$3,$4,'운영중',true,1,$5,$6,$7,'ACTIVE',NOW(),NOW())
+      ON CONFLICT (id) DO UPDATE SET
+        name=$2, address=$3, phone=$4, "branchCode"=$5, "districtCode"=$6, "districtName"=$7, "updatedAt"=NOW()
+    `, b.id, b.name, b.address, b.phone, b.branchCode, b.districtCode, b.districtName);
   }
-  console.log(`  ✅ 지점 ${branchRows.length}개 생성`);
+  console.log(`  ✅ 지점 ${branchList.length}개 생성`);
 
   // ============================================================
   // 2. 직원 (staff)
@@ -64,16 +81,15 @@ async function main() {
   }
   console.log(`  ✅ 직원 ${staffRows.length}명 생성`);
 
-  // 서초점 직원 (id 6-9)
+  // 나머지 지점 직원 (id 6-12) - branchId를 3~9에 분산
   const staffRows2 = [
-    { id: 6,  name: '송지효', phone: '010-6001-0006', email: 'jihyo@spogym.com',  role: '매니저',  position: '지점장',        hireDate: '2023-01-10', salary: 4000000, color: '#EC4899', branchId: 2 },
-    { id: 7,  name: '남주혁', phone: '010-7001-0007', email: 'joohyuk@spogym.com', role: '트레이너', position: 'PT 팀장',       hireDate: '2023-04-01', salary: 3500000, color: '#6366F1', branchId: 2 },
-    { id: 8,  name: '신민아', phone: '010-8001-0008', email: 'mina@spogym.com',    role: '트레이너', position: 'GX 강사',       hireDate: '2023-09-01', salary: 3200000, color: '#14B8A6', branchId: 2 },
-    { id: 9,  name: '이준기', phone: '010-9001-0009', email: 'joongi@spogym.com',  role: '프론트',   position: '프론트 데스크', hireDate: '2024-02-01', salary: 2500000, color: '#F97316', branchId: 2 },
-    // 송파점 직원 (id 10-12)
-    { id: 10, name: '한가인', phone: '010-1002-0010', email: 'gain@spogym.com',    role: '매니저',  position: '지점장',        hireDate: '2023-02-15', salary: 3800000, color: '#A855F7', branchId: 3 },
-    { id: 11, name: '원빈',   phone: '010-1102-0011', email: 'wonbin@spogym.com',  role: '트레이너', position: 'PT 강사',       hireDate: '2023-07-01', salary: 3200000, color: '#EF4444', branchId: 3 },
-    { id: 12, name: '고준희', phone: '010-1202-0012', email: 'junhee@spogym.com',  role: '프론트',   position: '프론트 데스크', hireDate: '2024-03-01', salary: 2500000, color: '#22C55E', branchId: 3 },
+    { id: 6,  name: '송지효', phone: '010-6001-0006', email: 'jihyo@spogym.com',   role: '매니저',  position: '지점장',        hireDate: '2023-01-10', salary: 4000000, color: '#EC4899', branchId: 3 },
+    { id: 7,  name: '남주혁', phone: '010-7001-0007', email: 'joohyuk@spogym.com', role: '트레이너', position: 'PT 팀장',       hireDate: '2023-04-01', salary: 3500000, color: '#6366F1', branchId: 4 },
+    { id: 8,  name: '신민아', phone: '010-8001-0008', email: 'mina@spogym.com',    role: '트레이너', position: 'GX 강사',       hireDate: '2023-09-01', salary: 3200000, color: '#14B8A6', branchId: 5 },
+    { id: 9,  name: '이준기', phone: '010-9001-0009', email: 'joongi@spogym.com',  role: '프론트',   position: '프론트 데스크', hireDate: '2024-02-01', salary: 2500000, color: '#F97316', branchId: 6 },
+    { id: 10, name: '한가인', phone: '010-1002-0010', email: 'gain@spogym.com',    role: '매니저',  position: '지점장',        hireDate: '2023-02-15', salary: 3800000, color: '#A855F7', branchId: 7 },
+    { id: 11, name: '원빈',   phone: '010-1102-0011', email: 'wonbin@spogym.com',  role: '트레이너', position: 'PT 강사',       hireDate: '2023-07-01', salary: 3200000, color: '#EF4444', branchId: 8 },
+    { id: 12, name: '고준희', phone: '010-1202-0012', email: 'junhee@spogym.com',  role: '프론트',   position: '프론트 데스크', hireDate: '2024-03-01', salary: 2500000, color: '#22C55E', branchId: 9 },
   ];
   for (const s of staffRows2) {
     await prisma.$executeRawUnsafe(
@@ -83,7 +99,7 @@ async function main() {
       s.id, s.name, s.phone, s.email, s.role, s.position, new Date(s.hireDate), s.salary, s.color, s.branchId
     );
   }
-  console.log(`  ✅ 직원 추가 ${staffRows2.length}명 (서초점/송파점)`);
+  console.log(`  ✅ 직원 추가 ${staffRows2.length}명 (각 지점 분산)`);
 
   // ============================================================
   // 3. 회원 (members) - 50명
@@ -167,6 +183,12 @@ async function main() {
   }
   console.log(`  ✅ 회원 ${memberRows.length}명 생성`);
 
+  // 기존 회원(1-50)을 16개 지점에 균등 재배분
+  for (let i = 1; i <= 50; i++) {
+    const branchId = ((i - 1) % 16) + 1;
+    await prisma.$executeRawUnsafe(`UPDATE members SET "branchId"=$1 WHERE id=$2`, branchId, i);
+  }
+
   // 서초점 회원 (id 51-80) + 송파점 회원 (id 81-100)
   const memberRows2: {
     id: number; name: string; phone: string; gender: Gender;
@@ -228,16 +250,17 @@ async function main() {
     { id: 100,name: '문가영', phone: '010-0002-0100', gender: 'F', birthDate: '1993-12-28', membershipType: 'MEMBERSHIP',  membershipStart: '2026-04-15', membershipExpiry: '2027-04-15', status: 'ACTIVE',   mileage: 100,   staffId: null, branchId: 3 },
   ];
   for (const m of memberRows2) {
+    const branchId = ((m.id - 1) % 16) + 1;
     await prisma.$executeRawUnsafe(
       `INSERT INTO members (id, name, phone, gender, "birthDate", "membershipType", "membershipStart", "membershipExpiry", status, mileage, "branchId", "staffId")
        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)
-       ON CONFLICT (id) DO NOTHING`,
+       ON CONFLICT (id) DO UPDATE SET "branchId"=$11`,
       m.id, m.name, m.phone, m.gender, new Date(m.birthDate),
       m.membershipType, new Date(m.membershipStart), new Date(m.membershipExpiry),
-      m.status, m.mileage, m.branchId, m.staffId
+      m.status, m.mileage, branchId, m.staffId
     );
   }
-  console.log(`  ✅ 회원 추가 ${memberRows2.length}명 (서초점/송파점)`);
+  console.log(`  ✅ 회원 추가 ${memberRows2.length}명 (16개 지점 분산)`);
 
   // ============================================================
   // 4. 상품 (products)
@@ -402,6 +425,10 @@ async function main() {
     );
   }
   console.log(`  ✅ 매출 ${salesRows.length}건 생성`);
+
+  // 매출 지점 재배분 (지점별로 균등하게)
+  await prisma.$executeRawUnsafe(`UPDATE sales SET "branchId" = ((id - 1) % 16) + 1`);
+  console.log(`  ✅ 매출 branchId 16개 지점 재배분 완료`);
 
   // ============================================================
   // 6. 출석 (attendance) - 최근 30일
