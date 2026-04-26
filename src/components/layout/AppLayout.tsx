@@ -21,21 +21,27 @@ const AppLayout = ({ children }: AppLayoutProps) => {
   const pathname = usePathname();
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
-  const [isMobile, setIsMobile] = useState(() => typeof window !== 'undefined' ? window.innerWidth < MOBILE_BREAKPOINT : false);
+  const [isMobile, setIsMobile] = useState(false);
+  const [mounted, setMounted] = useState(false);
   const authUser = useAuthStore((s) => s.user);
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
   const designDocMode = useUiStore((s) => s.designDocMode);
   const toggleDesignDocMode = useUiStore((s) => s.toggleDesignDocMode);
 
-  // 인증 가드: 로그인 안 된 상태면 /login으로 리다이렉트
   useEffect(() => {
-    if (!isAuthenticated) {
+    setMounted(true);
+    setIsMobile(window.innerWidth < MOBILE_BREAKPOINT);
+  }, []);
+
+  // 인증 가드: 마운트 후 로그인 안 된 상태면 /login으로 리다이렉트
+  useEffect(() => {
+    if (mounted && !isAuthenticated) {
       router.replace('/login');
     }
-  }, [isAuthenticated, router]);
+  }, [mounted, isAuthenticated, router]);
 
-  // 인증 안 된 상태에서는 빈 화면 (리다이렉트 대기)
-  if (!isAuthenticated) {
+  // 마운트 전 또는 인증 안 된 상태: 로딩 화면 (서버/클라이언트 동일)
+  if (!mounted || !isAuthenticated) {
     return (
       <div className="flex h-screen w-full items-center justify-center bg-surface-secondary">
         <div className="text-content-tertiary text-[13px]">로그인 페이지로 이동 중...</div>

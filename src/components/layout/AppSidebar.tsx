@@ -51,6 +51,10 @@ const SUPER_ADMIN_MENU_ITEMS: MenuItem[] = [
   { label: "전체 직원 관리", icon: Users, path: "/staff", viewId: 974 },
   { label: "감사 로그", icon: Shield, path: "/audit-log" },
   { label: "구독 관리", icon: CreditCard, path: "/subscription", viewId: 983 },
+  { label: "커스텀 대시보드", icon: LayoutDashboard, path: "/custom-dashboard" },
+  { label: "벤치마크 비교", icon: BarChart3, path: "/benchmark" },
+  { label: "예측 분석", icon: Target, path: "/predictive-analytics" },
+  { label: "NPS 설문", icon: MessageSquare, path: "/nps" },
 ];
 
 const MENU_ITEMS: MenuItem[] = [
@@ -81,6 +85,10 @@ const MENU_ITEMS: MenuItem[] = [
       { label: "시간표 등록", path: "/class-schedule" },
       { label: "수업 현황", path: "/class-stats" },
       { label: "강사 현황", path: "/instructor-status" },
+      { label: "대기열 관리", path: "/class-waitlist" },
+      { label: "수업 평가", path: "/class-feedback" },
+      { label: "QR 체크인", path: "/qr-checkin" },
+      { label: "수업 녹화", path: "/class-recording" },
     ],
   },
   {
@@ -102,7 +110,14 @@ const MENU_ITEMS: MenuItem[] = [
   {
     label: "상품",
     icon: Package,
-    children: [{ label: "상품 관리", path: "/products", viewId: 972 }],
+    children: [
+      { label: "상품 관리", path: "/products", viewId: 972 },
+      { label: "상품 카탈로그", path: "/products/catalog" },
+      { label: "상품 비교", path: "/products/compare" },
+      { label: "재고 관리", path: "/products/inventory" },
+      { label: "시즌 가격", path: "/products/seasonal-pricing" },
+      { label: "할인 설정", path: "/discount-settings" },
+    ],
   },
   {
     label: "시설",
@@ -114,6 +129,10 @@ const MENU_ITEMS: MenuItem[] = [
       { label: "운동룸", path: "/rooms", viewId: 978 },
       { label: "골프 타석", path: "/golf-bays" },
       { label: "운동복", path: "/clothing" },
+      { label: "옷 보관함", path: "/clothing-locker" },
+      { label: "장비 점검", path: "/equipment-maintenance" },
+      { label: "소모품 재고", path: "/consumables" },
+      { label: "청소 스케줄", path: "/cleaning-schedule" },
     ],
   },
   {
@@ -132,6 +151,11 @@ const MENU_ITEMS: MenuItem[] = [
       { label: "메시지 발송", path: "/message", viewId: 980 },
       { label: "자동 알림", path: "/message/auto-alarm", viewId: 992 },
       { label: "쿠폰 관리", path: "/message/coupon", viewId: 993 },
+      { label: "캠페인 관리", path: "/message/campaigns" },
+      { label: "리퍼럴 프로그램", path: "/referral" },
+      { label: "SMS/카카오", path: "/message/sms" },
+      { label: "A/B 테스트", path: "/message/ab-test" },
+      { label: "마일리지", path: "/mileage", viewId: 981 },
     ],
   },
   {
@@ -141,19 +165,27 @@ const MENU_ITEMS: MenuItem[] = [
       { label: "센터 설정", path: "/settings", viewId: 975 },
       { label: "직원 관리", path: "/staff", viewId: 974 },
       { label: "직원 근태", path: "/staff/attendance" },
-      { label: "할인 설정", path: "/discount-settings" },
       { label: "운동 프로그램", path: "/exercise-programs" },
       { label: "권한 설정", path: "/settings/permissions", viewId: 996 },
       { label: "키오스크", path: "/settings/kiosk", viewId: 994 },
       { label: "출입문/IoT", path: "/settings/iot", viewId: 995 },
+      { label: "출석 설정", path: "/settings/attendance" },
+      { label: "커스텀 역할", path: "/settings/custom-roles" },
+      { label: "다국어 설정", path: "/settings/language" },
+      { label: "백업/복원", path: "/settings/backup" },
       { label: "구독 관리", path: "/subscription", viewId: 983 },
       { label: "지점 관리", path: "/branches", viewId: 984 },
+      { label: "공지사항", path: "/notices" },
     ],
   },
   {
-    label: "공지사항",
-    icon: MessageSquare,
-    path: "/notices",
+    label: "통합운영",
+    icon: LayoutDashboard,
+    children: [
+      { label: "출석 관리", path: "/attendance", viewId: 968 },
+      { label: "건강 연동 요약", path: "/health-summary" },
+      { label: "체성분 관리", path: "/body-composition" },
+    ],
   },
 ];
 
