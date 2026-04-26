@@ -28,6 +28,14 @@ async function main() {
   await prisma.$executeRawUnsafe(`ALTER TABLE "branches" ADD COLUMN IF NOT EXISTS "districtCode" TEXT DEFAULT ''`);
   await prisma.$executeRawUnsafe(`ALTER TABLE "branches" ADD COLUMN IF NOT EXISTS "districtName" TEXT DEFAULT ''`);
 
+  // KPI 확장 컬럼 추가 (멱등)
+  await prisma.$executeRawUnsafe(`ALTER TABLE "consultations" ADD COLUMN IF NOT EXISTS "inquiryType" TEXT`);
+  await prisma.$executeRawUnsafe(`ALTER TABLE "consultations" ADD COLUMN IF NOT EXISTS "source" TEXT`);
+  await prisma.$executeRawUnsafe(`ALTER TABLE "sales" ADD COLUMN IF NOT EXISTS "durationMonths" INTEGER`);
+  await prisma.$executeRawUnsafe(`ALTER TABLE "sales" ADD COLUMN IF NOT EXISTS "saleCategory" TEXT DEFAULT '일반'`);
+  await prisma.$executeRawUnsafe(`ALTER TABLE "sales" ADD COLUMN IF NOT EXISTS "receiptIssued" BOOLEAN DEFAULT true`);
+  await prisma.$executeRawUnsafe(`ALTER TABLE "sales" ADD COLUMN IF NOT EXISTS "penaltyAmount" DECIMAL DEFAULT 0`);
+
   // ============================================================
   // 1. 지점 (branches) - 16개 실제 지점
   // ============================================================
@@ -704,6 +712,50 @@ async function main() {
   console.log('  ✅ 설정 생성');
 
   // ============================================================
+  // 확장 상담 데이터: 2025-01 ~ 2026-04, 16개 지점 × 월 8건
+  // id 1001~ (기존 10건과 충돌 없음, ON CONFLICT DO NOTHING)
+  // ============================================================
+  {
+    const consultationTypes = ['상담', 'OT', '체험', '재등록상담'];
+    const inquiryTypes = ['WI', 'WI', 'WI', 'TI', 'TI']; // 60% WI, 40% TI
+    const sources = ['온라인', '온라인', '소개', '소개', '현수막', '간판', '체험', '체험', '일일입장', '기타'];
+    const results = ['등록', '등록', '등록', '미등록', '미등록', '보류'];
+    const staffNames = ['김태희','이효리','정지훈','박재범','유재석','홍길동','이민정','박보검','전지현','공유','손예진','현빈'];
+
+    let consultId = 1000;
+
+    for (let year = 2025; year <= 2026; year++) {
+      const maxMonth = year === 2025 ? 12 : 4;
+      for (let month = 1; month <= maxMonth; month++) {
+        for (let branchId = 1; branchId <= 16; branchId++) {
+          for (let i = 0; i < 8; i++) {
+            consultId++;
+            const type = consultationTypes[i % consultationTypes.length];
+            const inquiryType = type === '재등록상담' ? null : inquiryTypes[i % inquiryTypes.length];
+            const source = sources[(branchId + i) % sources.length];
+            const result = results[(i + branchId) % results.length];
+            const status = i < 6 ? 'completed' : (i === 6 ? 'no_show' : 'cancelled');
+            const day = Math.min(i * 3 + 1, 28);
+            const consultedAt = new Date(year, month - 1, day, 10 + i, 0);
+            const staffId = ((branchId - 1) % 12) + 1;
+            const staffName = staffNames[staffId - 1];
+            const memberId = ((branchId - 1) * 6 + i) % 100 + 1;
+
+            await prisma.$executeRawUnsafe(`
+              INSERT INTO "consultations" (id, "memberId", "staffId", "staffName", type, content, result, status, "inquiryType", source, "branchId", "scheduledAt", "createdAt", "updatedAt")
+              VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$12,$12)
+              ON CONFLICT (id) DO NOTHING
+            `, consultId, memberId, staffId, staffName, type,
+              `${type} 상담 내용 - ${source} 경로 유입`,
+              result, status, inquiryType, source, branchId, consultedAt);
+          }
+        }
+      }
+    }
+    console.log(`  ✅ 상담 ${consultId - 1000}건 추가 (id 1001~${consultId})`);
+  }
+
+  // ============================================================
   // 확장 매출 데이터: 2025-01 ~ 2026-04, 3개 지점
   // id 102~1301 (기존 1~101과 충돌 없음)
   // ============================================================
@@ -934,6 +986,42 @@ async function main() {
     }
     console.log(`  ✅ 서초/송파 수업 ${classCount2}개 생성 (다음 14일)`);
   }
+
+  // ============================================================
+  // sales 메타 컬럼 UPDATE (durationMonths, saleCategory, receiptIssued, penaltyAmount)
+  // ============================================================
+  await prisma.$executeRawUnsafe(`
+    UPDATE "sales" SET "durationMonths" = CASE
+      WHEN "productName" LIKE '%1개월%' THEN 1
+      WHEN "productName" LIKE '%3개월%' THEN 3
+      WHEN "productName" LIKE '%6개월%' THEN 6
+      WHEN "productName" LIKE '%12개월%' OR "productName" LIKE '%연간%' THEN 12
+      WHEN type = 'PT' THEN NULL
+      ELSE 1
+    END
+    WHERE "durationMonths" IS NULL
+  `);
+
+  await prisma.$executeRawUnsafe(`
+    UPDATE "sales" SET "saleCategory" = CASE
+      WHEN type LIKE '%법인%' THEN '법인권'
+      WHEN round = '재등록' THEN '재등록'
+      ELSE '일반'
+    END
+    WHERE "saleCategory" IS NULL OR "saleCategory" = '일반'
+  `);
+
+  await prisma.$executeRawUnsafe(`
+    UPDATE "sales" SET "receiptIssued" = false
+    WHERE "paymentMethod" IN ('CASH', 'TRANSFER') AND id % 5 = 0
+  `);
+
+  await prisma.$executeRawUnsafe(`
+    UPDATE "sales" SET "penaltyAmount" = amount * -0.1
+    WHERE status = 'REFUNDED' AND "penaltyAmount" = 0
+  `);
+
+  console.log('  ✅ sales 메타 컬럼(durationMonths/saleCategory/receiptIssued/penaltyAmount) 업데이트');
 
   console.log('\n🎉 시드 데이터 생성 완료!');
   console.log('  - 지점: 3개');

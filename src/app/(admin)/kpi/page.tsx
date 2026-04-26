@@ -62,6 +62,17 @@ interface KpiMetrics {
   expiringD7: number;
   expiringD14: number;
   expiringD30: number;
+  // WI/TI 상담 유형
+  wiCount: number;
+  tiCount: number;
+  wiRegisterRate: number;
+  tiRegisterRate: number;
+  otAssigned: number;
+  otCompleted: number;
+  otConvertRate: number;
+  renewalContacted: number;
+  renewalSuccess: number;
+  renewalRate: number;
 }
 
 interface StaffRevenue {
@@ -83,6 +94,9 @@ const EMPTY_METRICS: KpiMetrics = {
   totalPtSessions: 0, completedPtSessions: 0, noShowPtSessions: 0,
   totalClasses: 0, totalClassAttendees: 0, totalClassBooked: 0,
   expiringD7: 0, expiringD14: 0, expiringD30: 0,
+  wiCount: 0, tiCount: 0, wiRegisterRate: 0, tiRegisterRate: 0,
+  otAssigned: 0, otCompleted: 0, otConvertRate: 0,
+  renewalContacted: 0, renewalSuccess: 0, renewalRate: 0,
 };
 
 function pct(a: number, b: number): number {
@@ -654,6 +668,30 @@ export default function KpiDashboard() {
       const expiringD14 = expiringRows.filter((r) => r.membershipExpiry && r.membershipExpiry.slice(0, 10) > d7Str && r.membershipExpiry.slice(0, 10) <= d14Str).length;
       const expiringD30 = expiringRows.filter((r) => r.membershipExpiry && r.membershipExpiry.slice(0, 10) > d14Str && r.membershipExpiry.slice(0, 10) <= d30Str).length;
 
+      // 상담 데이터 (WI/TI 구분)
+      const { data: consultData } = await supabase
+        .from("consultations")
+        .select("inquiryType, type, result, status")
+        .eq("branchId", branchId)
+        .gte("consultedAt", monthStart)
+        .lte("consultedAt", monthEnd);
+
+      // WI/TI 집계
+      const wiAll = consultData?.filter(c => c.inquiryType === 'WI') || [];
+      const tiAll = consultData?.filter(c => c.inquiryType === 'TI') || [];
+      const wiRegistered = wiAll.filter(c => c.result === '등록').length;
+      const tiRegistered = tiAll.filter(c => c.result === '등록').length;
+
+      // OT 집계
+      const otData = consultData?.filter(c => c.type === 'OT') || [];
+      const otAssigned = otData.length;
+      const otCompleted = otData.filter(c => c.status === 'completed').length;
+
+      // 재등록 집계
+      const renewalData = consultData?.filter(c => c.type === '재등록상담') || [];
+      const renewalContacted = renewalData.filter(c => c.status === 'completed').length;
+      const renewalSuccess = renewalData.filter(c => c.result === '등록').length;
+
       // 담당자별 매출 집계
       const staffMap = new Map<string, StaffRevenue>();
       completedSales.forEach((r: any) => {
@@ -701,6 +739,16 @@ export default function KpiDashboard() {
         expiringD7,
         expiringD14,
         expiringD30,
+        wiCount: wiAll.length,
+        tiCount: tiAll.length,
+        wiRegisterRate: wiAll.length > 0 ? (wiRegistered / wiAll.length) * 100 : 0,
+        tiRegisterRate: tiAll.length > 0 ? (tiRegistered / tiAll.length) * 100 : 0,
+        otAssigned,
+        otCompleted,
+        otConvertRate: otAssigned > 0 ? (otCompleted / otAssigned) * 100 : 0,
+        renewalContacted,
+        renewalSuccess,
+        renewalRate: renewalContacted > 0 ? (renewalSuccess / renewalContacted) * 100 : 0,
       });
     } catch (err) {
       console.error("[KpiDashboard] 데이터 로드 실패:", err);
@@ -878,6 +926,40 @@ export default function KpiDashboard() {
             </table>
           </div>
         )}
+      </div>
+
+      {/* WI / TI 상담 분석 */}
+      <h3 className="text-[14px] font-bold text-content mb-sm">상담 유형별 분석 (WI / TI)</h3>
+      <div className="bg-white rounded-xl border border-gray-200 p-5 mb-lg">
+        <h3 className="text-sm font-semibold text-gray-800 mb-4 flex items-center gap-2">
+          <span>📞</span> 상담 유형별 분석 (WI / TI)
+        </h3>
+        <div className="grid grid-cols-2 gap-4 mb-4">
+          <div className="bg-blue-50 rounded-lg p-4">
+            <div className="text-xs text-blue-600 font-medium mb-1">WI (방문문의)</div>
+            <div className="text-2xl font-bold text-blue-800">{metrics.wiCount}건</div>
+            <div className="text-xs text-blue-500 mt-1">등록률 {metrics.wiRegisterRate.toFixed(1)}%</div>
+          </div>
+          <div className="bg-purple-50 rounded-lg p-4">
+            <div className="text-xs text-purple-600 font-medium mb-1">TI (전화문의)</div>
+            <div className="text-2xl font-bold text-purple-800">{metrics.tiCount}건</div>
+            <div className="text-xs text-purple-500 mt-1">등록률 {metrics.tiRegisterRate.toFixed(1)}%</div>
+          </div>
+        </div>
+        <div className="grid grid-cols-3 gap-3">
+          <div className="text-center p-3 bg-gray-50 rounded-lg">
+            <div className="text-xs text-gray-500 mb-1">OT 신규 배정</div>
+            <div className="text-lg font-bold">{metrics.otAssigned}건</div>
+          </div>
+          <div className="text-center p-3 bg-gray-50 rounded-lg">
+            <div className="text-xs text-gray-500 mb-1">OT 전환율</div>
+            <div className="text-lg font-bold">{metrics.otConvertRate.toFixed(0)}%</div>
+          </div>
+          <div className="text-center p-3 bg-gray-50 rounded-lg">
+            <div className="text-xs text-gray-500 mb-1">재등록 성공률</div>
+            <div className="text-lg font-bold text-green-600">{metrics.renewalRate.toFixed(0)}%</div>
+          </div>
+        </div>
       </div>
 
       {/* 미구현 KPI 안내 */}

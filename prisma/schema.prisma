@@ -417,6 +417,10 @@ model Sale {
   staffId       Int?
   staffName     String?       // 비정규화
   memo          String?
+  durationMonths  Int?        // 이용 기간 (개월): 1,3,6,12
+  saleCategory    String?     // 법인권|취소재결제|재등록|일반
+  receiptIssued   Boolean     @default(true)  // 현금영수증 발급 여부
+  penaltyAmount   Decimal     @default(0)     // 위약금 (환불 시)
   branchId      Int
   createdAt     DateTime      @default(now())
   updatedAt     DateTime      @default(now()) @updatedAt
@@ -764,6 +768,8 @@ model Consultation {
   scheduledAt DateTime? // 예정 일시
   completedAt DateTime? // 완료 일시
   status      String    @default("scheduled") // scheduled, completed, cancelled, no_show
+  inquiryType String?   // WI(방문문의) | TI(전화문의) | null(미분류)
+  source      String?   // 가입경로: 체험|일일입장|소개|온라인|현수막|간판|재등록|기타
   branchId    Int
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @default(now()) @updatedAt

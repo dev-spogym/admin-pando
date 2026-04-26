@@ -23,6 +23,7 @@ type SalesRow = {
   salePrice: number;
   paymentMethod: string; // CARD/CASH/TRANSFER/MILEAGE
   status: string;
+  durationMonths?: number | null; // 이용권 기간 (개월)
 };
 
 // 집계 행 타입
@@ -228,7 +229,7 @@ export default function SalesStats() {
     setIsLoading(true);
     let query = supabase
       .from('sales')
-      .select('id, saleDate, productName, type, salePrice, amount, paymentMethod, status, branchId, staffName')
+      .select('id, saleDate, productName, type, salePrice, amount, paymentMethod, status, branchId, staffName, durationMonths')
       .eq('branchId', getBranchId())
       .neq('status', 'REFUNDED');
 
@@ -255,6 +256,7 @@ export default function SalesStats() {
         status: (row.status as string) ?? '',
         staffName: deriveStaffName((row.staffName as string) ?? null, Number(row.id) || 0),
         staffRole: deriveStaffRole((row.staffRole as string) ?? null, (row.type as string) ?? null, (row.productName as string) ?? null),
+        durationMonths: row.durationMonths != null ? Number(row.durationMonths) : null,
       }));
       setSalesData(mapped);
       setStaffSalesData(mapped);
@@ -386,6 +388,24 @@ export default function SalesStats() {
       .sort((a, b) => b.total - a.total);
   }, [staffSalesData]);
 
+  // 개월별 집계
+  const durationAgg = useMemo(() => {
+    const map = new Map<string, { count: number; total: number }>();
+    for (const row of salesData) {
+      const key = row.durationMonths
+        ? `${row.durationMonths}개월`
+        : (row.type?.includes('PT') ? 'PT(횟수)' : '기타');
+      const cur = map.get(key) || { count: 0, total: 0 };
+      cur.count++;
+      cur.total += row.salePrice || 0;
+      map.set(key, cur);
+    }
+    const total = Array.from(map.values()).reduce((s, v) => s + v.count, 0);
+    return Array.from(map.entries())
+      .map(([label, v]) => ({ label, ...v, pct: total ? (v.count / total) * 100 : 0 }))
+      .sort((a, b) => b.count - a.count);
+  }, [salesData]);
+
   // 공통 테이블 컬럼
   const aggColumns = (labelHeader: string) => [
     { key: 'label', header: labelHeader, width: 220 },
@@ -408,6 +428,7 @@ export default function SalesStats() {
     { key: 'type', label: '상품타입별' },
     { key: 'payment', label: '결제수단별' },
     { key: 'category', label: '종목별' },
+    { key: '개월별', label: '개월별' },
   ];
 
   // 탭별 렌더 데이터
@@ -419,7 +440,7 @@ export default function SalesStats() {
   };
 
   const current = tabConfig[activeTab];
-  const grandTotal = current.rows.reduce((s, r) => s + r.total, 0);
+  const grandTotal = current ? current.rows.reduce((s, r) => s + r.total, 0) : 0;
 
   // 전월 집계 (compareMode ON 시)
   const prevAggregated = useMemo((): AggRow[] => {
@@ -667,46 +688,84 @@ export default function SalesStats() {
           </div>
         )}
 
-        {/* 차트 영역 */}
-        <div className="px-xl pt-lg pb-md border-b border-line-light">
-          {isLoading ? (
-            <div className="h-[120px] flex items-center justify-center">
-              <div className="w-6 h-6 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
+        {/* 개월별 탭 */}
+        {activeTab === '개월별' ? (
+          <div className="px-xl pt-lg pb-lg">
+            <div className="space-y-3">
+              <div className="text-xs text-gray-500 mb-4">이용권 기간별 판매 분포</div>
+              {isLoading ? (
+                <div className="h-[120px] flex items-center justify-center">
+                  <div className="w-6 h-6 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
+                </div>
+              ) : durationAgg.map(row => (
+                <div key={row.label} className="flex items-center gap-3">
+                  <div className="w-16 text-xs text-gray-600 text-right shrink-0">{row.label}</div>
+                  <div className="flex-1 h-7 bg-gray-100 rounded relative overflow-hidden">
+                    <div className="h-full bg-indigo-500 transition-all" style={{ width: `${row.pct}%` }} />
+                    <span className="absolute inset-0 flex items-center px-2 text-xs font-medium text-white mix-blend-multiply">
+                      {row.count}건 ({row.pct.toFixed(1)}%)
+                    </span>
+                  </div>
+                  <div className="w-20 text-xs text-right text-gray-500 shrink-0">
+                    {(row.total / 10000).toFixed(0)}만원
+                  </div>
+                </div>
+              ))}
+              <div className="mt-4 p-3 bg-amber-50 rounded-lg border border-amber-200">
+                <div className="text-xs text-amber-700 font-medium">💡 인사이트</div>
+                <div className="text-xs text-amber-600 mt-1">
+                  1개월 쏠림 {durationAgg.find(r => r.label === '1개월')?.pct.toFixed(0) ?? 0}% —
+                  락인 강화를 위해 3개월 이상 프로모션 검토 필요
+                </div>
+              </div>
             </div>
-          ) : current.rows.length === 0 ? (
-            <div className="h-[80px] flex items-center justify-center text-[13px] text-content-tertiary">
-              조회된 데이터가 없습니다.
-            </div>
-          ) : current.chartType === 'bar' ? (
-            <HBarChart data={current.rows.slice(0, 10)} />
-          ) : (
-            <DonutChart data={current.rows} />
-          )}
-        </div>
-
-        {/* 테이블 */}
-        <DataTable
-          columns={aggColumns(current.labelHeader)}
-          data={current.rows as unknown as Record<string, unknown>[]}
-          loading={isLoading}
-          pagination={{ page: 1, pageSize: 20, total: current.rows.length }}
-          emptyMessage="집계된 데이터가 없습니다."
-        />
-
-        {/* 전월 비교 테이블 */}
-        {compareMode && prevAggregated.length > 0 && (
-          <div className="border-t border-line">
-            <div className="px-lg py-sm bg-surface-secondary border-b border-line">
-              <span className="text-[12px] font-bold text-content-secondary">전월 동기 데이터</span>
-            </div>
-            <DataTable
-              columns={aggColumns(current.labelHeader)}
-              data={prevAggregated as unknown as Record<string, unknown>[]}
-              loading={false}
-              pagination={{ page: 1, pageSize: 20, total: prevAggregated.length }}
-              emptyMessage="전월 데이터가 없습니다."
-            />
           </div>
+        ) : (
+          <>
+            {/* 차트 영역 */}
+            <div className="px-xl pt-lg pb-md border-b border-line-light">
+              {isLoading ? (
+                <div className="h-[120px] flex items-center justify-center">
+                  <div className="w-6 h-6 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
+                </div>
+              ) : !current || current.rows.length === 0 ? (
+                <div className="h-[80px] flex items-center justify-center text-[13px] text-content-tertiary">
+                  조회된 데이터가 없습니다.
+                </div>
+              ) : current.chartType === 'bar' ? (
+                <HBarChart data={current.rows.slice(0, 10)} />
+              ) : (
+                <DonutChart data={current.rows} />
+              )}
+            </div>
+
+            {/* 테이블 */}
+            {current && (
+              <DataTable
+                columns={aggColumns(current.labelHeader)}
+                data={current.rows as unknown as Record<string, unknown>[]}
+                loading={isLoading}
+                pagination={{ page: 1, pageSize: 20, total: current.rows.length }}
+                emptyMessage="집계된 데이터가 없습니다."
+              />
+            )}
+
+            {/* 전월 비교 테이블 */}
+            {compareMode && prevAggregated.length > 0 && current && (
+              <div className="border-t border-line">
+                <div className="px-lg py-sm bg-surface-secondary border-b border-line">
+                  <span className="text-[12px] font-bold text-content-secondary">전월 동기 데이터</span>
+                </div>
+                <DataTable
+                  columns={aggColumns(current.labelHeader)}
+                  data={prevAggregated as unknown as Record<string, unknown>[]}
+                  loading={false}
+                  pagination={{ page: 1, pageSize: 20, total: prevAggregated.length }}
+                  emptyMessage="전월 데이터가 없습니다."
+                />
+              </div>
+            )}
+          </>
         )}
       </div>
       </>}
