@@ -64,6 +64,27 @@ async function main() {
   }
   console.log(`  ✅ 직원 ${staffRows.length}명 생성`);
 
+  // 서초점 직원 (id 6-9)
+  const staffRows2 = [
+    { id: 6,  name: '송지효', phone: '010-6001-0006', email: 'jihyo@spogym.com',  role: '매니저',  position: '지점장',        hireDate: '2023-01-10', salary: 4000000, color: '#EC4899', branchId: 2 },
+    { id: 7,  name: '남주혁', phone: '010-7001-0007', email: 'joohyuk@spogym.com', role: '트레이너', position: 'PT 팀장',       hireDate: '2023-04-01', salary: 3500000, color: '#6366F1', branchId: 2 },
+    { id: 8,  name: '신민아', phone: '010-8001-0008', email: 'mina@spogym.com',    role: '트레이너', position: 'GX 강사',       hireDate: '2023-09-01', salary: 3200000, color: '#14B8A6', branchId: 2 },
+    { id: 9,  name: '이준기', phone: '010-9001-0009', email: 'joongi@spogym.com',  role: '프론트',   position: '프론트 데스크', hireDate: '2024-02-01', salary: 2500000, color: '#F97316', branchId: 2 },
+    // 송파점 직원 (id 10-12)
+    { id: 10, name: '한가인', phone: '010-1002-0010', email: 'gain@spogym.com',    role: '매니저',  position: '지점장',        hireDate: '2023-02-15', salary: 3800000, color: '#A855F7', branchId: 3 },
+    { id: 11, name: '원빈',   phone: '010-1102-0011', email: 'wonbin@spogym.com',  role: '트레이너', position: 'PT 강사',       hireDate: '2023-07-01', salary: 3200000, color: '#EF4444', branchId: 3 },
+    { id: 12, name: '고준희', phone: '010-1202-0012', email: 'junhee@spogym.com',  role: '프론트',   position: '프론트 데스크', hireDate: '2024-03-01', salary: 2500000, color: '#22C55E', branchId: 3 },
+  ];
+  for (const s of staffRows2) {
+    await prisma.$executeRawUnsafe(
+      `INSERT INTO staff (id, name, phone, email, role, position, "hireDate", salary, color, "isActive", "branchId")
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,true,$10)
+       ON CONFLICT (id) DO NOTHING`,
+      s.id, s.name, s.phone, s.email, s.role, s.position, new Date(s.hireDate), s.salary, s.color, s.branchId
+    );
+  }
+  console.log(`  ✅ 직원 추가 ${staffRows2.length}명 (서초점/송파점)`);
+
   // ============================================================
   // 3. 회원 (members) - 50명
   // 사용 컬럼: id,name,phone,gender,birthDate,membershipType,membershipStart,membershipExpiry,status,mileage,branchId,staffId
@@ -145,6 +166,78 @@ async function main() {
     );
   }
   console.log(`  ✅ 회원 ${memberRows.length}명 생성`);
+
+  // 서초점 회원 (id 51-80) + 송파점 회원 (id 81-100)
+  const memberRows2: {
+    id: number; name: string; phone: string; gender: Gender;
+    birthDate: string; membershipType: string; membershipStart: string;
+    membershipExpiry: string; status: MemberStatus; mileage: number;
+    staffId: number | null; branchId: number;
+  }[] = [
+    // 서초점 30명 (51-80)
+    { id: 51, name: '구해라', phone: '010-5101-0051', gender: 'F', birthDate: '1992-03-14', membershipType: 'PT',         membershipStart: '2025-01-10', membershipExpiry: '2026-07-10', status: 'ACTIVE',   mileage: 12000, staffId: 7,  branchId: 2 },
+    { id: 52, name: '민경훈', phone: '010-5201-0052', gender: 'M', birthDate: '1988-07-22', membershipType: 'MEMBERSHIP',  membershipStart: '2025-01-15', membershipExpiry: '2026-01-15', status: 'EXPIRED',  mileage: 3000,  staffId: null, branchId: 2 },
+    { id: 53, name: '소이현', phone: '010-5301-0053', gender: 'F', birthDate: '1993-11-08', membershipType: 'GX',          membershipStart: '2025-02-01', membershipExpiry: '2026-08-01', status: 'ACTIVE',   mileage: 8500,  staffId: null, branchId: 2 },
+    { id: 54, name: '이동욱', phone: '010-5401-0054', gender: 'M', birthDate: '1985-06-30', membershipType: 'PT',          membershipStart: '2025-02-15', membershipExpiry: '2026-08-15', status: 'ACTIVE',   mileage: 15000, staffId: 7,  branchId: 2 },
+    { id: 55, name: '박보영', phone: '010-5501-0055', gender: 'F', birthDate: '1990-04-11', membershipType: 'MEMBERSHIP',  membershipStart: '2025-03-01', membershipExpiry: '2026-03-01', status: 'EXPIRED',  mileage: 2500,  staffId: null, branchId: 2 },
+    { id: 56, name: '조인성', phone: '010-5601-0056', gender: 'M', birthDate: '1981-07-18', membershipType: 'PT',          membershipStart: '2025-03-10', membershipExpiry: '2026-09-10', status: 'ACTIVE',   mileage: 18000, staffId: 7,  branchId: 2 },
+    { id: 57, name: '한효주', phone: '010-5701-0057', gender: 'F', birthDate: '1987-02-22', membershipType: 'GX',          membershipStart: '2025-04-01', membershipExpiry: '2026-10-01', status: 'ACTIVE',   mileage: 9200,  staffId: null, branchId: 2 },
+    { id: 58, name: '장동건', phone: '010-5801-0058', gender: 'M', birthDate: '1972-03-07', membershipType: 'MEMBERSHIP',  membershipStart: '2025-04-15', membershipExpiry: '2026-04-15', status: 'ACTIVE',   mileage: 7800,  staffId: null, branchId: 2 },
+    { id: 59, name: '김태리', phone: '010-5901-0059', gender: 'F', birthDate: '1994-04-24', membershipType: 'PT',          membershipStart: '2025-05-01', membershipExpiry: '2026-11-01', status: 'ACTIVE',   mileage: 11000, staffId: 7,  branchId: 2 },
+    { id: 60, name: '류준열', phone: '010-6001-0060', gender: 'M', birthDate: '1986-09-25', membershipType: 'MEMBERSHIP',  membershipStart: '2025-05-15', membershipExpiry: '2025-08-15', status: 'EXPIRED',  mileage: 500,   staffId: null, branchId: 2 },
+    { id: 61, name: '공효진', phone: '010-6101-0061', gender: 'F', birthDate: '1980-01-07', membershipType: 'GX',          membershipStart: '2025-06-01', membershipExpiry: '2026-06-01', status: 'ACTIVE',   mileage: 6500,  staffId: null, branchId: 2 },
+    { id: 62, name: '현빈',   phone: '010-6201-0062', gender: 'M', birthDate: '1982-09-25', membershipType: 'PT',          membershipStart: '2025-06-10', membershipExpiry: '2025-12-10', status: 'EXPIRED',  mileage: 4000,  staffId: 7,  branchId: 2 },
+    { id: 63, name: '손예진', phone: '010-6301-0063', gender: 'F', birthDate: '1982-01-11', membershipType: 'MEMBERSHIP',  membershipStart: '2025-07-01', membershipExpiry: '2026-07-01', status: 'ACTIVE',   mileage: 13000, staffId: null, branchId: 2 },
+    { id: 64, name: '정해인', phone: '010-6401-0064', gender: 'M', birthDate: '1988-04-01', membershipType: 'PT',          membershipStart: '2025-07-15', membershipExpiry: '2026-01-15', status: 'EXPIRED',  mileage: 2000,  staffId: 7,  branchId: 2 },
+    { id: 65, name: '김고은', phone: '010-6501-0065', gender: 'F', birthDate: '1991-07-02', membershipType: 'GX',          membershipStart: '2025-08-01', membershipExpiry: '2026-02-01', status: 'EXPIRED',  mileage: 1500,  staffId: null, branchId: 2 },
+    { id: 66, name: '이제훈', phone: '010-6601-0066', gender: 'M', birthDate: '1986-09-15', membershipType: 'MEMBERSHIP',  membershipStart: '2025-08-15', membershipExpiry: '2026-08-15', status: 'ACTIVE',   mileage: 10500, staffId: null, branchId: 2 },
+    { id: 67, name: '박신혜', phone: '010-6701-0067', gender: 'F', birthDate: '1990-02-18', membershipType: 'PT',          membershipStart: '2025-09-01', membershipExpiry: '2026-03-01', status: 'EXPIRED',  mileage: 3500,  staffId: 7,  branchId: 2 },
+    { id: 68, name: '송중기', phone: '010-6801-0068', gender: 'M', birthDate: '1985-09-19', membershipType: 'MEMBERSHIP',  membershipStart: '2025-09-15', membershipExpiry: '2026-09-15', status: 'ACTIVE',   mileage: 8000,  staffId: null, branchId: 2 },
+    { id: 69, name: '전지현', phone: '010-6901-0069', gender: 'F', birthDate: '1981-10-30', membershipType: 'PT',          membershipStart: '2025-10-01', membershipExpiry: '2026-04-01', status: 'ACTIVE',   mileage: 14000, staffId: 7,  branchId: 2 },
+    { id: 70, name: '공유',   phone: '010-7001-0070', gender: 'M', birthDate: '1979-07-10', membershipType: 'MEMBERSHIP',  membershipStart: '2025-10-15', membershipExpiry: '2026-10-15', status: 'ACTIVE',   mileage: 9500,  staffId: null, branchId: 2 },
+    { id: 71, name: '김혜수', phone: '010-7101-0071', gender: 'F', birthDate: '1970-09-05', membershipType: 'GX',          membershipStart: '2025-11-01', membershipExpiry: '2026-05-01', status: 'ACTIVE',   mileage: 6000,  staffId: null, branchId: 2 },
+    { id: 72, name: '이병헌', phone: '010-7201-0072', gender: 'M', birthDate: '1970-07-12', membershipType: 'PT',          membershipStart: '2025-11-15', membershipExpiry: '2026-05-15', status: 'ACTIVE',   mileage: 17000, staffId: 7,  branchId: 2 },
+    { id: 73, name: '김민희', phone: '010-7301-0073', gender: 'F', birthDate: '1982-04-14', membershipType: 'MEMBERSHIP',  membershipStart: '2025-12-01', membershipExpiry: '2026-06-01', status: 'ACTIVE',   mileage: 7500,  staffId: null, branchId: 2 },
+    { id: 74, name: '유아인', phone: '010-7401-0074', gender: 'M', birthDate: '1986-10-06', membershipType: 'MEMBERSHIP',  membershipStart: '2025-12-15', membershipExpiry: '2026-06-15', status: 'ACTIVE',   mileage: 5500,  staffId: null, branchId: 2 },
+    { id: 75, name: '수지',   phone: '010-7501-0075', gender: 'F', birthDate: '1994-10-10', membershipType: 'PT',          membershipStart: '2026-01-05', membershipExpiry: '2026-07-05', status: 'ACTIVE',   mileage: 4000,  staffId: 7,  branchId: 2 },
+    { id: 76, name: '이민호', phone: '010-7601-0076', gender: 'M', birthDate: '1987-06-22', membershipType: 'MEMBERSHIP',  membershipStart: '2026-01-10', membershipExpiry: '2026-07-10', status: 'ACTIVE',   mileage: 3000,  staffId: null, branchId: 2 },
+    { id: 77, name: '김지원', phone: '010-7701-0077', gender: 'F', birthDate: '1992-09-22', membershipType: 'GX',          membershipStart: '2026-02-01', membershipExpiry: '2026-08-01', status: 'ACTIVE',   mileage: 2500,  staffId: null, branchId: 2 },
+    { id: 78, name: '박서준', phone: '010-7801-0078', gender: 'M', birthDate: '1988-12-16', membershipType: 'PT',          membershipStart: '2026-02-15', membershipExpiry: '2026-08-15', status: 'ACTIVE',   mileage: 1500,  staffId: 7,  branchId: 2 },
+    { id: 79, name: '김다미', phone: '010-7901-0079', gender: 'F', birthDate: '1995-03-29', membershipType: 'MEMBERSHIP',  membershipStart: '2026-03-01', membershipExpiry: '2026-09-01', status: 'ACTIVE',   mileage: 800,   staffId: null, branchId: 2 },
+    { id: 80, name: '최우식', phone: '010-8001-0080', gender: 'M', birthDate: '1990-03-26', membershipType: 'MEMBERSHIP',  membershipStart: '2026-04-01', membershipExpiry: '2027-04-01', status: 'ACTIVE',   mileage: 200,   staffId: null, branchId: 2 },
+    // 송파점 20명 (81-100)
+    { id: 81, name: '이나영', phone: '010-8101-0081', gender: 'F', birthDate: '1983-02-18', membershipType: 'PT',          membershipStart: '2025-01-20', membershipExpiry: '2026-07-20', status: 'ACTIVE',   mileage: 14000, staffId: 11, branchId: 3 },
+    { id: 82, name: '원더걸', phone: '010-8201-0082', gender: 'M', birthDate: '1986-04-12', membershipType: 'MEMBERSHIP',  membershipStart: '2025-02-01', membershipExpiry: '2025-08-01', status: 'EXPIRED',  mileage: 2000,  staffId: null, branchId: 3 },
+    { id: 83, name: '차은우', phone: '010-8301-0083', gender: 'M', birthDate: '1997-03-30', membershipType: 'PT',          membershipStart: '2025-03-01', membershipExpiry: '2026-09-01', status: 'ACTIVE',   mileage: 16000, staffId: 11, branchId: 3 },
+    { id: 84, name: '아이유', phone: '010-8401-0084', gender: 'F', birthDate: '1993-05-16', membershipType: 'MEMBERSHIP',  membershipStart: '2025-04-01', membershipExpiry: '2026-04-01', status: 'ACTIVE',   mileage: 8000,  staffId: null, branchId: 3 },
+    { id: 85, name: '방탄진', phone: '010-8501-0085', gender: 'M', birthDate: '1992-12-04', membershipType: 'GX',          membershipStart: '2025-05-01', membershipExpiry: '2026-05-01', status: 'ACTIVE',   mileage: 5500,  staffId: null, branchId: 3 },
+    { id: 86, name: '오마이걸', phone: '010-8601-0086', gender: 'F', birthDate: '1996-08-07', membershipType: 'MEMBERSHIP', membershipStart: '2025-06-01', membershipExpiry: '2025-12-01', status: 'EXPIRED', mileage: 1000,  staffId: null, branchId: 3 },
+    { id: 87, name: '황민현', phone: '010-8701-0087', gender: 'M', birthDate: '1995-08-09', membershipType: 'PT',          membershipStart: '2025-07-01', membershipExpiry: '2026-01-01', status: 'EXPIRED',  mileage: 3500,  staffId: 11, branchId: 3 },
+    { id: 88, name: '안소희', phone: '010-8801-0088', gender: 'F', birthDate: '1988-12-05', membershipType: 'MEMBERSHIP',  membershipStart: '2025-08-01', membershipExpiry: '2026-08-01', status: 'ACTIVE',   mileage: 9000,  staffId: null, branchId: 3 },
+    { id: 89, name: '이승기', phone: '010-8901-0089', gender: 'M', birthDate: '1987-01-13', membershipType: 'PT',          membershipStart: '2025-09-01', membershipExpiry: '2026-03-01', status: 'ACTIVE',   mileage: 12000, staffId: 11, branchId: 3 },
+    { id: 90, name: '강민경', phone: '010-9001-0090', gender: 'F', birthDate: '1991-06-09', membershipType: 'GX',          membershipStart: '2025-10-01', membershipExpiry: '2026-04-01', status: 'ACTIVE',   mileage: 6500,  staffId: null, branchId: 3 },
+    { id: 91, name: '임영웅', phone: '010-9101-0091', gender: 'M', birthDate: '1991-06-16', membershipType: 'MEMBERSHIP',  membershipStart: '2025-11-01', membershipExpiry: '2026-11-01', status: 'ACTIVE',   mileage: 11000, staffId: null, branchId: 3 },
+    { id: 92, name: '이찬원', phone: '010-9201-0092', gender: 'M', birthDate: '1998-12-05', membershipType: 'PT',          membershipStart: '2025-12-01', membershipExpiry: '2026-06-01', status: 'ACTIVE',   mileage: 7500,  staffId: 11, branchId: 3 },
+    { id: 93, name: '장민호', phone: '010-9301-0093', gender: 'M', birthDate: '1995-05-24', membershipType: 'MEMBERSHIP',  membershipStart: '2026-01-01', membershipExpiry: '2026-07-01', status: 'ACTIVE',   mileage: 4500,  staffId: null, branchId: 3 },
+    { id: 94, name: '박은빈', phone: '010-9401-0094', gender: 'F', birthDate: '1992-09-05', membershipType: 'PT',          membershipStart: '2026-01-15', membershipExpiry: '2026-07-15', status: 'ACTIVE',   mileage: 3000,  staffId: 11, branchId: 3 },
+    { id: 95, name: '이도현', phone: '010-9501-0095', gender: 'M', birthDate: '1995-04-21', membershipType: 'MEMBERSHIP',  membershipStart: '2026-02-01', membershipExpiry: '2026-08-01', status: 'ACTIVE',   mileage: 2000,  staffId: null, branchId: 3 },
+    { id: 96, name: '고윤정', phone: '010-9601-0096', gender: 'F', birthDate: '1996-01-02', membershipType: 'GX',          membershipStart: '2026-02-15', membershipExpiry: '2026-08-15', status: 'ACTIVE',   mileage: 1500,  staffId: null, branchId: 3 },
+    { id: 97, name: '변우석', phone: '010-9701-0097', gender: 'M', birthDate: '1992-05-28', membershipType: 'PT',          membershipStart: '2026-03-01', membershipExpiry: '2026-09-01', status: 'ACTIVE',   mileage: 1000,  staffId: 11, branchId: 3 },
+    { id: 98, name: '김혜윤', phone: '010-9801-0098', gender: 'F', birthDate: '1999-02-20', membershipType: 'MEMBERSHIP',  membershipStart: '2026-03-15', membershipExpiry: '2026-09-15', status: 'ACTIVE',   mileage: 600,   staffId: null, branchId: 3 },
+    { id: 99, name: '손석구', phone: '010-9901-0099', gender: 'M', birthDate: '1983-10-18', membershipType: 'PT',          membershipStart: '2026-04-01', membershipExpiry: '2026-10-01', status: 'ACTIVE',   mileage: 200,   staffId: 11, branchId: 3 },
+    { id: 100,name: '문가영', phone: '010-0002-0100', gender: 'F', birthDate: '1993-12-28', membershipType: 'MEMBERSHIP',  membershipStart: '2026-04-15', membershipExpiry: '2027-04-15', status: 'ACTIVE',   mileage: 100,   staffId: null, branchId: 3 },
+  ];
+  for (const m of memberRows2) {
+    await prisma.$executeRawUnsafe(
+      `INSERT INTO members (id, name, phone, gender, "birthDate", "membershipType", "membershipStart", "membershipExpiry", status, mileage, "branchId", "staffId")
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)
+       ON CONFLICT (id) DO NOTHING`,
+      m.id, m.name, m.phone, m.gender, new Date(m.birthDate),
+      m.membershipType, new Date(m.membershipStart), new Date(m.membershipExpiry),
+      m.status, m.mileage, m.branchId, m.staffId
+    );
+  }
+  console.log(`  ✅ 회원 추가 ${memberRows2.length}명 (서초점/송파점)`);
 
   // ============================================================
   // 4. 상품 (products)
@@ -582,6 +675,238 @@ async function main() {
      ON CONFLICT ("branchId") DO NOTHING`
   );
   console.log('  ✅ 설정 생성');
+
+  // ============================================================
+  // 확장 매출 데이터: 2025-01 ~ 2026-04, 3개 지점
+  // id 102~1301 (기존 1~101과 충돌 없음)
+  // ============================================================
+  {
+    // 헬퍼: 지점별 멤버 풀
+    const branch1Members = [
+      { id: 1, name: '홍길동' }, { id: 2, name: '김영희' }, { id: 3, name: '이철수' },
+      { id: 4, name: '박지민' }, { id: 6, name: '정민호' }, { id: 7, name: '강서연' },
+      { id: 9, name: '한소희' }, { id: 11, name: '서지원' }, { id: 12, name: '임재현' },
+      { id: 13, name: '김민준' }, { id: 14, name: '이수빈' }, { id: 15, name: '박성훈' },
+      { id: 17, name: '최준혁' }, { id: 19, name: '강태양' }, { id: 21, name: '조성민' },
+      { id: 22, name: '임소영' }, { id: 23, name: '김도윤' }, { id: 24, name: '이지은' },
+      { id: 28, name: '한지혜' }, { id: 29, name: '송재훈' }, { id: 33, name: '황준서' },
+      { id: 38, name: '노유나' }, { id: 39, name: '문성준' }, { id: 40, name: '배소희' },
+      { id: 41, name: '서동현' }, { id: 44, name: '조예린' }, { id: 45, name: '차승호' },
+      { id: 49, name: '홍서준' }, { id: 50, name: '강민서' },
+    ];
+    const branch2Members = [
+      { id: 51, name: '구해라' }, { id: 53, name: '소이현' }, { id: 54, name: '이동욱' },
+      { id: 56, name: '조인성' }, { id: 57, name: '한효주' }, { id: 58, name: '장동건' },
+      { id: 59, name: '김태리' }, { id: 61, name: '공효진' }, { id: 63, name: '손예진' },
+      { id: 66, name: '이제훈' }, { id: 68, name: '송중기' }, { id: 69, name: '전지현' },
+      { id: 70, name: '공유' }, { id: 71, name: '김혜수' }, { id: 72, name: '이병헌' },
+      { id: 73, name: '김민희' }, { id: 74, name: '유아인' }, { id: 75, name: '수지' },
+      { id: 76, name: '이민호' }, { id: 77, name: '김지원' }, { id: 78, name: '박서준' },
+      { id: 79, name: '김다미' }, { id: 80, name: '최우식' },
+    ];
+    const branch3Members = [
+      { id: 81, name: '이나영' }, { id: 83, name: '차은우' }, { id: 84, name: '아이유' },
+      { id: 85, name: '방탄진' }, { id: 88, name: '안소희' }, { id: 89, name: '이승기' },
+      { id: 90, name: '강민경' }, { id: 91, name: '임영웅' }, { id: 92, name: '이찬원' },
+      { id: 93, name: '장민호' }, { id: 94, name: '박은빈' }, { id: 95, name: '이도현' },
+      { id: 96, name: '고윤정' }, { id: 97, name: '변우석' }, { id: 98, name: '김혜윤' },
+      { id: 99, name: '손석구' }, { id: 100, name: '문가영' },
+    ];
+
+    // 상품 목록 (productId, productName, amount, type)
+    type ProductDef = { productId: number; productName: string; amount: number; type: string };
+    const ptProducts: ProductDef[] = [
+      { productId: 1, productName: 'PT 10회', amount: 700000, type: 'PT' },
+      { productId: 2, productName: 'PT 20회', amount: 1200000, type: 'PT' },
+      { productId: 3, productName: 'PT 30회', amount: 1650000, type: 'PT' },
+    ];
+    const membershipProducts: ProductDef[] = [
+      { productId: 4, productName: '1개월 이용권', amount: 100000, type: '이용권' },
+      { productId: 5, productName: '3개월 이용권', amount: 270000, type: '이용권' },
+      { productId: 6, productName: '6개월 이용권', amount: 480000, type: '이용권' },
+      { productId: 7, productName: '12개월 이용권', amount: 840000, type: '이용권' },
+    ];
+    const gxProducts: ProductDef[] = [
+      { productId: 8, productName: 'GX 그룹 필라테스 (월)', amount: 150000, type: 'GX' },
+      { productId: 9, productName: 'GX 요가 (월)', amount: 130000, type: 'GX' },
+    ];
+    const serviceProducts: ProductDef[] = [
+      { productId: 11, productName: '개인 락커 (월)', amount: 20000, type: '상품' },
+      { productId: 12, productName: '타올 서비스 (월)', amount: 10000, type: '상품' },
+      { productId: 10, productName: '운동복 세트', amount: 35000, type: '상품' },
+    ];
+
+    const payMethods: PaymentMethod[] = ['CARD', 'CASH', 'TRANSFER'];
+    const rounds = ['신규', '재등록', '재등록', '재등록']; // 재등록 비중 높게
+
+    // 지점별 담당 직원
+    const b1Staffs = [
+      { id: 1, name: '김태희' }, { id: 2, name: '이효리' },
+      { id: 3, name: '정지훈' }, { id: 4, name: '박재범' }, { id: 5, name: '유재석' },
+    ];
+    const b2Staffs = [
+      { id: 6, name: '송지효' }, { id: 7, name: '남주혁' },
+      { id: 8, name: '신민아' }, { id: 9, name: '이준기' },
+    ];
+    const b3Staffs = [
+      { id: 10, name: '한가인' }, { id: 11, name: '원빈' }, { id: 12, name: '고준희' },
+    ];
+
+    // 결정론적 pseudo-random (seed 기반)
+    const pr = (seed: number): number => {
+      const x = Math.sin(seed + 1) * 10000;
+      return x - Math.floor(x);
+    };
+
+    interface BranchConfig {
+      branchId: number;
+      members: { id: number; name: string }[];
+      staffs: { id: number; name: string }[];
+      perMonth: number;
+      // 계절 가중치 (월 1-12)
+    }
+
+    const branchConfigs: BranchConfig[] = [
+      { branchId: 1, members: branch1Members, staffs: b1Staffs, perMonth: 35 },
+      { branchId: 2, members: branch2Members, staffs: b2Staffs, perMonth: 25 },
+      { branchId: 3, members: branch3Members, staffs: b3Staffs, perMonth: 15 },
+    ];
+
+    // 계절 배율 (1월/9월 신규급증, 7-8월 성수기, 12월 이벤트)
+    const seasonMultiplier: Record<number, number> = {
+      1: 1.3, 2: 1.0, 3: 1.1, 4: 1.0, 5: 1.0, 6: 1.1,
+      7: 1.2, 8: 1.2, 9: 1.3, 10: 1.0, 11: 1.0, 12: 1.2,
+    };
+
+    // 월별 날짜 패턴: 초(1-10 이용권갱신), 중(11-20 PT신규), 말(21-28 GX/서비스)
+    const pickProductForDay = (day: number, seed: number): ProductDef => {
+      if (day <= 10) {
+        // 이용권 갱신 집중
+        const pool = [...membershipProducts, ...membershipProducts, ...ptProducts];
+        return pool[Math.floor(pr(seed) * pool.length)];
+      } else if (day <= 20) {
+        // PT 신규 등록
+        const pool = [...ptProducts, ...ptProducts, ...membershipProducts];
+        return pool[Math.floor(pr(seed) * pool.length)];
+      } else {
+        // GX, 서비스, 이용권
+        const pool = [...gxProducts, ...gxProducts, ...serviceProducts, ...membershipProducts];
+        return pool[Math.floor(pr(seed) * pool.length)];
+      }
+    };
+
+    let saleId = 102;
+    let extSaleCount = 0;
+
+    // 2025년 1월 ~ 2026년 4월 = 16개월
+    const months: { year: number; month: number }[] = [];
+    for (let y = 2025; y <= 2026; y++) {
+      const mStart = y === 2025 ? 1 : 1;
+      const mEnd = y === 2025 ? 12 : 4;
+      for (let m = mStart; m <= mEnd; m++) {
+        months.push({ year: y, month: m });
+      }
+    }
+
+    for (const { year, month } of months) {
+      const mult = seasonMultiplier[month] ?? 1.0;
+      const daysInMonth = new Date(year, month, 0).getDate();
+
+      for (const bc of branchConfigs) {
+        const targetCount = Math.round(bc.perMonth * mult);
+
+        for (let i = 0; i < targetCount; i++) {
+          const seed = saleId * 31 + bc.branchId * 7 + month * 13 + year;
+          const member = bc.members[Math.floor(pr(seed + 1) * bc.members.length)];
+          const staff = bc.staffs[Math.floor(pr(seed + 2) * bc.staffs.length)];
+
+          // 날짜: 균등 분포 (1~daysInMonth)
+          const day = 1 + Math.floor(pr(seed + 3) * daysInMonth);
+          const saleDate = new Date(year, month - 1, day);
+
+          const prod = pickProductForDay(day, seed + 4);
+          const payMethod = payMethods[Math.floor(pr(seed + 5) * 3)];
+          const round = rounds[Math.floor(pr(seed + 6) * rounds.length)];
+
+          // 미수금/환불 소량 (약 5%)
+          let status: SaleStatus = 'COMPLETED';
+          let card = 0, cash = 0, unpaid = 0;
+          const r7 = pr(seed + 7);
+          if (r7 < 0.03) {
+            status = 'UNPAID';
+            unpaid = prod.amount;
+          } else if (r7 < 0.05) {
+            status = 'REFUNDED';
+          }
+
+          if (status !== 'UNPAID') {
+            if (payMethod === 'CARD') card = prod.amount;
+            else if (payMethod === 'CASH') cash = prod.amount;
+            else card = prod.amount; // TRANSFER → card로 기록
+          }
+
+          const amount = status === 'REFUNDED' ? -prod.amount : prod.amount;
+
+          await prisma.$executeRawUnsafe(
+            `INSERT INTO sales (id, "memberId", "memberName", "productId", "productName", "saleDate", type, round,
+              "originalPrice", "salePrice", amount, "paymentMethod", cash, card, unpaid, status, "staffId", "staffName", "branchId")
+             VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18)
+             ON CONFLICT (id) DO NOTHING`,
+            saleId,
+            member.id, member.name,
+            prod.productId, prod.productName,
+            saleDate,
+            prod.type, round,
+            prod.amount,
+            amount,
+            payMethod,
+            cash, card, unpaid,
+            status,
+            staff.id, staff.name,
+            bc.branchId
+          );
+
+          saleId++;
+          extSaleCount++;
+        }
+      }
+    }
+    console.log(`  ✅ 확장 매출 ${extSaleCount}건 생성 (id 102~${saleId - 1}, 2025-01~2026-04, 3개 지점)`);
+  }
+
+  // ============================================================
+  // 서초점/송파점 수업 (다음 14일)
+  // ============================================================
+  {
+    const classDefs2 = [
+      // 서초점
+      { title: '필라테스', type: 'GX', staffId: 8, staffName: '신민아', room: '필라테스룸', capacity: 12, days: [1,2,3,4,5], hour: 10, branchId: 2 },
+      { title: '요가',     type: 'GX', staffId: 8, staffName: '신민아', room: 'GX룸',      capacity: 16, days: [1,3,5],     hour: 18, branchId: 2 },
+      // 송파점
+      { title: '그룹PT',   type: 'GX', staffId: 11, staffName: '원빈',  room: 'PT존',      capacity: 8,  days: [2,4,6],     hour: 7,  branchId: 3 },
+      { title: '스트레칭', type: 'GX', staffId: 11, staffName: '원빈',  room: 'GX룸',      capacity: 20, days: [1,3,5],     hour: 19, branchId: 3 },
+    ];
+    const todayRef = new Date('2026-04-26');
+    let classCount2 = 0;
+    for (let dayOffset = 0; dayOffset < 14; dayOffset++) {
+      const date = new Date(todayRef);
+      date.setDate(todayRef.getDate() + dayOffset);
+      const dow = date.getDay();
+      for (const cls of classDefs2) {
+        if (!cls.days.includes(dow)) continue;
+        const start = new Date(date.getFullYear(), date.getMonth(), date.getDate(), cls.hour, 0);
+        const end = new Date(start.getTime() + 60 * 60000);
+        const booked = 2 + (dayOffset + dow) % (cls.capacity - 2);
+        await prisma.$executeRawUnsafe(
+          `INSERT INTO classes (title, type, "staffId", "staffName", room, "startTime", "endTime", capacity, booked, "isRecurring", "branchId")
+           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,true,$10)`,
+          cls.title, cls.type, cls.staffId, cls.staffName, cls.room, start, end, cls.capacity, booked, cls.branchId
+        );
+        classCount2++;
+      }
+    }
+    console.log(`  ✅ 서초/송파 수업 ${classCount2}개 생성 (다음 14일)`);
+  }
 
   console.log('\n🎉 시드 데이터 생성 완료!');
   console.log('  - 지점: 3개');
