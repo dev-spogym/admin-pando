@@ -73,31 +73,35 @@ async function main() {
   // staff 컬럼: id,name,phone,email,role,position,hireDate,salary,color,isActive,branchId
   // ============================================================
   const staffRows = [
-    { id: 1, name: '김태희', phone: '010-1111-2222', email: 'taehee@spogym.com',  role: '트레이너', position: 'PT 팀장',      hireDate: '2023-03-15', salary: 3500000, color: '#EF4444' },
-    { id: 2, name: '이효리', phone: '010-2222-3333', email: 'hyori@spogym.com',   role: '트레이너', position: 'GX 강사',      hireDate: '2023-06-01', salary: 3200000, color: '#3B82F6' },
-    { id: 3, name: '정지훈', phone: '010-3333-4444', email: 'jihoon@spogym.com',  role: '트레이너', position: 'PT 강사',      hireDate: '2024-01-10', salary: 3000000, color: '#F59E0B' },
-    { id: 4, name: '박재범', phone: '010-4444-5555', email: 'jaebeom@spogym.com', role: '트레이너', position: 'GX 강사',      hireDate: '2024-03-01', salary: 2800000, color: '#8B5CF6' },
-    { id: 5, name: '유재석', phone: '010-5555-6666', email: 'jaeseok@spogym.com', role: '프론트',   position: '프론트 데스크', hireDate: '2024-06-01', salary: 2500000, color: '#10B981' },
+    { id: 1, name: '김태희', phone: '010-1111-2222', email: 'taehee@spogym.com',  role: '트레이너', position: 'PT 팀장',      hireDate: '2023-03-15', salary: 3500000, color: '#EF4444', branchId: 1 },
+    { id: 2, name: '이효리', phone: '010-2222-3333', email: 'hyori@spogym.com',   role: '트레이너', position: 'GX 강사',      hireDate: '2023-06-01', salary: 3200000, color: '#3B82F6', branchId: 2 },
+    { id: 3, name: '정지훈', phone: '010-3333-4444', email: 'jihoon@spogym.com',  role: '트레이너', position: 'PT 강사',      hireDate: '2024-01-10', salary: 3000000, color: '#F59E0B', branchId: 3 },
+    { id: 4, name: '박재범', phone: '010-4444-5555', email: 'jaebeom@spogym.com', role: '트레이너', position: 'GX 강사',      hireDate: '2024-03-01', salary: 2800000, color: '#8B5CF6', branchId: 4 },
+    { id: 5, name: '유재석', phone: '010-5555-6666', email: 'jaeseok@spogym.com', role: '프론트',   position: '프론트 데스크', hireDate: '2024-06-01', salary: 2500000, color: '#10B981', branchId: 5 },
   ];
   for (const s of staffRows) {
     await prisma.$executeRawUnsafe(
       `INSERT INTO staff (id, name, phone, email, role, position, "hireDate", salary, color, "isActive", "branchId")
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,true,1)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,true,$10)
        ON CONFLICT (id) DO NOTHING`,
-      s.id, s.name, s.phone, s.email, s.role, s.position, new Date(s.hireDate), s.salary, s.color
+      s.id, s.name, s.phone, s.email, s.role, s.position, new Date(s.hireDate), s.salary, s.color, s.branchId
     );
   }
   console.log(`  ✅ 직원 ${staffRows.length}명 생성`);
 
-  // 나머지 지점 직원 (id 6-12) - branchId를 3~9에 분산
+  // 나머지 지점 직원 (id 6-16) - branchId를 6~16에 분산
   const staffRows2 = [
-    { id: 6,  name: '송지효', phone: '010-6001-0006', email: 'jihyo@spogym.com',   role: '매니저',  position: '지점장',        hireDate: '2023-01-10', salary: 4000000, color: '#EC4899', branchId: 3 },
-    { id: 7,  name: '남주혁', phone: '010-7001-0007', email: 'joohyuk@spogym.com', role: '트레이너', position: 'PT 팀장',       hireDate: '2023-04-01', salary: 3500000, color: '#6366F1', branchId: 4 },
-    { id: 8,  name: '신민아', phone: '010-8001-0008', email: 'mina@spogym.com',    role: '트레이너', position: 'GX 강사',       hireDate: '2023-09-01', salary: 3200000, color: '#14B8A6', branchId: 5 },
-    { id: 9,  name: '이준기', phone: '010-9001-0009', email: 'joongi@spogym.com',  role: '프론트',   position: '프론트 데스크', hireDate: '2024-02-01', salary: 2500000, color: '#F97316', branchId: 6 },
-    { id: 10, name: '한가인', phone: '010-1002-0010', email: 'gain@spogym.com',    role: '매니저',  position: '지점장',        hireDate: '2023-02-15', salary: 3800000, color: '#A855F7', branchId: 7 },
-    { id: 11, name: '원빈',   phone: '010-1102-0011', email: 'wonbin@spogym.com',  role: '트레이너', position: 'PT 강사',       hireDate: '2023-07-01', salary: 3200000, color: '#EF4444', branchId: 8 },
-    { id: 12, name: '고준희', phone: '010-1202-0012', email: 'junhee@spogym.com',  role: '프론트',   position: '프론트 데스크', hireDate: '2024-03-01', salary: 2500000, color: '#22C55E', branchId: 9 },
+    { id: 6,  name: '송지효', phone: '010-6001-0006', email: 'jihyo@spogym.com',   role: '매니저',   position: '지점장',        hireDate: '2023-01-10', salary: 4000000, color: '#EC4899', branchId: 6 },
+    { id: 7,  name: '남주혁', phone: '010-7001-0007', email: 'joohyuk@spogym.com', role: '트레이너', position: 'PT 팀장',        hireDate: '2023-04-01', salary: 3500000, color: '#6366F1', branchId: 7 },
+    { id: 8,  name: '신민아', phone: '010-8001-0008', email: 'mina@spogym.com',    role: '트레이너', position: 'GX 강사',        hireDate: '2023-09-01', salary: 3200000, color: '#14B8A6', branchId: 8 },
+    { id: 9,  name: '이준기', phone: '010-9001-0009', email: 'joongi@spogym.com',  role: '프론트',   position: '프론트 데스크',  hireDate: '2024-02-01', salary: 2500000, color: '#F97316', branchId: 9 },
+    { id: 10, name: '한가인', phone: '010-1002-0010', email: 'gain@spogym.com',    role: '매니저',   position: '지점장',        hireDate: '2023-02-15', salary: 3800000, color: '#A855F7', branchId: 10 },
+    { id: 11, name: '원빈',   phone: '010-1102-0011', email: 'wonbin@spogym.com',  role: '트레이너', position: 'PT 강사',        hireDate: '2023-07-01', salary: 3200000, color: '#EF4444', branchId: 11 },
+    { id: 12, name: '고준희', phone: '010-1202-0012', email: 'junhee@spogym.com',  role: '프론트',   position: '프론트 데스크',  hireDate: '2024-03-01', salary: 2500000, color: '#22C55E', branchId: 12 },
+    { id: 13, name: '박서준', phone: '010-1301-0013', email: 'seojun@spogym.com',  role: '매니저',   position: '지점장',        hireDate: '2023-05-01', salary: 4000000, color: '#0EA5E9', branchId: 13 },
+    { id: 14, name: '김지원', phone: '010-1401-0014', email: 'jiwon@spogym.com',   role: '트레이너', position: 'PT 강사',        hireDate: '2023-08-01', salary: 3200000, color: '#84CC16', branchId: 14 },
+    { id: 15, name: '이서진', phone: '010-1501-0015', email: 'seojin@spogym.com',  role: '프론트',   position: '프론트 데스크',  hireDate: '2024-01-10', salary: 2500000, color: '#FB923C', branchId: 15 },
+    { id: 16, name: '최우식', phone: '010-1601-0016', email: 'woosik@spogym.com',  role: '매니저',   position: '지점장',        hireDate: '2023-11-01', salary: 3800000, color: '#C084FC', branchId: 16 },
   ];
   for (const s of staffRows2) {
     await prisma.$executeRawUnsafe(
@@ -204,68 +208,67 @@ async function main() {
     membershipExpiry: string; status: MemberStatus; mileage: number;
     staffId: number | null; branchId: number;
   }[] = [
-    // 서초점 30명 (51-80)
+    // 서초점 30명 (51-80) - branchId 2~9 순환
     { id: 51, name: '구해라', phone: '010-5101-0051', gender: 'F', birthDate: '1992-03-14', membershipType: 'PT',         membershipStart: '2025-01-10', membershipExpiry: '2026-07-10', status: 'ACTIVE',   mileage: 12000, staffId: 7,  branchId: 2 },
-    { id: 52, name: '민경훈', phone: '010-5201-0052', gender: 'M', birthDate: '1988-07-22', membershipType: 'MEMBERSHIP',  membershipStart: '2025-01-15', membershipExpiry: '2026-01-15', status: 'EXPIRED',  mileage: 3000,  staffId: null, branchId: 2 },
-    { id: 53, name: '소이현', phone: '010-5301-0053', gender: 'F', birthDate: '1993-11-08', membershipType: 'GX',          membershipStart: '2025-02-01', membershipExpiry: '2026-08-01', status: 'ACTIVE',   mileage: 8500,  staffId: null, branchId: 2 },
-    { id: 54, name: '이동욱', phone: '010-5401-0054', gender: 'M', birthDate: '1985-06-30', membershipType: 'PT',          membershipStart: '2025-02-15', membershipExpiry: '2026-08-15', status: 'ACTIVE',   mileage: 15000, staffId: 7,  branchId: 2 },
-    { id: 55, name: '박보영', phone: '010-5501-0055', gender: 'F', birthDate: '1990-04-11', membershipType: 'MEMBERSHIP',  membershipStart: '2025-03-01', membershipExpiry: '2026-03-01', status: 'EXPIRED',  mileage: 2500,  staffId: null, branchId: 2 },
-    { id: 56, name: '조인성', phone: '010-5601-0056', gender: 'M', birthDate: '1981-07-18', membershipType: 'PT',          membershipStart: '2025-03-10', membershipExpiry: '2026-09-10', status: 'ACTIVE',   mileage: 18000, staffId: 7,  branchId: 2 },
-    { id: 57, name: '한효주', phone: '010-5701-0057', gender: 'F', birthDate: '1987-02-22', membershipType: 'GX',          membershipStart: '2025-04-01', membershipExpiry: '2026-10-01', status: 'ACTIVE',   mileage: 9200,  staffId: null, branchId: 2 },
-    { id: 58, name: '장동건', phone: '010-5801-0058', gender: 'M', birthDate: '1972-03-07', membershipType: 'MEMBERSHIP',  membershipStart: '2025-04-15', membershipExpiry: '2026-04-15', status: 'ACTIVE',   mileage: 7800,  staffId: null, branchId: 2 },
-    { id: 59, name: '김태리', phone: '010-5901-0059', gender: 'F', birthDate: '1994-04-24', membershipType: 'PT',          membershipStart: '2025-05-01', membershipExpiry: '2026-11-01', status: 'ACTIVE',   mileage: 11000, staffId: 7,  branchId: 2 },
-    { id: 60, name: '류준열', phone: '010-6001-0060', gender: 'M', birthDate: '1986-09-25', membershipType: 'MEMBERSHIP',  membershipStart: '2025-05-15', membershipExpiry: '2025-08-15', status: 'EXPIRED',  mileage: 500,   staffId: null, branchId: 2 },
-    { id: 61, name: '공효진', phone: '010-6101-0061', gender: 'F', birthDate: '1980-01-07', membershipType: 'GX',          membershipStart: '2025-06-01', membershipExpiry: '2026-06-01', status: 'ACTIVE',   mileage: 6500,  staffId: null, branchId: 2 },
-    { id: 62, name: '현빈',   phone: '010-6201-0062', gender: 'M', birthDate: '1982-09-25', membershipType: 'PT',          membershipStart: '2025-06-10', membershipExpiry: '2025-12-10', status: 'EXPIRED',  mileage: 4000,  staffId: 7,  branchId: 2 },
-    { id: 63, name: '손예진', phone: '010-6301-0063', gender: 'F', birthDate: '1982-01-11', membershipType: 'MEMBERSHIP',  membershipStart: '2025-07-01', membershipExpiry: '2026-07-01', status: 'ACTIVE',   mileage: 13000, staffId: null, branchId: 2 },
-    { id: 64, name: '정해인', phone: '010-6401-0064', gender: 'M', birthDate: '1988-04-01', membershipType: 'PT',          membershipStart: '2025-07-15', membershipExpiry: '2026-01-15', status: 'EXPIRED',  mileage: 2000,  staffId: 7,  branchId: 2 },
-    { id: 65, name: '김고은', phone: '010-6501-0065', gender: 'F', birthDate: '1991-07-02', membershipType: 'GX',          membershipStart: '2025-08-01', membershipExpiry: '2026-02-01', status: 'EXPIRED',  mileage: 1500,  staffId: null, branchId: 2 },
+    { id: 52, name: '민경훈', phone: '010-5201-0052', gender: 'M', birthDate: '1988-07-22', membershipType: 'MEMBERSHIP',  membershipStart: '2025-01-15', membershipExpiry: '2026-01-15', status: 'EXPIRED',  mileage: 3000,  staffId: null, branchId: 3 },
+    { id: 53, name: '소이현', phone: '010-5301-0053', gender: 'F', birthDate: '1993-11-08', membershipType: 'GX',          membershipStart: '2025-02-01', membershipExpiry: '2026-08-01', status: 'ACTIVE',   mileage: 8500,  staffId: null, branchId: 4 },
+    { id: 54, name: '이동욱', phone: '010-5401-0054', gender: 'M', birthDate: '1985-06-30', membershipType: 'PT',          membershipStart: '2025-02-15', membershipExpiry: '2026-08-15', status: 'ACTIVE',   mileage: 15000, staffId: 7,  branchId: 5 },
+    { id: 55, name: '박보영', phone: '010-5501-0055', gender: 'F', birthDate: '1990-04-11', membershipType: 'MEMBERSHIP',  membershipStart: '2025-03-01', membershipExpiry: '2026-03-01', status: 'EXPIRED',  mileage: 2500,  staffId: null, branchId: 6 },
+    { id: 56, name: '조인성', phone: '010-5601-0056', gender: 'M', birthDate: '1981-07-18', membershipType: 'PT',          membershipStart: '2025-03-10', membershipExpiry: '2026-09-10', status: 'ACTIVE',   mileage: 18000, staffId: 7,  branchId: 7 },
+    { id: 57, name: '한효주', phone: '010-5701-0057', gender: 'F', birthDate: '1987-02-22', membershipType: 'GX',          membershipStart: '2025-04-01', membershipExpiry: '2026-10-01', status: 'ACTIVE',   mileage: 9200,  staffId: null, branchId: 8 },
+    { id: 58, name: '장동건', phone: '010-5801-0058', gender: 'M', birthDate: '1972-03-07', membershipType: 'MEMBERSHIP',  membershipStart: '2025-04-15', membershipExpiry: '2026-04-15', status: 'ACTIVE',   mileage: 7800,  staffId: null, branchId: 9 },
+    { id: 59, name: '김태리', phone: '010-5901-0059', gender: 'F', birthDate: '1994-04-24', membershipType: 'PT',          membershipStart: '2025-05-01', membershipExpiry: '2026-11-01', status: 'ACTIVE',   mileage: 11000, staffId: 7,  branchId: 10 },
+    { id: 60, name: '류준열', phone: '010-6001-0060', gender: 'M', birthDate: '1986-09-25', membershipType: 'MEMBERSHIP',  membershipStart: '2025-05-15', membershipExpiry: '2025-08-15', status: 'EXPIRED',  mileage: 500,   staffId: null, branchId: 11 },
+    { id: 61, name: '공효진', phone: '010-6101-0061', gender: 'F', birthDate: '1980-01-07', membershipType: 'GX',          membershipStart: '2025-06-01', membershipExpiry: '2026-06-01', status: 'ACTIVE',   mileage: 6500,  staffId: null, branchId: 12 },
+    { id: 62, name: '현빈',   phone: '010-6201-0062', gender: 'M', birthDate: '1982-09-25', membershipType: 'PT',          membershipStart: '2025-06-10', membershipExpiry: '2025-12-10', status: 'EXPIRED',  mileage: 4000,  staffId: 7,  branchId: 13 },
+    { id: 63, name: '손예진', phone: '010-6301-0063', gender: 'F', birthDate: '1982-01-11', membershipType: 'MEMBERSHIP',  membershipStart: '2025-07-01', membershipExpiry: '2026-07-01', status: 'ACTIVE',   mileage: 13000, staffId: null, branchId: 14 },
+    { id: 64, name: '정해인', phone: '010-6401-0064', gender: 'M', birthDate: '1988-04-01', membershipType: 'PT',          membershipStart: '2025-07-15', membershipExpiry: '2026-01-15', status: 'EXPIRED',  mileage: 2000,  staffId: 7,  branchId: 15 },
+    { id: 65, name: '김고은', phone: '010-6501-0065', gender: 'F', birthDate: '1991-07-02', membershipType: 'GX',          membershipStart: '2025-08-01', membershipExpiry: '2026-02-01', status: 'EXPIRED',  mileage: 1500,  staffId: null, branchId: 16 },
     { id: 66, name: '이제훈', phone: '010-6601-0066', gender: 'M', birthDate: '1986-09-15', membershipType: 'MEMBERSHIP',  membershipStart: '2025-08-15', membershipExpiry: '2026-08-15', status: 'ACTIVE',   mileage: 10500, staffId: null, branchId: 2 },
-    { id: 67, name: '박신혜', phone: '010-6701-0067', gender: 'F', birthDate: '1990-02-18', membershipType: 'PT',          membershipStart: '2025-09-01', membershipExpiry: '2026-03-01', status: 'EXPIRED',  mileage: 3500,  staffId: 7,  branchId: 2 },
-    { id: 68, name: '송중기', phone: '010-6801-0068', gender: 'M', birthDate: '1985-09-19', membershipType: 'MEMBERSHIP',  membershipStart: '2025-09-15', membershipExpiry: '2026-09-15', status: 'ACTIVE',   mileage: 8000,  staffId: null, branchId: 2 },
-    { id: 69, name: '전지현', phone: '010-6901-0069', gender: 'F', birthDate: '1981-10-30', membershipType: 'PT',          membershipStart: '2025-10-01', membershipExpiry: '2026-04-01', status: 'ACTIVE',   mileage: 14000, staffId: 7,  branchId: 2 },
-    { id: 70, name: '공유',   phone: '010-7001-0070', gender: 'M', birthDate: '1979-07-10', membershipType: 'MEMBERSHIP',  membershipStart: '2025-10-15', membershipExpiry: '2026-10-15', status: 'ACTIVE',   mileage: 9500,  staffId: null, branchId: 2 },
-    { id: 71, name: '김혜수', phone: '010-7101-0071', gender: 'F', birthDate: '1970-09-05', membershipType: 'GX',          membershipStart: '2025-11-01', membershipExpiry: '2026-05-01', status: 'ACTIVE',   mileage: 6000,  staffId: null, branchId: 2 },
-    { id: 72, name: '이병헌', phone: '010-7201-0072', gender: 'M', birthDate: '1970-07-12', membershipType: 'PT',          membershipStart: '2025-11-15', membershipExpiry: '2026-05-15', status: 'ACTIVE',   mileage: 17000, staffId: 7,  branchId: 2 },
-    { id: 73, name: '김민희', phone: '010-7301-0073', gender: 'F', birthDate: '1982-04-14', membershipType: 'MEMBERSHIP',  membershipStart: '2025-12-01', membershipExpiry: '2026-06-01', status: 'ACTIVE',   mileage: 7500,  staffId: null, branchId: 2 },
-    { id: 74, name: '유아인', phone: '010-7401-0074', gender: 'M', birthDate: '1986-10-06', membershipType: 'MEMBERSHIP',  membershipStart: '2025-12-15', membershipExpiry: '2026-06-15', status: 'ACTIVE',   mileage: 5500,  staffId: null, branchId: 2 },
-    { id: 75, name: '수지',   phone: '010-7501-0075', gender: 'F', birthDate: '1994-10-10', membershipType: 'PT',          membershipStart: '2026-01-05', membershipExpiry: '2026-07-05', status: 'ACTIVE',   mileage: 4000,  staffId: 7,  branchId: 2 },
-    { id: 76, name: '이민호', phone: '010-7601-0076', gender: 'M', birthDate: '1987-06-22', membershipType: 'MEMBERSHIP',  membershipStart: '2026-01-10', membershipExpiry: '2026-07-10', status: 'ACTIVE',   mileage: 3000,  staffId: null, branchId: 2 },
-    { id: 77, name: '김지원', phone: '010-7701-0077', gender: 'F', birthDate: '1992-09-22', membershipType: 'GX',          membershipStart: '2026-02-01', membershipExpiry: '2026-08-01', status: 'ACTIVE',   mileage: 2500,  staffId: null, branchId: 2 },
-    { id: 78, name: '박서준', phone: '010-7801-0078', gender: 'M', birthDate: '1988-12-16', membershipType: 'PT',          membershipStart: '2026-02-15', membershipExpiry: '2026-08-15', status: 'ACTIVE',   mileage: 1500,  staffId: 7,  branchId: 2 },
-    { id: 79, name: '김다미', phone: '010-7901-0079', gender: 'F', birthDate: '1995-03-29', membershipType: 'MEMBERSHIP',  membershipStart: '2026-03-01', membershipExpiry: '2026-09-01', status: 'ACTIVE',   mileage: 800,   staffId: null, branchId: 2 },
-    { id: 80, name: '최우식', phone: '010-8001-0080', gender: 'M', birthDate: '1990-03-26', membershipType: 'MEMBERSHIP',  membershipStart: '2026-04-01', membershipExpiry: '2027-04-01', status: 'ACTIVE',   mileage: 200,   staffId: null, branchId: 2 },
-    // 송파점 20명 (81-100)
-    { id: 81, name: '이나영', phone: '010-8101-0081', gender: 'F', birthDate: '1983-02-18', membershipType: 'PT',          membershipStart: '2025-01-20', membershipExpiry: '2026-07-20', status: 'ACTIVE',   mileage: 14000, staffId: 11, branchId: 3 },
-    { id: 82, name: '원더걸', phone: '010-8201-0082', gender: 'M', birthDate: '1986-04-12', membershipType: 'MEMBERSHIP',  membershipStart: '2025-02-01', membershipExpiry: '2025-08-01', status: 'EXPIRED',  mileage: 2000,  staffId: null, branchId: 3 },
-    { id: 83, name: '차은우', phone: '010-8301-0083', gender: 'M', birthDate: '1997-03-30', membershipType: 'PT',          membershipStart: '2025-03-01', membershipExpiry: '2026-09-01', status: 'ACTIVE',   mileage: 16000, staffId: 11, branchId: 3 },
-    { id: 84, name: '아이유', phone: '010-8401-0084', gender: 'F', birthDate: '1993-05-16', membershipType: 'MEMBERSHIP',  membershipStart: '2025-04-01', membershipExpiry: '2026-04-01', status: 'ACTIVE',   mileage: 8000,  staffId: null, branchId: 3 },
-    { id: 85, name: '방탄진', phone: '010-8501-0085', gender: 'M', birthDate: '1992-12-04', membershipType: 'GX',          membershipStart: '2025-05-01', membershipExpiry: '2026-05-01', status: 'ACTIVE',   mileage: 5500,  staffId: null, branchId: 3 },
-    { id: 86, name: '오마이걸', phone: '010-8601-0086', gender: 'F', birthDate: '1996-08-07', membershipType: 'MEMBERSHIP', membershipStart: '2025-06-01', membershipExpiry: '2025-12-01', status: 'EXPIRED', mileage: 1000,  staffId: null, branchId: 3 },
-    { id: 87, name: '황민현', phone: '010-8701-0087', gender: 'M', birthDate: '1995-08-09', membershipType: 'PT',          membershipStart: '2025-07-01', membershipExpiry: '2026-01-01', status: 'EXPIRED',  mileage: 3500,  staffId: 11, branchId: 3 },
-    { id: 88, name: '안소희', phone: '010-8801-0088', gender: 'F', birthDate: '1988-12-05', membershipType: 'MEMBERSHIP',  membershipStart: '2025-08-01', membershipExpiry: '2026-08-01', status: 'ACTIVE',   mileage: 9000,  staffId: null, branchId: 3 },
-    { id: 89, name: '이승기', phone: '010-8901-0089', gender: 'M', birthDate: '1987-01-13', membershipType: 'PT',          membershipStart: '2025-09-01', membershipExpiry: '2026-03-01', status: 'ACTIVE',   mileage: 12000, staffId: 11, branchId: 3 },
-    { id: 90, name: '강민경', phone: '010-9001-0090', gender: 'F', birthDate: '1991-06-09', membershipType: 'GX',          membershipStart: '2025-10-01', membershipExpiry: '2026-04-01', status: 'ACTIVE',   mileage: 6500,  staffId: null, branchId: 3 },
-    { id: 91, name: '임영웅', phone: '010-9101-0091', gender: 'M', birthDate: '1991-06-16', membershipType: 'MEMBERSHIP',  membershipStart: '2025-11-01', membershipExpiry: '2026-11-01', status: 'ACTIVE',   mileage: 11000, staffId: null, branchId: 3 },
-    { id: 92, name: '이찬원', phone: '010-9201-0092', gender: 'M', birthDate: '1998-12-05', membershipType: 'PT',          membershipStart: '2025-12-01', membershipExpiry: '2026-06-01', status: 'ACTIVE',   mileage: 7500,  staffId: 11, branchId: 3 },
-    { id: 93, name: '장민호', phone: '010-9301-0093', gender: 'M', birthDate: '1995-05-24', membershipType: 'MEMBERSHIP',  membershipStart: '2026-01-01', membershipExpiry: '2026-07-01', status: 'ACTIVE',   mileage: 4500,  staffId: null, branchId: 3 },
-    { id: 94, name: '박은빈', phone: '010-9401-0094', gender: 'F', birthDate: '1992-09-05', membershipType: 'PT',          membershipStart: '2026-01-15', membershipExpiry: '2026-07-15', status: 'ACTIVE',   mileage: 3000,  staffId: 11, branchId: 3 },
-    { id: 95, name: '이도현', phone: '010-9501-0095', gender: 'M', birthDate: '1995-04-21', membershipType: 'MEMBERSHIP',  membershipStart: '2026-02-01', membershipExpiry: '2026-08-01', status: 'ACTIVE',   mileage: 2000,  staffId: null, branchId: 3 },
-    { id: 96, name: '고윤정', phone: '010-9601-0096', gender: 'F', birthDate: '1996-01-02', membershipType: 'GX',          membershipStart: '2026-02-15', membershipExpiry: '2026-08-15', status: 'ACTIVE',   mileage: 1500,  staffId: null, branchId: 3 },
-    { id: 97, name: '변우석', phone: '010-9701-0097', gender: 'M', birthDate: '1992-05-28', membershipType: 'PT',          membershipStart: '2026-03-01', membershipExpiry: '2026-09-01', status: 'ACTIVE',   mileage: 1000,  staffId: 11, branchId: 3 },
-    { id: 98, name: '김혜윤', phone: '010-9801-0098', gender: 'F', birthDate: '1999-02-20', membershipType: 'MEMBERSHIP',  membershipStart: '2026-03-15', membershipExpiry: '2026-09-15', status: 'ACTIVE',   mileage: 600,   staffId: null, branchId: 3 },
-    { id: 99, name: '손석구', phone: '010-9901-0099', gender: 'M', birthDate: '1983-10-18', membershipType: 'PT',          membershipStart: '2026-04-01', membershipExpiry: '2026-10-01', status: 'ACTIVE',   mileage: 200,   staffId: 11, branchId: 3 },
-    { id: 100,name: '문가영', phone: '010-0002-0100', gender: 'F', birthDate: '1993-12-28', membershipType: 'MEMBERSHIP',  membershipStart: '2026-04-15', membershipExpiry: '2027-04-15', status: 'ACTIVE',   mileage: 100,   staffId: null, branchId: 3 },
+    { id: 67, name: '박신혜', phone: '010-6701-0067', gender: 'F', birthDate: '1990-02-18', membershipType: 'PT',          membershipStart: '2025-09-01', membershipExpiry: '2026-03-01', status: 'EXPIRED',  mileage: 3500,  staffId: 7,  branchId: 3 },
+    { id: 68, name: '송중기', phone: '010-6801-0068', gender: 'M', birthDate: '1985-09-19', membershipType: 'MEMBERSHIP',  membershipStart: '2025-09-15', membershipExpiry: '2026-09-15', status: 'ACTIVE',   mileage: 8000,  staffId: null, branchId: 4 },
+    { id: 69, name: '전지현', phone: '010-6901-0069', gender: 'F', birthDate: '1981-10-30', membershipType: 'PT',          membershipStart: '2025-10-01', membershipExpiry: '2026-04-01', status: 'ACTIVE',   mileage: 14000, staffId: 7,  branchId: 5 },
+    { id: 70, name: '공유',   phone: '010-7001-0070', gender: 'M', birthDate: '1979-07-10', membershipType: 'MEMBERSHIP',  membershipStart: '2025-10-15', membershipExpiry: '2026-10-15', status: 'ACTIVE',   mileage: 9500,  staffId: null, branchId: 6 },
+    { id: 71, name: '김혜수', phone: '010-7101-0071', gender: 'F', birthDate: '1970-09-05', membershipType: 'GX',          membershipStart: '2025-11-01', membershipExpiry: '2026-05-01', status: 'ACTIVE',   mileage: 6000,  staffId: null, branchId: 7 },
+    { id: 72, name: '이병헌', phone: '010-7201-0072', gender: 'M', birthDate: '1970-07-12', membershipType: 'PT',          membershipStart: '2025-11-15', membershipExpiry: '2026-05-15', status: 'ACTIVE',   mileage: 17000, staffId: 7,  branchId: 8 },
+    { id: 73, name: '김민희', phone: '010-7301-0073', gender: 'F', birthDate: '1982-04-14', membershipType: 'MEMBERSHIP',  membershipStart: '2025-12-01', membershipExpiry: '2026-06-01', status: 'ACTIVE',   mileage: 7500,  staffId: null, branchId: 9 },
+    { id: 74, name: '유아인', phone: '010-7401-0074', gender: 'M', birthDate: '1986-10-06', membershipType: 'MEMBERSHIP',  membershipStart: '2025-12-15', membershipExpiry: '2026-06-15', status: 'ACTIVE',   mileage: 5500,  staffId: null, branchId: 10 },
+    { id: 75, name: '수지',   phone: '010-7501-0075', gender: 'F', birthDate: '1994-10-10', membershipType: 'PT',          membershipStart: '2026-01-05', membershipExpiry: '2026-07-05', status: 'ACTIVE',   mileage: 4000,  staffId: 7,  branchId: 11 },
+    { id: 76, name: '이민호', phone: '010-7601-0076', gender: 'M', birthDate: '1987-06-22', membershipType: 'MEMBERSHIP',  membershipStart: '2026-01-10', membershipExpiry: '2026-07-10', status: 'ACTIVE',   mileage: 3000,  staffId: null, branchId: 12 },
+    { id: 77, name: '김지원', phone: '010-7701-0077', gender: 'F', birthDate: '1992-09-22', membershipType: 'GX',          membershipStart: '2026-02-01', membershipExpiry: '2026-08-01', status: 'ACTIVE',   mileage: 2500,  staffId: null, branchId: 13 },
+    { id: 78, name: '박서준', phone: '010-7801-0078', gender: 'M', birthDate: '1988-12-16', membershipType: 'PT',          membershipStart: '2026-02-15', membershipExpiry: '2026-08-15', status: 'ACTIVE',   mileage: 1500,  staffId: 7,  branchId: 14 },
+    { id: 79, name: '김다미', phone: '010-7901-0079', gender: 'F', birthDate: '1995-03-29', membershipType: 'MEMBERSHIP',  membershipStart: '2026-03-01', membershipExpiry: '2026-09-01', status: 'ACTIVE',   mileage: 800,   staffId: null, branchId: 15 },
+    { id: 80, name: '최우식', phone: '010-8001-0080', gender: 'M', birthDate: '1990-03-26', membershipType: 'MEMBERSHIP',  membershipStart: '2026-04-01', membershipExpiry: '2027-04-01', status: 'ACTIVE',   mileage: 200,   staffId: null, branchId: 16 },
+    // 송파점 20명 (81-100) - branchId 3~16 분산
+    { id: 81,  name: '이나영',  phone: '010-8101-0081', gender: 'F', birthDate: '1983-02-18', membershipType: 'PT',         membershipStart: '2025-01-20', membershipExpiry: '2026-07-20', status: 'ACTIVE',   mileage: 14000, staffId: 11,   branchId: 3 },
+    { id: 82,  name: '원더걸',  phone: '010-8201-0082', gender: 'M', birthDate: '1986-04-12', membershipType: 'MEMBERSHIP', membershipStart: '2025-02-01', membershipExpiry: '2025-08-01', status: 'EXPIRED',  mileage: 2000,  staffId: null, branchId: 4 },
+    { id: 83,  name: '차은우',  phone: '010-8301-0083', gender: 'M', birthDate: '1997-03-30', membershipType: 'PT',         membershipStart: '2025-03-01', membershipExpiry: '2026-09-01', status: 'ACTIVE',   mileage: 16000, staffId: 11,   branchId: 5 },
+    { id: 84,  name: '아이유',  phone: '010-8401-0084', gender: 'F', birthDate: '1993-05-16', membershipType: 'MEMBERSHIP', membershipStart: '2025-04-01', membershipExpiry: '2026-04-01', status: 'ACTIVE',   mileage: 8000,  staffId: null, branchId: 6 },
+    { id: 85,  name: '방탄진',  phone: '010-8501-0085', gender: 'M', birthDate: '1992-12-04', membershipType: 'GX',         membershipStart: '2025-05-01', membershipExpiry: '2026-05-01', status: 'ACTIVE',   mileage: 5500,  staffId: null, branchId: 7 },
+    { id: 86,  name: '오마이걸', phone: '010-8601-0086', gender: 'F', birthDate: '1996-08-07', membershipType: 'MEMBERSHIP', membershipStart: '2025-06-01', membershipExpiry: '2025-12-01', status: 'EXPIRED',  mileage: 1000,  staffId: null, branchId: 8 },
+    { id: 87,  name: '황민현',  phone: '010-8701-0087', gender: 'M', birthDate: '1995-08-09', membershipType: 'PT',         membershipStart: '2025-07-01', membershipExpiry: '2026-01-01', status: 'EXPIRED',  mileage: 3500,  staffId: 11,   branchId: 9 },
+    { id: 88,  name: '안소희',  phone: '010-8801-0088', gender: 'F', birthDate: '1988-12-05', membershipType: 'MEMBERSHIP', membershipStart: '2025-08-01', membershipExpiry: '2026-08-01', status: 'ACTIVE',   mileage: 9000,  staffId: null, branchId: 10 },
+    { id: 89,  name: '이승기',  phone: '010-8901-0089', gender: 'M', birthDate: '1987-01-13', membershipType: 'PT',         membershipStart: '2025-09-01', membershipExpiry: '2026-03-01', status: 'ACTIVE',   mileage: 12000, staffId: 11,   branchId: 11 },
+    { id: 90,  name: '강민경',  phone: '010-9001-0090', gender: 'F', birthDate: '1991-06-09', membershipType: 'GX',         membershipStart: '2025-10-01', membershipExpiry: '2026-04-01', status: 'ACTIVE',   mileage: 6500,  staffId: null, branchId: 12 },
+    { id: 91,  name: '임영웅',  phone: '010-9101-0091', gender: 'M', birthDate: '1991-06-16', membershipType: 'MEMBERSHIP', membershipStart: '2025-11-01', membershipExpiry: '2026-11-01', status: 'ACTIVE',   mileage: 11000, staffId: null, branchId: 13 },
+    { id: 92,  name: '이찬원',  phone: '010-9201-0092', gender: 'M', birthDate: '1998-12-05', membershipType: 'PT',         membershipStart: '2025-12-01', membershipExpiry: '2026-06-01', status: 'ACTIVE',   mileage: 7500,  staffId: 11,   branchId: 14 },
+    { id: 93,  name: '장민호',  phone: '010-9301-0093', gender: 'M', birthDate: '1995-05-24', membershipType: 'MEMBERSHIP', membershipStart: '2026-01-01', membershipExpiry: '2026-07-01', status: 'ACTIVE',   mileage: 4500,  staffId: null, branchId: 15 },
+    { id: 94,  name: '박은빈',  phone: '010-9401-0094', gender: 'F', birthDate: '1992-09-05', membershipType: 'PT',         membershipStart: '2026-01-15', membershipExpiry: '2026-07-15', status: 'ACTIVE',   mileage: 3000,  staffId: 11,   branchId: 16 },
+    { id: 95,  name: '이도현',  phone: '010-9501-0095', gender: 'M', birthDate: '1995-04-21', membershipType: 'MEMBERSHIP', membershipStart: '2026-02-01', membershipExpiry: '2026-08-01', status: 'ACTIVE',   mileage: 2000,  staffId: null, branchId: 3 },
+    { id: 96,  name: '고윤정',  phone: '010-9601-0096', gender: 'F', birthDate: '1996-01-02', membershipType: 'GX',         membershipStart: '2026-02-15', membershipExpiry: '2026-08-15', status: 'ACTIVE',   mileage: 1500,  staffId: null, branchId: 4 },
+    { id: 97,  name: '변우석',  phone: '010-9701-0097', gender: 'M', birthDate: '1992-05-28', membershipType: 'PT',         membershipStart: '2026-03-01', membershipExpiry: '2026-09-01', status: 'ACTIVE',   mileage: 1000,  staffId: 11,   branchId: 5 },
+    { id: 98,  name: '김혜윤',  phone: '010-9801-0098', gender: 'F', birthDate: '1999-02-20', membershipType: 'MEMBERSHIP', membershipStart: '2026-03-15', membershipExpiry: '2026-09-15', status: 'ACTIVE',   mileage: 600,   staffId: null, branchId: 6 },
+    { id: 99,  name: '손석구',  phone: '010-9901-0099', gender: 'M', birthDate: '1983-10-18', membershipType: 'PT',         membershipStart: '2026-04-01', membershipExpiry: '2026-10-01', status: 'ACTIVE',   mileage: 200,   staffId: 11,   branchId: 7 },
+    { id: 100, name: '문가영',  phone: '010-0002-0100', gender: 'F', birthDate: '1993-12-28', membershipType: 'MEMBERSHIP', membershipStart: '2026-04-15', membershipExpiry: '2027-04-15', status: 'ACTIVE',   mileage: 100,   staffId: null, branchId: 8 },
   ];
   for (const m of memberRows2) {
-    const branchId = ((m.id - 1) % 16) + 1;
     await prisma.$executeRawUnsafe(
       `INSERT INTO members (id, name, phone, gender, "birthDate", "membershipType", "membershipStart", "membershipExpiry", status, mileage, "branchId", "staffId")
        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)
        ON CONFLICT (id) DO UPDATE SET "branchId"=$11`,
       m.id, m.name, m.phone, m.gender, new Date(m.birthDate),
       m.membershipType, new Date(m.membershipStart), new Date(m.membershipExpiry),
-      m.status, m.mileage, branchId, m.staffId
+      m.status, m.mileage, m.branchId, m.staffId
     );
   }
   console.log(`  ✅ 회원 추가 ${memberRows2.length}명 (16개 지점 분산)`);
@@ -437,6 +440,23 @@ async function main() {
   // 매출 지점 재배분 (지점별로 균등하게)
   await prisma.$executeRawUnsafe(`UPDATE sales SET "branchId" = ((id - 1) % 16) + 1`);
   console.log(`  ✅ 매출 branchId 16개 지점 재배분 완료`);
+
+  // 1지부(branchId 1-9) 매출 볼륨 우위 반영: id % 5 != 0 인 것은 1지부(60%)
+  await prisma.$executeRawUnsafe(`
+    UPDATE sales SET "branchId" = (((id - 1) % 9) + 1)
+    WHERE id % 5 != 0 AND id <= 1000
+  `);
+  // id % 5 == 0 인 것은 2지부(branchId 10-15, 35%)
+  await prisma.$executeRawUnsafe(`
+    UPDATE sales SET "branchId" = (((id - 1) % 6) + 10)
+    WHERE id % 5 = 0 AND id <= 1200
+  `);
+  // 목동(branchId 16)은 일부만 (id % 25 == 0, 약 5%)
+  await prisma.$executeRawUnsafe(`
+    UPDATE sales SET "branchId" = 16
+    WHERE id % 25 = 0
+  `);
+  console.log(`  ✅ 매출 지부별 볼륨 차이 반영 완료 (1지부 60%, 2지부 35%, 목동 5%)`);
 
   // ============================================================
   // 6. 출석 (attendance) - 최근 30일
