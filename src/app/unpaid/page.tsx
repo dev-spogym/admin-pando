@@ -221,7 +221,8 @@ export default function UnpaidManagement() {
     const recovered = unpaidData
       .filter(i => i.status === '완료' && i.createdAt.slice(0, 7) === thisMonth)
       .reduce((s, i) => s + i.amount, 0);
-    return { totalAmount, totalCount, overdueCount, recovered };
+    const avgUnpaid = totalCount > 0 ? Math.round(totalAmount / totalCount) : 0;
+    return { totalAmount, totalCount, overdueCount, recovered, avgUnpaid };
   }, [unpaidData]);
 
   // 결제완료 처리
@@ -370,7 +371,7 @@ export default function UnpaidManagement() {
       />
 
       {/* 통계 카드 */}
-      <StatCardGrid cols={4} className="mb-xl">
+      <StatCardGrid cols={5} className="mb-xl">
         <StatCard
           label="미수금 총액"
           value={formatKRW(stats.totalAmount)}
@@ -393,6 +394,11 @@ export default function UnpaidManagement() {
           value={formatKRW(stats.recovered)}
           variant="mint"
           icon={<TrendingDown />}
+        />
+        <StatCard
+          label="평균 미수금"
+          value={formatKRW(stats.avgUnpaid)}
+          description="건당 평균 미수금액"
         />
       </StatCardGrid>
 

@@ -388,6 +388,31 @@ export default function SalesStats() {
       .sort((a, b) => b.total - a.total);
   }, [staffSalesData]);
 
+  // GX 세부 종목 집계
+  const gxSubAgg = useMemo(() => {
+    const gxItems = salesData.filter(r =>
+      r.type === 'GX' || r.productName?.includes('GX') ||
+      r.productName?.includes('필라테스') || r.productName?.includes('요가') ||
+      r.productName?.includes('스피닝') || r.productName?.includes('줌바')
+    );
+    const map = new Map<string, { count: number; total: number }>();
+    for (const row of gxItems) {
+      const subType = row.productName?.includes('필라테스') ? '필라테스'
+        : row.productName?.includes('요가') ? '요가'
+        : row.productName?.includes('스피닝') ? '스피닝'
+        : row.productName?.includes('줌바') ? '줌바'
+        : row.productName?.includes('에어로빅') ? '에어로빅'
+        : 'GX 기타';
+      const cur = map.get(subType) || { count: 0, total: 0 };
+      cur.count++;
+      cur.total += row.salePrice || 0;
+      map.set(subType, cur);
+    }
+    return Array.from(map.entries())
+      .map(([label, v]) => ({ label, ...v }))
+      .sort((a, b) => b.count - a.count);
+  }, [salesData]);
+
   // 개월별 집계
   const durationAgg = useMemo(() => {
     const map = new Map<string, { count: number; total: number }>();
@@ -429,6 +454,7 @@ export default function SalesStats() {
     { key: 'payment', label: '결제수단별' },
     { key: 'category', label: '종목별' },
     { key: '개월별', label: '개월별' },
+    { key: 'GX종목별', label: 'GX종목별' },
   ];
 
   // 탭별 렌더 데이터
@@ -718,6 +744,35 @@ export default function SalesStats() {
                   락인 강화를 위해 3개월 이상 프로모션 검토 필요
                 </div>
               </div>
+            </div>
+          </div>
+        ) : activeTab === 'GX종목별' ? (
+          <div className="px-xl pt-lg pb-lg">
+            <div className="space-y-3">
+              <div className="text-xs text-gray-500 mb-4">GX 종목별 판매 분포</div>
+              {isLoading ? (
+                <div className="h-[120px] flex items-center justify-center">
+                  <div className="w-6 h-6 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
+                </div>
+              ) : gxSubAgg.length === 0 ? (
+                <div className="text-center py-8 text-gray-400 text-sm">GX 매출 데이터가 없습니다</div>
+              ) : (
+                gxSubAgg.map(row => (
+                  <div key={row.label} className="flex items-center gap-3">
+                    <div className="w-16 text-xs text-gray-600 text-right shrink-0">{row.label}</div>
+                    <div className="flex-1 h-7 bg-gray-100 rounded relative overflow-hidden">
+                      <div className="h-full bg-violet-500 transition-all"
+                        style={{ width: `${gxSubAgg[0]?.count ? (row.count / gxSubAgg[0].count * 100) : 0}%` }} />
+                      <span className="absolute inset-0 flex items-center px-2 text-xs font-medium text-white mix-blend-multiply">
+                        {row.count}건
+                      </span>
+                    </div>
+                    <div className="w-20 text-xs text-right text-gray-500 shrink-0">
+                      {(row.total / 10000).toFixed(0)}만원
+                    </div>
+                  </div>
+                ))
+              )}
             </div>
           </div>
         ) : (

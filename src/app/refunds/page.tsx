@@ -99,6 +99,8 @@ const buildFallbackRefunds = (salesRows: Record<string, unknown>[]): RefundItem[
 export default function RefundManagement() {
   const [refundData, setRefundData] = useState<RefundItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [penaltyTotal, setPenaltyTotal] = useState(0);
+  const [rePayCount, setRePayCount] = useState(0);
 
   // 날짜 필터 (이번달 기본)
   const today = new Date();
@@ -168,6 +170,26 @@ export default function RefundManagement() {
     }
 
     setRefundData(mapped);
+
+    // 위약금 합계
+    const { data: penaltyData } = await supabase
+      .from('sales')
+      .select('penaltyAmount')
+      .eq('branchId', getBranchId())
+      .eq('status', 'REFUNDED')
+      .gte('saleDate', dateStart)
+      .lte('saleDate', dateEnd);
+    setPenaltyTotal(penaltyData?.reduce((sum, r) => sum + (Number(r.penaltyAmount) || 0), 0) || 0);
+
+    // 재결제 건수
+    const { count: rePay } = await supabase
+      .from('sales')
+      .select('id', { count: 'exact', head: true })
+      .eq('branchId', getBranchId())
+      .eq('saleCategory', '재결제')
+      .gte('saleDate', dateStart)
+      .lte('saleDate', dateEnd);
+    setRePayCount(rePay ?? 0);
   }, [dateStart, dateEnd]);
 
   useEffect(() => {
@@ -264,7 +286,7 @@ export default function RefundManagement() {
       />
 
       {/* 통계 카드 */}
-      <StatCardGrid cols={3} className="mb-xl">
+      <StatCardGrid cols={6} className="mb-xl">
         <StatCard
           label="이번달 환불 총액"
           value={formatKRW(stats.totalAmount)}
@@ -280,6 +302,23 @@ export default function RefundManagement() {
           label="평균 환불액"
           value={formatKRW(stats.avgAmount)}
           icon={<BarChart2 />}
+        />
+        <StatCard
+          label="위약금 합계"
+          value={formatKRW(penaltyTotal)}
+          description="환불 시 공제된 위약금"
+          variant="peach"
+        />
+        <StatCard
+          label="재결제 건수"
+          value={rePayCount}
+          description="환불 후 재결제 복귀"
+          variant="mint"
+        />
+        <StatCard
+          label="재결제율"
+          value={`${stats.totalCount ? ((rePayCount / stats.totalCount) * 100).toFixed(1) : '0.0'}%`}
+          description="환불→재결제 복귀율"
         />
       </StatCardGrid>
 

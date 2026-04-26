@@ -85,10 +85,10 @@ const boardContents: Record<BoardKey, BoardContent> = {
   hq: {
     subtitle: "전사 성장률, 지점 비교, 이탈위험, 자동화 효율을 한 번에 관리합니다.",
     metrics: [
-      { label: "전사 신규", value: "428명", description: "전월 대비 +12.4%", icon: <Users />, variant: "mint" },
-      { label: "유지율", value: "88.6%", description: "상위 5개 지점 평균", icon: <UserCheck /> },
-      { label: "전사 매출", value: "4.82억", description: "월 누적 / 목표 96%", icon: <Coins />, variant: "peach" },
-      { label: "이탈위험 지점", value: "3곳", description: "14일 기준 경고 상태", icon: <ShieldAlert /> },
+      { label: "전사 매출", value: "4.82억", description: "전월 대비 +12.4%", icon: <Coins />, variant: "peach" },
+      { label: "전사 활성 회원", value: "3,241명", description: "전 지점 활성 회원 합계", icon: <Users />, variant: "mint" },
+      { label: "지점 성과 랭킹 1위", value: "강남점", description: "목표 달성 121%", icon: <TrendingUp /> },
+      { label: "FC 상담 전환율 평균", value: "37.2%", description: "전 지점 FC 평균", icon: <MessageSquare /> },
     ],
     queueTitle: "본사 액션 큐",
     queue: [
@@ -121,10 +121,10 @@ const boardContents: Record<BoardKey, BoardContent> = {
   branch: {
     subtitle: "지점장이 오늘 바로 확인해야 할 목표, 팀 실행률, 재등록 우선순위를 모읍니다.",
     metrics: [
-      { label: "월 목표 달성률", value: "84%", description: "잔여 6일 / 매출 3,200만 필요", icon: <Target />, variant: "peach" },
-      { label: "활성 회원", value: "1,124명", description: "활성 비율 81.3%", icon: <Users /> },
-      { label: "재등록 예정", value: "49명", description: "D-7 이내 회원", icon: <CalendarDays /> },
-      { label: "Today Tasks", value: "27건", description: "미완료 6건", icon: <BellRing />, variant: "mint" },
+      { label: "이번달 매출", value: "3,840만원", description: "월 목표 84% 달성", icon: <Coins />, variant: "peach" },
+      { label: "신규 등록", value: "28명", description: "이번달 신규 회원", icon: <Users />, variant: "mint" },
+      { label: "재등록률", value: "61.2%", description: "만료 후 재등록 비율", icon: <CalendarDays /> },
+      { label: "미수금 총액", value: "420만원", description: "미결제 누적 금액", icon: <ShieldAlert /> },
     ],
     queueTitle: "오늘 우선 액션",
     queue: [
@@ -158,9 +158,9 @@ const boardContents: Record<BoardKey, BoardContent> = {
     subtitle: "FC가 신규 리드와 재등록 리스트를 놓치지 않도록 응대 큐와 전환 지표 중심으로 구성합니다.",
     metrics: [
       { label: "신규 리드", value: "34건", description: "오늘 유입 / 미응답 5건", icon: <Users />, variant: "mint" },
-      { label: "상담 전환율", value: "37%", description: "주간 기준", icon: <MessageSquare /> },
-      { label: "등록 전환율", value: "29%", description: "상담 완료 기준", icon: <TrendingUp />, variant: "peach" },
-      { label: "재등록 콜백", value: "18건", description: "우선순위 상", icon: <BellRing /> },
+      { label: "상담 전환율", value: "37%", description: "주간 기준 / 목표 40%", icon: <MessageSquare /> },
+      { label: "WI 등록률", value: "52%", description: "체험→WI 전환율", icon: <TrendingUp />, variant: "peach" },
+      { label: "TI 등록률", value: "29%", description: "WI→TI(정식) 전환율", icon: <BellRing /> },
     ],
     queueTitle: "FC 실행 큐",
     queue: [
@@ -193,10 +193,10 @@ const boardContents: Record<BoardKey, BoardContent> = {
   trainer: {
     subtitle: "트레이너가 회원 세션 상태, 노쇼 복구, 재구매 기회를 바로 확인할 수 있도록 구성합니다.",
     metrics: [
-      { label: "오늘 수업", value: "13건", description: "개인 PT 9 / 소그룹 4", icon: <Activity />, variant: "mint" },
-      { label: "출석률", value: "87%", description: "최근 30일 평균", icon: <UserCheck /> },
-      { label: "노쇼율", value: "4.8%", description: "복구율 61%", icon: <CircleAlert />, variant: "peach" },
-      { label: "재구매 대상", value: "12명", description: "잔여 3회 이하", icon: <Coins /> },
+      { label: "이번달 PT 매출", value: "1,280만원", description: "개인 PT 누적 매출", icon: <Coins />, variant: "peach" },
+      { label: "담당 회원수", value: "42명", description: "현재 활성 PT 회원", icon: <Users />, variant: "mint" },
+      { label: "OT 전환율", value: "64%", description: "OT→정식 PT 전환", icon: <Activity /> },
+      { label: "체험→구매 전환율", value: "27%", description: "체험 후 PT 구매 비율", icon: <TrendingUp /> },
     ],
     queueTitle: "트레이너 액션 큐",
     queue: [
@@ -229,10 +229,10 @@ const boardContents: Record<BoardKey, BoardContent> = {
   operations: {
     subtitle: "자동알림, Today Tasks, 중복방지, 운영 로그 상태를 한 화면에서 관리합니다.",
     metrics: [
-      { label: "활성 트리거", value: "18개", description: "신규/이탈/만료/PT 규칙 포함", icon: <BellRing />, variant: "mint" },
-      { label: "오늘 발송", value: "126건", description: "알림톡 84 / SMS 42", icon: <MessageSquare /> },
-      { label: "Today Tasks", value: "27건", description: "본사 업무 풀에서 랜덤 배정", icon: <Target /> },
-      { label: "중복 차단", value: "14건", description: "동일 대상 중복 발송 방지", icon: <ShieldAlert />, variant: "peach" },
+      { label: "오늘 출석", value: "187명", description: "오늘 센터 출석 회원수", icon: <UserCheck />, variant: "mint" },
+      { label: "만료 예정 D-7", value: "49명", description: "7일 내 이용권 만료 회원", icon: <CalendarDays /> },
+      { label: "미결제 건수", value: "12건", description: "미수금 처리 대기 건수", icon: <CircleAlert />, variant: "peach" },
+      { label: "이번달 GX 가동률", value: "78%", description: "GX 수업 정원 대비 출석률", icon: <Activity /> },
     ],
     queueTitle: "자동화 운영 큐",
     queue: [
@@ -479,18 +479,50 @@ export default function KpiPreviewCenter() {
         </div>
       </div>
 
-      <StatCardGrid cols={4}>
-        {board.metrics.map((metric) => (
-          <StatCard
-            key={`summary-${metric.label}`}
-            label={metric.label}
-            value={metric.value}
-            description={metric.description}
-            icon={metric.icon}
-            variant={metric.variant}
-          />
-        ))}
-      </StatCardGrid>
+      {/* 5개 보드 전체 개요 */}
+      <div className="mb-lg grid gap-md sm:grid-cols-2 xl:grid-cols-5">
+        {boardTabs.map((tab) => {
+          const bKey = tab.key as BoardKey;
+          const bContent = boardContents[bKey];
+          const isActive = activeBoard === bKey;
+          const boardIcons: Record<BoardKey, string> = {
+            hq: "🏢",
+            branch: "🏋️",
+            fc: "💬",
+            trainer: "🎯",
+            operations: "⚙️",
+          };
+          const boardDesc: Record<BoardKey, string> = {
+            hq: "전사 통합 지표",
+            branch: "지점 운영 현황",
+            fc: "리드·전환 관리",
+            trainer: "PT 세션 현황",
+            operations: "출석·운영 관리",
+          };
+          return (
+            <button
+              key={bKey}
+              onClick={() => setActiveBoard(bKey)}
+              className={`rounded-xl border p-5 text-left transition-all ${isActive ? "border-primary bg-primary/5 shadow-sm" : "border-line bg-white hover:border-primary/40 hover:bg-primary/5"}`}
+            >
+              <div className="flex items-center gap-2 mb-4">
+                <span className="text-lg">{boardIcons[bKey]}</span>
+                <h3 className={`font-semibold text-[13px] ${isActive ? "text-primary" : "text-gray-800"}`}>{tab.label} 보드</h3>
+                <span className="ml-auto text-[11px] text-gray-400 hidden xl:block">{boardDesc[bKey]}</span>
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                {bContent.metrics.map((metric) => (
+                  <div key={metric.label} className="bg-gray-50 rounded-lg p-2.5">
+                    <div className="text-[10px] text-gray-500 mb-1 leading-tight">{metric.label}</div>
+                    <div className={`text-[15px] font-bold leading-tight ${isActive ? "text-primary" : "text-gray-900"}`}>{metric.value}</div>
+                    <div className="text-[10px] text-gray-400 mt-0.5 leading-tight truncate">{metric.description}</div>
+                  </div>
+                ))}
+              </div>
+            </button>
+          );
+        })}
+      </div>
 
       <div className="mt-lg grid gap-lg xl:grid-cols-[1.1fr_0.9fr]">
         <ActionQueue title={board.queueTitle} items={board.queue} />

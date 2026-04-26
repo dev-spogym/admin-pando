@@ -51,6 +51,13 @@ interface ConsultFunnel {
   registered: number;
 }
 
+interface SourceStat {
+  source: string;
+  total: number;
+  registered: number;
+  convertRate: number;
+}
+
 interface NewMemberRow {
   id: number;
   name: string;
@@ -76,6 +83,7 @@ export default function OnboardingDashboard() {
   const [consultFunnel, setConsultFunnel] = useState<ConsultFunnel>({
     totalLeads: 0, contacted: 0, visited: 0, trialDone: 0, registered: 0,
   });
+  const [sourceStats, setSourceStats] = useState<SourceStat[]>([]);
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -232,6 +240,30 @@ export default function OnboardingDashboard() {
       };
       setConsultFunnel(funnel);
 
+      // 가입경로별 집계
+      const { data: sourceData } = await supabase
+        .from('consultations')
+        .select('source, result')
+        .eq('branchId', branchId)
+        .gte('consultedAt', monthStart);
+
+      const sourceMap = new Map<string, { total: number; registered: number }>();
+      for (const c of (sourceData ?? []) as any[]) {
+        const key = c.source || '기타';
+        const cur = sourceMap.get(key) || { total: 0, registered: 0 };
+        cur.total++;
+        if (c.result === '등록') cur.registered++;
+        sourceMap.set(key, cur);
+      }
+      const computedSourceStats: SourceStat[] = Array.from(sourceMap.entries())
+        .map(([source, v]) => ({
+          source,
+          ...v,
+          convertRate: v.total ? (v.registered / v.total * 100) : 0,
+        }))
+        .sort((a, b) => b.total - a.total);
+      setSourceStats(computedSourceStats);
+
       setStats({
         newLeadsCount, leadsContactedCount, leadsVisitedCount, leadsConvertedCount,
         newMembersThisMonth: newMembersCount ?? 0,
@@ -329,6 +361,36 @@ export default function OnboardingDashboard() {
         <StatCard label="온라인 유입 비중" value="집계 중" icon={<TrendingUp size={18} />} />
         <StatCard label="리드 누락률" value={s.newLeadsCount > 0 ? `${Math.round(((s.newLeadsCount - s.leadsContactedCount) / s.newLeadsCount) * 100)}%` : "0%"} icon={<AlertCircle size={18} />} variant="peach" />
       </StatCardGrid>
+
+      {/* 가입경로 분포 */}
+      {sourceStats.length > 0 && (
+        <div className="bg-white rounded-xl border border-gray-200 p-5 mb-lg">
+          <h3 className="text-sm font-semibold text-gray-800 mb-4">가입경로 분포</h3>
+          <div className="space-y-2">
+            {sourceStats.map(s => (
+              <div key={s.source} className="flex items-center gap-3">
+                <div className="w-16 text-xs text-right text-gray-500 shrink-0">{s.source}</div>
+                <div className="flex-1 h-6 bg-gray-100 rounded relative overflow-hidden">
+                  <div
+                    className="h-full bg-emerald-500 transition-all"
+                    style={{ width: `${sourceStats[0]?.total ? (s.total / sourceStats[0].total * 100) : 0}%` }}
+                  />
+                  <span className="absolute inset-0 flex items-center px-2 text-xs text-gray-700">
+                    {s.total}건
+                  </span>
+                </div>
+                <div className="w-16 text-xs text-right shrink-0">
+                  <span className="text-green-600 font-medium">{s.convertRate.toFixed(0)}%</span>
+                  <span className="text-gray-400"> 전환</span>
+                </div>
+              </div>
+            ))}
+          </div>
+          <div className="mt-3 text-xs text-gray-400">
+            소개 유입의 전환율이 가장 높은 경향 — 리퍼럴 프로그램 강화 고려
+          </div>
+        </div>
+      )}
 
       {/* 신규 안정 */}
       <h3 className="text-[14px] font-bold text-content mb-sm">신규 안정 (온보딩)</h3>
