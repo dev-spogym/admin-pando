@@ -509,18 +509,69 @@ export default function SalesStats() {
 
       {/* 담당자별 탭 */}
       {topTab === 'staff' && (
-        <div className="bg-surface rounded-xl border border-line shadow-card overflow-hidden">
-          <div className="px-lg py-md border-b border-line">
-            <h3 className="text-[14px] font-bold text-content">담당자별 매출 합계</h3>
-            <p className="text-[12px] text-content-secondary mt-xs">직원별 매출액, 건수, 평균 단가를 확인합니다.</p>
+        <div className="space-y-lg">
+          {/* 카드형 담당자별 뷰 */}
+          <div className="bg-surface rounded-xl border border-line shadow-card overflow-hidden">
+            <div className="px-lg py-md border-b border-line flex items-center justify-between">
+              <div>
+                <h3 className="text-[14px] font-bold text-content">담당자별 매출 합계</h3>
+                <p className="text-[12px] text-content-secondary mt-xs">직원별 매출액, 건수, 평균 단가를 확인합니다.</p>
+              </div>
+              <span className="text-[12px] text-content-tertiary tabular-nums">
+                총 {staffRows.reduce((s, r) => s + r.total, 0) > 0 ? formatKRW(staffRows.reduce((s, r) => s + r.total, 0)) : '0원'}
+              </span>
+            </div>
+            <div className="px-lg py-md divide-y divide-line">
+              {isLoading ? (
+                <div className="h-[120px] flex items-center justify-center">
+                  <div className="w-6 h-6 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
+                </div>
+              ) : staffRows.length === 0 ? (
+                <div className="h-[80px] flex items-center justify-center text-[13px] text-content-tertiary">
+                  집계된 데이터가 없습니다.
+                </div>
+              ) : (
+                staffRows.map(row => {
+                  const grandSum = staffRows.reduce((s, r) => s + r.total, 0);
+                  const pct = grandSum > 0 ? (row.total / grandSum) * 100 : 0;
+                  return (
+                    <div key={row.label} className="flex items-center gap-md py-md">
+                      <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center text-[13px] font-bold text-blue-700 shrink-0">
+                        {row.label[0]}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex justify-between items-center mb-xs">
+                          <span className="text-[13px] font-semibold text-content truncate">{row.label}</span>
+                          <span className="text-[13px] font-bold text-content tabular-nums ml-md shrink-0">{formatKRW(row.total)}</span>
+                        </div>
+                        <div className="h-1.5 bg-surface-tertiary rounded-full overflow-hidden">
+                          <div className="h-full bg-blue-500 rounded-full transition-all duration-500" style={{ width: `${pct}%` }} />
+                        </div>
+                        <div className="flex justify-between text-[11px] text-content-tertiary mt-xs tabular-nums">
+                          <span>{row.count}건 · 평균 {formatKRW(row.avg)}</span>
+                          <span>{pct.toFixed(1)}%</span>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </div>
           </div>
-          <DataTable
-            columns={staffColumns}
-            data={staffRows as unknown as Record<string, unknown>[]}
-            loading={isLoading}
-            pagination={{ page: 1, pageSize: 20, total: staffRows.length }}
-            emptyMessage="집계된 데이터가 없습니다."
-          />
+
+          {/* 테이블형 뷰 */}
+          <div className="bg-surface rounded-xl border border-line shadow-card overflow-hidden">
+            <div className="px-lg py-md border-b border-line">
+              <h3 className="text-[14px] font-bold text-content">상세 테이블</h3>
+            </div>
+            <DataTable
+              columns={staffColumns}
+              data={staffRows as unknown as Record<string, unknown>[]}
+              loading={isLoading}
+              pagination={{ page: 1, pageSize: 20, total: staffRows.length }}
+              emptyMessage="집계된 데이터가 없습니다."
+            />
+          </div>
         </div>
       )}
 

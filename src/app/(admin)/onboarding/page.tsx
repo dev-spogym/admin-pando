@@ -43,6 +43,14 @@ interface OnboardingStats {
   gxFirstCount: number;
 }
 
+interface ConsultFunnel {
+  totalLeads: number;
+  contacted: number;
+  visited: number;
+  trialDone: number;
+  registered: number;
+}
+
 interface NewMemberRow {
   id: number;
   name: string;
@@ -65,6 +73,9 @@ export default function OnboardingDashboard() {
     ptTrialCount: 0, gxFirstCount: 0,
   });
   const [newMembers, setNewMembers] = useState<NewMemberRow[]>([]);
+  const [consultFunnel, setConsultFunnel] = useState<ConsultFunnel>({
+    totalLeads: 0, contacted: 0, visited: 0, trialDone: 0, registered: 0,
+  });
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -204,6 +215,23 @@ export default function OnboardingDashboard() {
         };
       });
 
+      // 상담 퍼널 (consultations 테이블, 이번달)
+      const { data: consultData } = await supabase
+        .from("consultations")
+        .select("status, type")
+        .eq("branchId", branchId)
+        .gte("consultedAt", monthStart);
+
+      const consults = consultData ?? [];
+      const funnel: ConsultFunnel = {
+        totalLeads: consults.length,
+        contacted: consults.filter((c: any) => c.status !== '미컨택').length,
+        visited: consults.filter((c: any) => ['방문', '체험', '등록'].includes(c.status)).length,
+        trialDone: consults.filter((c: any) => ['체험', '등록'].includes(c.status)).length,
+        registered: consults.filter((c: any) => c.status === '등록').length,
+      };
+      setConsultFunnel(funnel);
+
       setStats({
         newLeadsCount, leadsContactedCount, leadsVisitedCount, leadsConvertedCount,
         newMembersThisMonth: newMembersCount ?? 0,
@@ -269,6 +297,30 @@ export default function OnboardingDashboard() {
         <StatCard label="등록 전환" value={`${s.leadsConvertedCount}건`} icon={<UserCheck size={18} />} variant="peach" />
         <StatCard label="리드 전환율" value={`${leadConvRate}%`} icon={<Target size={18} />} />
       </StatCardGrid>
+
+      {/* 상담 → 등록 퍼널 */}
+      <div className="bg-surface rounded-xl border border-line shadow-sm p-lg mb-lg">
+        <h3 className="text-[14px] font-bold text-content mb-md">이번달 상담 → 등록 퍼널</h3>
+        <div className="space-y-sm">
+          {[
+            { label: '전체 상담', value: consultFunnel.totalLeads, color: 'bg-gray-300', pct: 100 },
+            { label: '컨택 완료', value: consultFunnel.contacted, color: 'bg-blue-300', pct: consultFunnel.totalLeads ? (consultFunnel.contacted / consultFunnel.totalLeads) * 100 : 0 },
+            { label: '방문 완료', value: consultFunnel.visited, color: 'bg-blue-400', pct: consultFunnel.totalLeads ? (consultFunnel.visited / consultFunnel.totalLeads) * 100 : 0 },
+            { label: '체험 완료', value: consultFunnel.trialDone, color: 'bg-blue-500', pct: consultFunnel.totalLeads ? (consultFunnel.trialDone / consultFunnel.totalLeads) * 100 : 0 },
+            { label: '등록 완료', value: consultFunnel.registered, color: 'bg-blue-600', pct: consultFunnel.totalLeads ? (consultFunnel.registered / consultFunnel.totalLeads) * 100 : 0 },
+          ].map(step => (
+            <div key={step.label} className="flex items-center gap-md">
+              <div className="w-[72px] text-[12px] text-content-secondary text-right shrink-0">{step.label}</div>
+              <div className="flex-1 h-8 bg-surface-secondary rounded relative overflow-hidden">
+                <div className={`h-full ${step.color} transition-all duration-500`} style={{ width: `${step.pct}%` }} />
+                <span className="absolute inset-0 flex items-center px-sm text-[12px] font-semibold text-content">
+                  {step.value}명 ({step.pct.toFixed(0)}%)
+                </span>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
 
       {/* 신규 유치 */}
       <h3 className="text-[14px] font-bold text-content mb-sm">신규 유치</h3>

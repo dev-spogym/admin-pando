@@ -34,6 +34,16 @@ interface KpiMetrics {
   // 매출
   monthlyRevenue: number;
   prevMonthRevenue: number;
+  // 매출 유형별
+  ptRevenue: number;
+  membershipRevenue: number;
+  gxRevenue: number;
+  otherRevenue: number;
+  refundTotal: number;
+  refundCount: number;
+  unpaidTotal: number;
+  unpaidCount: number;
+  vatExcluded: number;
   // 출석
   avgWeeklyAttendance: number;
   todayAttendance: number;
@@ -48,16 +58,31 @@ interface KpiMetrics {
   totalClasses: number;
   totalClassAttendees: number;
   totalClassBooked: number;
+  // 만료 예정 D-day
+  expiringD7: number;
+  expiringD14: number;
+  expiringD30: number;
+}
+
+interface StaffRevenue {
+  staffName: string;
+  ptRevenue: number;
+  membershipRevenue: number;
+  total: number;
+  count: number;
 }
 
 const EMPTY_METRICS: KpiMetrics = {
   totalMembers: 0, activeMembers: 0, newMembersThisMonth: 0, newMembersPrevMonth: 0,
   expiredMembers: 0, expiringMembers: 0,
   monthlyRevenue: 0, prevMonthRevenue: 0,
+  ptRevenue: 0, membershipRevenue: 0, gxRevenue: 0, otherRevenue: 0,
+  refundTotal: 0, refundCount: 0, unpaidTotal: 0, unpaidCount: 0, vatExcluded: 0,
   avgWeeklyAttendance: 0, todayAttendance: 0,
   totalConsultations: 0, completedConsultations: 0,
   totalPtSessions: 0, completedPtSessions: 0, noShowPtSessions: 0,
   totalClasses: 0, totalClassAttendees: 0, totalClassBooked: 0,
+  expiringD7: 0, expiringD14: 0, expiringD30: 0,
 };
 
 function pct(a: number, b: number): number {
@@ -520,6 +545,7 @@ export default function KpiDashboard() {
   const branchId = getBranchId();
   const [loading, setLoading] = useState(true);
   const [metrics, setMetrics] = useState<KpiMetrics>(EMPTY_METRICS);
+  const [staffRevenues, setStaffRevenues] = useState<StaffRevenue[]>([]);
 
   const today = new Date();
   const yearMonth = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}`;
@@ -549,11 +575,21 @@ export default function KpiDashboard() {
       weekAgo.setDate(today.getDate() - 7);
       const weekAgoStr = weekAgo.toISOString().slice(0, 10);
 
+      // 만료 예정 D-day 기준일
+      const d7 = new Date(today); d7.setDate(today.getDate() + 7);
+      const d14 = new Date(today); d14.setDate(today.getDate() + 14);
+      const d30 = new Date(today); d30.setDate(today.getDate() + 30);
+      const d7Str = d7.toISOString().slice(0, 10);
+      const d14Str = d14.toISOString().slice(0, 10);
+      const d30Str = d30.toISOString().slice(0, 10);
+
       const base = () => supabase.from("members").select("id", { count: "exact", head: true }).eq("branchId", branchId).is("deletedAt", null);
 
       const [
         totalRes, activeRes, newRes, newPrevRes, expiredRes, expiringRes,
         revenueRes, prevRevenueRes,
+        salesDetailRes,
+        expiringD30Res,
         todayAttRes, weekAttRes,
         consultRes, consultCompRes,
         ptTotalRes, ptCompRes, ptNoShowRes,
@@ -565,9 +601,13 @@ export default function KpiDashboard() {
         base().gte("registeredAt", prevMonthStart).lte("registeredAt", prevMonthEnd),
         base().eq("status", "EXPIRED"),
         base().eq("status", "ACTIVE").gte("membershipExpiry", todayStr).lte("membershipExpiry", in30DaysStr),
-        // 매출
+        // 매출 (COMPLETED)
         supabase.from("sales").select("amount").eq("branchId", branchId).eq("status", "COMPLETED").gte("saleDate", monthStart).lte("saleDate", monthEnd),
         supabase.from("sales").select("amount").eq("branchId", branchId).eq("status", "COMPLETED").gte("saleDate", prevMonthStart).lte("saleDate", prevMonthEnd),
+        // 매출 유형별 + 환불/미수금
+        supabase.from("sales").select("type, amount, status, unpaid, staffName").eq("branchId", branchId).gte("saleDate", monthStart).lte("saleDate", monthEnd),
+        // 만료 예정 D-30 이내
+        supabase.from("members").select("id, membershipExpiry").eq("branchId", branchId).is("deletedAt", null).eq("status", "ACTIVE").lte("membershipExpiry", d30Str).gte("membershipExpiry", todayStr),
         // 출석
         supabase.from("attendance").select("id", { count: "exact", head: true }).eq("branchId", branchId).gte("checkInAt", `${todayStr}T00:00:00`).lte("checkInAt", `${todayStr}T23:59:59`),
         supabase.from("attendance").select("id", { count: "exact", head: true }).eq("branchId", branchId).gte("checkInAt", `${weekAgoStr}T00:00:00`).lte("checkInAt", `${todayStr}T23:59:59`),
@@ -586,6 +626,50 @@ export default function KpiDashboard() {
 
       const sumAmount = (data: any[] | null) => (data ?? []).reduce((s: number, r: any) => s + (Number(r.amount) || 0), 0);
 
+      // 매출 유형별 집계
+      const salesRows: any[] = salesDetailRes.data ?? [];
+      const completedSales = salesRows.filter((r) => r.status === "COMPLETED");
+      const ptRevenue = completedSales.filter((r) => r.type === "PT").reduce((s: number, r: any) => s + (Number(r.amount) || 0), 0);
+      const membershipRevenue = completedSales.filter((r) => r.type === "이용권" || r.type === "MEMBERSHIP").reduce((s: number, r: any) => s + (Number(r.amount) || 0), 0);
+      const gxRevenue = completedSales.filter((r) => r.type === "GX" || r.type === "수업").reduce((s: number, r: any) => s + (Number(r.amount) || 0), 0);
+      const otherRevenue = completedSales.filter((r) => !["PT", "이용권", "MEMBERSHIP", "GX", "수업"].includes(r.type)).reduce((s: number, r: any) => s + (Number(r.amount) || 0), 0);
+
+      // 환불
+      const refundRows = salesRows.filter((r) => r.status === "REFUNDED");
+      const refundTotal = refundRows.reduce((s: number, r: any) => s + (Number(r.amount) || 0), 0);
+      const refundCount = refundRows.length;
+
+      // 미수금
+      const unpaidRows = salesRows.filter((r) => r.unpaid && Number(r.unpaid) > 0);
+      const unpaidTotal = unpaidRows.reduce((s: number, r: any) => s + (Number(r.unpaid) || 0), 0);
+      const unpaidCount = unpaidRows.length;
+
+      // VAT 제외 순매출
+      const totalRevenue = sumAmount(revenueRes.data);
+      const vatExcluded = Math.round(totalRevenue * 0.909);
+
+      // 만료 예정 D-day 분류
+      const expiringRows: any[] = expiringD30Res.data ?? [];
+      const expiringD7 = expiringRows.filter((r) => r.membershipExpiry && r.membershipExpiry.slice(0, 10) <= d7Str).length;
+      const expiringD14 = expiringRows.filter((r) => r.membershipExpiry && r.membershipExpiry.slice(0, 10) > d7Str && r.membershipExpiry.slice(0, 10) <= d14Str).length;
+      const expiringD30 = expiringRows.filter((r) => r.membershipExpiry && r.membershipExpiry.slice(0, 10) > d14Str && r.membershipExpiry.slice(0, 10) <= d30Str).length;
+
+      // 담당자별 매출 집계
+      const staffMap = new Map<string, StaffRevenue>();
+      completedSales.forEach((r: any) => {
+        const name = r.staffName ?? "미지정";
+        if (!staffMap.has(name)) {
+          staffMap.set(name, { staffName: name, ptRevenue: 0, membershipRevenue: 0, total: 0, count: 0 });
+        }
+        const entry = staffMap.get(name)!;
+        const amt = Number(r.amount) || 0;
+        if (r.type === "PT") entry.ptRevenue += amt;
+        if (r.type === "이용권" || r.type === "MEMBERSHIP") entry.membershipRevenue += amt;
+        entry.total += amt;
+        entry.count += 1;
+      });
+      setStaffRevenues(Array.from(staffMap.values()).sort((a, b) => b.total - a.total));
+
       setMetrics({
         totalMembers: totalRes.count ?? 0,
         activeMembers: activeRes.count ?? 0,
@@ -593,8 +677,17 @@ export default function KpiDashboard() {
         newMembersPrevMonth: newPrevRes.count ?? 0,
         expiredMembers: expiredRes.count ?? 0,
         expiringMembers: expiringRes.count ?? 0,
-        monthlyRevenue: sumAmount(revenueRes.data),
+        monthlyRevenue: totalRevenue,
         prevMonthRevenue: sumAmount(prevRevenueRes.data),
+        ptRevenue,
+        membershipRevenue,
+        gxRevenue,
+        otherRevenue,
+        refundTotal,
+        refundCount,
+        unpaidTotal,
+        unpaidCount,
+        vatExcluded,
         todayAttendance: todayAttRes.count ?? 0,
         avgWeeklyAttendance: Math.round((weekAttRes.count ?? 0) / 7),
         totalConsultations: consultRes.count ?? 0,
@@ -605,6 +698,9 @@ export default function KpiDashboard() {
         totalClasses: classRes.count ?? 0,
         totalClassAttendees: classAttendRes.count ?? 0,
         totalClassBooked: classBookedRes.count ?? 0,
+        expiringD7,
+        expiringD14,
+        expiringD30,
       });
     } catch (err) {
       console.error("[KpiDashboard] 데이터 로드 실패:", err);
@@ -728,6 +824,61 @@ export default function KpiDashboard() {
       {/* 퍼널 분석 */}
       <h3 className="text-[14px] font-bold text-content mb-sm">퍼널 분석</h3>
       <FunnelAnalysis branchId={branchId} />
+
+      {/* 매출 유형별 분석 */}
+      <h3 className="text-[14px] font-bold text-content mb-sm">매출 유형별 분석</h3>
+      <StatCardGrid cols={4} className="mb-sm">
+        <StatCard label="PT 매출" value={`${formatAmount(m.ptRevenue)}원`} icon={<DollarSign size={18} />} variant="mint" />
+        <StatCard label="이용권 매출" value={`${formatAmount(m.membershipRevenue)}원`} icon={<DollarSign size={18} />} />
+        <StatCard label="GX 매출" value={`${formatAmount(m.gxRevenue)}원`} icon={<DollarSign size={18} />} />
+        <StatCard label="기타 매출" value={`${formatAmount(m.otherRevenue)}원`} icon={<DollarSign size={18} />} />
+      </StatCardGrid>
+      <StatCardGrid cols={3} className="mb-lg">
+        <StatCard label="환불 총액" value={`${formatAmount(m.refundTotal)}원`} description={`${m.refundCount}건`} icon={<TrendingDown size={18} />} variant="peach" />
+        <StatCard label="미수금 총액" value={`${formatAmount(m.unpaidTotal)}원`} description={`${m.unpaidCount}건`} icon={<AlertCircle size={18} />} variant="peach" />
+        <StatCard label="VAT 제외 순매출" value={`${formatAmount(m.vatExcluded)}원`} description="매출 × 90.9%" icon={<DollarSign size={18} />} variant="mint" />
+      </StatCardGrid>
+
+      {/* 만료 예정 D-day 분류 */}
+      <h3 className="text-[14px] font-bold text-content mb-sm">만료 예정 D-day 분류</h3>
+      <StatCardGrid cols={3} className="mb-lg">
+        <StatCard label="D-7 이내 만료" value={`${m.expiringD7}명`} description="즉시 연락 필요" icon={<AlertCircle size={18} />} variant="peach" />
+        <StatCard label="D-14 이내 만료" value={`${m.expiringD14}명`} description="8~14일 이내" icon={<AlertCircle size={18} />} />
+        <StatCard label="D-30 이내 만료" value={`${m.expiringD30}명`} description="15~30일 이내" icon={<AlertCircle size={18} />} />
+      </StatCardGrid>
+
+      {/* 담당자별 매출 */}
+      <h3 className="text-[14px] font-bold text-content mb-sm">담당자별 매출</h3>
+      <div className="bg-surface border border-line rounded-xl p-lg mb-lg">
+        {staffRevenues.length === 0 ? (
+          <p className="text-[13px] text-content-secondary text-center py-md">이번달 매출 데이터가 없습니다.</p>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-[13px]">
+              <thead>
+                <tr className="border-b border-line">
+                  <th className="text-left py-sm pr-md text-content-secondary font-medium">담당자</th>
+                  <th className="text-right py-sm px-md text-content-secondary font-medium">PT</th>
+                  <th className="text-right py-sm px-md text-content-secondary font-medium">이용권</th>
+                  <th className="text-right py-sm px-md text-content-secondary font-medium">합계</th>
+                  <th className="text-right py-sm pl-md text-content-secondary font-medium">건수</th>
+                </tr>
+              </thead>
+              <tbody>
+                {staffRevenues.map((s) => (
+                  <tr key={s.staffName} className="border-b border-line last:border-0 hover:bg-surface-secondary transition-colors">
+                    <td className="py-sm pr-md font-medium text-content">{s.staffName}</td>
+                    <td className="py-sm px-md text-right tabular-nums text-content-secondary">{formatAmount(s.ptRevenue)}원</td>
+                    <td className="py-sm px-md text-right tabular-nums text-content-secondary">{formatAmount(s.membershipRevenue)}원</td>
+                    <td className="py-sm px-md text-right tabular-nums font-semibold text-content">{formatAmount(s.total)}원</td>
+                    <td className="py-sm pl-md text-right tabular-nums text-content-secondary">{s.count}건</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
 
       {/* 미구현 KPI 안내 */}
       <div className="bg-surface-secondary border border-line rounded-xl p-lg mt-md">

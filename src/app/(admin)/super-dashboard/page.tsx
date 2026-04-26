@@ -61,6 +61,7 @@ interface KpiData {
   newMembers: number;
   expiringMembers: number;
   expiredMembers: number;
+  unpaidAmount: number;
   // 전월 대비 계산용
   prevMonthMembers: number;
   prevMonthRevenue: number;
@@ -71,8 +72,22 @@ interface BranchStats {
   members: number;
   staff: number;
   revenue: number;
+  prevRevenue: number;
   expiredMembers: number;
   todayAttendance: number;
+  newMembers: number;
+}
+
+interface BranchRanking {
+  branchId: number;
+  branchName: string;
+  thisMonthRevenue: number;
+  prevMonthRevenue: number;
+  growth: number;
+  memberCount: number;
+  newMemberCount: number;
+  attendanceCount: number;
+  rank: number;
 }
 
 // ─── 지점 상태 배지 ────────────────────────────────────────────────────────
@@ -191,6 +206,7 @@ export default function SuperDashboard() {
     newMembers: 0,
     expiringMembers: 0,
     expiredMembers: 0,
+    unpaidAmount: 0,
     prevMonthMembers: 0,
     prevMonthRevenue: 0,
     yesterdayAttendance: 0,
@@ -198,6 +214,7 @@ export default function SuperDashboard() {
 
   const [branches, setBranches] = useState<Branch[]>([]);
   const [branchStats, setBranchStats] = useState<Record<number, BranchStats>>({});
+  const [branchRankings, setBranchRankings] = useState<BranchRanking[]>([]);
   const [auditLogs, setAuditLogs] = useState<AuditLogEntry[]>([]);
 
   // ─── 지점별 통계 조회 ────────────────────────────────────────────────────
@@ -211,9 +228,12 @@ export default function SuperDashboard() {
 
     const statsMap: Record<number, BranchStats> = {};
 
+    const prevMonthStartBranch = new Date(today.getFullYear(), today.getMonth() - 1, 1).toISOString();
+    const prevMonthEndBranch = new Date(today.getFullYear(), today.getMonth(), 0, 23, 59, 59).toISOString();
+
     await Promise.all(
       branchList.map(async (branch) => {
-        const [membersRes, staffRes, revenueRes, attendanceRes, expiredRes] = await Promise.all([
+        const [membersRes, staffRes, revenueRes, attendanceRes, expiredRes, prevRevenueRes, newMembersRes] = await Promise.all([
           supabase
             .from('members')
             .select('id', { count: 'exact', head: true })
@@ -244,9 +264,27 @@ export default function SuperDashboard() {
             .eq('branchId', branch.id)
             .eq('status', 'EXPIRED')
             .is('deletedAt', null),
+          supabase
+            .from('sales')
+            .select('amount')
+            .eq('branchId', branch.id)
+            .eq('status', 'COMPLETED')
+            .gte('saleDate', prevMonthStartBranch)
+            .lte('saleDate', prevMonthEndBranch),
+          supabase
+            .from('members')
+            .select('id', { count: 'exact', head: true })
+            .eq('branchId', branch.id)
+            .is('deletedAt', null)
+            .gte('registeredAt', monthStart)
+            .lte('registeredAt', monthEnd),
         ]);
 
         const revenue = (revenueRes.data ?? []).reduce(
+          (sum: number, r: { amount: unknown }) => sum + (Number(r.amount) || 0),
+          0
+        );
+        const prevRevenue = (prevRevenueRes.data ?? []).reduce(
           (sum: number, r: { amount: unknown }) => sum + (Number(r.amount) || 0),
           0
         );
@@ -255,13 +293,39 @@ export default function SuperDashboard() {
           members: membersRes.count ?? 0,
           staff: staffRes.count ?? 0,
           revenue,
+          prevRevenue,
           expiredMembers: expiredRes.count ?? 0,
           todayAttendance: attendanceRes.count ?? 0,
+          newMembers: newMembersRes.count ?? 0,
         };
       })
     );
 
     setBranchStats(statsMap);
+
+    // ─── 지점별 매출 랭킹 계산 ──────────────────────────────────────────────
+    const rawRankings: BranchRanking[] = branchList.map((branch) => {
+      const s = statsMap[branch.id];
+      const thisMonthRevenue = s?.revenue ?? 0;
+      const prevMonthRevenue = s?.prevRevenue ?? 0;
+      const growth = prevMonthRevenue > 0
+        ? Math.round(((thisMonthRevenue - prevMonthRevenue) / prevMonthRevenue) * 100)
+        : 0;
+      return {
+        branchId: branch.id,
+        branchName: branch.name,
+        thisMonthRevenue,
+        prevMonthRevenue,
+        growth,
+        memberCount: s?.members ?? 0,
+        newMemberCount: s?.newMembers ?? 0,
+        attendanceCount: s?.todayAttendance ?? 0,
+        rank: 0,
+      };
+    });
+    rawRankings.sort((a, b) => b.thisMonthRevenue - a.thisMonthRevenue);
+    rawRankings.forEach((r, idx) => { r.rank = idx + 1; });
+    setBranchRankings(rawRankings);
 
     // TODO: 통합 API 구현 시 교체 — 전 지점 합산 KPI 계산
     const totalMembers = Object.values(statsMap).reduce((s, b) => s + b.members, 0);
@@ -295,9 +359,9 @@ export default function SuperDashboard() {
     );
     const newMembers = newMemberResults.reduce((s, r) => s + (r.count ?? 0), 0);
 
-    const in30Days = new Date(today);
-    in30Days.setDate(today.getDate() + 30);
-    const in30DaysStr = in30Days.toISOString().slice(0, 10);
+    const in7Days = new Date(today);
+    in7Days.setDate(today.getDate() + 7);
+    const in7DaysStr = in7Days.toISOString().slice(0, 10);
 
     const expiringResults = await Promise.all(
       branchList.map((branch) =>
@@ -308,7 +372,7 @@ export default function SuperDashboard() {
           .is('deletedAt', null)
           .eq('status', 'ACTIVE')
           .gte('membershipExpiry', todayStr)
-          .lte('membershipExpiry', in30DaysStr)
+          .lte('membershipExpiry', in7DaysStr)
       )
     );
     const expiringMembers = expiringResults.reduce((s, r) => s + (r.count ?? 0), 0);
@@ -363,7 +427,22 @@ export default function SuperDashboard() {
     );
     const yesterdayAttendance = yesterdayAttResults.reduce((s, r) => s + (r.count ?? 0), 0);
 
-    setKpiData({ totalMembers, totalRevenue, todayAttendance, totalStaff, newMembers, expiringMembers, expiredMembers, prevMonthMembers, prevMonthRevenue, yesterdayAttendance });
+    // 전사 미수금 합산 (status=PENDING 또는 UNPAID인 sales의 amount 합)
+    const unpaidResults = await Promise.all(
+      branchList.map((branch) =>
+        supabase
+          .from('sales')
+          .select('amount')
+          .eq('branchId', branch.id)
+          .in('status', ['PENDING', 'UNPAID'])
+      )
+    );
+    const unpaidAmount = unpaidResults.reduce(
+      (s, r) => s + (r.data ?? []).reduce((sum: number, row: { amount: unknown }) => sum + (Number(row.amount) || 0), 0),
+      0
+    );
+
+    setKpiData({ totalMembers, totalRevenue, todayAttendance, totalStaff, newMembers, expiringMembers, expiredMembers, unpaidAmount, prevMonthMembers, prevMonthRevenue, yesterdayAttendance });
   }, []);
 
   // ─── 전체 데이터 로드 ────────────────────────────────────────────────────
@@ -489,16 +568,16 @@ export default function SuperDashboard() {
       changeLabel: '이번달',
     },
     {
-      label: '만료 예정 (30일)',
+      label: '만료 예정 (7일)',
       value: formatNumber(kpiData.expiringMembers) + '명',
       icon: <Clock size={18} />,
       change: 0,
-      changeLabel: '30일 이내',
+      changeLabel: '7일 이내',
     },
     {
-      label: '만료 회원',
-      value: formatNumber(kpiData.expiredMembers) + '명',
-      icon: <ShieldAlert size={18} />,
+      label: '전사 미수금',
+      value: formatAmount(kpiData.unpaidAmount) + '원',
+      icon: <AlertTriangle size={18} />,
       change: 0,
       changeLabel: '현재',
     },
@@ -640,7 +719,65 @@ export default function SuperDashboard() {
         );
       })()}
 
-      {/* ── 섹션 3: 지점별 현황 ─────────────────────────────────────────── */}
+      {/* ── 섹션 3: 지점별 매출 랭킹 ───────────────────────────────────── */}
+      {!loading && branchRankings.length > 0 && (() => {
+        const today = new Date();
+        const yearMonth = `${today.getFullYear()}년 ${today.getMonth() + 1}월`;
+        return (
+          <section className="mb-xl">
+            <div className="bg-white rounded-xl border border-line overflow-hidden">
+              <div className="px-5 py-4 border-b border-line flex items-center justify-between">
+                <h3 className="text-[15px] font-semibold text-content flex items-center gap-sm">
+                  <Building2 size={16} className="text-primary" />
+                  이번달 지점 성과 랭킹
+                </h3>
+                <span className="text-xs text-content-tertiary">{yearMonth} 기준</span>
+              </div>
+              <table className="w-full text-sm">
+                <thead className="bg-surface-secondary text-xs text-content-tertiary">
+                  <tr>
+                    <th className="px-4 py-3 text-left font-semibold">순위</th>
+                    <th className="px-4 py-3 text-left font-semibold">지점</th>
+                    <th className="px-4 py-3 text-right font-semibold">이번달 매출</th>
+                    <th className="px-4 py-3 text-right font-semibold">전월 대비</th>
+                    <th className="px-4 py-3 text-right font-semibold">활성 회원</th>
+                    <th className="px-4 py-3 text-right font-semibold">오늘 출석</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {branchRankings.map((branch, idx) => (
+                    <tr key={branch.branchId} className="border-t border-line hover:bg-surface-secondary/60 transition-colors">
+                      <td className="px-4 py-3 text-[13px]">
+                        {idx === 0 ? '🥇' : idx === 1 ? '🥈' : idx === 2 ? '🥉' : (
+                          <span className="text-content-tertiary">{idx + 1}위</span>
+                        )}
+                      </td>
+                      <td className="px-4 py-3 text-[13px] font-medium text-content">{branch.branchName}</td>
+                      <td className="px-4 py-3 text-right text-[13px] font-semibold text-content">
+                        {formatAmount(branch.thisMonthRevenue)}원
+                      </td>
+                      <td className={cn(
+                        'px-4 py-3 text-right text-[12px] font-semibold',
+                        branch.growth >= 0 ? 'text-green-600' : 'text-red-500'
+                      )}>
+                        {branch.prevMonthRevenue === 0 ? (
+                          <span className="text-content-tertiary text-[11px]">전월 없음</span>
+                        ) : (
+                          <>{branch.growth >= 0 ? '▲' : '▼'}{Math.abs(branch.growth).toFixed(1)}%</>
+                        )}
+                      </td>
+                      <td className="px-4 py-3 text-right text-[13px] text-content-secondary">{branch.memberCount}명</td>
+                      <td className="px-4 py-3 text-right text-[13px] text-content-secondary">{branch.attendanceCount}명</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </section>
+        );
+      })()}
+
+      {/* ── 섹션 4: 지점별 현황 ─────────────────────────────────────────── */}
       <section className="mb-xl">
         <div className="mb-md flex items-center justify-between">
           <h2 className="text-[16px] font-semibold text-content flex items-center gap-sm">
@@ -753,7 +890,7 @@ export default function SuperDashboard() {
         )}
       </section>
 
-      {/* ── 섹션 4: 최근 감사 로그 ───────────────────────────────────────── */}
+      {/* ── 섹션 5: 최근 감사 로그 ───────────────────────────────────────── */}
       <section>
         <div className="mb-md flex items-center justify-between">
           <h2 className="text-[16px] font-semibold text-content flex items-center gap-sm">
