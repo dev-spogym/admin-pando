@@ -775,7 +775,7 @@ async function main() {
     `ALTER TABLE "users" ALTER COLUMN "branchId" DROP NOT NULL`,
   ).catch(() => { /* 이미 nullable */ });
 
-  // 비밀번호: 전부 'qwer1234!!' 통일 (협력자 환경 기준)
+  // 비밀번호: 전부 'qwer1234!!' 통일 (실제 Supabase users 테이블 기준)
   const PW = 'qwer1234!!';
   const userSeed: Array<{
     username: string;
@@ -785,34 +785,33 @@ async function main() {
     isSuperAdmin: boolean;
     email?: string;
   }> = [
-    // ─── 본사 (전 지점 데이터 + 슈퍼관리자 메뉴) ───
-    { username: 'admin',       name: '운영관리자',     role: 'ADMIN',   branchId: 1,  isSuperAdmin: true,  email: 'admin@spogym.com' },
-    { username: 'hq_director', name: '본사 대표',       role: 'ADMIN',   branchId: 1,  isSuperAdmin: true,  email: 'hq_director@spogym.com' },
-    { username: 'hq_manager',  name: '본사 운영팀장',   role: 'ADMIN',   branchId: 1,  isSuperAdmin: true,  email: 'hq_manager@spogym.com' },
-    { username: 'hq_analyst',  name: '본사 분석담당',   role: 'MANAGER', branchId: 1,  isSuperAdmin: false, email: 'hq_analyst@spogym.com' },
+    // ─── 본사 (branchId=null, 전 지점 데이터) ───
+    { username: 'admin',       name: '운영관리자',      role: 'ADMIN',   branchId: null, isSuperAdmin: true,  email: 'admin@spogym.com' },
+    { username: 'hq_director', name: '본사 대표',       role: 'ADMIN',   branchId: null, isSuperAdmin: true,  email: 'hq_director@spogym.com' },
+    { username: 'hq_manager',  name: '본사 운영팀장',   role: 'MANAGER', branchId: null, isSuperAdmin: true,  email: 'hq_manager@spogym.com' },
+    { username: 'hq_analyst',  name: '본사 분석담당',   role: 'MANAGER', branchId: null, isSuperAdmin: false, email: 'hq_analyst@spogym.com' },
 
-    // ─── 지점장 (해당 지점 데이터만) ───
-    // 1지부
-    { username: 'gwanghwamun', name: '광화문 지점장',   role: 'OWNER',   branchId: 1,  isSuperAdmin: false, email: 'gwanghwamun@spogym.com' },
-    { username: 'euljiro',     name: '을지로 지점장',   role: 'OWNER',   branchId: 2,  isSuperAdmin: false, email: 'euljiro@spogym.com' },
-    { username: 'jongak',      name: '종각 지점장',     role: 'OWNER',   branchId: 3,  isSuperAdmin: false, email: 'jongak@spogym.com' },
-    { username: 'jongno',      name: '종로 지점장',     role: 'OWNER',   branchId: 4,  isSuperAdmin: false, email: 'jongno@spogym.com' },
-    { username: 'seogyo',      name: '서교 지점장',     role: 'OWNER',   branchId: 5,  isSuperAdmin: false, email: 'seogyo@spogym.com' },
-    // 2지부
-    { username: 'yongsan',     name: '용산 지점장',     role: 'OWNER',   branchId: 10, isSuperAdmin: false, email: 'yongsan@spogym.com' },
-    { username: 'pangyo',      name: '판교 지점장',     role: 'OWNER',   branchId: 11, isSuperAdmin: false, email: 'pangyo@spogym.com' },
-    { username: 'pangyoyk',    name: '판교역 지점장',   role: 'OWNER',   branchId: 12, isSuperAdmin: false, email: 'pangyoyk@spogym.com' },
-    { username: 'daechi',      name: '대치 지점장',     role: 'OWNER',   branchId: 13, isSuperAdmin: false, email: 'daechi@spogym.com' },
-    { username: 'gocheok',     name: '고척 지점장',     role: 'OWNER',   branchId: 14, isSuperAdmin: false, email: 'gocheok@spogym.com' },
-    { username: 'bucheon',     name: '부천 지점장',     role: 'OWNER',   branchId: 15, isSuperAdmin: false, email: 'bucheon@spogym.com' },
-    // 미설정 (목동)
-    { username: 'mokdong',     name: '목동 지점장',     role: 'OWNER',   branchId: 16, isSuperAdmin: false, email: 'mokdong@spogym.com' },
+    // ─── 광화문 (branchId=1) ───
+    { username: 'manager1',    name: '김관리',          role: 'MANAGER', branchId: 1,  isSuperAdmin: false, email: 'manager1@spogym.com' },
+    { username: 'trainer1',    name: '김태희',          role: 'TRAINER', branchId: 1,  isSuperAdmin: false, email: 'trainer1@spogym.com' },
+    { username: 'gwanghwamun', name: '광화문 매니저',   role: 'MANAGER', branchId: 1,  isSuperAdmin: false, email: 'gwanghwamun@spogym.com' },
 
-    // ─── 직원 ───
-    { username: 'manager1',    name: '광화문 매니저',   role: 'MANAGER', branchId: 1,  isSuperAdmin: false, email: 'manager1@spogym.com' },
-    { username: 'manager2',    name: '을지로 매니저',   role: 'MANAGER', branchId: 2,  isSuperAdmin: false, email: 'manager2@spogym.com' },
-    { username: 'trainer1',    name: '광화문 트레이너', role: 'TRAINER', branchId: 1,  isSuperAdmin: false, email: 'trainer1@spogym.com' },
-    { username: 'trainer2',    name: '을지로 트레이너', role: 'TRAINER', branchId: 2,  isSuperAdmin: false, email: 'trainer2@spogym.com' },
+    // ─── 을지로 (branchId=2) ───
+    { username: 'manager2',    name: '이관리',          role: 'MANAGER', branchId: 2,  isSuperAdmin: false, email: 'manager2@spogym.com' },
+    { username: 'trainer2',    name: '이효리',          role: 'TRAINER', branchId: 2,  isSuperAdmin: false, email: 'trainer2@spogym.com' },
+    { username: 'euljiro',     name: '을지로 매니저',   role: 'MANAGER', branchId: 2,  isSuperAdmin: false, email: 'euljiro@spogym.com' },
+
+    // ─── 그 외 지점 (각 1개씩) ───
+    { username: 'jongak',      name: '종각 매니저',     role: 'MANAGER', branchId: 3,  isSuperAdmin: false, email: 'jongak@spogym.com' },
+    { username: 'jongno',      name: '종로 매니저',     role: 'MANAGER', branchId: 4,  isSuperAdmin: false, email: 'jongno@spogym.com' },
+    { username: 'seogyo',      name: '서교 매니저',     role: 'MANAGER', branchId: 5,  isSuperAdmin: false, email: 'seogyo@spogym.com' },
+    { username: 'yongsan',     name: '용산 매니저',     role: 'MANAGER', branchId: 10, isSuperAdmin: false, email: 'yongsan@spogym.com' },
+    { username: 'pangyo',      name: '판교 매니저',     role: 'MANAGER', branchId: 11, isSuperAdmin: false, email: 'pangyo@spogym.com' },
+    { username: 'pangyoyk',    name: '판교역 매니저',   role: 'MANAGER', branchId: 12, isSuperAdmin: false, email: 'pangyoyk@spogym.com' },
+    { username: 'daechi',      name: '대치 매니저',     role: 'MANAGER', branchId: 13, isSuperAdmin: false, email: 'daechi@spogym.com' },
+    { username: 'gocheok',     name: '고척 매니저',     role: 'MANAGER', branchId: 14, isSuperAdmin: false, email: 'gocheok@spogym.com' },
+    { username: 'bucheon',     name: '부천 매니저',     role: 'MANAGER', branchId: 15, isSuperAdmin: false, email: 'bucheon@spogym.com' },
+    { username: 'mokdong',     name: '목동 매니저',     role: 'MANAGER', branchId: 16, isSuperAdmin: false, email: 'mokdong@spogym.com' },
   ];
 
   let userOk = 0;

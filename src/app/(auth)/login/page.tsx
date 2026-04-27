@@ -13,7 +13,8 @@ import { toast } from 'sonner';
 import Select from '@/components/ui/Select';
 import Button from '@/components/ui/Button';
 
-// 테스트 계정 프리셋 — prisma/seed.ts 의 userSeed 와 동기화 유지
+// 테스트 계정 프리셋 — 실제 Supabase users 테이블 기준 (비밀번호 전부 qwer1234!!)
+// prisma/seed.ts 의 userSeed 와 동기화 유지
 type AccountPreset = {
   username: string;
   password: string;
@@ -23,35 +24,47 @@ type AccountPreset = {
   desc: string;
 };
 
+const PW = 'qwer1234!!';
+
 const ACCOUNT_PRESETS: { group: string; items: AccountPreset[] }[] = [
   {
-    group: '본사',
+    group: '본사 (전 지점 데이터 + 슈퍼관리자 메뉴)',
     items: [
-      { username: 'super', password: 'super1234', label: '슈퍼관리자', branchId: null, branchName: '전체 지점', desc: '모든 지점·테넌트 권한' },
-      { username: 'hq-ops', password: 'hqops1234', label: '운영관리자', branchId: 1, branchName: '광화문', desc: '본사 운영 (지점 전환 가능)' },
+      { username: 'admin',       password: PW, label: '운영관리자',     branchId: null, branchName: '전체', desc: 'ADMIN · 슈퍼관리자' },
+      { username: 'hq_director', password: PW, label: '본사 대표',       branchId: null, branchName: '전체', desc: 'ADMIN · 슈퍼관리자' },
+      { username: 'hq_manager',  password: PW, label: '본사 운영팀장',   branchId: null, branchName: '전체', desc: 'MANAGER · 슈퍼관리자' },
+      { username: 'hq_analyst',  password: PW, label: '본사 분석담당',   branchId: null, branchName: '전체', desc: 'MANAGER · 일반' },
     ],
   },
   {
-    group: '지부',
+    group: '광화문 (1지부)',
     items: [
-      { username: 'district1', password: 'd1234', label: '1지부장', branchId: 1, branchName: '광화문', desc: '1지부 (광화문~양천향교)' },
-      { username: 'district2', password: 'd1234', label: '2지부장', branchId: 10, branchName: '용산', desc: '2지부 (용산~부천)' },
+      { username: 'gwanghwamun', password: PW, label: '광화문 매니저',   branchId: 1, branchName: '광화문', desc: 'MANAGER' },
+      { username: 'manager1',    password: PW, label: '김관리',          branchId: 1, branchName: '광화문', desc: 'MANAGER' },
+      { username: 'trainer1',    password: PW, label: '김태희',          branchId: 1, branchName: '광화문', desc: 'TRAINER' },
     ],
   },
   {
-    group: '지점장',
+    group: '을지로 (1지부)',
     items: [
-      { username: 'br001', password: 'br1234', label: '광화문 지점장', branchId: 1, branchName: '광화문', desc: '지점 단위 운영' },
-      { username: 'br011', password: 'br1234', label: '판교 지점장', branchId: 11, branchName: '판교', desc: '지점 단위 운영' },
-      { username: 'br016', password: 'br1234', label: '목동 지점장', branchId: 16, branchName: '목동', desc: '지점 단위 운영' },
+      { username: 'euljiro',     password: PW, label: '을지로 매니저',   branchId: 2, branchName: '을지로', desc: 'MANAGER' },
+      { username: 'manager2',    password: PW, label: '이관리',          branchId: 2, branchName: '을지로', desc: 'MANAGER' },
+      { username: 'trainer2',    password: PW, label: '이효리',          branchId: 2, branchName: '을지로', desc: 'TRAINER' },
     ],
   },
   {
-    group: '직원',
+    group: '그 외 지점',
     items: [
-      { username: 'mgr-br006', password: 'mgr1234', label: '신당 매니저', branchId: 6, branchName: '신당', desc: '지점 매니저' },
-      { username: 'pt-br001', password: 'pt1234', label: '광화문 트레이너', branchId: 1, branchName: '광화문', desc: 'PT/GX' },
-      { username: 'front-br001', password: 'fr1234', label: '광화문 프론트', branchId: 1, branchName: '광화문', desc: '프론트 데스크' },
+      { username: 'jongak',      password: PW, label: '종각 매니저',     branchId: 3,  branchName: '종각',   desc: '1지부 · MANAGER' },
+      { username: 'jongno',      password: PW, label: '종로 매니저',     branchId: 4,  branchName: '종로',   desc: '1지부 · MANAGER' },
+      { username: 'seogyo',      password: PW, label: '서교 매니저',     branchId: 5,  branchName: '서교',   desc: '1지부 · MANAGER' },
+      { username: 'yongsan',     password: PW, label: '용산 매니저',     branchId: 10, branchName: '용산',   desc: '2지부 · MANAGER' },
+      { username: 'pangyo',      password: PW, label: '판교 매니저',     branchId: 11, branchName: '판교',   desc: '2지부 · MANAGER' },
+      { username: 'pangyoyk',    password: PW, label: '판교역 매니저',   branchId: 12, branchName: '판교역', desc: '2지부 · MANAGER' },
+      { username: 'daechi',      password: PW, label: '대치 매니저',     branchId: 13, branchName: '대치',   desc: '2지부 · MANAGER' },
+      { username: 'gocheok',     password: PW, label: '고척 매니저',     branchId: 14, branchName: '고척',   desc: '2지부 · MANAGER' },
+      { username: 'bucheon',     password: PW, label: '부천 매니저',     branchId: 15, branchName: '부천',   desc: '2지부 · MANAGER' },
+      { username: 'mokdong',     password: PW, label: '목동 매니저',     branchId: 16, branchName: '목동',   desc: '미설정 · MANAGER' },
     ],
   },
 ];
