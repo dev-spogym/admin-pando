@@ -73,15 +73,6 @@ const AppLayout = ({ children }: AppLayoutProps) => {
     return () => document.removeEventListener('keydown', handleEsc);
   }, [mobileOpen]);
 
-  // 마운트 전 또는 인증 안 된 상태: 로딩 화면 (서버/클라이언트 동일)
-  if (!mounted || !isAuthenticated) {
-    return (
-      <div className="flex h-screen w-full items-center justify-center bg-surface-secondary">
-        <div className="text-content-tertiary text-[13px]">로그인 페이지로 이동 중...</div>
-      </div>
-    );
-  }
-
   const handleNavigate = useCallback((path: string, viewId?: number) => {
     // 모바일에서 네비게이션 시 사이드바 자동 닫기
     if (isMobile) setMobileOpen(false);
@@ -138,6 +129,15 @@ const AppLayout = ({ children }: AppLayoutProps) => {
       setSidebarCollapsed((prev) => !prev);
     }
   }, [isMobile]);
+
+  // 마운트 전 또는 인증 안 된 상태: 로딩 화면 (모든 hook 호출 후)
+  if (!mounted || !isAuthenticated) {
+    return (
+      <div className="flex h-screen w-full items-center justify-center bg-surface-secondary">
+        <div className="text-content-tertiary text-[13px]">로그인 페이지로 이동 중...</div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex h-screen w-full overflow-hidden font-sans bg-surface-secondary">
