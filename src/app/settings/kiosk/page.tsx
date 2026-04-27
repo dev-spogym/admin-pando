@@ -34,7 +34,13 @@ import { toast } from "sonner";
 import { supabase } from "@/lib/supabase";
 
 type KioskStatus = "online" | "offline";
-type TabKey = "basic" | "screen" | "tts" | "access";
+type TabKey = "basic" | "screen" | "tts" | "access" | "locker";
+type CheckInMethod = "qr" | "rfid" | "face" | "pin" | "barcode";
+type Language = "ko" | "en" | "ja" | "zh";
+type PostCheckInPolicy =
+  | "attendance_only"
+  | "manual_locker_assignment"
+  | "auto_locker_assignment";
 
 interface BannerImage {
   id: string;
@@ -42,23 +48,38 @@ interface BannerImage {
   name: string;
 }
 
+interface KioskFeatureToggles {
+  passInfo: boolean;
+  reservations: boolean;
+  lockerLookup: boolean;
+  notices: boolean;
+  shop: boolean;
+}
+
 interface SettingsData {
   isActive: boolean;
   kioskType: "typeA" | "typeB";
-  checkInMethods: string[];
-  screenTimeout: number;
-  autoLogout: number;
-  adminPin: string;
+  checkInMethods: CheckInMethod[];
+  defaultCheckInMethod: CheckInMethod;
+  staffAttendance: boolean;
+  useFaceRecognition: boolean;
+
+  language: Language;
   bgImage: string;
   logoImage: string;
   themeColor: string;
   welcomeMessage: string;
+  completionMessage: string;
   showNotice: boolean;
   noticeContent: string;
   showWeather: boolean;
   showAdBanner: boolean;
   banners: BannerImage[];
+
+  features: KioskFeatureToggles;
+
   ttsMessages: { id: string; event: string; message: string; description: string }[];
+
   accessStartTime: string;
   accessEndTime: string;
   allowExpired: "allow" | "deny";
@@ -66,6 +87,14 @@ interface SettingsData {
   preventDuplicateCheckIn: boolean;
   duplicatePreventionMinutes: number;
   unpaidAccess: "allow" | "warn" | "deny";
+
+  postCheckInPolicy: PostCheckInPolicy;
+  autoAssignZones: string[];
+  unassignedGuideMessage: string;
+
+  screenTimeout: number;
+  autoLogout: number;
+  adminPin: string;
 }
 
 const TABS = [
@@ -73,12 +102,20 @@ const TABS = [
   { key: "screen", label: "화면 설정", icon: Monitor },
   { key: "tts", label: "TTS 설정", icon: Volume2 },
   { key: "access", label: "출입 규칙", icon: Lock },
+  { key: "locker", label: "락커 후처리", icon: ImageIcon },
 ];
+
+const ALL_ZONES = ["A", "B", "C", "D"];
 
 const INITIAL_DATA: SettingsData = {
   isActive: true,
   kioskType: "typeB",
   checkInMethods: ["qr", "rfid", "face"],
+  defaultCheckInMethod: "qr",
+  staffAttendance: true,
+  useFaceRecognition: true,
+
+  language: "ko",
   screenTimeout: 30,
   autoLogout: 5,
   adminPin: "1234",
@@ -86,6 +123,7 @@ const INITIAL_DATA: SettingsData = {
   logoImage: "",
   themeColor: "#3B82F6",
   welcomeMessage: "오늘도 건강한 하루 되세요!",
+  completionMessage: "체크인이 완료되었습니다.",
   showNotice: true,
   noticeContent: "센터 내 수건은 1인 1장씩 사용 부탁드립니다.",
   showWeather: true,
@@ -94,6 +132,13 @@ const INITIAL_DATA: SettingsData = {
     { id: "1", url: "https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?auto=format&fit=crop&q=80&w=800", name: "PT 특별 할인 이벤트" },
     { id: "2", url: "https://images.unsplash.com/photo-1540497077202-7c8a3999166f?auto=format&fit=crop&q=80&w=800", name: "여름 맞이 3+1 프로모션" },
   ],
+  features: {
+    passInfo: true,
+    reservations: true,
+    lockerLookup: true,
+    notices: true,
+    shop: true,
+  },
   ttsMessages: [
     { id: "1", event: "체크인 성공", message: "{이름}님 환영합니다.", description: "정상적으로 체크인 완료 시 안내" },
     { id: "2", event: "체크인 실패 (만료)", message: "{이름}님 이용권이 만료되었습니다.", description: "이용 기간 종료 회원 태그 시 안내" },
@@ -101,6 +146,8 @@ const INITIAL_DATA: SettingsData = {
     { id: "4", event: "만료 임박 안내", message: "{이름}님 이용권이 {N}일 후 만료됩니다.", description: "만료 임박 회원 체크인 시 추가 안내" },
     { id: "5", event: "생일 축하", message: "{이름}님 생일을 축하합니다.", description: "생일 당일 체크인 시 안내" },
     { id: "6", event: "대기 안내", message: "QR 또는 밴드를 인식해주세요.", description: "대기 화면에서 반복 재생" },
+    { id: "7", event: "락커 자동 배정", message: "{N}번 락커를 사용해주세요.", description: "출석 후 자동 배정 성공 시 안내" },
+    { id: "8", event: "락커 미배정", message: "프론트 데스크에서 락커를 배정받아주세요.", description: "자동 배정 실패 또는 수동 배정 정책일 때 안내" },
   ],
   accessStartTime: "06:00",
   accessEndTime: "23:00",
@@ -109,6 +156,10 @@ const INITIAL_DATA: SettingsData = {
   preventDuplicateCheckIn: true,
   duplicatePreventionMinutes: 10,
   unpaidAccess: "warn",
+
+  postCheckInPolicy: "attendance_only",
+  autoAssignZones: [],
+  unassignedGuideMessage: "프론트 데스크에서 락커를 배정받아주세요.",
 };
 
 function ToggleSwitch({ checked, onChange }: { checked: boolean; onChange: () => void }) {
@@ -194,7 +245,14 @@ async function loadKioskSettings(): Promise<SettingsData | null> {
   if (saved) {
     try {
       const parsed = JSON.parse(saved);
-      if (parsed?.kioskType) return parsed;
+      if (parsed?.kioskType) {
+        // 신규 필드 누락 시 기본값으로 보정 (마이그레이션)
+        return {
+          ...INITIAL_DATA,
+          ...parsed,
+          features: { ...INITIAL_DATA.features, ...(parsed.features ?? {}) },
+        };
+      }
     } catch {}
   }
   return null;
@@ -212,10 +270,6 @@ export default function KioskSettings() {
   const [isSaving, setIsSaving] = useState(false);
   const [status, setStatus] = useState<KioskStatus>("online");
   const [isLoading, setIsLoading] = useState(true);
-  const [clothesRental, setClothesRental] = useState(false);
-  const [lockerAssign, setLockerAssign] = useState(false);
-  const [attendanceRanking, setAttendanceRanking] = useState(false);
-  const [promotionPopup, setPromotionPopup] = useState(false);
 
   // 초기 로딩: settings 테이블에서 데이터 조회
   useEffect(() => {
@@ -312,14 +366,14 @@ export default function KioskSettings() {
           </FormSection>
 
           <FormSection title="입장 방식" description="체크인 인증 수단을 선택합니다." columns={1}>
-            <div className="col-span-full">
+            <div className="col-span-full space-y-md">
               <div className="grid grid-cols-3 gap-sm">
                 {[
-                  { value: "qr", label: "QR 코드" },
-                  { value: "rfid", label: "RFID/NFC" },
-                  { value: "face", label: "얼굴 인식" },
-                  { value: "pin", label: "전화번호 입력" },
-                  { value: "barcode", label: "바코드" },
+                  { value: "qr" as const, label: "QR 코드" },
+                  { value: "rfid" as const, label: "RFID/NFC" },
+                  { value: "face" as const, label: "얼굴 인식" },
+                  { value: "pin" as const, label: "전화번호 입력" },
+                  { value: "barcode" as const, label: "바코드" },
                 ].map(method => {
                   const active = settings.checkInMethods.includes(method.value);
                   return (
@@ -333,7 +387,11 @@ export default function KioskSettings() {
                         const next = active
                           ? settings.checkInMethods.filter(m => m !== method.value)
                           : [...settings.checkInMethods, method.value];
-                        setSettings({ ...settings, checkInMethods: next });
+                        // 기본 출석 방식이 빠지면 첫 번째 활성 수단으로 변경
+                        const def = next.includes(settings.defaultCheckInMethod)
+                          ? settings.defaultCheckInMethod
+                          : (next[0] ?? "qr");
+                        setSettings({ ...settings, checkInMethods: next, defaultCheckInMethod: def });
                       }}
                     >
                       <div className={cn(
@@ -346,6 +404,49 @@ export default function KioskSettings() {
                     </label>
                   );
                 })}
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-md">
+                <div className="space-y-xs">
+                  <label className="text-Label text-content-secondary">기본 출석 방식</label>
+                  <Select
+                    options={settings.checkInMethods.map(m => ({
+                      value: m,
+                      label: ({
+                        qr: "QR 코드",
+                        rfid: "RFID/NFC",
+                        face: "얼굴 인식",
+                        pin: "전화번호 입력",
+                        barcode: "바코드",
+                      } as const)[m],
+                    }))}
+                    value={settings.defaultCheckInMethod}
+                    onChange={(v) => setSettings({ ...settings, defaultCheckInMethod: v as CheckInMethod })}
+                  />
+                  <p className="text-[11px] text-content-secondary">키오스크 첫 화면에서 우선 표시되는 인증 방식</p>
+                </div>
+
+                <div className="flex items-center justify-between p-md rounded-xl bg-surface-secondary">
+                  <div>
+                    <p className="text-Body-2 font-medium text-content">직원 출퇴근 허용</p>
+                    <p className="text-Label text-content-secondary">직원이 키오스크로 출퇴근을 기록할 수 있도록 허용합니다</p>
+                  </div>
+                  <ToggleSwitch
+                    checked={settings.staffAttendance}
+                    onChange={() => setSettings({ ...settings, staffAttendance: !settings.staffAttendance })}
+                  />
+                </div>
+
+                <div className="flex items-center justify-between p-md rounded-xl bg-surface-secondary md:col-span-2">
+                  <div>
+                    <p className="text-Body-2 font-medium text-content">얼굴 인식 모듈 사용</p>
+                    <p className="text-Label text-content-secondary">얼굴 인식 카메라와 AI 엔진을 활성화합니다</p>
+                  </div>
+                  <ToggleSwitch
+                    checked={settings.useFaceRecognition}
+                    onChange={() => setSettings({ ...settings, useFaceRecognition: !settings.useFaceRecognition })}
+                  />
+                </div>
               </div>
             </div>
           </FormSection>
@@ -439,22 +540,48 @@ export default function KioskSettings() {
             </div>
           </FormSection>
 
-          <FormSection title="기능 설정" description="키오스크에서 사용할 부가 기능을 설정합니다." columns={1}>
+          <FormSection title="키오스크 회원 기능" description="회원이 키오스크에서 사용할 수 있는 부가 기능을 설정합니다." columns={1}>
             <div className="col-span-full space-y-md">
-              {[
-                { label: "운동복 대여", desc: "키오스크에서 운동복 대여 기능을 활성화합니다", value: clothesRental, onChange: () => setClothesRental(v => !v) },
-                { label: "사물함 배정", desc: "키오스크에서 사물함 배정 기능을 활성화합니다", value: lockerAssign, onChange: () => setLockerAssign(v => !v) },
-                { label: "출석 랭킹 표시", desc: "체크인 화면에 출석 랭킹을 표시합니다", value: attendanceRanking, onChange: () => setAttendanceRanking(v => !v) },
-                { label: "프로모션 팝업", desc: "체크인 후 프로모션 팝업을 표시합니다", value: promotionPopup, onChange: () => setPromotionPopup(v => !v) },
-              ].map(item => (
-                <div key={item.label} className="flex items-center justify-between p-md rounded-xl bg-surface-secondary">
-                  <div>
-                    <p className="text-Body-2 font-medium text-content">{item.label}</p>
-                    <p className="text-Label text-content-secondary">{item.desc}</p>
+              {(
+                [
+                  { key: "passInfo", label: "이용권 잔여 조회", desc: "잔여 일수/세션을 회원이 직접 조회할 수 있습니다", typeBOnly: false },
+                  { key: "reservations", label: "수업 예약 조회", desc: "예약된 수업 목록을 표시합니다", typeBOnly: false },
+                  { key: "lockerLookup", label: "락커 번호 확인", desc: "회원이 자신에게 배정된 락커 번호를 조회할 수 있습니다", typeBOnly: false },
+                  { key: "notices", label: "공지사항 조회", desc: "지점 공지사항을 키오스크에서 표시합니다", typeBOnly: false },
+                  { key: "shop", label: "상품 구매", desc: "타입B 키오스크에서 상품 결제 메뉴를 노출합니다", typeBOnly: true },
+                ] as const
+              ).map(item => {
+                const disabled = item.typeBOnly && settings.kioskType !== "typeB";
+                return (
+                  <div
+                    key={item.key}
+                    className={cn(
+                      "flex items-center justify-between p-md rounded-xl bg-surface-secondary",
+                      disabled && "opacity-60",
+                    )}
+                  >
+                    <div>
+                      <p className="text-Body-2 font-medium text-content">
+                        {item.label}
+                        {item.typeBOnly && (
+                          <span className="ml-xs text-[11px] text-content-secondary">· 타입 B 전용</span>
+                        )}
+                      </p>
+                      <p className="text-Label text-content-secondary">{item.desc}</p>
+                    </div>
+                    <ToggleSwitch
+                      checked={!disabled && settings.features[item.key]}
+                      onChange={() => {
+                        if (disabled) return;
+                        setSettings({
+                          ...settings,
+                          features: { ...settings.features, [item.key]: !settings.features[item.key] },
+                        });
+                      }}
+                    />
                   </div>
-                  <ToggleSwitch checked={item.value} onChange={item.onChange} />
-                </div>
-              ))}
+                );
+              })}
             </div>
           </FormSection>
         </div>
@@ -521,6 +648,31 @@ export default function KioskSettings() {
             value={settings.welcomeMessage}
             onChange={e => setSettings({ ...settings, welcomeMessage: e.target.value })}
           />
+        </div>
+
+        <div className="space-y-sm">
+          <Input
+            label="출석 완료 메시지"
+            type="text"
+            value={settings.completionMessage}
+            onChange={e => setSettings({ ...settings, completionMessage: e.target.value })}
+            hint="체크인 성공 화면 상단에 표시되는 문구"
+          />
+        </div>
+
+        <div className="space-y-sm">
+          <label className="text-Label text-content-secondary">키오스크 표시 언어</label>
+          <Select
+            options={[
+              { value: "ko", label: "한국어" },
+              { value: "en", label: "English" },
+              { value: "ja", label: "日本語" },
+              { value: "zh", label: "中文" },
+            ]}
+            value={settings.language}
+            onChange={(v) => setSettings({ ...settings, language: v as Language })}
+          />
+          <p className="text-[11px] text-content-secondary">키오스크 회원 화면의 기본 언어 (en/ja/zh는 일부 문구만 번역)</p>
         </div>
       </FormSection>
 
@@ -740,6 +892,115 @@ export default function KioskSettings() {
     </div>
   );
 
+  // ── 락커 후처리 ──
+  const renderLocker = () => (
+    <div className="flex flex-col gap-lg">
+      <FormSection title="출석 후 처리 정책" description="회원이 체크인을 완료한 직후 락커 처리 방식을 지정합니다." columns={1}>
+        <div className="col-span-full grid grid-cols-1 md:grid-cols-3 gap-md">
+          {([
+            {
+              value: "attendance_only" as const,
+              label: "출석만 완료",
+              desc: "락커 처리는 키오스크에서 하지 않음",
+            },
+            {
+              value: "manual_locker_assignment" as const,
+              label: "수동 배정 대기",
+              desc: "프론트에서 수동으로 락커를 배정하도록 안내",
+            },
+            {
+              value: "auto_locker_assignment" as const,
+              label: "자동 배정 시도",
+              desc: "선택한 존에서 빈 락커를 자동으로 배정",
+            },
+          ]).map(opt => {
+            const active = settings.postCheckInPolicy === opt.value;
+            return (
+              <button
+                key={opt.value}
+                onClick={() => setSettings({ ...settings, postCheckInPolicy: opt.value })}
+                className={cn(
+                  "flex flex-col items-start gap-xs p-lg rounded-xl border-2 text-left transition-all",
+                  active
+                    ? "border-accent bg-accent-light"
+                    : "border-line bg-surface hover:border-accent/40",
+                )}
+              >
+                <div className="flex w-full items-center justify-between">
+                  <span
+                    className={cn(
+                      "text-Body-1 font-bold",
+                      active ? "text-accent" : "text-content",
+                    )}
+                  >
+                    {opt.label}
+                  </span>
+                  {active && <CheckCircle2 className="text-accent" size={18} />}
+                </div>
+                <p className="text-Label text-content-secondary">{opt.desc}</p>
+              </button>
+            );
+          })}
+        </div>
+      </FormSection>
+
+      {settings.postCheckInPolicy === "auto_locker_assignment" && (
+        <FormSection
+          title="자동 배정 존"
+          description="자동 배정 시 탐색할 락커 존을 선택합니다."
+          columns={1}
+        >
+          <div className="col-span-full">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-sm">
+              {ALL_ZONES.map(zone => {
+                const active = settings.autoAssignZones.includes(zone);
+                return (
+                  <button
+                    key={zone}
+                    onClick={() => {
+                      const next = active
+                        ? settings.autoAssignZones.filter(z => z !== zone)
+                        : [...settings.autoAssignZones, zone];
+                      setSettings({ ...settings, autoAssignZones: next });
+                    }}
+                    className={cn(
+                      "flex items-center justify-center gap-sm p-md rounded-xl border-2 transition-all",
+                      active
+                        ? "border-accent bg-accent-light text-accent"
+                        : "border-line bg-surface text-content hover:border-accent/40",
+                    )}
+                  >
+                    <span className="text-Body-2 font-bold">{zone} 존</span>
+                    {active && <CheckCircle2 size={16} />}
+                  </button>
+                );
+              })}
+            </div>
+            {settings.autoAssignZones.length === 0 && (
+              <p className="mt-sm text-[11px] text-state-warning">
+                존을 선택하지 않으면 자동 배정이 실패하고 미배정 안내가 표시됩니다.
+              </p>
+            )}
+          </div>
+        </FormSection>
+      )}
+
+      <FormSection
+        title="미배정 안내 문구"
+        description="락커가 배정되지 않을 때 키오스크 화면에 노출되는 메시지입니다."
+        columns={1}
+      >
+        <div className="col-span-full">
+          <Textarea
+            value={settings.unassignedGuideMessage}
+            onChange={e => setSettings({ ...settings, unassignedGuideMessage: e.target.value })}
+            rows={3}
+          />
+        </div>
+      </FormSection>
+    </div>
+  );
+
   return (
     <AppLayout>
       <div className="flex flex-col gap-lg">
@@ -781,6 +1042,7 @@ export default function KioskSettings() {
           {activeTab === "screen" && renderScreen()}
           {activeTab === "tts" && renderTTS()}
           {activeTab === "access" && renderAccess()}
+          {activeTab === "locker" && renderLocker()}
         </div>
       </div>
     </AppLayout>
