@@ -4,10 +4,11 @@
  *
  * 스키마와 DB 컬럼이 미싱크 상태이므로 모든 INSERT를 raw SQL로 처리합니다.
  */
+import 'dotenv/config';
 import { PrismaClient } from '../generated/prisma/client';
 import { PrismaPg } from '@prisma/adapter-pg';
 
-const connectionString = process.env.DATABASE_URL!;
+const connectionString = process.env.DIRECT_URL || process.env.DATABASE_URL!;
 const adapter = new PrismaPg({ connectionString });
 const prisma = new PrismaClient({ adapter });
 
@@ -23,6 +24,13 @@ async function upsertById(table: string, cols: string[], vals: unknown[]): Promi
 
 async function main() {
   console.log('🌱 시드 데이터 생성 시작...');
+
+  // 0. Tenant 생성 (branches.tenantId FK 필요)
+  await prisma.$executeRawUnsafe(`
+    INSERT INTO "tenants" (id, name, plan, "maxBranches", "isActive", "createdAt", "updatedAt")
+    VALUES (1, 'FitGenie CRM', 'PREMIUM', 20, true, NOW(), NOW())
+    ON CONFLICT (id) DO NOTHING
+  `);
 
   // 지부 컬럼이 없으면 추가 (멱등)
   await prisma.$executeRawUnsafe(`ALTER TABLE "branches" ADD COLUMN IF NOT EXISTS "districtCode" TEXT DEFAULT ''`);
@@ -692,7 +700,7 @@ async function main() {
 
   for (const c of consultationRows) {
     await prisma.$executeRawUnsafe(
-      `INSERT INTO consultations (member_id, staff_id, staff_name, type, content, scheduled_at, completed_at, status, branch_id)
+      `INSERT INTO consultations ("memberId", "staffId", "staffName", type, content, "scheduledAt", "completedAt", status, "branchId")
        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,1)`,
       c.memberId, c.staffId, c.staffName, c.type, c.content, c.scheduledAt, c.completedAt, c.status
     );
