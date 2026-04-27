@@ -11,7 +11,7 @@
  *   - route     (SCR: 메타 "경로")
  *   - filePath  (메타: "파일 경로")
  *   - component (메타: "페이지 컴포넌트" 또는 "컴포넌트")
- *   - diagrams  (본문 내 백틱으로 감싼 docs/다이어그램/*.md 경로 실존만 수집)
+ *   - diagrams  (본문 내 백틱으로 감싼 docs/admin/다이어그램/*.md 경로 실존만 수집)
  *   - errorCodes(본문 내 E######## 토큰)
  *
  * 안전장치:

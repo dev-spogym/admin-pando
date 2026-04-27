@@ -1,0 +1,741 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>FitGenie QA Report - 2026. 4. 27. 오후 2:40:27</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f5f7fa; color: #333; }
+    .header { background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); color: white; padding: 32px 40px; }
+    .header h1 { font-size: 28px; font-weight: 700; margin-bottom: 8px; }
+    .header p { font-size: 14px; opacity: 0.8; }
+    .container { max-width: 1400px; margin: 0 auto; padding: 32px 40px; }
+    .summary { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 40px; }
+    .card { background: white; border-radius: 12px; padding: 24px; text-align: center; box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
+    .card .num { font-size: 48px; font-weight: 800; line-height: 1; margin-bottom: 8px; }
+    .card .label { font-size: 14px; color: #666; font-weight: 500; }
+    .card.pass .num { color: #22c55e; }
+    .card.warn .num { color: #f59e0b; }
+    .card.error .num { color: #ef4444; }
+    .card.slow .num { color: #8b5cf6; }
+    .card.api-warn .num { color: #f97316; }
+    h2 { font-size: 20px; font-weight: 700; margin: 32px 0 16px; padding-bottom: 8px; border-bottom: 2px solid #e5e7eb; }
+    table { width: 100%; border-collapse: collapse; background: white; border-radius: 12px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.08); margin-bottom: 32px; }
+    thead { background: #1a1a2e; color: white; }
+    th { padding: 14px 16px; text-align: left; font-size: 13px; font-weight: 600; }
+    td { padding: 12px 16px; font-size: 13px; border-bottom: 1px solid #f0f0f0; vertical-align: top; }
+    tr:last-child td { border-bottom: none; }
+    tr.pass { background: #f0fdf4; }
+    tr.warn { background: #fffbeb; }
+    tr.error { background: #fef2f2; }
+    tr.slow { background: #faf5ff; }
+    tr.api-warn { background: #fff7ed; }
+    tr:hover td { filter: brightness(0.97); }
+    .status-cell { font-weight: 700; white-space: nowrap; }
+    code { font-family: 'SF Mono', monospace; font-size: 12px; background: #f1f5f9; padding: 2px 6px; border-radius: 4px; }
+    ul { padding-left: 16px; }
+    li { margin-bottom: 4px; color: #555; word-break: break-all; }
+    img { border-radius: 6px; border: 1px solid #e5e7eb; display: block; max-width: 200px; }
+    .empty-section { color: #999; font-style: italic; padding: 16px; }
+    @media (max-width: 768px) { .summary { grid-template-columns: repeat(2, 1fr); } .container { padding: 16px; } }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h1>FitGenie CRM QA 리포트</h1>
+    <p>실행 시간: 2026. 4. 27. 오후 2:40:27 &nbsp;|&nbsp; 총 93개 화면 &nbsp;|&nbsp; ✅ 92개 PASS &nbsp;|&nbsp; 🔶 0개 API경고 &nbsp;|&nbsp; ⚠️ 0개 빈상태 &nbsp;|&nbsp; ❌ 0개 ERROR &nbsp;|&nbsp; ⏱️ 1개 SLOW</p>
+  </div>
+  <div class="container">
+    <div class="summary" style="grid-template-columns: repeat(5, 1fr)">
+      <div class="card pass">
+        <div class="num">92</div>
+        <div class="label">✅ PASS</div>
+      </div>
+      <div class="card api-warn">
+        <div class="num">0</div>
+        <div class="label">🔶 서브 API 에러</div>
+      </div>
+      <div class="card warn">
+        <div class="num">0</div>
+        <div class="label">⚠️ 빈 상태</div>
+      </div>
+      <div class="card error">
+        <div class="num">0</div>
+        <div class="label">❌ ERROR</div>
+      </div>
+      <div class="card slow">
+        <div class="num">1</div>
+        <div class="label">⏱️ SLOW (3초+)</div>
+      </div>
+    </div>
+
+    <h2>❌ 에러 화면 (0개) — JS 에러 또는 타임아웃</h2>
+    <p class="empty-section">에러 화면이 없습니다. 🎉</p>
+
+    <h2>🔶 서브 API 에러 (0개) — 화면은 표시되나 일부 API 실패</h2>
+    <p style="color:#666;font-size:13px;margin-bottom:12px">페이지 자체는 렌더링됐지만 내부 API 호출 중 일부가 4xx/5xx를 반환한 화면입니다. 실제 데이터 표시 여부는 스크린샷을 확인하세요.</p>
+    <p class="empty-section">서브 API 에러 화면이 없습니다.</p>
+
+    <h2>⚠️ 빈 상태 화면 (0개)</h2>
+    <p class="empty-section">빈 상태 화면이 없습니다.</p>
+
+    <h2>📋 전체 화면 목록 (93개)</h2>
+    <table>
+      <thead><tr><th>라우트</th><th>타이틀</th><th>상태</th><th>로딩시간</th><th>에러 내용</th><th>스크린샷</th></tr></thead>
+      <tbody><tr class="pass">
+      <td><code>/</code></td>
+      <td>FitGenie CRM</td>
+      <td class="status-cell">✅ PASS</td>
+      <td>1070ms</td>
+      <td>-</td>
+      <td><a href="screenshots/root.png" target="_blank"><img src="screenshots/root.png" width="200" loading="lazy" onerror="this.style.display='none'"></a></td>
+    </tr><tr class="pass">
+      <td><code>/attendance</code></td>
+      <td>FitGenie CRM</td>
+      <td class="status-cell">✅ PASS</td>
+      <td>835ms</td>
+      <td>-</td>
+      <td><a href="screenshots/attendance.png" target="_blank"><img src="screenshots/attendance.png" width="200" loading="lazy" onerror="this.style.display='none'"></a></td>
+    </tr><tr class="pass">
+      <td><code>/audit-log</code></td>
+      <td>FitGenie CRM</td>
+      <td class="status-cell">✅ PASS</td>
+      <td>661ms</td>
+      <td>-</td>
+      <td><a href="screenshots/audit-log.png" target="_blank"><img src="screenshots/audit-log.png" width="200" loading="lazy" onerror="this.style.display='none'"></a></td>
+    </tr><tr class="pass">
+      <td><code>/benchmark</code></td>
+      <td>FitGenie CRM</td>
+      <td class="status-cell">✅ PASS</td>
+      <td>562ms</td>
+      <td>-</td>
+      <td><a href="screenshots/benchmark.png" target="_blank"><img src="screenshots/benchmark.png" width="200" loading="lazy" onerror="this.style.display='none'"></a></td>
+    </tr><tr class="pass">
+      <td><code>/body-composition</code></td>
+      <td>FitGenie CRM</td>
+      <td class="status-cell">✅ PASS</td>
+      <td>781ms</td>
+      <td>-</td>
+      <td><a href="screenshots/body-composition.png" target="_blank"><img src="screenshots/body-composition.png" width="200" loading="lazy" onerror="this.style.display='none'"></a></td>
+    </tr><tr class="pass">
+      <td><code>/branch-report</code></td>
+      <td>FitGenie CRM</td>
+      <td class="status-cell">✅ PASS</td>
+      <td>1153ms</td>
+      <td>-</td>
+      <td><a href="screenshots/branch-report.png" target="_blank"><img src="screenshots/branch-report.png" width="200" loading="lazy" onerror="this.style.display='none'"></a></td>
+    </tr><tr class="pass">
+      <td><code>/branches</code></td>
+      <td>FitGenie CRM</td>
+      <td class="status-cell">✅ PASS</td>
+      <td>840ms</td>
+      <td>-</td>
+      <td><a href="screenshots/branches.png" target="_blank"><img src="screenshots/branches.png" width="200" loading="lazy" onerror="this.style.display='none'"></a></td>
+    </tr><tr class="pass">
+      <td><code>/calendar</code></td>
+      <td>FitGenie CRM</td>
+      <td class="status-cell">✅ PASS</td>
+      <td>893ms</td>
+      <td>-</td>
+      <td><a href="screenshots/calendar.png" target="_blank"><img src="screenshots/calendar.png" width="200" loading="lazy" onerror="this.style.display='none'"></a></td>
+    </tr><tr class="pass">
+      <td><code>/class-feedback</code></td>
+      <td>FitGenie CRM</td>
+      <td class="status-cell">✅ PASS</td>
+      <td>570ms</td>
+      <td>-</td>
+      <td><a href="screenshots/class-feedback.png" target="_blank"><img src="screenshots/class-feedback.png" width="200" loading="lazy" onerror="this.style.display='none'"></a></td>
+    </tr><tr class="pass">
+      <td><code>/class-recording</code></td>
+      <td>FitGenie CRM</td>
+      <td class="status-cell">✅ PASS</td>
+      <td>579ms</td>
+      <td>-</td>
+      <td><a href="screenshots/class-recording.png" target="_blank"><img src="screenshots/class-recording.png" width="200" loading="lazy" onerror="this.style.display='none'"></a></td>
+    </tr><tr class="pass">
+      <td><code>/class-schedule</code></td>
+      <td>FitGenie CRM</td>
+      <td class="status-cell">✅ PASS</td>
+      <td>679ms</td>
+      <td>-</td>
+      <td><a href="screenshots/class-schedule.png" target="_blank"><img src="screenshots/class-schedule.png" width="200" loading="lazy" onerror="this.style.display='none'"></a></td>
+    </tr><tr class="pass">
+      <td><code>/class-stats</code></td>
+      <td>FitGenie CRM</td>
+      <td class="status-cell">✅ PASS</td>
+      <td>808ms</td>
+      <td>-</td>
+      <td><a href="screenshots/class-stats.png" target="_blank"><img src="screenshots/class-stats.png" width="200" loading="lazy" onerror="this.style.display='none'"></a></td>
+    </tr><tr class="pass">
+      <td><code>/class-templates</code></td>
+      <td>FitGenie CRM</td>
+      <td class="status-cell">✅ PASS</td>
+      <td>671ms</td>
+      <td>-</td>
+      <td><a href="screenshots/class-templates.png" target="_blank"><img src="screenshots/class-templates.png" width="200" loading="lazy" onerror="this.style.display='none'"></a></td>
+    </tr><tr class="pass">
+      <td><code>/class-waitlist</code></td>
+      <td>FitGenie CRM</td>
+      <td class="status-cell">✅ PASS</td>
+      <td>564ms</td>
+      <td>-</td>
+      <td><a href="screenshots/class-waitlist.png" target="_blank"><img src="screenshots/class-waitlist.png" width="200" loading="lazy" onerror="this.style.display='none'"></a></td>
+    </tr><tr class="pass">
+      <td><code>/cleaning-schedule</code></td>
+      <td>FitGenie CRM</td>
+      <td class="status-cell">✅ PASS</td>
+      <td>602ms</td>
+      <td>-</td>
+      <td><a href="screenshots/cleaning-schedule.png" target="_blank"><img src="screenshots/cleaning-schedule.png" width="200" loading="lazy" onerror="this.style.display='none'"></a></td>
+    </tr><tr class="pass">
+      <td><code>/clothing</code></td>
+      <td>FitGenie CRM</td>
+      <td class="status-cell">✅ PASS</td>
+      <td>657ms</td>
+      <td>-</td>
+      <td><a href="screenshots/clothing.png" target="_blank"><img src="screenshots/clothing.png" width="200" loading="lazy" onerror="this.style.display='none'"></a></td>
+    </tr><tr class="pass">
+      <td><code>/clothing-locker</code></td>
+      <td>FitGenie CRM</td>
+      <td class="status-cell">✅ PASS</td>
+      <td>551ms</td>
+      <td>-</td>
+      <td><a href="screenshots/clothing-locker.png" target="_blank"><img src="screenshots/clothing-locker.png" width="200" loading="lazy" onerror="this.style.display='none'"></a></td>
+    </tr><tr class="pass">
+      <td><code>/consumables</code></td>
+      <td>FitGenie CRM</td>
+      <td class="status-cell">✅ PASS</td>
+      <td>563ms</td>
+      <td>-</td>
+      <td><a href="screenshots/consumables.png" target="_blank"><img src="screenshots/consumables.png" width="200" loading="lazy" onerror="this.style.display='none'"></a></td>
+    </tr><tr class="pass">
+      <td><code>/contracts/new</code></td>
+      <td>FitGenie CRM</td>
+      <td class="status-cell">✅ PASS</td>
+      <td>670ms</td>
+      <td>-</td>
+      <td><a href="screenshots/contracts_new.png" target="_blank"><img src="screenshots/contracts_new.png" width="200" loading="lazy" onerror="this.style.display='none'"></a></td>
+    </tr><tr class="pass">
+      <td><code>/custom-dashboard</code></td>
+      <td>FitGenie CRM</td>
+      <td class="status-cell">✅ PASS</td>
+      <td>559ms</td>
+      <td>-</td>
+      <td><a href="screenshots/custom-dashboard.png" target="_blank"><img src="screenshots/custom-dashboard.png" width="200" loading="lazy" onerror="this.style.display='none'"></a></td>
+    </tr><tr class="pass">
+      <td><code>/deferred-revenue</code></td>
+      <td>FitGenie CRM</td>
+      <td class="status-cell">✅ PASS</td>
+      <td>695ms</td>
+      <td>-</td>
+      <td><a href="screenshots/deferred-revenue.png" target="_blank"><img src="screenshots/deferred-revenue.png" width="200" loading="lazy" onerror="this.style.display='none'"></a></td>
+    </tr><tr class="pass">
+      <td><code>/diagrams</code></td>
+      <td>FitGenie CRM</td>
+      <td class="status-cell">✅ PASS</td>
+      <td>666ms</td>
+      <td>-</td>
+      <td><a href="screenshots/diagrams.png" target="_blank"><img src="screenshots/diagrams.png" width="200" loading="lazy" onerror="this.style.display='none'"></a></td>
+    </tr><tr class="pass">
+      <td><code>/discount-settings</code></td>
+      <td>FitGenie CRM</td>
+      <td class="status-cell">✅ PASS</td>
+      <td>668ms</td>
+      <td>-</td>
+      <td><a href="screenshots/discount-settings.png" target="_blank"><img src="screenshots/discount-settings.png" width="200" loading="lazy" onerror="this.style.display='none'"></a></td>
+    </tr><tr class="pass">
+      <td><code>/equipment-maintenance</code></td>
+      <td>FitGenie CRM</td>
+      <td class="status-cell">✅ PASS</td>
+      <td>570ms</td>
+      <td>-</td>
+      <td><a href="screenshots/equipment-maintenance.png" target="_blank"><img src="screenshots/equipment-maintenance.png" width="200" loading="lazy" onerror="this.style.display='none'"></a></td>
+    </tr><tr class="pass">
+      <td><code>/exercise-programs</code></td>
+      <td>FitGenie CRM</td>
+      <td class="status-cell">✅ PASS</td>
+      <td>675ms</td>
+      <td>-</td>
+      <td><a href="screenshots/exercise-programs.png" target="_blank"><img src="screenshots/exercise-programs.png" width="200" loading="lazy" onerror="this.style.display='none'"></a></td>
+    </tr><tr class="pass">
+      <td><code>/golf-bays</code></td>
+      <td>FitGenie CRM</td>
+      <td class="status-cell">✅ PASS</td>
+      <td>663ms</td>
+      <td>-</td>
+      <td><a href="screenshots/golf-bays.png" target="_blank"><img src="screenshots/golf-bays.png" width="200" loading="lazy" onerror="this.style.display='none'"></a></td>
+    </tr><tr class="pass">
+      <td><code>/health-summary</code></td>
+      <td>FitGenie CRM</td>
+      <td class="status-cell">✅ PASS</td>
+      <td>564ms</td>
+      <td>-</td>
+      <td><a href="screenshots/health-summary.png" target="_blank"><img src="screenshots/health-summary.png" width="200" loading="lazy" onerror="this.style.display='none'"></a></td>
+    </tr><tr class="pass">
+      <td><code>/instructor-status</code></td>
+      <td>FitGenie CRM</td>
+      <td class="status-cell">✅ PASS</td>
+      <td>822ms</td>
+      <td>-</td>
+      <td><a href="screenshots/instructor-status.png" target="_blank"><img src="screenshots/instructor-status.png" width="200" loading="lazy" onerror="this.style.display='none'"></a></td>
+    </tr><tr class="pass">
+      <td><code>/kpi</code></td>
+      <td>FitGenie CRM</td>
+      <td class="status-cell">✅ PASS</td>
+      <td>1245ms</td>
+      <td>-</td>
+      <td><a href="screenshots/kpi.png" target="_blank"><img src="screenshots/kpi.png" width="200" loading="lazy" onerror="this.style.display='none'"></a></td>
+    </tr><tr class="pass">
+      <td><code>/kpi-preview</code></td>
+      <td>FitGenie CRM</td>
+      <td class="status-cell">✅ PASS</td>
+      <td>583ms</td>
+      <td>-</td>
+      <td><a href="screenshots/kpi-preview.png" target="_blank"><img src="screenshots/kpi-preview.png" width="200" loading="lazy" onerror="this.style.display='none'"></a></td>
+    </tr><tr class="pass">
+      <td><code>/leads</code></td>
+      <td>FitGenie CRM</td>
+      <td class="status-cell">✅ PASS</td>
+      <td>687ms</td>
+      <td>-</td>
+      <td><a href="screenshots/leads.png" target="_blank"><img src="screenshots/leads.png" width="200" loading="lazy" onerror="this.style.display='none'"></a></td>
+    </tr><tr class="pass">
+      <td><code>/lesson-counts</code></td>
+      <td>FitGenie CRM</td>
+      <td class="status-cell">✅ PASS</td>
+      <td>744ms</td>
+      <td>-</td>
+      <td><a href="screenshots/lesson-counts.png" target="_blank"><img src="screenshots/lesson-counts.png" width="200" loading="lazy" onerror="this.style.display='none'"></a></td>
+    </tr><tr class="pass">
+      <td><code>/lessons</code></td>
+      <td>FitGenie CRM</td>
+      <td class="status-cell">✅ PASS</td>
+      <td>693ms</td>
+      <td>-</td>
+      <td><a href="screenshots/lessons.png" target="_blank"><img src="screenshots/lessons.png" width="200" loading="lazy" onerror="this.style.display='none'"></a></td>
+    </tr><tr class="pass">
+      <td><code>/locker</code></td>
+      <td>FitGenie CRM</td>
+      <td class="status-cell">✅ PASS</td>
+      <td>722ms</td>
+      <td>-</td>
+      <td><a href="screenshots/locker.png" target="_blank"><img src="screenshots/locker.png" width="200" loading="lazy" onerror="this.style.display='none'"></a></td>
+    </tr><tr class="pass">
+      <td><code>/locker/management</code></td>
+      <td>FitGenie CRM</td>
+      <td class="status-cell">✅ PASS</td>
+      <td>674ms</td>
+      <td>-</td>
+      <td><a href="screenshots/locker_management.png" target="_blank"><img src="screenshots/locker_management.png" width="200" loading="lazy" onerror="this.style.display='none'"></a></td>
+    </tr><tr class="pass">
+      <td><code>/members</code></td>
+      <td>FitGenie CRM</td>
+      <td class="status-cell">✅ PASS</td>
+      <td>697ms</td>
+      <td>-</td>
+      <td><a href="screenshots/members.png" target="_blank"><img src="screenshots/members.png" width="200" loading="lazy" onerror="this.style.display='none'"></a></td>
+    </tr><tr class="pass">
+      <td><code>/members/family</code></td>
+      <td>FitGenie CRM</td>
+      <td class="status-cell">✅ PASS</td>
+      <td>555ms</td>
+      <td>-</td>
+      <td><a href="screenshots/members_family.png" target="_blank"><img src="screenshots/members_family.png" width="200" loading="lazy" onerror="this.style.display='none'"></a></td>
+    </tr><tr class="pass">
+      <td><code>/members/grade</code></td>
+      <td>FitGenie CRM</td>
+      <td class="status-cell">✅ PASS</td>
+      <td>565ms</td>
+      <td>-</td>
+      <td><a href="screenshots/members_grade.png" target="_blank"><img src="screenshots/members_grade.png" width="200" loading="lazy" onerror="this.style.display='none'"></a></td>
+    </tr><tr class="pass">
+      <td><code>/members/merge</code></td>
+      <td>FitGenie CRM</td>
+      <td class="status-cell">✅ PASS</td>
+      <td>564ms</td>
+      <td>-</td>
+      <td><a href="screenshots/members_merge.png" target="_blank"><img src="screenshots/members_merge.png" width="200" loading="lazy" onerror="this.style.display='none'"></a></td>
+    </tr><tr class="pass">
+      <td><code>/members/new</code></td>
+      <td>FitGenie CRM</td>
+      <td class="status-cell">✅ PASS</td>
+      <td>678ms</td>
+      <td>-</td>
+      <td><a href="screenshots/members_new.png" target="_blank"><img src="screenshots/members_new.png" width="200" loading="lazy" onerror="this.style.display='none'"></a></td>
+    </tr><tr class="pass">
+      <td><code>/members/segment</code></td>
+      <td>FitGenie CRM</td>
+      <td class="status-cell">✅ PASS</td>
+      <td>562ms</td>
+      <td>-</td>
+      <td><a href="screenshots/members_segment.png" target="_blank"><img src="screenshots/members_segment.png" width="200" loading="lazy" onerror="this.style.display='none'"></a></td>
+    </tr><tr class="pass">
+      <td><code>/mileage</code></td>
+      <td>FitGenie CRM</td>
+      <td class="status-cell">✅ PASS</td>
+      <td>845ms</td>
+      <td>-</td>
+      <td><a href="screenshots/mileage.png" target="_blank"><img src="screenshots/mileage.png" width="200" loading="lazy" onerror="this.style.display='none'"></a></td>
+    </tr><tr class="pass">
+      <td><code>/message</code></td>
+      <td>FitGenie CRM</td>
+      <td class="status-cell">✅ PASS</td>
+      <td>718ms</td>
+      <td>-</td>
+      <td><a href="screenshots/message.png" target="_blank"><img src="screenshots/message.png" width="200" loading="lazy" onerror="this.style.display='none'"></a></td>
+    </tr><tr class="pass">
+      <td><code>/message/ab-test</code></td>
+      <td>FitGenie CRM</td>
+      <td class="status-cell">✅ PASS</td>
+      <td>564ms</td>
+      <td>-</td>
+      <td><a href="screenshots/message_ab-test.png" target="_blank"><img src="screenshots/message_ab-test.png" width="200" loading="lazy" onerror="this.style.display='none'"></a></td>
+    </tr><tr class="pass">
+      <td><code>/message/auto-alarm</code></td>
+      <td>FitGenie CRM</td>
+      <td class="status-cell">✅ PASS</td>
+      <td>563ms</td>
+      <td>-</td>
+      <td><a href="screenshots/message_auto-alarm.png" target="_blank"><img src="screenshots/message_auto-alarm.png" width="200" loading="lazy" onerror="this.style.display='none'"></a></td>
+    </tr><tr class="pass">
+      <td><code>/message/campaigns</code></td>
+      <td>FitGenie CRM</td>
+      <td class="status-cell">✅ PASS</td>
+      <td>562ms</td>
+      <td>-</td>
+      <td><a href="screenshots/message_campaigns.png" target="_blank"><img src="screenshots/message_campaigns.png" width="200" loading="lazy" onerror="this.style.display='none'"></a></td>
+    </tr><tr class="pass">
+      <td><code>/message/coupon</code></td>
+      <td>FitGenie CRM</td>
+      <td class="status-cell">✅ PASS</td>
+      <td>741ms</td>
+      <td>-</td>
+      <td><a href="screenshots/message_coupon.png" target="_blank"><img src="screenshots/message_coupon.png" width="200" loading="lazy" onerror="this.style.display='none'"></a></td>
+    </tr><tr class="pass">
+      <td><code>/message/sms</code></td>
+      <td>FitGenie CRM</td>
+      <td class="status-cell">✅ PASS</td>
+      <td>563ms</td>
+      <td>-</td>
+      <td><a href="screenshots/message_sms.png" target="_blank"><img src="screenshots/message_sms.png" width="200" loading="lazy" onerror="this.style.display='none'"></a></td>
+    </tr><tr class="pass">
+      <td><code>/notices</code></td>
+      <td>FitGenie CRM</td>
+      <td class="status-cell">✅ PASS</td>
+      <td>740ms</td>
+      <td>-</td>
+      <td><a href="screenshots/notices.png" target="_blank"><img src="screenshots/notices.png" width="200" loading="lazy" onerror="this.style.display='none'"></a></td>
+    </tr><tr class="pass">
+      <td><code>/nps</code></td>
+      <td>FitGenie CRM</td>
+      <td class="status-cell">✅ PASS</td>
+      <td>564ms</td>
+      <td>-</td>
+      <td><a href="screenshots/nps.png" target="_blank"><img src="screenshots/nps.png" width="200" loading="lazy" onerror="this.style.display='none'"></a></td>
+    </tr><tr class="pass">
+      <td><code>/onboarding</code></td>
+      <td>FitGenie CRM</td>
+      <td class="status-cell">✅ PASS</td>
+      <td>1765ms</td>
+      <td>-</td>
+      <td><a href="screenshots/onboarding.png" target="_blank"><img src="screenshots/onboarding.png" width="200" loading="lazy" onerror="this.style.display='none'"></a></td>
+    </tr><tr class="pass">
+      <td><code>/payroll</code></td>
+      <td>FitGenie CRM</td>
+      <td class="status-cell">✅ PASS</td>
+      <td>753ms</td>
+      <td>-</td>
+      <td><a href="screenshots/payroll.png" target="_blank"><img src="screenshots/payroll.png" width="200" loading="lazy" onerror="this.style.display='none'"></a></td>
+    </tr><tr class="pass">
+      <td><code>/payroll/statements</code></td>
+      <td>FitGenie CRM</td>
+      <td class="status-cell">✅ PASS</td>
+      <td>690ms</td>
+      <td>-</td>
+      <td><a href="screenshots/payroll_statements.png" target="_blank"><img src="screenshots/payroll_statements.png" width="200" loading="lazy" onerror="this.style.display='none'"></a></td>
+    </tr><tr class="pass">
+      <td><code>/penalties</code></td>
+      <td>FitGenie CRM</td>
+      <td class="status-cell">✅ PASS</td>
+      <td>668ms</td>
+      <td>-</td>
+      <td><a href="screenshots/penalties.png" target="_blank"><img src="screenshots/penalties.png" width="200" loading="lazy" onerror="this.style.display='none'"></a></td>
+    </tr><tr class="pass">
+      <td><code>/pos</code></td>
+      <td>FitGenie CRM</td>
+      <td class="status-cell">✅ PASS</td>
+      <td>669ms</td>
+      <td>-</td>
+      <td><a href="screenshots/pos.png" target="_blank"><img src="screenshots/pos.png" width="200" loading="lazy" onerror="this.style.display='none'"></a></td>
+    </tr><tr class="pass">
+      <td><code>/predictive-analytics</code></td>
+      <td>FitGenie CRM</td>
+      <td class="status-cell">✅ PASS</td>
+      <td>558ms</td>
+      <td>-</td>
+      <td><a href="screenshots/predictive-analytics.png" target="_blank"><img src="screenshots/predictive-analytics.png" width="200" loading="lazy" onerror="this.style.display='none'"></a></td>
+    </tr><tr class="pass">
+      <td><code>/products</code></td>
+      <td>FitGenie CRM</td>
+      <td class="status-cell">✅ PASS</td>
+      <td>716ms</td>
+      <td>-</td>
+      <td><a href="screenshots/products.png" target="_blank"><img src="screenshots/products.png" width="200" loading="lazy" onerror="this.style.display='none'"></a></td>
+    </tr><tr class="pass">
+      <td><code>/products/catalog</code></td>
+      <td>FitGenie CRM</td>
+      <td class="status-cell">✅ PASS</td>
+      <td>558ms</td>
+      <td>-</td>
+      <td><a href="screenshots/products_catalog.png" target="_blank"><img src="screenshots/products_catalog.png" width="200" loading="lazy" onerror="this.style.display='none'"></a></td>
+    </tr><tr class="pass">
+      <td><code>/products/compare</code></td>
+      <td>FitGenie CRM</td>
+      <td class="status-cell">✅ PASS</td>
+      <td>558ms</td>
+      <td>-</td>
+      <td><a href="screenshots/products_compare.png" target="_blank"><img src="screenshots/products_compare.png" width="200" loading="lazy" onerror="this.style.display='none'"></a></td>
+    </tr><tr class="pass">
+      <td><code>/products/inventory</code></td>
+      <td>FitGenie CRM</td>
+      <td class="status-cell">✅ PASS</td>
+      <td>565ms</td>
+      <td>-</td>
+      <td><a href="screenshots/products_inventory.png" target="_blank"><img src="screenshots/products_inventory.png" width="200" loading="lazy" onerror="this.style.display='none'"></a></td>
+    </tr><tr class="pass">
+      <td><code>/products/seasonal-pricing</code></td>
+      <td>FitGenie CRM</td>
+      <td class="status-cell">✅ PASS</td>
+      <td>553ms</td>
+      <td>-</td>
+      <td><a href="screenshots/products_seasonal-pricing.png" target="_blank"><img src="screenshots/products_seasonal-pricing.png" width="200" loading="lazy" onerror="this.style.display='none'"></a></td>
+    </tr><tr class="pass">
+      <td><code>/profile</code></td>
+      <td>FitGenie CRM</td>
+      <td class="status-cell">✅ PASS</td>
+      <td>598ms</td>
+      <td>-</td>
+      <td><a href="screenshots/profile.png" target="_blank"><img src="screenshots/profile.png" width="200" loading="lazy" onerror="this.style.display='none'"></a></td>
+    </tr><tr class="pass">
+      <td><code>/qr-checkin</code></td>
+      <td>FitGenie CRM</td>
+      <td class="status-cell">✅ PASS</td>
+      <td>567ms</td>
+      <td>-</td>
+      <td><a href="screenshots/qr-checkin.png" target="_blank"><img src="screenshots/qr-checkin.png" width="200" loading="lazy" onerror="this.style.display='none'"></a></td>
+    </tr><tr class="pass">
+      <td><code>/referral</code></td>
+      <td>FitGenie CRM</td>
+      <td class="status-cell">✅ PASS</td>
+      <td>564ms</td>
+      <td>-</td>
+      <td><a href="screenshots/referral.png" target="_blank"><img src="screenshots/referral.png" width="200" loading="lazy" onerror="this.style.display='none'"></a></td>
+    </tr><tr class="pass">
+      <td><code>/refunds</code></td>
+      <td>FitGenie CRM</td>
+      <td class="status-cell">✅ PASS</td>
+      <td>918ms</td>
+      <td>-</td>
+      <td><a href="screenshots/refunds.png" target="_blank"><img src="screenshots/refunds.png" width="200" loading="lazy" onerror="this.style.display='none'"></a></td>
+    </tr><tr class="slow">
+      <td><code>/reports</code></td>
+      <td>FitGenie CRM</td>
+      <td class="status-cell">⏱️ SLOW</td>
+      <td>4222ms</td>
+      <td>-</td>
+      <td><a href="screenshots/reports.png" target="_blank"><img src="screenshots/reports.png" width="200" loading="lazy" onerror="this.style.display='none'"></a></td>
+    </tr><tr class="pass">
+      <td><code>/rfid</code></td>
+      <td>FitGenie CRM</td>
+      <td class="status-cell">✅ PASS</td>
+      <td>673ms</td>
+      <td>-</td>
+      <td><a href="screenshots/rfid.png" target="_blank"><img src="screenshots/rfid.png" width="200" loading="lazy" onerror="this.style.display='none'"></a></td>
+    </tr><tr class="pass">
+      <td><code>/rooms</code></td>
+      <td>FitGenie CRM</td>
+      <td class="status-cell">✅ PASS</td>
+      <td>578ms</td>
+      <td>-</td>
+      <td><a href="screenshots/rooms.png" target="_blank"><img src="screenshots/rooms.png" width="200" loading="lazy" onerror="this.style.display='none'"></a></td>
+    </tr><tr class="pass">
+      <td><code>/sales</code></td>
+      <td>FitGenie CRM</td>
+      <td class="status-cell">✅ PASS</td>
+      <td>828ms</td>
+      <td>-</td>
+      <td><a href="screenshots/sales.png" target="_blank"><img src="screenshots/sales.png" width="200" loading="lazy" onerror="this.style.display='none'"></a></td>
+    </tr><tr class="pass">
+      <td><code>/sales/cancel-refund</code></td>
+      <td>FitGenie CRM</td>
+      <td class="status-cell">✅ PASS</td>
+      <td>558ms</td>
+      <td>-</td>
+      <td><a href="screenshots/sales_cancel-refund.png" target="_blank"><img src="screenshots/sales_cancel-refund.png" width="200" loading="lazy" onerror="this.style.display='none'"></a></td>
+    </tr><tr class="pass">
+      <td><code>/sales/forecast</code></td>
+      <td>FitGenie CRM</td>
+      <td class="status-cell">✅ PASS</td>
+      <td>566ms</td>
+      <td>-</td>
+      <td><a href="screenshots/sales_forecast.png" target="_blank"><img src="screenshots/sales_forecast.png" width="200" loading="lazy" onerror="this.style.display='none'"></a></td>
+    </tr><tr class="pass">
+      <td><code>/sales/installment</code></td>
+      <td>FitGenie CRM</td>
+      <td class="status-cell">✅ PASS</td>
+      <td>560ms</td>
+      <td>-</td>
+      <td><a href="screenshots/sales_installment.png" target="_blank"><img src="screenshots/sales_installment.png" width="200" loading="lazy" onerror="this.style.display='none'"></a></td>
+    </tr><tr class="pass">
+      <td><code>/sales/invoice</code></td>
+      <td>FitGenie CRM</td>
+      <td class="status-cell">✅ PASS</td>
+      <td>561ms</td>
+      <td>-</td>
+      <td><a href="screenshots/sales_invoice.png" target="_blank"><img src="screenshots/sales_invoice.png" width="200" loading="lazy" onerror="this.style.display='none'"></a></td>
+    </tr><tr class="pass">
+      <td><code>/sales/statistics-management</code></td>
+      <td>FitGenie CRM</td>
+      <td class="status-cell">✅ PASS</td>
+      <td>796ms</td>
+      <td>-</td>
+      <td><a href="screenshots/sales_statistics-management.png" target="_blank"><img src="screenshots/sales_statistics-management.png" width="200" loading="lazy" onerror="this.style.display='none'"></a></td>
+    </tr><tr class="pass">
+      <td><code>/sales/stats</code></td>
+      <td>FitGenie CRM</td>
+      <td class="status-cell">✅ PASS</td>
+      <td>681ms</td>
+      <td>-</td>
+      <td><a href="screenshots/sales_stats.png" target="_blank"><img src="screenshots/sales_stats.png" width="200" loading="lazy" onerror="this.style.display='none'"></a></td>
+    </tr><tr class="pass">
+      <td><code>/schedule-requests</code></td>
+      <td>FitGenie CRM</td>
+      <td class="status-cell">✅ PASS</td>
+      <td>687ms</td>
+      <td>-</td>
+      <td><a href="screenshots/schedule-requests.png" target="_blank"><img src="screenshots/schedule-requests.png" width="200" loading="lazy" onerror="this.style.display='none'"></a></td>
+    </tr><tr class="pass">
+      <td><code>/settings</code></td>
+      <td>FitGenie CRM</td>
+      <td class="status-cell">✅ PASS</td>
+      <td>680ms</td>
+      <td>-</td>
+      <td><a href="screenshots/settings.png" target="_blank"><img src="screenshots/settings.png" width="200" loading="lazy" onerror="this.style.display='none'"></a></td>
+    </tr><tr class="pass">
+      <td><code>/settings/attendance</code></td>
+      <td>FitGenie CRM</td>
+      <td class="status-cell">✅ PASS</td>
+      <td>570ms</td>
+      <td>-</td>
+      <td><a href="screenshots/settings_attendance.png" target="_blank"><img src="screenshots/settings_attendance.png" width="200" loading="lazy" onerror="this.style.display='none'"></a></td>
+    </tr><tr class="pass">
+      <td><code>/settings/backup</code></td>
+      <td>FitGenie CRM</td>
+      <td class="status-cell">✅ PASS</td>
+      <td>570ms</td>
+      <td>-</td>
+      <td><a href="screenshots/settings_backup.png" target="_blank"><img src="screenshots/settings_backup.png" width="200" loading="lazy" onerror="this.style.display='none'"></a></td>
+    </tr><tr class="pass">
+      <td><code>/settings/custom-roles</code></td>
+      <td>FitGenie CRM</td>
+      <td class="status-cell">✅ PASS</td>
+      <td>564ms</td>
+      <td>-</td>
+      <td><a href="screenshots/settings_custom-roles.png" target="_blank"><img src="screenshots/settings_custom-roles.png" width="200" loading="lazy" onerror="this.style.display='none'"></a></td>
+    </tr><tr class="pass">
+      <td><code>/settings/iot</code></td>
+      <td>FitGenie CRM</td>
+      <td class="status-cell">✅ PASS</td>
+      <td>567ms</td>
+      <td>-</td>
+      <td><a href="screenshots/settings_iot.png" target="_blank"><img src="screenshots/settings_iot.png" width="200" loading="lazy" onerror="this.style.display='none'"></a></td>
+    </tr><tr class="pass">
+      <td><code>/settings/kiosk</code></td>
+      <td>FitGenie CRM</td>
+      <td class="status-cell">✅ PASS</td>
+      <td>652ms</td>
+      <td>-</td>
+      <td><a href="screenshots/settings_kiosk.png" target="_blank"><img src="screenshots/settings_kiosk.png" width="200" loading="lazy" onerror="this.style.display='none'"></a></td>
+    </tr><tr class="pass">
+      <td><code>/settings/language</code></td>
+      <td>FitGenie CRM</td>
+      <td class="status-cell">✅ PASS</td>
+      <td>567ms</td>
+      <td>-</td>
+      <td><a href="screenshots/settings_language.png" target="_blank"><img src="screenshots/settings_language.png" width="200" loading="lazy" onerror="this.style.display='none'"></a></td>
+    </tr><tr class="pass">
+      <td><code>/settings/permissions</code></td>
+      <td>FitGenie CRM</td>
+      <td class="status-cell">✅ PASS</td>
+      <td>697ms</td>
+      <td>-</td>
+      <td><a href="screenshots/settings_permissions.png" target="_blank"><img src="screenshots/settings_permissions.png" width="200" loading="lazy" onerror="this.style.display='none'"></a></td>
+    </tr><tr class="pass">
+      <td><code>/staff</code></td>
+      <td>FitGenie CRM</td>
+      <td class="status-cell">✅ PASS</td>
+      <td>694ms</td>
+      <td>-</td>
+      <td><a href="screenshots/staff.png" target="_blank"><img src="screenshots/staff.png" width="200" loading="lazy" onerror="this.style.display='none'"></a></td>
+    </tr><tr class="pass">
+      <td><code>/staff/attendance</code></td>
+      <td>FitGenie CRM</td>
+      <td class="status-cell">✅ PASS</td>
+      <td>686ms</td>
+      <td>-</td>
+      <td><a href="screenshots/staff_attendance.png" target="_blank"><img src="screenshots/staff_attendance.png" width="200" loading="lazy" onerror="this.style.display='none'"></a></td>
+    </tr><tr class="pass">
+      <td><code>/staff/new</code></td>
+      <td>FitGenie CRM</td>
+      <td class="status-cell">✅ PASS</td>
+      <td>577ms</td>
+      <td>-</td>
+      <td><a href="screenshots/staff_new.png" target="_blank"><img src="screenshots/staff_new.png" width="200" loading="lazy" onerror="this.style.display='none'"></a></td>
+    </tr><tr class="pass">
+      <td><code>/staff/resignation</code></td>
+      <td>FitGenie CRM</td>
+      <td class="status-cell">✅ PASS</td>
+      <td>673ms</td>
+      <td>-</td>
+      <td><a href="screenshots/staff_resignation.png" target="_blank"><img src="screenshots/staff_resignation.png" width="200" loading="lazy" onerror="this.style.display='none'"></a></td>
+    </tr><tr class="pass">
+      <td><code>/subscription</code></td>
+      <td>FitGenie CRM</td>
+      <td class="status-cell">✅ PASS</td>
+      <td>571ms</td>
+      <td>-</td>
+      <td><a href="screenshots/subscription.png" target="_blank"><img src="screenshots/subscription.png" width="200" loading="lazy" onerror="this.style.display='none'"></a></td>
+    </tr><tr class="pass">
+      <td><code>/super-dashboard</code></td>
+      <td>FitGenie CRM</td>
+      <td class="status-cell">✅ PASS</td>
+      <td>2718ms</td>
+      <td>-</td>
+      <td><a href="screenshots/super-dashboard.png" target="_blank"><img src="screenshots/super-dashboard.png" width="200" loading="lazy" onerror="this.style.display='none'"></a></td>
+    </tr><tr class="pass">
+      <td><code>/today-tasks</code></td>
+      <td>FitGenie CRM</td>
+      <td class="status-cell">✅ PASS</td>
+      <td>570ms</td>
+      <td>-</td>
+      <td><a href="screenshots/today-tasks.png" target="_blank"><img src="screenshots/today-tasks.png" width="200" loading="lazy" onerror="this.style.display='none'"></a></td>
+    </tr><tr class="pass">
+      <td><code>/unpaid</code></td>
+      <td>FitGenie CRM</td>
+      <td class="status-cell">✅ PASS</td>
+      <td>725ms</td>
+      <td>-</td>
+      <td><a href="screenshots/unpaid.png" target="_blank"><img src="screenshots/unpaid.png" width="200" loading="lazy" onerror="this.style.display='none'"></a></td>
+    </tr><tr class="pass">
+      <td><code>/valid-lessons</code></td>
+      <td>FitGenie CRM</td>
+      <td class="status-cell">✅ PASS</td>
+      <td>854ms</td>
+      <td>-</td>
+      <td><a href="screenshots/valid-lessons.png" target="_blank"><img src="screenshots/valid-lessons.png" width="200" loading="lazy" onerror="this.style.display='none'"></a></td>
+    </tr></tbody>
+    </table>
+  </div>
+</body>
+</html>

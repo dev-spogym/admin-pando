@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * 다이어그램 엣지 ID ↔ TC 매트릭스 대조 검증
- * - docs/다이어그램/**\/*.md 의 mermaid 블록에서 E_xxx 엣지 ID 추출
+ * - docs/admin/다이어그램/**\/*.md 의 mermaid 블록에서 E_xxx 엣지 ID 추출
  * - 99_TC_매핑/TC_트레이서빌리티_매트릭스.csv 의 edgeId 컬럼과 대조
  * - 누락/고아 엣지 리포트 생성
  */
@@ -9,7 +9,7 @@
 const fs = require('fs');
 const path = require('path');
 
-const ROOT = path.resolve(__dirname, '../../docs/다이어그램');
+const ROOT = path.resolve(__dirname, '../../docs/admin/다이어그램');
 const CSV  = path.join(ROOT, '99_TC_매핑/TC_트레이서빌리티_매트릭스.csv');
 const OUT  = path.join(ROOT, '99_TC_매핑/검증리포트.md');
 

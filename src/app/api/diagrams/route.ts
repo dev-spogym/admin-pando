@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 
-const ROOT = path.resolve(process.cwd(), 'docs/다이어그램');
+const ROOT = path.resolve(process.cwd(), 'docs/admin/다이어그램');
 
 type Node = {
   name: string;

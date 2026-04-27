@@ -9,7 +9,7 @@
 const fs = require('fs');
 const path = require('path');
 
-const ROOT = path.resolve(__dirname, '../../docs/다이어그램');
+const ROOT = path.resolve(__dirname, '../../docs/admin/다이어그램');
 const CSV  = path.join(ROOT, '99_TC_매핑/TC_트레이서빌리티_매트릭스.csv');
 
 function walk(dir, list = []) {

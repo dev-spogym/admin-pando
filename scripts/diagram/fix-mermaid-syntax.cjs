@@ -20,7 +20,7 @@
 const fs = require('fs');
 const path = require('path');
 
-const ROOT = path.resolve(__dirname, '../../docs/다이어그램');
+const ROOT = path.resolve(__dirname, '../../docs/admin/다이어그램');
 const DRY = process.argv.includes('--dry');
 const showIdx = process.argv.indexOf('--show');
 const SHOW = showIdx >= 0 ? parseInt(process.argv[showIdx + 1], 10) || 20 : 20;

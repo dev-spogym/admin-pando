@@ -5,7 +5,7 @@
 const fs = require('fs');
 const path = require('path');
 
-const ROOT = path.resolve(__dirname, '../../docs/다이어그램');
+const ROOT = path.resolve(__dirname, '../../docs/admin/다이어그램');
 const OUT = path.join(ROOT, '99_TC_매핑/mermaid_파싱에러.md');
 
 function walk(dir, list = []) {

@@ -6,7 +6,7 @@
 const fs = require('fs');
 const path = require('path');
 
-const ROOT = path.resolve(__dirname, '../../docs/다이어그램');
+const ROOT = path.resolve(__dirname, '../../docs/admin/다이어그램');
 const OUT = path.join(ROOT, '99_TC_매핑/TC_커버리지_리포트.md');
 
 const SCR_SETS = ['F1', 'F2', 'F3', 'F4', 'F5', 'F6', 'F7', 'F8', 'F9'];

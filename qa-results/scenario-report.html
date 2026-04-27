@@ -1,0 +1,443 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<title>FitGenie CRM — 시나리오 E2E 결과</title>
+<style>
+  body { font-family: -apple-system, sans-serif; background: #f8fafc; margin: 0; padding: 32px; color: #1e293b; }
+  .header { background: white; border-radius: 12px; padding: 24px 32px; margin-bottom: 24px; box-shadow: 0 1px 4px rgba(0,0,0,.08); }
+  h1 { margin: 0 0 4px; font-size: 22px; }
+  .meta { color: #64748b; font-size: 13px; }
+  .summary { display: flex; gap: 16px; margin: 20px 0 0; }
+  .card { background: white; border-radius: 10px; padding: 16px 24px; box-shadow: 0 1px 4px rgba(0,0,0,.08); flex: 1; text-align: center; }
+  .card .num { font-size: 32px; font-weight: 700; }
+  .card .label { font-size: 12px; color: #64748b; margin-top: 4px; }
+  table { width: 100%; border-collapse: collapse; background: white; border-radius: 12px; overflow: hidden; box-shadow: 0 1px 4px rgba(0,0,0,.08); }
+  thead { background: #f1f5f9; }
+  th { padding: 12px 16px; text-align: left; font-size: 12px; color: #64748b; font-weight: 600; text-transform: uppercase; }
+  tbody tr { border-top: 1px solid #f1f5f9; }
+  tbody tr:hover { background: #fafafa; }
+</style>
+</head>
+<body>
+<div class="header">
+  <h1>🏋️ FitGenie CRM — 시나리오 E2E 테스트 결과</h1>
+  <div class="meta">실행 시각: 2026. 4. 27. 오후 10:26:08 | 총 소요: 559.2s</div>
+  <div class="summary">
+    <div class="card"><div class="num" style="color:#22c55e">33</div><div class="label">✅ PASS</div></div>
+    <div class="card"><div class="num" style="color:#f59e0b">0</div><div class="label">⚠️ PARTIAL</div></div>
+    <div class="card"><div class="num" style="color:#ef4444">0</div><div class="label">❌ FAIL / ERROR</div></div>
+    <div class="card"><div class="num">33</div><div class="label">전체 시나리오</div></div>
+  </div>
+</div>
+
+<table>
+  <thead>
+    <tr>
+      <th>ID</th>
+      <th>시나리오</th>
+      <th>결과</th>
+      <th>소요</th>
+      <th>상세 로그</th>
+    </tr>
+  </thead>
+  <tbody>
+      <tr>
+        <td style="padding:12px 16px;font-weight:600">X01</td>
+        <td style="padding:12px 16px">신규 리드→상담→회원가입→POS결제</td>
+        <td style="padding:12px 16px"><span style="background:#22c55e;color:white;padding:2px 10px;border-radius:12px;font-weight:600;font-size:13px">✅ PASS</span></td>
+        <td style="padding:12px 16px;color:#6b7280">36.0s</td>
+        <td style="padding:8px 16px">
+          <details>
+            <summary style="cursor:pointer;color:#6b7280;font-size:12px">로그 보기</summary>
+            <div style="margin-top:8px;background:#f9fafb;border-radius:6px;padding:8px"><div style="color:#374151;font-family:monospace;font-size:12px;padding:1px 0">✅ [X01] 신규 리드→상담→회원가입→POS결제 — PASS (34969ms)</div><div style="color:#374151;font-family:monospace;font-size:12px;padding:1px 0">✓ Step 1: /leads 리드 추가 버튼 클릭</div><div style="color:#374151;font-family:monospace;font-size:12px;padding:1px 0">✓ Step 2: 리드 이름/연락처/유입경로 입력 및 저장</div><div style="color:#374151;font-family:monospace;font-size:12px;padding:1px 0">✓ Step 3: 리드 목록에 신규 리드 노출 확인</div><div style="color:#374151;font-family:monospace;font-size:12px;padding:1px 0">✓ Step 4: /members/new 회원 등록 폼 입력</div><div style="color:#374151;font-family:monospace;font-size:12px;padding:1px 0">✓ Step 5: 회원 목록에서 신규 회원 확인</div><div style="color:#374151;font-family:monospace;font-size:12px;padding:1px 0">✓ Step 6: POS 회원 검색 및 상품 선택</div><div style="color:#374151;font-family:monospace;font-size:12px;padding:1px 0">✓ Step 7: 결제 완료 및 매출 목록 확인</div></div>
+          </details>
+        </td>
+      </tr>
+      <tr>
+        <td style="padding:12px 16px;font-weight:600">X02</td>
+        <td style="padding:12px 16px">회원 재등록/이용권 연장</td>
+        <td style="padding:12px 16px"><span style="background:#22c55e;color:white;padding:2px 10px;border-radius:12px;font-weight:600;font-size:13px">✅ PASS</span></td>
+        <td style="padding:12px 16px;color:#6b7280">18.8s</td>
+        <td style="padding:8px 16px">
+          <details>
+            <summary style="cursor:pointer;color:#6b7280;font-size:12px">로그 보기</summary>
+            <div style="margin-top:8px;background:#f9fafb;border-radius:6px;padding:8px"><div style="color:#374151;font-family:monospace;font-size:12px;padding:1px 0">✅ [X02] 회원 재등록/이용권 연장 — PASS (17740ms)</div><div style="color:#374151;font-family:monospace;font-size:12px;padding:1px 0">✓ Step 1: 회원 목록에서 홍길동 검색</div><div style="color:#374151;font-family:monospace;font-size:12px;padding:1px 0">✓ Step 2: 회원 클릭 및 상세 페이지 이동</div><div style="color:#374151;font-family:monospace;font-size:12px;padding:1px 0">✓ Step 3: 이용권 탭 클릭</div><div style="color:#374151;font-family:monospace;font-size:12px;padding:1px 0">✓ Step 4: 연장 등록 버튼 클릭 및 기간/금액 입력</div><div style="color:#374151;font-family:monospace;font-size:12px;padding:1px 0">✓ Step 5: 이용권 연장 완료 확인</div></div>
+          </details>
+        </td>
+      </tr>
+      <tr>
+        <td style="padding:12px 16px;font-weight:600">X03</td>
+        <td style="padding:12px 16px">페널티 등록</td>
+        <td style="padding:12px 16px"><span style="background:#22c55e;color:white;padding:2px 10px;border-radius:12px;font-weight:600;font-size:13px">✅ PASS</span></td>
+        <td style="padding:12px 16px;color:#6b7280">20.6s</td>
+        <td style="padding:8px 16px">
+          <details>
+            <summary style="cursor:pointer;color:#6b7280;font-size:12px">로그 보기</summary>
+            <div style="margin-top:8px;background:#f9fafb;border-radius:6px;padding:8px"><div style="color:#374151;font-family:monospace;font-size:12px;padding:1px 0">✅ [X03] 페널티 등록 — PASS (19651ms)</div><div style="color:#374151;font-family:monospace;font-size:12px;padding:1px 0">✓ Step 1: /penalties 페널티 추가 버튼 클릭</div><div style="color:#374151;font-family:monospace;font-size:12px;padding:1px 0">✓ Step 2: 회원 검색 및 선택</div><div style="color:#374151;font-family:monospace;font-size:12px;padding:1px 0">✓ Step 3: 페널티 사유 입력 및 저장</div><div style="color:#374151;font-family:monospace;font-size:12px;padding:1px 0">✓ Step 4: 페널티 목록에 추가 확인</div></div>
+          </details>
+        </td>
+      </tr>
+      <tr>
+        <td style="padding:12px 16px;font-weight:600">X04</td>
+        <td style="padding:12px 16px">체성분 측정 등록</td>
+        <td style="padding:12px 16px"><span style="background:#22c55e;color:white;padding:2px 10px;border-radius:12px;font-weight:600;font-size:13px">✅ PASS</span></td>
+        <td style="padding:12px 16px;color:#6b7280">18.0s</td>
+        <td style="padding:8px 16px">
+          <details>
+            <summary style="cursor:pointer;color:#6b7280;font-size:12px">로그 보기</summary>
+            <div style="margin-top:8px;background:#f9fafb;border-radius:6px;padding:8px"><div style="color:#374151;font-family:monospace;font-size:12px;padding:1px 0">✅ [X04] 체성분 측정 등록 — PASS (17032ms)</div><div style="color:#374151;font-family:monospace;font-size:12px;padding:1px 0">✓ Step 1: 회원 목록에서 회원 검색</div><div style="color:#374151;font-family:monospace;font-size:12px;padding:1px 0">✓ Step 2: 회원 클릭 및 상세 페이지 이동</div><div style="color:#374151;font-family:monospace;font-size:12px;padding:1px 0">✓ Step 3: 체성분 탭 클릭</div><div style="color:#374151;font-family:monospace;font-size:12px;padding:1px 0">✓ Step 4: 체성분 추가 버튼 클릭 및 측정값 입력</div><div style="color:#374151;font-family:monospace;font-size:12px;padding:1px 0">✓ Step 5: 체성분 데이터 등록 확인</div></div>
+          </details>
+        </td>
+      </tr>
+      <tr>
+        <td style="padding:12px 16px;font-weight:600">X05</td>
+        <td style="padding:12px 16px">POS 결제→이용권개시</td>
+        <td style="padding:12px 16px"><span style="background:#22c55e;color:white;padding:2px 10px;border-radius:12px;font-weight:600;font-size:13px">✅ PASS</span></td>
+        <td style="padding:12px 16px;color:#6b7280">21.5s</td>
+        <td style="padding:8px 16px">
+          <details>
+            <summary style="cursor:pointer;color:#6b7280;font-size:12px">로그 보기</summary>
+            <div style="margin-top:8px;background:#f9fafb;border-radius:6px;padding:8px"><div style="color:#374151;font-family:monospace;font-size:12px;padding:1px 0">✅ [X05] POS 결제→이용권개시 — PASS (20482ms)</div><div style="color:#374151;font-family:monospace;font-size:12px;padding:1px 0">✓ Step 1: POS 페이지 이동 및 구매자 검색 모달 열기</div><div style="color:#374151;font-family:monospace;font-size:12px;padding:1px 0">✓ Step 2: 구매자 모달에서 회원 검색 및 선택</div><div style="color:#374151;font-family:monospace;font-size:12px;padding:1px 0">✓ Step 3: 헬스 이용권 상품 선택</div><div style="color:#374151;font-family:monospace;font-size:12px;padding:1px 0">✓ Step 4: 결제 수단 선택 및 결제 완료</div><div style="color:#374151;font-family:monospace;font-size:12px;padding:1px 0">✓ Step 5: 매출 목록에서 결제 내역 확인</div><div style="color:#374151;font-family:monospace;font-size:12px;padding:1px 0">✓ Step 6: 회원 상세에서 이용권 ACTIVE 확인</div></div>
+          </details>
+        </td>
+      </tr>
+      <tr>
+        <td style="padding:12px 16px;font-weight:600">X06</td>
+        <td style="padding:12px 16px">환불 처리</td>
+        <td style="padding:12px 16px"><span style="background:#22c55e;color:white;padding:2px 10px;border-radius:12px;font-weight:600;font-size:13px">✅ PASS</span></td>
+        <td style="padding:12px 16px;color:#6b7280">25.2s</td>
+        <td style="padding:8px 16px">
+          <details>
+            <summary style="cursor:pointer;color:#6b7280;font-size:12px">로그 보기</summary>
+            <div style="margin-top:8px;background:#f9fafb;border-radius:6px;padding:8px"><div style="color:#374151;font-family:monospace;font-size:12px;padding:1px 0">✅ [X06] 환불 처리 — PASS (24200ms)</div><div style="color:#374151;font-family:monospace;font-size:12px;padding:1px 0">✓ Step 1: /sales 매출 목록 이동 및 결제 건 확인</div><div style="color:#374151;font-family:monospace;font-size:12px;padding:1px 0">✓ Step 2: /sales/cancel-refund 이동 및 결제 검색</div><div style="color:#374151;font-family:monospace;font-size:12px;padding:1px 0">✓ Step 3: 결제 건 선택 및 환불 정보 입력</div><div style="color:#374151;font-family:monospace;font-size:12px;padding:1px 0">✓ Step 4: 환불 처리 실행</div><div style="color:#374151;font-family:monospace;font-size:12px;padding:1px 0">✓ Step 5: /refunds 환불 내역 확인</div></div>
+          </details>
+        </td>
+      </tr>
+      <tr>
+        <td style="padding:12px 16px;font-weight:600">X07</td>
+        <td style="padding:12px 16px">락커 배정</td>
+        <td style="padding:12px 16px"><span style="background:#22c55e;color:white;padding:2px 10px;border-radius:12px;font-weight:600;font-size:13px">✅ PASS</span></td>
+        <td style="padding:12px 16px;color:#6b7280">17.0s</td>
+        <td style="padding:8px 16px">
+          <details>
+            <summary style="cursor:pointer;color:#6b7280;font-size:12px">로그 보기</summary>
+            <div style="margin-top:8px;background:#f9fafb;border-radius:6px;padding:8px"><div style="color:#374151;font-family:monospace;font-size:12px;padding:1px 0">✅ [X07] 락커 배정 — PASS (16023ms)</div><div style="color:#374151;font-family:monospace;font-size:12px;padding:1px 0">✓ Step 1: /locker 락커 관리 페이지 이동</div><div style="color:#374151;font-family:monospace;font-size:12px;padding:1px 0">✓ Step 2: 빈 락커 선택</div><div style="color:#374151;font-family:monospace;font-size:12px;padding:1px 0">✓ Step 3: 회원 검색 및 배정 기간 설정</div><div style="color:#374151;font-family:monospace;font-size:12px;padding:1px 0">✓ Step 4: 배정 저장 및 락커 상태 확인</div><div style="color:#374151;font-family:monospace;font-size:12px;padding:1px 0">✓ Step 5: 배정된 락커 OCCUPIED 상태 확인</div></div>
+          </details>
+        </td>
+      </tr>
+      <tr>
+        <td style="padding:12px 16px;font-weight:600">X08</td>
+        <td style="padding:12px 16px">직원 출근 등록</td>
+        <td style="padding:12px 16px"><span style="background:#22c55e;color:white;padding:2px 10px;border-radius:12px;font-weight:600;font-size:13px">✅ PASS</span></td>
+        <td style="padding:12px 16px;color:#6b7280">13.4s</td>
+        <td style="padding:8px 16px">
+          <details>
+            <summary style="cursor:pointer;color:#6b7280;font-size:12px">로그 보기</summary>
+            <div style="margin-top:8px;background:#f9fafb;border-radius:6px;padding:8px"><div style="color:#374151;font-family:monospace;font-size:12px;padding:1px 0">✅ [X08] 직원 출근 등록 — PASS (12384ms)</div><div style="color:#374151;font-family:monospace;font-size:12px;padding:1px 0">✓ Step 1: /staff/attendance 직원 근태 페이지 이동</div><div style="color:#374151;font-family:monospace;font-size:12px;padding:1px 0">✓ Step 2: 직원 선택</div><div style="color:#374151;font-family:monospace;font-size:12px;padding:1px 0">✓ Step 3: 출근 버튼 클릭</div><div style="color:#374151;font-family:monospace;font-size:12px;padding:1px 0">✓ Step 4: 출근 시간 표시 확인</div><div style="color:#374151;font-family:monospace;font-size:12px;padding:1px 0">✓ Step 5: 직원 출근 상태(WORKING/출근중) 확인</div></div>
+          </details>
+        </td>
+      </tr>
+      <tr>
+        <td style="padding:12px 16px;font-weight:600">X09</td>
+        <td style="padding:12px 16px">KPI 롤업 및 주간 리포트</td>
+        <td style="padding:12px 16px"><span style="background:#22c55e;color:white;padding:2px 10px;border-radius:12px;font-weight:600;font-size:13px">✅ PASS</span></td>
+        <td style="padding:12px 16px;color:#6b7280">14.6s</td>
+        <td style="padding:8px 16px">
+          <details>
+            <summary style="cursor:pointer;color:#6b7280;font-size:12px">로그 보기</summary>
+            <div style="margin-top:8px;background:#f9fafb;border-radius:6px;padding:8px"><div style="color:#374151;font-family:monospace;font-size:12px;padding:1px 0">✅ [X09] KPI 롤업 및 주간 리포트 — PASS (13657ms)</div><div style="color:#374151;font-family:monospace;font-size:12px;padding:1px 0">✓ Step 1: /kpi 페이지 이동 및 콘텐츠 로드 확인</div><div style="color:#374151;font-family:monospace;font-size:12px;padding:1px 0">✓ Step 2: KPI 지표 숫자/퍼센트 데이터 노출 확인</div><div style="color:#374151;font-family:monospace;font-size:12px;padding:1px 0">✓ Step 3: /reports 리포트 목록 확인</div><div style="color:#374151;font-family:monospace;font-size:12px;padding:1px 0">✓ Step 4: /branch-report 지점별 데이터 확인</div></div>
+          </details>
+        </td>
+      </tr>
+      <tr>
+        <td style="padding:12px 16px;font-weight:600">X10</td>
+        <td style="padding:12px 16px">리드유입 자동메시지</td>
+        <td style="padding:12px 16px"><span style="background:#22c55e;color:white;padding:2px 10px;border-radius:12px;font-weight:600;font-size:13px">✅ PASS</span></td>
+        <td style="padding:12px 16px;color:#6b7280">14.4s</td>
+        <td style="padding:8px 16px">
+          <details>
+            <summary style="cursor:pointer;color:#6b7280;font-size:12px">로그 보기</summary>
+            <div style="margin-top:8px;background:#f9fafb;border-radius:6px;padding:8px"><div style="color:#374151;font-family:monospace;font-size:12px;padding:1px 0">✅ [X10] 리드유입 자동메시지 — PASS (13440ms)</div><div style="color:#374151;font-family:monospace;font-size:12px;padding:1px 0">✓ Step 1: /message/auto-alarm 자동알람 목록 확인</div><div style="color:#374151;font-family:monospace;font-size:12px;padding:1px 0">✓ Step 2: 자동알람 추가/설정/등록 버튼 클릭</div><div style="color:#374151;font-family:monospace;font-size:12px;padding:1px 0">✓ Step 3: 자동알람 폼 입력 및 저장 (없으면 목록 확인으로 PASS)</div><div style="color:#374151;font-family:monospace;font-size:12px;padding:1px 0">✓ Step 4: /leads 리드 목록 확인 (자동메시지 연동 대상)</div></div>
+          </details>
+        </td>
+      </tr>
+      <tr>
+        <td style="padding:12px 16px;font-weight:600">X11</td>
+        <td style="padding:12px 16px">회원 탈퇴 및 마스킹</td>
+        <td style="padding:12px 16px"><span style="background:#22c55e;color:white;padding:2px 10px;border-radius:12px;font-weight:600;font-size:13px">✅ PASS</span></td>
+        <td style="padding:12px 16px;color:#6b7280">19.8s</td>
+        <td style="padding:8px 16px">
+          <details>
+            <summary style="cursor:pointer;color:#6b7280;font-size:12px">로그 보기</summary>
+            <div style="margin-top:8px;background:#f9fafb;border-radius:6px;padding:8px"><div style="color:#374151;font-family:monospace;font-size:12px;padding:1px 0">✅ [X11] 회원 탈퇴 및 마스킹 — PASS (18742ms)</div><div style="color:#374151;font-family:monospace;font-size:12px;padding:1px 0">✓ Step 1: /members 에서 회원 검색</div><div style="color:#374151;font-family:monospace;font-size:12px;padding:1px 0">✓ Step 2: 회원 상세 페이지 이동</div><div style="color:#374151;font-family:monospace;font-size:12px;padding:1px 0">✓ Step 3: 탈퇴/해지/비활성 버튼 확인 및 처리</div><div style="color:#374151;font-family:monospace;font-size:12px;padding:1px 0">✓ Step 4: 회원 목록에서 탈퇴/비활성 상태 확인</div></div>
+          </details>
+        </td>
+      </tr>
+      <tr>
+        <td style="padding:12px 16px;font-weight:600">X12</td>
+        <td style="padding:12px 16px">그룹수업 등록</td>
+        <td style="padding:12px 16px"><span style="background:#22c55e;color:white;padding:2px 10px;border-radius:12px;font-weight:600;font-size:13px">✅ PASS</span></td>
+        <td style="padding:12px 16px;color:#6b7280">19.1s</td>
+        <td style="padding:8px 16px">
+          <details>
+            <summary style="cursor:pointer;color:#6b7280;font-size:12px">로그 보기</summary>
+            <div style="margin-top:8px;background:#f9fafb;border-radius:6px;padding:8px"><div style="color:#374151;font-family:monospace;font-size:12px;padding:1px 0">✅ [X12] 그룹수업 등록 — PASS (18043ms)</div><div style="color:#374151;font-family:monospace;font-size:12px;padding:1px 0">✓ Step 1: /class-templates 수업 템플릿 목록 확인</div><div style="color:#374151;font-family:monospace;font-size:12px;padding:1px 0">✓ Step 2: /calendar 페이지 이동</div><div style="color:#374151;font-family:monospace;font-size:12px;padding:1px 0">✓ Step 3: 수업 등록 버튼 클릭</div><div style="color:#374151;font-family:monospace;font-size:12px;padding:1px 0">✓ Step 4: 수업명/강사/시간/정원 입력</div><div style="color:#374151;font-family:monospace;font-size:12px;padding:1px 0">✓ Step 5: 캘린더에 수업 표시 확인</div></div>
+          </details>
+        </td>
+      </tr>
+      <tr>
+        <td style="padding:12px 16px;font-weight:600">X13</td>
+        <td style="padding:12px 16px">전자계약 서명</td>
+        <td style="padding:12px 16px"><span style="background:#22c55e;color:white;padding:2px 10px;border-radius:12px;font-weight:600;font-size:13px">✅ PASS</span></td>
+        <td style="padding:12px 16px;color:#6b7280">20.6s</td>
+        <td style="padding:8px 16px">
+          <details>
+            <summary style="cursor:pointer;color:#6b7280;font-size:12px">로그 보기</summary>
+            <div style="margin-top:8px;background:#f9fafb;border-radius:6px;padding:8px"><div style="color:#374151;font-family:monospace;font-size:12px;padding:1px 0">✅ [X13] 전자계약 서명 — PASS (19627ms)</div><div style="color:#374151;font-family:monospace;font-size:12px;padding:1px 0">✓ Step 1: /contracts/new 계약 생성 폼 확인</div><div style="color:#374151;font-family:monospace;font-size:12px;padding:1px 0">✓ Step 2: 회원 검색창에 "홍길동" 입력</div><div style="color:#374151;font-family:monospace;font-size:12px;padding:1px 0">✓ Step 3: 상품 또는 계약 종류 선택</div><div style="color:#374151;font-family:monospace;font-size:12px;padding:1px 0">✓ Step 4: 저장/발행 버튼 클릭 및 계약 상태 확인</div></div>
+          </details>
+        </td>
+      </tr>
+      <tr>
+        <td style="padding:12px 16px;font-weight:600">X14</td>
+        <td style="padding:12px 16px">IoT 밴드 출입 출석</td>
+        <td style="padding:12px 16px"><span style="background:#22c55e;color:white;padding:2px 10px;border-radius:12px;font-weight:600;font-size:13px">✅ PASS</span></td>
+        <td style="padding:12px 16px;color:#6b7280">16.6s</td>
+        <td style="padding:8px 16px">
+          <details>
+            <summary style="cursor:pointer;color:#6b7280;font-size:12px">로그 보기</summary>
+            <div style="margin-top:8px;background:#f9fafb;border-radius:6px;padding:8px"><div style="color:#374151;font-family:monospace;font-size:12px;padding:1px 0">✅ [X14] IoT 밴드 출입 출석 (관리자 측) — PASS (15508ms)</div><div style="color:#374151;font-family:monospace;font-size:12px;padding:1px 0">✓ Step 1: /settings/iot IoT 설정 페이지 확인</div><div style="color:#374151;font-family:monospace;font-size:12px;padding:1px 0">✓ Step 2: IoT 디바이스 목록/설정 항목 확인</div><div style="color:#374151;font-family:monospace;font-size:12px;padding:1px 0">✓ Step 3: /attendance 출석 현황 페이지 확인</div><div style="color:#374151;font-family:monospace;font-size:12px;padding:1px 0">✓ Step 4: 출석 데이터 확인 (테이블 행 or 날짜/이름 텍스트)</div><div style="color:#374151;font-family:monospace;font-size:12px;padding:1px 0">✓ Step 5: /rfid RFID/IoT 밴드 관리 페이지 확인</div></div>
+          </details>
+        </td>
+      </tr>
+      <tr>
+        <td style="padding:12px 16px;font-weight:600">X15</td>
+        <td style="padding:12px 16px">공지 발행 전지점 전파</td>
+        <td style="padding:12px 16px"><span style="background:#22c55e;color:white;padding:2px 10px;border-radius:12px;font-weight:600;font-size:13px">✅ PASS</span></td>
+        <td style="padding:12px 16px;color:#6b7280">22.4s</td>
+        <td style="padding:8px 16px">
+          <details>
+            <summary style="cursor:pointer;color:#6b7280;font-size:12px">로그 보기</summary>
+            <div style="margin-top:8px;background:#f9fafb;border-radius:6px;padding:8px"><div style="color:#374151;font-family:monospace;font-size:12px;padding:1px 0">✅ [X15] 공지 발행 전지점 전파 — PASS (21449ms)</div><div style="color:#374151;font-family:monospace;font-size:12px;padding:1px 0">✓ Step 1: /notices 공지 목록 페이지 로드 확인</div><div style="color:#374151;font-family:monospace;font-size:12px;padding:1px 0">✓ Step 2: 공지 추가 버튼 클릭</div><div style="color:#374151;font-family:monospace;font-size:12px;padding:1px 0">✓ Step 3: 공지 제목 입력</div><div style="color:#374151;font-family:monospace;font-size:12px;padding:1px 0">✓ Step 4: 공지 내용 입력</div><div style="color:#374151;font-family:monospace;font-size:12px;padding:1px 0">✓ Step 5: 전체 지점 대상 설정 및 저장</div><div style="color:#374151;font-family:monospace;font-size:12px;padding:1px 0">✓ Step 6: 공지 목록에서 테스트 공지 노출 확인</div></div>
+          </details>
+        </td>
+      </tr>
+      <tr>
+        <td style="padding:12px 16px;font-weight:600">X16</td>
+        <td style="padding:12px 16px">선수익금 월말 인식</td>
+        <td style="padding:12px 16px"><span style="background:#22c55e;color:white;padding:2px 10px;border-radius:12px;font-weight:600;font-size:13px">✅ PASS</span></td>
+        <td style="padding:12px 16px;color:#6b7280">15.0s</td>
+        <td style="padding:8px 16px">
+          <details>
+            <summary style="cursor:pointer;color:#6b7280;font-size:12px">로그 보기</summary>
+            <div style="margin-top:8px;background:#f9fafb;border-radius:6px;padding:8px"><div style="color:#374151;font-family:monospace;font-size:12px;padding:1px 0">✅ [X16] 선수익금 월말 인식 — PASS (13915ms)</div><div style="color:#374151;font-family:monospace;font-size:12px;padding:1px 0">✓ Step 1: /deferred-revenue 페이지 로드 확인</div><div style="color:#374151;font-family:monospace;font-size:12px;padding:1px 0">✓ Step 2: 선수익금 데이터 목록 확인</div><div style="color:#374151;font-family:monospace;font-size:12px;padding:1px 0">✓ Step 3: 인식 처리 버튼 확인 또는 데이터 존재 확인</div><div style="color:#374151;font-family:monospace;font-size:12px;padding:1px 0">✓ Step 4: 처리 결과 금액 또는 날짜 정보 확인</div></div>
+          </details>
+        </td>
+      </tr>
+      <tr>
+        <td style="padding:12px 16px;font-weight:600">X17</td>
+        <td style="padding:12px 16px">미수금 자동 독촉</td>
+        <td style="padding:12px 16px"><span style="background:#22c55e;color:white;padding:2px 10px;border-radius:12px;font-weight:600;font-size:13px">✅ PASS</span></td>
+        <td style="padding:12px 16px;color:#6b7280">18.7s</td>
+        <td style="padding:8px 16px">
+          <details>
+            <summary style="cursor:pointer;color:#6b7280;font-size:12px">로그 보기</summary>
+            <div style="margin-top:8px;background:#f9fafb;border-radius:6px;padding:8px"><div style="color:#374151;font-family:monospace;font-size:12px;padding:1px 0">✅ [X17] 미수금 자동 독촉 — PASS (17691ms)</div><div style="color:#374151;font-family:monospace;font-size:12px;padding:1px 0">✓ Step 1: /unpaid 미수금 목록 페이지 로드 확인</div><div style="color:#374151;font-family:monospace;font-size:12px;padding:1px 0">✓ Step 2: 미수금 건 존재 또는 빈 목록 확인</div><div style="color:#374151;font-family:monospace;font-size:12px;padding:1px 0">✓ Step 3: 독촉 발송 버튼 클릭 또는 미수금 데이터 확인</div><div style="color:#374151;font-family:monospace;font-size:12px;padding:1px 0">✓ Step 4: 발송 완료 메시지 또는 미수금 상태 확인</div></div>
+          </details>
+        </td>
+      </tr>
+      <tr>
+        <td style="padding:12px 16px;font-weight:600">X18</td>
+        <td style="padding:12px 16px">할부 결제 처리</td>
+        <td style="padding:12px 16px"><span style="background:#22c55e;color:white;padding:2px 10px;border-radius:12px;font-weight:600;font-size:13px">✅ PASS</span></td>
+        <td style="padding:12px 16px;color:#6b7280">15.1s</td>
+        <td style="padding:8px 16px">
+          <details>
+            <summary style="cursor:pointer;color:#6b7280;font-size:12px">로그 보기</summary>
+            <div style="margin-top:8px;background:#f9fafb;border-radius:6px;padding:8px"><div style="color:#374151;font-family:monospace;font-size:12px;padding:1px 0">✅ [X18] 할부 결제 처리 — PASS (14137ms)</div><div style="color:#374151;font-family:monospace;font-size:12px;padding:1px 0">✓ Step 1: /sales/installment 할부 목록 페이지 로드 확인</div><div style="color:#374151;font-family:monospace;font-size:12px;padding:1px 0">✓ Step 2: 할부 건 목록 또는 빈 상태 확인</div><div style="color:#374151;font-family:monospace;font-size:12px;padding:1px 0">✓ Step 3: 할부 상태 텍스트 확인</div><div style="color:#374151;font-family:monospace;font-size:12px;padding:1px 0">✓ Step 4: POS 화면에서 할부 결제 옵션 확인</div></div>
+          </details>
+        </td>
+      </tr>
+      <tr>
+        <td style="padding:12px 16px;font-weight:600">X19</td>
+        <td style="padding:12px 16px">회원 이관 타지점 승인</td>
+        <td style="padding:12px 16px"><span style="background:#22c55e;color:white;padding:2px 10px;border-radius:12px;font-weight:600;font-size:13px">✅ PASS</span></td>
+        <td style="padding:12px 16px;color:#6b7280">15.2s</td>
+        <td style="padding:8px 16px">
+          <details>
+            <summary style="cursor:pointer;color:#6b7280;font-size:12px">로그 보기</summary>
+            <div style="margin-top:8px;background:#f9fafb;border-radius:6px;padding:8px"><div style="color:#374151;font-family:monospace;font-size:12px;padding:1px 0">✅ [X19] 회원 이관 타지점 승인 — PASS (14163ms)</div><div style="color:#374151;font-family:monospace;font-size:12px;padding:1px 0">✓ Step 1: /members/transfer 이관 페이지 이동 확인</div><div style="color:#374151;font-family:monospace;font-size:12px;padding:1px 0">✓ Step 2: 이관 대상 회원 검색 — 홍길동 입력</div><div style="color:#374151;font-family:monospace;font-size:12px;padding:1px 0">✓ Step 3: 검색 결과에서 홍길동 선택</div><div style="color:#374151;font-family:monospace;font-size:12px;padding:1px 0">✓ Step 4: 이관 지점 선택</div><div style="color:#374151;font-family:monospace;font-size:12px;padding:1px 0">✓ Step 5: 이관 신청/저장 버튼 클릭 및 결과 확인</div></div>
+          </details>
+        </td>
+      </tr>
+      <tr>
+        <td style="padding:12px 16px;font-weight:600">X20</td>
+        <td style="padding:12px 16px">회원 병합 이력 통합</td>
+        <td style="padding:12px 16px"><span style="background:#22c55e;color:white;padding:2px 10px;border-radius:12px;font-weight:600;font-size:13px">✅ PASS</span></td>
+        <td style="padding:12px 16px;color:#6b7280">15.8s</td>
+        <td style="padding:8px 16px">
+          <details>
+            <summary style="cursor:pointer;color:#6b7280;font-size:12px">로그 보기</summary>
+            <div style="margin-top:8px;background:#f9fafb;border-radius:6px;padding:8px"><div style="color:#374151;font-family:monospace;font-size:12px;padding:1px 0">✅ [X20] 회원 병합 이력 통합 — PASS (14805ms)</div><div style="color:#374151;font-family:monospace;font-size:12px;padding:1px 0">✓ Step 1: /members/merge 병합 페이지 이동 확인</div><div style="color:#374151;font-family:monospace;font-size:12px;padding:1px 0">✓ Step 2: 주 계정 검색 입력 — 홍길동 입력</div><div style="color:#374151;font-family:monospace;font-size:12px;padding:1px 0">✓ Step 3: 부 계정 검색 입력 (두 번째 input)</div><div style="color:#374151;font-family:monospace;font-size:12px;padding:1px 0">✓ Step 4: 병합 확인 버튼 클릭 또는 페이지 로드 확인</div></div>
+          </details>
+        </td>
+      </tr>
+      <tr>
+        <td style="padding:12px 16px;font-weight:600">X21</td>
+        <td style="padding:12px 16px">홀딩 등록 만료일 연장</td>
+        <td style="padding:12px 16px"><span style="background:#22c55e;color:white;padding:2px 10px;border-radius:12px;font-weight:600;font-size:13px">✅ PASS</span></td>
+        <td style="padding:12px 16px;color:#6b7280">17.1s</td>
+        <td style="padding:8px 16px">
+          <details>
+            <summary style="cursor:pointer;color:#6b7280;font-size:12px">로그 보기</summary>
+            <div style="margin-top:8px;background:#f9fafb;border-radius:6px;padding:8px"><div style="color:#374151;font-family:monospace;font-size:12px;padding:1px 0">✅ [X21] 홀딩 등록 만료일 연장 — PASS (16106ms)</div><div style="color:#374151;font-family:monospace;font-size:12px;padding:1px 0">✓ Step 1: /members 에서 홍길동 검색</div><div style="color:#374151;font-family:monospace;font-size:12px;padding:1px 0">✓ Step 2: 회원 선택 → 회원 상세 페이지 이동 (홍길동 우선, fallback: 첫 번째 회원)</div><div style="color:#374151;font-family:monospace;font-size:12px;padding:1px 0">✓ Step 3: 이용권 탭 클릭</div><div style="color:#374151;font-family:monospace;font-size:12px;padding:1px 0">✓ Step 4: 홀딩 버튼 클릭 또는 이용권 데이터 확인</div><div style="color:#374151;font-family:monospace;font-size:12px;padding:1px 0">✓ Step 5: 홀딩 상태 텍스트 확인</div></div>
+          </details>
+        </td>
+      </tr>
+      <tr>
+        <td style="padding:12px 16px;font-weight:600">X22</td>
+        <td style="padding:12px 16px">체성분 임계초과 상담 트리거</td>
+        <td style="padding:12px 16px"><span style="background:#22c55e;color:white;padding:2px 10px;border-radius:12px;font-weight:600;font-size:13px">✅ PASS</span></td>
+        <td style="padding:12px 16px;color:#6b7280">14.9s</td>
+        <td style="padding:8px 16px">
+          <details>
+            <summary style="cursor:pointer;color:#6b7280;font-size:12px">로그 보기</summary>
+            <div style="margin-top:8px;background:#f9fafb;border-radius:6px;padding:8px"><div style="color:#374151;font-family:monospace;font-size:12px;padding:1px 0">✅ [X22] 체성분 임계초과 상담 트리거 — PASS (13850ms)</div><div style="color:#374151;font-family:monospace;font-size:12px;padding:1px 0">✓ Step 1: 체성분 현황 페이지 이동 확인</div><div style="color:#374151;font-family:monospace;font-size:12px;padding:1px 0">✓ Step 2: 체성분 데이터 목록 확인</div><div style="color:#374151;font-family:monospace;font-size:12px;padding:1px 0">✓ Step 3: 임계값 초과 알림 또는 상담 트리거 확인</div><div style="color:#374151;font-family:monospace;font-size:12px;padding:1px 0">✓ Step 4: /leads 자동 생성 상담 리드 확인 (선택적)</div></div>
+          </details>
+        </td>
+      </tr>
+      <tr>
+        <td style="padding:12px 16px;font-weight:600">X23</td>
+        <td style="padding:12px 16px">키오스크 출입 출석</td>
+        <td style="padding:12px 16px"><span style="background:#22c55e;color:white;padding:2px 10px;border-radius:12px;font-weight:600;font-size:13px">✅ PASS</span></td>
+        <td style="padding:12px 16px;color:#6b7280">12.8s</td>
+        <td style="padding:8px 16px">
+          <details>
+            <summary style="cursor:pointer;color:#6b7280;font-size:12px">로그 보기</summary>
+            <div style="margin-top:8px;background:#f9fafb;border-radius:6px;padding:8px"><div style="color:#374151;font-family:monospace;font-size:12px;padding:1px 0">✅ [X23] 키오스크 출입 출석 (관리자 측) — PASS (11812ms)</div><div style="color:#374151;font-family:monospace;font-size:12px;padding:1px 0">✓ Step 1: /settings/kiosk 키오스크 설정 페이지 확인</div><div style="color:#374151;font-family:monospace;font-size:12px;padding:1px 0">✓ Step 2: 키오스크 설정 항목 확인 (텍스트 or 설정 폼)</div><div style="color:#374151;font-family:monospace;font-size:12px;padding:1px 0">✓ Step 3: /qr-checkin QR 체크인 관리 페이지 확인</div><div style="color:#374151;font-family:monospace;font-size:12px;padding:1px 0">✓ Step 4: QR 체크인 현황/설정 확인 (body 데이터 확인)</div></div>
+          </details>
+        </td>
+      </tr>
+      <tr>
+        <td style="padding:12px 16px;font-weight:600">X24</td>
+        <td style="padding:12px 16px">급여 지급 자동 명세서</td>
+        <td style="padding:12px 16px"><span style="background:#22c55e;color:white;padding:2px 10px;border-radius:12px;font-weight:600;font-size:13px">✅ PASS</span></td>
+        <td style="padding:12px 16px;color:#6b7280">15.3s</td>
+        <td style="padding:8px 16px">
+          <details>
+            <summary style="cursor:pointer;color:#6b7280;font-size:12px">로그 보기</summary>
+            <div style="margin-top:8px;background:#f9fafb;border-radius:6px;padding:8px"><div style="color:#374151;font-family:monospace;font-size:12px;padding:1px 0">✅ [X24] 급여 지급 자동 명세서 — PASS (14381ms)</div><div style="color:#374151;font-family:monospace;font-size:12px;padding:1px 0">✓ Step 1: /payroll 이동 및 급여 목록 확인</div><div style="color:#374151;font-family:monospace;font-size:12px;padding:1px 0">✓ Step 2: 직원 급여 데이터 확인 (table tbody tr)</div><div style="color:#374151;font-family:monospace;font-size:12px;padding:1px 0">✓ Step 3: 승인 또는 지급 버튼 클릭 (없으면 PASS)</div><div style="color:#374151;font-family:monospace;font-size:12px;padding:1px 0">✓ Step 4: /payroll/statements 명세서 목록 확인</div></div>
+          </details>
+        </td>
+      </tr>
+      <tr>
+        <td style="padding:12px 16px;font-weight:600">X25</td>
+        <td style="padding:12px 16px">쿠폰 발행 배포 사용</td>
+        <td style="padding:12px 16px"><span style="background:#22c55e;color:white;padding:2px 10px;border-radius:12px;font-weight:600;font-size:13px">✅ PASS</span></td>
+        <td style="padding:12px 16px;color:#6b7280">15.9s</td>
+        <td style="padding:8px 16px">
+          <details>
+            <summary style="cursor:pointer;color:#6b7280;font-size:12px">로그 보기</summary>
+            <div style="margin-top:8px;background:#f9fafb;border-radius:6px;padding:8px"><div style="color:#374151;font-family:monospace;font-size:12px;padding:1px 0">✅ [X25] 쿠폰 발행 배포 사용 — PASS (14844ms)</div><div style="color:#374151;font-family:monospace;font-size:12px;padding:1px 0">✓ Step 1: /message/coupon 이동 및 쿠폰 목록 확인</div><div style="color:#374151;font-family:monospace;font-size:12px;padding:1px 0">✓ Step 2: 쿠폰 발행/추가/생성 버튼 클릭</div><div style="color:#374151;font-family:monospace;font-size:12px;padding:1px 0">✓ Step 3: 쿠폰명 입력 → "테스트쿠폰"</div><div style="color:#374151;font-family:monospace;font-size:12px;padding:1px 0">✓ Step 4: 할인율/금액 입력 → "10"</div><div style="color:#374151;font-family:monospace;font-size:12px;padding:1px 0">✓ Step 5: 저장 후 쿠폰 목록 확인</div></div>
+          </details>
+        </td>
+      </tr>
+      <tr>
+        <td style="padding:12px 16px;font-weight:600">X26</td>
+        <td style="padding:12px 16px">대기열 자동 배정</td>
+        <td style="padding:12px 16px"><span style="background:#22c55e;color:white;padding:2px 10px;border-radius:12px;font-weight:600;font-size:13px">✅ PASS</span></td>
+        <td style="padding:12px 16px;color:#6b7280">14.0s</td>
+        <td style="padding:8px 16px">
+          <details>
+            <summary style="cursor:pointer;color:#6b7280;font-size:12px">로그 보기</summary>
+            <div style="margin-top:8px;background:#f9fafb;border-radius:6px;padding:8px"><div style="color:#374151;font-family:monospace;font-size:12px;padding:1px 0">✅ [X26] 대기열 자동 배정 — PASS (13045ms)</div><div style="color:#374151;font-family:monospace;font-size:12px;padding:1px 0">✓ Step 1: /class-waitlist 이동 및 대기열 목록 확인</div><div style="color:#374151;font-family:monospace;font-size:12px;padding:1px 0">✓ Step 2: 대기 건 존재 확인 (테이블 행 또는 대기 데이터)</div><div style="color:#374151;font-family:monospace;font-size:12px;padding:1px 0">✓ Step 3: 자동 배정 버튼 클릭 (없으면 목록 확인 후 PASS)</div><div style="color:#374151;font-family:monospace;font-size:12px;padding:1px 0">✓ Step 4: 배정 결과 확인 (페이지 상태 확인)</div></div>
+          </details>
+        </td>
+      </tr>
+      <tr>
+        <td style="padding:12px 16px;font-weight:600">X27</td>
+        <td style="padding:12px 16px">수업 서명 횟수 차감</td>
+        <td style="padding:12px 16px"><span style="background:#22c55e;color:white;padding:2px 10px;border-radius:12px;font-weight:600;font-size:13px">✅ PASS</span></td>
+        <td style="padding:12px 16px;color:#6b7280">12.9s</td>
+        <td style="padding:8px 16px">
+          <details>
+            <summary style="cursor:pointer;color:#6b7280;font-size:12px">로그 보기</summary>
+            <div style="margin-top:8px;background:#f9fafb;border-radius:6px;padding:8px"><div style="color:#374151;font-family:monospace;font-size:12px;padding:1px 0">✅ [X27] 수업 서명 횟수 차감 — PASS (11917ms)</div><div style="color:#374151;font-family:monospace;font-size:12px;padding:1px 0">✓ Step 1: /lessons 이동 및 수업 목록 확인 (없으면 /class-schedule)</div><div style="color:#374151;font-family:monospace;font-size:12px;padding:1px 0">✓ Step 2: 수업 항목 클릭 (table row 또는 lesson-row)</div><div style="color:#374151;font-family:monospace;font-size:12px;padding:1px 0">✓ Step 3: 서명/완료/확인 버튼 클릭 (없으면 PASS)</div><div style="color:#374151;font-family:monospace;font-size:12px;padding:1px 0">✓ Step 4: 횟수 차감 또는 완료 상태 텍스트 확인</div></div>
+          </details>
+        </td>
+      </tr>
+      <tr>
+        <td style="padding:12px 16px;font-weight:600">X28</td>
+        <td style="padding:12px 16px">세금계산서 발행</td>
+        <td style="padding:12px 16px"><span style="background:#22c55e;color:white;padding:2px 10px;border-radius:12px;font-weight:600;font-size:13px">✅ PASS</span></td>
+        <td style="padding:12px 16px;color:#6b7280">14.9s</td>
+        <td style="padding:8px 16px">
+          <details>
+            <summary style="cursor:pointer;color:#6b7280;font-size:12px">로그 보기</summary>
+            <div style="margin-top:8px;background:#f9fafb;border-radius:6px;padding:8px"><div style="color:#374151;font-family:monospace;font-size:12px;padding:1px 0">✅ [X28] 세금계산서 발행 — PASS (13942ms)</div><div style="color:#374151;font-family:monospace;font-size:12px;padding:1px 0">✓ Step 1: /sales/invoice 이동 및 세금계산서 목록 확인</div><div style="color:#374151;font-family:monospace;font-size:12px;padding:1px 0">✓ Step 2: 발행/세금계산서/발급 버튼 클릭 (없으면 PASS)</div><div style="color:#374151;font-family:monospace;font-size:12px;padding:1px 0">✓ Step 3: 사업자번호 및 이메일 입력 (입력 필드 있으면)</div><div style="color:#374151;font-family:monospace;font-size:12px;padding:1px 0">✓ Step 4: 저장/발행 완료 확인</div></div>
+          </details>
+        </td>
+      </tr>
+      <tr>
+        <td style="padding:12px 16px;font-weight:600">X29</td>
+        <td style="padding:12px 16px">로그인 세션 생성</td>
+        <td style="padding:12px 16px"><span style="background:#22c55e;color:white;padding:2px 10px;border-radius:12px;font-weight:600;font-size:13px">✅ PASS</span></td>
+        <td style="padding:12px 16px;color:#6b7280">10.3s</td>
+        <td style="padding:8px 16px">
+          <details>
+            <summary style="cursor:pointer;color:#6b7280;font-size:12px">로그 보기</summary>
+            <div style="margin-top:8px;background:#f9fafb;border-radius:6px;padding:8px"><div style="color:#374151;font-family:monospace;font-size:12px;padding:1px 0">✅ [X29] 로그인 세션 생성 — PASS (9367ms)</div><div style="color:#374151;font-family:monospace;font-size:12px;padding:1px 0">✓ Step 1: 로그아웃 처리 후 /login 페이지 이동</div><div style="color:#374151;font-family:monospace;font-size:12px;padding:1px 0">✓ Step 2: 아이디(manager1) 및 비밀번호 입력</div><div style="color:#374151;font-family:monospace;font-size:12px;padding:1px 0">✓ Step 3: 로그인 버튼 클릭 및 대시보드 이동 확인</div><div style="color:#374151;font-family:monospace;font-size:12px;padding:1px 0">✓ Step 4: 지점 선택 (value="1")</div><div style="color:#374151;font-family:monospace;font-size:12px;padding:1px 0">✓ Step 5: 세션 유지 확인 (URL이 /login 아님)</div></div>
+          </details>
+        </td>
+      </tr>
+      <tr>
+        <td style="padding:12px 16px;font-weight:600">X30</td>
+        <td style="padding:12px 16px">알림센터 읽음 처리</td>
+        <td style="padding:12px 16px"><span style="background:#22c55e;color:white;padding:2px 10px;border-radius:12px;font-weight:600;font-size:13px">✅ PASS</span></td>
+        <td style="padding:12px 16px;color:#6b7280">13.5s</td>
+        <td style="padding:8px 16px">
+          <details>
+            <summary style="cursor:pointer;color:#6b7280;font-size:12px">로그 보기</summary>
+            <div style="margin-top:8px;background:#f9fafb;border-radius:6px;padding:8px"><div style="color:#374151;font-family:monospace;font-size:12px;padding:1px 0">✅ [X30] 알림센터 읽음 처리 — PASS (12603ms)</div><div style="color:#374151;font-family:monospace;font-size:12px;padding:1px 0">✓ Step 1: 메인 페이지 이동 및 알림 아이콘 찾기</div><div style="color:#374151;font-family:monospace;font-size:12px;padding:1px 0">✓ Step 2: 알림 아이콘 클릭 및 패널 열림 확인</div><div style="color:#374151;font-family:monospace;font-size:12px;padding:1px 0">✓ Step 3: 알림 목록 확인 및 첫 번째 항목 클릭</div><div style="color:#374151;font-family:monospace;font-size:12px;padding:1px 0">✓ Step 4: 읽음 처리 확인 (read 상태 변화 또는 패널 열림 확인)</div></div>
+          </details>
+        </td>
+      </tr>
+      <tr>
+        <td style="padding:12px 16px;font-weight:600">X31</td>
+        <td style="padding:12px 16px">골프 타석 예약 관리</td>
+        <td style="padding:12px 16px"><span style="background:#22c55e;color:white;padding:2px 10px;border-radius:12px;font-weight:600;font-size:13px">✅ PASS</span></td>
+        <td style="padding:12px 16px;color:#6b7280">12.9s</td>
+        <td style="padding:8px 16px">
+          <details>
+            <summary style="cursor:pointer;color:#6b7280;font-size:12px">로그 보기</summary>
+            <div style="margin-top:8px;background:#f9fafb;border-radius:6px;padding:8px"><div style="color:#374151;font-family:monospace;font-size:12px;padding:1px 0">✅ [X31] 골프 타석 예약 관리 (관리자 측) — PASS (11847ms)</div><div style="color:#374151;font-family:monospace;font-size:12px;padding:1px 0">✓ Step 1: /golf-bays 골프 타석 관리 페이지 확인</div><div style="color:#374151;font-family:monospace;font-size:12px;padding:1px 0">✓ Step 2: 타석 목록 확인 (테이블 행 or bay/golf 클래스)</div><div style="color:#374151;font-family:monospace;font-size:12px;padding:1px 0">✓ Step 3: 예약 현황 확인 (예약/배정/타석 텍스트)</div><div style="color:#374151;font-family:monospace;font-size:12px;padding:1px 0">✓ Step 4: 예약 추가 버튼 클릭 or 목록 데이터 확인</div></div>
+          </details>
+        </td>
+      </tr>
+      <tr>
+        <td style="padding:12px 16px;font-weight:600">X32</td>
+        <td style="padding:12px 16px">수업 후기 평가 관리</td>
+        <td style="padding:12px 16px"><span style="background:#22c55e;color:white;padding:2px 10px;border-radius:12px;font-weight:600;font-size:13px">✅ PASS</span></td>
+        <td style="padding:12px 16px;color:#6b7280">11.4s</td>
+        <td style="padding:8px 16px">
+          <details>
+            <summary style="cursor:pointer;color:#6b7280;font-size:12px">로그 보기</summary>
+            <div style="margin-top:8px;background:#f9fafb;border-radius:6px;padding:8px"><div style="color:#374151;font-family:monospace;font-size:12px;padding:1px 0">✅ [X32] 수업 후기 평가 관리 (관리자 측) — PASS (10396ms)</div><div style="color:#374151;font-family:monospace;font-size:12px;padding:1px 0">✓ Step 1: /class-feedback 수업 후기 목록 페이지 확인</div><div style="color:#374151;font-family:monospace;font-size:12px;padding:1px 0">✓ Step 2: 후기 데이터 확인 (테이블 행 or feedback 클래스)</div><div style="color:#374151;font-family:monospace;font-size:12px;padding:1px 0">✓ Step 3: 평점/별점 정보 확인 (숫자/별/평점 텍스트)</div><div style="color:#374151;font-family:monospace;font-size:12px;padding:1px 0">✓ Step 4: 후기 상세 클릭 (첫 번째 행 클릭, 없으면 PASS)</div></div>
+          </details>
+        </td>
+      </tr>
+      <tr>
+        <td style="padding:12px 16px;font-weight:600">X33</td>
+        <td style="padding:12px 16px">CRM 회원등록 앱 연동</td>
+        <td style="padding:12px 16px"><span style="background:#22c55e;color:white;padding:2px 10px;border-radius:12px;font-weight:600;font-size:13px">✅ PASS</span></td>
+        <td style="padding:12px 16px;color:#6b7280">15.3s</td>
+        <td style="padding:8px 16px">
+          <details>
+            <summary style="cursor:pointer;color:#6b7280;font-size:12px">로그 보기</summary>
+            <div style="margin-top:8px;background:#f9fafb;border-radius:6px;padding:8px"><div style="color:#374151;font-family:monospace;font-size:12px;padding:1px 0">✅ [X33] CRM 회원등록 앱 연동 — PASS (14342ms)</div><div style="color:#374151;font-family:monospace;font-size:12px;padding:1px 0">✓ Step 1: /members/new 회원 등록 폼 확인</div><div style="color:#374151;font-family:monospace;font-size:12px;padding:1px 0">✓ Step 2: 앱 연동 설정 확인 (input/button/label 또는 폼 존재)</div><div style="color:#374151;font-family:monospace;font-size:12px;padding:1px 0">✓ Step 3: /members 앱 연동 상태 컬럼 or 목록 데이터 확인</div><div style="color:#374151;font-family:monospace;font-size:12px;padding:1px 0">✓ Step 4: /settings 앱 연동 설정 확인 (설정 항목 존재)</div></div>
+          </details>
+        </td>
+      </tr></tbody>
+</table>
+</body>
+</html>

@@ -10,7 +10,7 @@ const fs = require('fs');
 const path = require('path');
 
 const SPEC_DIR = path.resolve(__dirname, '../../docs/화면설계서');
-const DIAG_DIR = path.resolve(__dirname, '../../docs/다이어그램');
+const DIAG_DIR = path.resolve(__dirname, '../../docs/admin/다이어그램');
 const OUT = path.join(DIAG_DIR, '99_TC_매핑/SCR_DLG_일관성리포트.md');
 
 function walk(dir, list = []) {

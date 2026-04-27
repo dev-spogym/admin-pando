@@ -4,7 +4,7 @@ import path from 'node:path';
 import { extractMermaidBlocks, extractMeta } from '@/lib/mermaid-utils';
 import { stripDevSections } from '@/lib/stripDevSections';
 
-const ROOT = path.resolve(process.cwd(), 'docs/다이어그램');
+const ROOT = path.resolve(process.cwd(), 'docs/admin/다이어그램');
 
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
