@@ -30,6 +30,9 @@ scripts/*
 !scripts/bootstrap-frontmatter.ts
 !scripts/enrich-frontmatter.ts
 !scripts/enrich-functional.ts
+!scripts/scenarios/
+!scripts/scenarios/**
+!scripts/run-scenarios.ts
 .env.cpgz
 
 # fry cache
