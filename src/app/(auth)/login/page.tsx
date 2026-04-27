@@ -2,7 +2,7 @@
 export const dynamic = 'force-dynamic';
 
 ﻿import React, { useState, useEffect } from 'react';
-import { Eye, EyeOff, Lock, User, Loader2, Check } from 'lucide-react';
+import { Eye, EyeOff, Lock, User, Loader2, Check, X, KeyRound, Copy } from 'lucide-react';
 import { moveToPage } from '@/internal';
 import { cn } from '@/lib/utils';
 import { useLogin } from '@/api/hooks/useAuth';
@@ -12,6 +12,49 @@ import { useAuthStore } from '@/stores/authStore';
 import { toast } from 'sonner';
 import Select from '@/components/ui/Select';
 import Button from '@/components/ui/Button';
+
+// 테스트 계정 프리셋 — prisma/seed.ts 의 userSeed 와 동기화 유지
+type AccountPreset = {
+  username: string;
+  password: string;
+  label: string;
+  branchId: number | null;
+  branchName?: string;
+  desc: string;
+};
+
+const ACCOUNT_PRESETS: { group: string; items: AccountPreset[] }[] = [
+  {
+    group: '본사',
+    items: [
+      { username: 'super', password: 'super1234', label: '슈퍼관리자', branchId: null, branchName: '전체 지점', desc: '모든 지점·테넌트 권한' },
+      { username: 'hq-ops', password: 'hqops1234', label: '운영관리자', branchId: 1, branchName: '광화문', desc: '본사 운영 (지점 전환 가능)' },
+    ],
+  },
+  {
+    group: '지부',
+    items: [
+      { username: 'district1', password: 'd1234', label: '1지부장', branchId: 1, branchName: '광화문', desc: '1지부 (광화문~양천향교)' },
+      { username: 'district2', password: 'd1234', label: '2지부장', branchId: 10, branchName: '용산', desc: '2지부 (용산~부천)' },
+    ],
+  },
+  {
+    group: '지점장',
+    items: [
+      { username: 'br001', password: 'br1234', label: '광화문 지점장', branchId: 1, branchName: '광화문', desc: '지점 단위 운영' },
+      { username: 'br011', password: 'br1234', label: '판교 지점장', branchId: 11, branchName: '판교', desc: '지점 단위 운영' },
+      { username: 'br016', password: 'br1234', label: '목동 지점장', branchId: 16, branchName: '목동', desc: '지점 단위 운영' },
+    ],
+  },
+  {
+    group: '직원',
+    items: [
+      { username: 'mgr-br006', password: 'mgr1234', label: '신당 매니저', branchId: 6, branchName: '신당', desc: '지점 매니저' },
+      { username: 'pt-br001', password: 'pt1234', label: '광화문 트레이너', branchId: 1, branchName: '광화문', desc: 'PT/GX' },
+      { username: 'front-br001', password: 'fr1234', label: '광화문 프론트', branchId: 1, branchName: '광화문', desc: '프론트 데스크' },
+    ],
+  },
+];
 
 const REMEMBER_KEY = 'spoGym_rememberedId';
 const FAIL_COUNT_KEY = 'login_fail_count';
@@ -55,6 +98,28 @@ export default function Login() {
   const [branchesLoading, setBranchesLoading] = useState(true);
   const [error, setError] = useState('');
   const [isLocked, setIsLocked] = useState(false);
+  const [showAccounts, setShowAccounts] = useState(false);
+
+  const fillCredentials = (preset: AccountPreset) => {
+    setId(preset.username);
+    setPassword(preset.password);
+    if (preset.branchId !== null) {
+      const matched = branches.find((b) => b.id === preset.branchId);
+      if (matched) setSelectedBranchId(String(matched.id));
+    }
+    setShowAccounts(false);
+    setError('');
+    toast.success(`${preset.label} 계정이 입력되었습니다`);
+  };
+
+  const copyText = async (text: string, label: string) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      toast.success(`${label} 복사됨`);
+    } catch {
+      toast.error('복사에 실패했습니다');
+    }
+  };
 
   const loginMutation = useLogin();
   const authLogin = useAuthStore((s) => s.login);
@@ -287,7 +352,18 @@ export default function Login() {
           </Button>
         </form>
 
-        <div className="mt-lg text-center">
+        <div className="mt-lg w-full">
+          <button
+            type="button"
+            onClick={() => setShowAccounts(true)}
+            className="flex w-full items-center justify-center gap-sm rounded-lg border border-dashed border-line bg-surface-secondary py-sm text-[12px] font-medium text-content-secondary transition-colors hover:border-primary hover:text-primary"
+          >
+            <KeyRound size={14} />
+            계정 목록 리스트 보기
+          </button>
+        </div>
+
+        <div className="mt-md text-center">
           <p className="text-[12px] text-content-tertiary">
             도움이 필요하신가요?{' '}
             <Button variant="ghost" size="sm" type="button" onClick={() => toast.info('고객센터: 02-1234-5678 (평일 09:00~18:00)')}>
@@ -300,6 +376,147 @@ export default function Login() {
       <div className="fixed bottom-md left-0 w-full text-center text-[11px] text-content-tertiary pointer-events-none">
         &copy; 2026 FitGenie CRM. All rights reserved.
       </div>
+
+      {showAccounts && (
+        <AccountsModal
+          onClose={() => setShowAccounts(false)}
+          onPick={fillCredentials}
+          onCopy={copyText}
+        />
+      )}
+    </div>
+  );
+}
+
+function AccountsModal({
+  onClose,
+  onPick,
+  onCopy,
+}: {
+  onClose: () => void;
+  onPick: (preset: AccountPreset) => void;
+  onCopy: (text: string, label: string) => void;
+}) {
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-md"
+      role="dialog"
+      aria-modal="true"
+      onClick={onClose}
+    >
+      <div
+        className="flex w-full max-w-[640px] max-h-[85vh] flex-col overflow-hidden rounded-2xl bg-surface shadow-2xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-start justify-between border-b border-line px-lg py-md">
+          <div>
+            <h2 className="text-[16px] font-bold text-content">테스트 계정 목록</h2>
+            <p className="mt-[2px] text-[12px] text-content-secondary">
+              항목 클릭 시 자동 입력. 복사 아이콘으로 ID/비밀번호 클립보드 복사.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="닫기"
+            className="text-content-tertiary hover:text-content"
+          >
+            <X size={18} />
+          </button>
+        </div>
+
+        <div className="flex-1 overflow-auto px-lg py-md">
+          <div className="flex flex-col gap-lg">
+            {ACCOUNT_PRESETS.map((group) => (
+              <section key={group.group}>
+                <h3 className="mb-sm text-[12px] font-semibold uppercase tracking-wider text-content-tertiary">
+                  {group.group}
+                </h3>
+                <ul className="flex flex-col gap-sm">
+                  {group.items.map((preset) => (
+                    <li
+                      key={preset.username}
+                      className="group rounded-xl border border-line bg-surface-secondary p-md transition-colors hover:border-primary hover:bg-primary/5"
+                    >
+                      <button
+                        type="button"
+                        onClick={() => onPick(preset)}
+                        className="flex w-full items-start justify-between gap-md text-left"
+                      >
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-sm">
+                            <span className="text-[14px] font-bold text-content">
+                              {preset.label}
+                            </span>
+                            {preset.branchName && (
+                              <span className="rounded-full bg-line px-sm py-[1px] text-[11px] text-content-secondary">
+                                {preset.branchName}
+                              </span>
+                            )}
+                          </div>
+                          <p className="mt-[2px] text-[12px] text-content-secondary">{preset.desc}</p>
+                          <div className="mt-sm grid grid-cols-2 gap-sm font-mono text-[12px]">
+                            <CredentialRow
+                              label="ID"
+                              value={preset.username}
+                              onCopy={(e) => {
+                                e.stopPropagation();
+                                onCopy(preset.username, 'ID');
+                              }}
+                            />
+                            <CredentialRow
+                              label="PW"
+                              value={preset.password}
+                              onCopy={(e) => {
+                                e.stopPropagation();
+                                onCopy(preset.password, '비밀번호');
+                              }}
+                            />
+                          </div>
+                        </div>
+                        <span className="self-center rounded-full bg-primary/10 px-sm py-[2px] text-[11px] font-semibold text-primary opacity-0 transition-opacity group-hover:opacity-100">
+                          자동 입력
+                        </span>
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              </section>
+            ))}
+          </div>
+        </div>
+
+        <div className="border-t border-line bg-surface-secondary px-lg py-sm text-[11px] text-content-tertiary">
+          * 본 계정은 개발/QA 용 — 운영 환경에서는 비활성화 필요. seed.ts 의 userSeed 와 동기화.
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function CredentialRow({
+  label,
+  value,
+  onCopy,
+}: {
+  label: string;
+  value: string;
+  onCopy: (e: React.MouseEvent) => void;
+}) {
+  return (
+    <div className="flex items-center gap-xs rounded-md border border-line bg-surface px-sm py-[6px]">
+      <span className="text-[10px] font-bold uppercase tracking-wider text-content-tertiary">
+        {label}
+      </span>
+      <span className="flex-1 truncate text-content">{value}</span>
+      <button
+        type="button"
+        onClick={onCopy}
+        aria-label={`${label} 복사`}
+        className="text-content-tertiary hover:text-primary"
+      >
+        <Copy size={12} />
+      </button>
     </div>
   );
 }
