@@ -17,6 +17,7 @@ const SCENARIOS = [
   { id: 'X11', file: 'x11-member-withdrawal', name: '회원 탈퇴 및 마스킹' },
   { id: 'X12', file: 'x12-group-class', name: '그룹수업 등록' },
   { id: 'X13', file: 'x13-contract', name: '전자계약 서명' },
+  { id: 'X14', file: 'x14-iot-access', name: 'IoT 밴드 출입 출석' },
   { id: 'X15', file: 'x15-notices', name: '공지 발행 전지점 전파' },
   { id: 'X16', file: 'x16-deferred-revenue', name: '선수익금 월말 인식' },
   { id: 'X17', file: 'x17-unpaid-reminder', name: '미수금 자동 독촉' },
@@ -25,6 +26,7 @@ const SCENARIOS = [
   { id: 'X20', file: 'x20-member-merge', name: '회원 병합 이력 통합' },
   { id: 'X21', file: 'x21-holding', name: '홀딩 등록 만료일 연장' },
   { id: 'X22', file: 'x22-body-composition-alert', name: '체성분 임계초과 상담 트리거' },
+  { id: 'X23', file: 'x23-kiosk', name: '키오스크 출입 출석' },
   { id: 'X24', file: 'x24-payroll', name: '급여 지급 자동 명세서' },
   { id: 'X25', file: 'x25-coupon', name: '쿠폰 발행 배포 사용' },
   { id: 'X26', file: 'x26-waitlist', name: '대기열 자동 배정' },
@@ -32,6 +34,9 @@ const SCENARIOS = [
   { id: 'X28', file: 'x28-invoice', name: '세금계산서 발행' },
   { id: 'X29', file: 'x29-login', name: '로그인 세션 생성' },
   { id: 'X30', file: 'x30-notifications', name: '알림센터 읽음 처리' },
+  { id: 'X31', file: 'x31-golf-bays', name: '골프 타석 예약 관리' },
+  { id: 'X32', file: 'x32-class-feedback', name: '수업 후기 평가 관리' },
+  { id: 'X33', file: 'x33-crm-app-link', name: 'CRM 회원등록 앱 연동' },
 ]
 
 interface RunResult {

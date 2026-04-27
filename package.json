@@ -38,7 +38,12 @@
     "scenario:x27": "tsx --tsconfig tsconfig.scripts.json scripts/scenarios/x27-class-signature.ts",
     "scenario:x28": "tsx --tsconfig tsconfig.scripts.json scripts/scenarios/x28-invoice.ts",
     "scenario:x29": "tsx --tsconfig tsconfig.scripts.json scripts/scenarios/x29-login.ts",
-    "scenario:x30": "tsx --tsconfig tsconfig.scripts.json scripts/scenarios/x30-notifications.ts"
+    "scenario:x30": "tsx --tsconfig tsconfig.scripts.json scripts/scenarios/x30-notifications.ts",
+    "scenario:x31": "tsx --tsconfig tsconfig.scripts.json scripts/scenarios/x31-golf-bays.ts",
+    "scenario:x32": "tsx --tsconfig tsconfig.scripts.json scripts/scenarios/x32-class-feedback.ts",
+    "scenario:x33": "tsx --tsconfig tsconfig.scripts.json scripts/scenarios/x33-crm-app-link.ts",
+    "scenario:x14": "tsx --tsconfig tsconfig.scripts.json scripts/scenarios/x14-iot-access.ts",
+    "scenario:x23": "tsx --tsconfig tsconfig.scripts.json scripts/scenarios/x23-kiosk.ts"
   },
   "dependencies": {
     "@fullcalendar/core": "^6.1.20",
