@@ -228,7 +228,7 @@ export default function OnboardingDashboard() {
         .from("consultations")
         .select("status, type")
         .eq("branchId", branchId)
-        .gte("consultedAt", monthStart);
+        .gte("scheduledAt", monthStart);
 
       const consults = consultData ?? [];
       const funnel: ConsultFunnel = {
@@ -245,7 +245,7 @@ export default function OnboardingDashboard() {
         .from('consultations')
         .select('source, result')
         .eq('branchId', branchId)
-        .gte('consultedAt', monthStart);
+        .gte('scheduledAt', monthStart);
 
       const sourceMap = new Map<string, { total: number; registered: number }>();
       for (const c of (sourceData ?? []) as any[]) {

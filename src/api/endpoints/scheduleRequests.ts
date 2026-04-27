@@ -16,13 +16,20 @@ export interface ScheduleRequest {
   title: string;
   type: string;
   scheduleCategory: string | null;
+  /** page.tsx 컬럼에서 scheduleCategory 필터링에 사용 */
+  schedule_category: string | null;
   approvalStatus: 'pending' | 'approved' | 'rejected';
   targetType: string | null;
+  /** page.tsx 컬럼 render에서 target_type으로 참조 */
+  target_type: string | null;
   memberName: string | null;
+  /** page.tsx 컬럼 key='targetName'으로 참조 */
+  targetName: string | null;
   staffId: number | null;
   staffName: string | null;
   startTime: string | null;
   endTime: string | null;
+  memo: string | null;
   createdAt: string | null;
 }
 
@@ -32,16 +39,37 @@ export const getScheduleRequests = async (branchId?: number): Promise<ApiRespons
     const bid = branchId ?? getBranchId();
     const { data, error } = await supabase
       .from('classes')
-      .select('id, branchId, title, type, scheduleCategory, approvalStatus, targetType, memberName, staffId, staffName, startTime, endTime, createdAt')
+      .select('id, branchId, title, type, scheduleCategory, approvalStatus, targetType, staffId, staffName, startTime, endTime, createdAt')
       .eq('branchId', bid)
       .eq('approvalStatus', 'pending')
       .order('createdAt', { ascending: false });
 
     if (error) throw error;
 
+    // page.tsx 컬럼이 targetName, target_type, schedule_category, memo를 참조하므로 매핑
+    const mapped: ScheduleRequest[] = (data ?? []).map((row: Record<string, unknown>) => ({
+      id: row.id as number,
+      branchId: row.branchId as number,
+      title: (row.title as string) ?? '',
+      type: (row.type as string) ?? '',
+      scheduleCategory: (row.scheduleCategory as string | null) ?? null,
+      schedule_category: (row.scheduleCategory as string | null) ?? null,
+      approvalStatus: (row.approvalStatus as 'pending' | 'approved' | 'rejected') ?? 'pending',
+      targetType: (row.targetType as string | null) ?? null,
+      target_type: (row.targetType as string | null) ?? null,
+      memberName: null,
+      targetName: null,
+      staffId: (row.staffId as number | null) ?? null,
+      staffName: (row.staffName as string | null) ?? null,
+      startTime: (row.startTime as string | null) ?? null,
+      endTime: (row.endTime as string | null) ?? null,
+      memo: null,
+      createdAt: (row.createdAt as string | null) ?? null,
+    }));
+
     return {
       success: true,
-      data: (data ?? []) as ScheduleRequest[],
+      data: mapped,
     };
   } catch (err) {
     const message = err instanceof Error ? err.message : '일정 요청 목록 조회에 실패했습니다.';

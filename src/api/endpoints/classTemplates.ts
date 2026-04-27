@@ -17,7 +17,7 @@ export interface ClassTemplate {
   name: string;
   type: string; // GX | PT | PILATES | YOGA
   defaultCapacity: number;
-  defaultDurationMin: number;
+  defaultDuration: number;
   description: string | null;
   color: string;
   isActive: boolean;
@@ -31,7 +31,7 @@ export interface ClassTemplateRequest {
   name: string;
   type: string;
   defaultCapacity: number;
-  defaultDurationMin: number;
+  defaultDuration: number;
   description?: string | null;
   color: string;
   isActive: boolean;
@@ -46,7 +46,7 @@ export const getClassTemplates = async (
     const { data, error } = await supabase
       .from('class_templates')
       .select('*')
-      .eq('branch_id', resolvedBranchId)
+      .eq('branchId', resolvedBranchId)
       .order('name', { ascending: true });
     if (error) throw new Error(error.message);
     return { success: true, data: (data ?? []) as ClassTemplate[] };
@@ -65,14 +65,14 @@ export const createClassTemplate = async (
     const { data, error } = await supabase
       .from('class_templates')
       .insert({
-        branch_id: branchId,
+        branchId: branchId,
         name: payload.name,
         type: payload.type,
-        default_capacity: payload.defaultCapacity,
-        default_duration: payload.defaultDurationMin,
+        defaultCapacity: payload.defaultCapacity,
+        defaultDuration: payload.defaultDuration,
         description: payload.description ?? null,
         color: payload.color,
-        is_active: payload.isActive,
+        isActive: payload.isActive,
       })
       .select()
       .single();
@@ -93,11 +93,11 @@ export const updateClassTemplate = async (
   const dbPayload: Record<string, any> = {};
   if (payload.name !== undefined) dbPayload.name = payload.name;
   if (payload.type !== undefined) dbPayload.type = payload.type;
-  if (payload.defaultCapacity !== undefined) dbPayload.default_capacity = payload.defaultCapacity;
-  if (payload.defaultDurationMin !== undefined) dbPayload.default_duration = payload.defaultDurationMin;
+  if (payload.defaultCapacity !== undefined) dbPayload.defaultCapacity = payload.defaultCapacity;
+  if (payload.defaultDuration !== undefined) dbPayload.defaultDuration = payload.defaultDuration;
   if (payload.description !== undefined) dbPayload.description = payload.description;
   if (payload.color !== undefined) dbPayload.color = payload.color;
-  if (payload.isActive !== undefined) dbPayload.is_active = payload.isActive;
+  if (payload.isActive !== undefined) dbPayload.isActive = payload.isActive;
   try {
     const { data, error } = await supabase
       .from('class_templates')

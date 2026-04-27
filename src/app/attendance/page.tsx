@@ -28,6 +28,7 @@ import { cn } from "@/lib/utils";
 import { moveToPage } from "@/internal";
 
 import AppLayout from "@/components/layout/AppLayout";
+import SimulatorPanel from "@/components/demo/SimulatorPanel";
 import Modal from "@/components/ui/Modal";
 import PageHeader from "@/components/common/PageHeader";
 import StatCard from "@/components/common/StatCard";
@@ -1102,6 +1103,7 @@ export default function Attendance() {
         onSubmit={handleManualSubmit}
         members={members}
       />
+      <SimulatorPanel />
     </AppLayout>
   );
 }

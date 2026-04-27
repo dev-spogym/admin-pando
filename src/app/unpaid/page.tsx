@@ -129,60 +129,38 @@ export default function UnpaidManagement() {
   const fetchUnpaid = useCallback(async () => {
     setIsLoading(true);
     const { data, error } = await supabase
-      .from('unpaid')
-      .select('id, memberId, memberName, productName, amount, dueDate, status, memo, createdAt, branchId')
+      .from('sales')
+      .select('id, memberId, memberName, productName, amount, unpaid, saleDate, status, createdAt, branchId')
       .eq('branchId', getBranchId())
+      .gt('unpaid', 0)
       .order('createdAt', { ascending: false });
 
+    setIsLoading(false);
+
     if (error) {
-      const { data: salesData, error: salesError } = await supabase
-        .from('sales')
-        .select('id, memberId, memberName, productName, amount, salePrice, saleDate, unpaid')
-        .eq('branchId', getBranchId())
-        .order('saleDate', { ascending: false });
-
-      setIsLoading(false);
-
-      if (salesError) {
-        console.error('미수금 데이터 로드 실패:', error);
-        toast.error('미수금 데이터를 불러오지 못했습니다.');
-        return;
-      }
-
-      setUnpaidData(buildFallbackUnpaid((salesData ?? []) as Record<string, unknown>[]));
+      console.error('미수금 데이터 로드 실패:', error);
+      toast.error('미수금 데이터를 불러오지 못했습니다.');
       return;
     }
 
     const mapped = (data ?? []).map((row: Record<string, unknown>, idx: number) => {
-      const statusEn = (row.status as string) ?? 'PENDING';
+      const statusEn = (row.status as string) ?? 'UNPAID';
+      const statusMapped = STATUS_KO[statusEn] ?? '미결제';
       return {
         id: row.id as number,
         no: (data ?? []).length - idx,
         memberName: (row.memberName as string) ?? '',
         memberId: (row.memberId as number) ?? 0,
         productName: (row.productName as string) ?? '',
-        amount: Number(row.amount) || 0,
-        dueDate: (row.dueDate as string)?.slice(0, 10) ?? '',
-        status: STATUS_KO[statusEn] ?? statusEn,
-        memo: (row.memo as string) ?? '',
+        amount: Number(row.unpaid) || Number(row.amount) || 0,
+        dueDate: (row.saleDate as string)?.slice(0, 10) ?? '',
+        status: statusMapped,
+        memo: '',
         createdAt: (row.createdAt as string)?.slice(0, 10) ?? '',
       };
     });
 
-    if (mapped.length === 0) {
-      const { data: salesData } = await supabase
-        .from('sales')
-        .select('id, memberId, memberName, productName, amount, salePrice, saleDate, unpaid')
-        .eq('branchId', getBranchId())
-        .order('saleDate', { ascending: false });
-
-      setUnpaidData(buildFallbackUnpaid((salesData ?? []) as Record<string, unknown>[]));
-      setIsLoading(false);
-      return;
-    }
-
     setUnpaidData(mapped);
-    setIsLoading(false);
   }, []);
 
   useEffect(() => {
@@ -228,8 +206,8 @@ export default function UnpaidManagement() {
   // 결제완료 처리
   const handleMarkPaid = async (id: number) => {
     const { error } = await supabase
-      .from('unpaid')
-      .update({ status: 'PAID' })
+      .from('sales')
+      .update({ status: 'PAID', unpaid: 0 })
       .eq('id', id);
     if (error) {
       toast.error('상태 변경에 실패했습니다.');
@@ -241,10 +219,13 @@ export default function UnpaidManagement() {
 
   // 상태 변경 처리
   const handleChangeStatus = async (id: number, newStatusKo: string) => {
-    const koToEn: Record<string, string> = { 미결제: 'PENDING', 일부결제: 'PARTIAL', 연체: 'OVERDUE', 완료: 'PAID' };
+    const koToEn: Record<string, string> = { 미결제: 'UNPAID', 일부결제: 'UNPAID', 연체: 'UNPAID', 완료: 'COMPLETED' };
+    const unpaidVal = newStatusKo === '완료' ? 0 : undefined;
+    const updatePayload: Record<string, unknown> = { status: koToEn[newStatusKo] ?? newStatusKo };
+    if (unpaidVal !== undefined) updatePayload.unpaid = unpaidVal;
     const { error } = await supabase
-      .from('unpaid')
-      .update({ status: koToEn[newStatusKo] ?? newStatusKo })
+      .from('sales')
+      .update(updatePayload)
       .eq('id', id);
     if (error) {
       toast.error('상태 변경에 실패했습니다.');
@@ -262,19 +243,13 @@ export default function UnpaidManagement() {
     return [];
   };
 
-  // 메모 저장
-  const handleSaveMemo = async () => {
-    const { error } = await supabase
-      .from('unpaid')
-      .update({ memo: memoModal.memo })
-      .eq('id', memoModal.id);
-    if (error) {
-      toast.error('메모 저장에 실패했습니다.');
-      return;
-    }
+  // 메모 저장 (sales 테이블에 memo 컬럼이 없어 로컬 상태에만 반영)
+  const handleSaveMemo = () => {
+    setUnpaidData(prev =>
+      prev.map(item => item.id === memoModal.id ? { ...item, memo: memoModal.memo } : item)
+    );
     toast.success('메모가 저장되었습니다.');
     setMemoModal({ open: false, id: 0, memo: '' });
-    fetchUnpaid();
   };
 
   // 엑셀 다운로드

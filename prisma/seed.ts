@@ -775,48 +775,58 @@ async function main() {
     `ALTER TABLE "users" ALTER COLUMN "branchId" DROP NOT NULL`,
   ).catch(() => { /* 이미 nullable */ });
 
+  // 비밀번호: 전부 'qwer1234!!' 통일 (협력자 환경 기준)
+  const PW = 'qwer1234!!';
   const userSeed: Array<{
-    id: number;
     username: string;
-    password: string;
     name: string;
     role: 'ADMIN' | 'OWNER' | 'MANAGER' | 'TRAINER' | 'STAFF' | 'RECEPTIONIST' | 'READONLY';
     branchId: number | null;
     isSuperAdmin: boolean;
     email?: string;
   }> = [
-    // 본사
-    { id: 1001, username: 'super',       password: 'super1234',   name: '슈퍼관리자',     role: 'ADMIN',        branchId: null, isSuperAdmin: true,  email: 'super@spogym.com' },
-    { id: 1002, username: 'hq-ops',      password: 'hqops1234',   name: '본사 운영관리자', role: 'ADMIN',        branchId: 1,    isSuperAdmin: true,  email: 'ops@spogym.com' },
+    // ─── 본사 (전 지점 데이터 + 슈퍼관리자 메뉴) ───
+    { username: 'admin',       name: '운영관리자',     role: 'ADMIN',   branchId: 1,  isSuperAdmin: true,  email: 'admin@spogym.com' },
+    { username: 'hq_director', name: '본사 대표',       role: 'ADMIN',   branchId: 1,  isSuperAdmin: true,  email: 'hq_director@spogym.com' },
+    { username: 'hq_manager',  name: '본사 운영팀장',   role: 'ADMIN',   branchId: 1,  isSuperAdmin: true,  email: 'hq_manager@spogym.com' },
+    { username: 'hq_analyst',  name: '본사 분석담당',   role: 'MANAGER', branchId: 1,  isSuperAdmin: false, email: 'hq_analyst@spogym.com' },
 
-    // 지부
-    { id: 1003, username: 'district1',   password: 'd1234',       name: '1지부장',        role: 'MANAGER',      branchId: 1,    isSuperAdmin: false, email: 'd1@spogym.com' },
-    { id: 1004, username: 'district2',   password: 'd1234',       name: '2지부장',        role: 'MANAGER',      branchId: 10,   isSuperAdmin: false, email: 'd2@spogym.com' },
+    // ─── 지점장 (해당 지점 데이터만) ───
+    // 1지부
+    { username: 'gwanghwamun', name: '광화문 지점장',   role: 'OWNER',   branchId: 1,  isSuperAdmin: false, email: 'gwanghwamun@spogym.com' },
+    { username: 'euljiro',     name: '을지로 지점장',   role: 'OWNER',   branchId: 2,  isSuperAdmin: false, email: 'euljiro@spogym.com' },
+    { username: 'jongak',      name: '종각 지점장',     role: 'OWNER',   branchId: 3,  isSuperAdmin: false, email: 'jongak@spogym.com' },
+    { username: 'jongno',      name: '종로 지점장',     role: 'OWNER',   branchId: 4,  isSuperAdmin: false, email: 'jongno@spogym.com' },
+    { username: 'seogyo',      name: '서교 지점장',     role: 'OWNER',   branchId: 5,  isSuperAdmin: false, email: 'seogyo@spogym.com' },
+    // 2지부
+    { username: 'yongsan',     name: '용산 지점장',     role: 'OWNER',   branchId: 10, isSuperAdmin: false, email: 'yongsan@spogym.com' },
+    { username: 'pangyo',      name: '판교 지점장',     role: 'OWNER',   branchId: 11, isSuperAdmin: false, email: 'pangyo@spogym.com' },
+    { username: 'pangyoyk',    name: '판교역 지점장',   role: 'OWNER',   branchId: 12, isSuperAdmin: false, email: 'pangyoyk@spogym.com' },
+    { username: 'daechi',      name: '대치 지점장',     role: 'OWNER',   branchId: 13, isSuperAdmin: false, email: 'daechi@spogym.com' },
+    { username: 'gocheok',     name: '고척 지점장',     role: 'OWNER',   branchId: 14, isSuperAdmin: false, email: 'gocheok@spogym.com' },
+    { username: 'bucheon',     name: '부천 지점장',     role: 'OWNER',   branchId: 15, isSuperAdmin: false, email: 'bucheon@spogym.com' },
+    // 미설정 (목동)
+    { username: 'mokdong',     name: '목동 지점장',     role: 'OWNER',   branchId: 16, isSuperAdmin: false, email: 'mokdong@spogym.com' },
 
-    // 지점장 (광화문, 판교, 목동)
-    { id: 1005, username: 'br001',       password: 'br1234',      name: '광화문 지점장',  role: 'OWNER',        branchId: 1,    isSuperAdmin: false, email: 'br001@spogym.com' },
-    { id: 1006, username: 'br011',       password: 'br1234',      name: '판교 지점장',    role: 'OWNER',        branchId: 11,   isSuperAdmin: false, email: 'br011@spogym.com' },
-    { id: 1007, username: 'br016',       password: 'br1234',      name: '목동 지점장',    role: 'OWNER',        branchId: 16,   isSuperAdmin: false, email: 'br016@spogym.com' },
-
-    // 직원 (광화문)
-    { id: 1008, username: 'pt-br001',    password: 'pt1234',      name: '광화문 트레이너', role: 'TRAINER',     branchId: 1,    isSuperAdmin: false, email: 'pt001@spogym.com' },
-    { id: 1009, username: 'front-br001', password: 'fr1234',      name: '광화문 프론트',  role: 'RECEPTIONIST', branchId: 1,    isSuperAdmin: false, email: 'fr001@spogym.com' },
-
-    // 매니저 (신당)
-    { id: 1010, username: 'mgr-br006',   password: 'mgr1234',     name: '신당 매니저',    role: 'MANAGER',      branchId: 6,    isSuperAdmin: false, email: 'mgr006@spogym.com' },
+    // ─── 직원 ───
+    { username: 'manager1',    name: '광화문 매니저',   role: 'MANAGER', branchId: 1,  isSuperAdmin: false, email: 'manager1@spogym.com' },
+    { username: 'manager2',    name: '을지로 매니저',   role: 'MANAGER', branchId: 2,  isSuperAdmin: false, email: 'manager2@spogym.com' },
+    { username: 'trainer1',    name: '광화문 트레이너', role: 'TRAINER', branchId: 1,  isSuperAdmin: false, email: 'trainer1@spogym.com' },
+    { username: 'trainer2',    name: '을지로 트레이너', role: 'TRAINER', branchId: 2,  isSuperAdmin: false, email: 'trainer2@spogym.com' },
   ];
 
   let userOk = 0;
   let userFail = 0;
   for (const u of userSeed) {
     try {
+      // ON CONFLICT (username) — 기존 row 가 있으면 비밀번호/상태만 업데이트
       await prisma.$executeRawUnsafe(
-        `INSERT INTO "users" (id, username, password, name, email, role, "branchId", "isActive", "tenantId", "isSuperAdmin", "currentBranchId", "forcePasswordChange", "createdAt", "updatedAt")
-         VALUES ($1,$2,$3,$4,$5,$6::"Role",$7,true,1,$8,$9,false,NOW(),NOW())
-         ON CONFLICT (id) DO UPDATE SET
-           username=$2, password=$3, name=$4, email=$5, role=$6::"Role", "branchId"=$7,
-           "isSuperAdmin"=$8, "currentBranchId"=$9, "updatedAt"=NOW()`,
-        u.id, u.username, u.password, u.name, u.email ?? null, u.role,
+        `INSERT INTO "users" (username, password, name, email, role, "branchId", "isActive", "tenantId", "isSuperAdmin", "currentBranchId", "forcePasswordChange", "createdAt", "updatedAt")
+         VALUES ($1,$2,$3,$4,$5::"Role",$6,true,1,$7,$8,false,NOW(),NOW())
+         ON CONFLICT (username) DO UPDATE SET
+           password=$2, name=$3, email=$4, role=$5::"Role", "branchId"=$6,
+           "isActive"=true, "isSuperAdmin"=$7, "currentBranchId"=$8, "updatedAt"=NOW()`,
+        u.username, PW, u.name, u.email ?? null, u.role,
         u.branchId, u.isSuperAdmin, u.branchId ?? null,
       );
       userOk += 1;
@@ -825,12 +835,26 @@ async function main() {
       console.error(`    ❌ ${u.username} (${u.name}) — ${(err as Error).message}`);
     }
   }
-  console.log(`  ✅ 사용자 계정 ${userOk}개 생성${userFail ? ` / ❌ ${userFail}개 실패` : ''}`);
+  console.log(`  ✅ 사용자 계정 ${userOk}개 생성/업데이트${userFail ? ` / ❌ ${userFail}개 실패` : ''}`);
 
-  // users.id 시퀀스 보정 (수동 id 사용 후 다음 autoincrement 충돌 방지)
-  await prisma.$executeRawUnsafe(
-    `SELECT setval(pg_get_serial_sequence('"users"', 'id'), GREATEST((SELECT MAX(id) FROM "users"), 1))`,
-  );
+  // 검증: 시드 후 실제로 row 가 존재하는지 username/password 로 SELECT
+  console.log('  🔎 계정 검증 (비밀번호 전부: qwer1234!!):');
+  for (const u of userSeed) {
+    const rows = await prisma.$queryRawUnsafe<Array<{ id: number; username: string; password: string; isActive: boolean }>>(
+      `SELECT id, username, password, "isActive" FROM "users" WHERE username = $1`,
+      u.username,
+    );
+    if (!rows.length) {
+      console.log(`    ❌ ${u.username} — 행 없음 (INSERT 실패)`);
+    } else {
+      const r = rows[0];
+      const pwOk = r.password === PW;
+      const activeOk = r.isActive === true;
+      console.log(
+        `    ${pwOk && activeOk ? '✅' : '⚠️ '} ${u.username} — id=${r.id} pw=${pwOk ? 'OK' : `다름`} active=${activeOk ? 'OK' : 'false'}`,
+      );
+    }
+  }
 
   // ============================================================
   // 12. 설정 (settings)

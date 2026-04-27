@@ -250,7 +250,7 @@ export default function Dashboard() {
           .select("id, name, birthDate, status")
           .eq("branchId", branchId)
           .is("deletedAt", null)
-          .like("birthDate", `%-${todayStr.slice(5)}`),
+          .not("birthDate", "is", null),
         // 미수금 회원
         supabase
           .from("sales")
@@ -405,14 +405,17 @@ export default function Dashboard() {
         unpaidTotal,
       });
 
-      // 생일자 가공
+      // 생일자 가공 (오늘 월-일과 일치하는 회원 필터링)
+      const todayMMDD = todayStr.slice(5); // "MM-DD"
       setBirthdayMembers(
-        (birthdayRes.data ?? []).map((m: { id: number; name: string; birthDate: string; status: string }) => ({
-          id: m.id,
-          name: m.name,
-          birth: m.birthDate?.slice(0, 10) ?? "",
-          status: m.status === "ACTIVE" ? "활성" : "만료",
-        }))
+        (birthdayRes.data ?? [])
+          .filter((m: { birthDate: string }) => m.birthDate?.slice(5, 10) === todayMMDD)
+          .map((m: { id: number; name: string; birthDate: string; status: string }) => ({
+            id: m.id,
+            name: m.name,
+            birth: m.birthDate?.slice(0, 10) ?? "",
+            status: m.status === "ACTIVE" ? "활성" : "만료",
+          }))
       );
 
       // 미수금 가공
@@ -465,10 +468,9 @@ export default function Dashboard() {
 
       // 최근 활동 (audit_logs)
       const { data: auditData } = await supabase
-        .from("audit_logs")
+        .from("audit_log")
         .select("*")
-        .eq("branchId", branchId)
-        .order("createdAt", { ascending: false })
+        .order("id", { ascending: false })
         .limit(10);
       setRecentActivities(auditData ?? []);
 

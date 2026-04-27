@@ -68,8 +68,8 @@ export async function getExercisePrograms(branchId: number): Promise<ExercisePro
   const { data, error } = await supabase
     .from('exercise_programs')
     .select('*')
-    .eq('branch_id', branchId)
-    .order('created_at', { ascending: false });
+    .eq('branchId', branchId)
+    .order('createdAt', { ascending: false });
 
   if (error || !data) return [];
   return data.map(rowToProgram);
@@ -132,13 +132,13 @@ export async function createExerciseProgram(data: {
   exercises?: ExerciseItem[];
 }): Promise<{ error: string | null }> {
   const { error } = await supabase.from('exercise_programs').insert({
-    branch_id: data.branchId,
+    branchId: data.branchId,
     name: data.name,
     category: data.category,
     difficulty: data.level,
     description: data.description,
     exercises: data.exercises ? JSON.stringify(data.exercises) : null,
-    is_active: true,
+    isActive: true,
   });
   return { error: error?.message ?? null };
 }

@@ -697,7 +697,7 @@ function TabPayment({ sales, memberId, memberName }: { sales: SaleRecord[]; memb
         onConfirm={async () => {
           if (!refundTarget) return;
           // 환불 레코드를 sales 테이블에 저장 (음수 금액)
-          const { error } = await supabase.from('sale').insert({
+          const { error } = await supabase.from('sales').insert({
             branchId: Number(typeof window !== 'undefined' ? localStorage.getItem('branchId') : '1'),
             memberId: Number(memberId),
             memberName: memberName,
@@ -717,7 +717,7 @@ function TabPayment({ sales, memberId, memberName }: { sales: SaleRecord[]; memb
             return;
           }
           // 원본 결제 건 상태를 REFUNDED로 업데이트
-          await supabase.from('sale').update({ status: 'REFUNDED' }).eq('id', refundTarget.id);
+          await supabase.from('sales').update({ status: 'REFUNDED' }).eq('id', refundTarget.id);
           toast.success("환불 처리가 완료되었습니다.");
           setRefundTarget(null);
         }}
@@ -1488,11 +1488,11 @@ function MemberDetail() {
           contractRes,
         ] = await Promise.all([
           supabase.from('members').select('*').eq('id', memberId).single(),
-          supabase.from('sale').select('*').eq('memberId', memberId).order('saleDate', { ascending: false }),
+          supabase.from('sales').select('*').eq('memberId', memberId).order('saleDate', { ascending: false }),
           supabase.from('attendance').select('*').eq('memberId', memberId).order('checkInAt', { ascending: false }).limit(20),
-          supabase.from('bodyComposition').select('*').eq('memberId', memberId).order('date', { ascending: false }),
-          supabase.from('locker').select('*').eq('memberId', memberId).limit(1),
-          supabase.from('contract').select('*').eq('memberId', memberId).order('createdAt', { ascending: false }),
+          supabase.from('body_compositions').select('*').eq('memberId', memberId).order('date', { ascending: false }),
+          supabase.from('lockers').select('*').eq('memberId', memberId).limit(1),
+          supabase.from('contracts').select('*').eq('memberId', memberId).order('createdAt', { ascending: false }),
         ]);
 
         if (memberRes.data) setMember(memberRes.data as Member);
@@ -1526,7 +1526,7 @@ function MemberDetail() {
               muscle: Number(b.muscle),
               fat: Number(b.fat),
               bmi: Number(b.bmi),
-              pbf: Number(b.pbf),
+              pbf: Number(b.fatRate ?? b.pbf ?? 0),
             }))
           );
         }

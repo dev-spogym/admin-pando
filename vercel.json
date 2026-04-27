@@ -10,5 +10,11 @@
         { "key": "Permissions-Policy", "value": "camera=(), microphone=(), geolocation=()" }
       ]
     }
+  ],
+  "crons": [
+    { "path": "/api/cron/morning", "schedule": "0 22 * * *" },
+    { "path": "/api/cron/lunch",   "schedule": "0 3 * * *" },
+    { "path": "/api/cron/evening", "schedule": "0 8 * * *" },
+    { "path": "/api/cron/night",   "schedule": "0 13 * * *" }
   ]
 }

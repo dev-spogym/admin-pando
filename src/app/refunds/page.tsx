@@ -113,61 +113,37 @@ export default function RefundManagement() {
   const fetchRefunds = useCallback(async () => {
     setIsLoading(true);
     let query = supabase
-      .from('refunds')
-      .select('id, memberId, memberName, productName, amount, refundDate, method, reason, staffName, status, branchId')
+      .from('sales')
+      .select('id, memberId, memberName, productName, amount, saleDate, paymentMethod, staffName, status, branchId')
       .eq('branchId', getBranchId())
-      .order('refundDate', { ascending: false });
+      .eq('status', 'REFUNDED')
+      .order('saleDate', { ascending: false });
 
-    if (dateStart) query = query.gte('refundDate', dateStart);
-    if (dateEnd) query = query.lte('refundDate', dateEnd);
+    if (dateStart) query = query.gte('saleDate', dateStart);
+    if (dateEnd) query = query.lte('saleDate', dateEnd);
 
     const { data, error } = await query;
     setIsLoading(false);
 
     if (error) {
-      const { data: salesData, error: salesError } = await supabase
-        .from('sales')
-        .select('id, memberId, memberName, productName, amount, salePrice, saleDate, paymentMethod, staffName, status')
-        .eq('branchId', getBranchId())
-        .order('saleDate', { ascending: false });
-
-      setIsLoading(false);
-
-      if (salesError) {
-        console.error('환불 데이터 로드 실패:', error);
-        toast.error('환불 데이터를 불러오지 못했습니다.');
-        return;
-      }
-
-      setRefundData(buildFallbackRefunds((salesData ?? []) as Record<string, unknown>[]));
+      console.error('환불 데이터 로드 실패:', error);
+      toast.error('환불 데이터를 불러오지 못했습니다.');
       return;
     }
 
     const mapped = (data ?? []).map((row: Record<string, unknown>, idx: number) => ({
       id: row.id as number,
       no: (data ?? []).length - idx,
-      refundDate: (row.refundDate as string)?.slice(0, 10) ?? '',
+      refundDate: (row.saleDate as string)?.slice(0, 10) ?? '',
       memberName: (row.memberName as string) ?? '',
       memberId: (row.memberId as number) ?? 0,
       productName: (row.productName as string) ?? '',
       amount: Number(row.amount) || 0,
-      method: METHOD_KO[(row.method as string) ?? ''] ?? (row.method as string) ?? '',
-      reason: (row.reason as string) ?? '',
+      method: METHOD_KO[(row.paymentMethod as string) ?? ''] ?? (row.paymentMethod as string) ?? '',
+      reason: '',
       staffName: (row.staffName as string) ?? '',
-      status: (row.status as string) ?? '완료',
+      status: '완료',
     }));
-
-    if (mapped.length === 0) {
-      const { data: salesData } = await supabase
-        .from('sales')
-        .select('id, memberId, memberName, productName, amount, salePrice, saleDate, paymentMethod, staffName, status')
-        .eq('branchId', getBranchId())
-        .order('saleDate', { ascending: false });
-
-      setRefundData(buildFallbackRefunds((salesData ?? []) as Record<string, unknown>[]));
-      setIsLoading(false);
-      return;
-    }
 
     setRefundData(mapped);
 

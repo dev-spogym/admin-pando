@@ -98,22 +98,13 @@ export default function LessonCounts() {
   const [adjustConfirm, setAdjustConfirm] = useState(false);
   const [adjustLoading, setAdjustLoading] = useState(false);
 
-  // 횟수권 목록 조회 (members 조인으로 branchId 필터)
+  // 횟수권 목록 조회
   const fetchCounts = async () => {
     setLoading(true);
     let query = supabase
       .from('lesson_counts')
-      .select(`
-        id,
-        memberId,
-        productName,
-        totalCount,
-        usedCount,
-        startDate,
-        endDate,
-        status,
-        members(name, branchId)
-      `)
+      .select('id, memberId, productName, totalCount, usedCount, startDate, endDate, branchId')
+      .eq('branchId', branchId)
       .order('id', { ascending: false });
 
     if (filterMemberId) query = query.eq('memberId', Number(filterMemberId));
@@ -124,20 +115,28 @@ export default function LessonCounts() {
     const { data, error } = await query;
 
     if (!error && data) {
+      // 회원 이름 조회
+      const memberIds = [...new Set((data as any[]).map((r: any) => r.memberId).filter(Boolean))];
+      let memberMap: Record<number, string> = {};
+      if (memberIds.length > 0) {
+        const { data: mData } = await supabase
+          .from('members')
+          .select('id, name')
+          .in('id', memberIds);
+        if (mData) memberMap = Object.fromEntries((mData as any[]).map((m: any) => [m.id, m.name]));
+      }
       setCounts(
-        (data as any[])
-          .filter((r) => !r.members || r.members.branchId === branchId)
-          .map((r: any) => ({
-            id: r.id,
-            memberId: r.memberId,
-            memberName: r.members?.name ?? '-',
-            productName: r.productName ?? '-',
-            totalCount: r.totalCount ?? 0,
-            usedCount: r.usedCount ?? 0,
-            startDate: r.startDate,
-            endDate: r.endDate,
-            status: r.status ?? 'ACTIVE',
-          }))
+        (data as any[]).map((r: any) => ({
+          id: r.id,
+          memberId: r.memberId,
+          memberName: memberMap[r.memberId] ?? '-',
+          productName: r.productName ?? '-',
+          totalCount: r.totalCount ?? 0,
+          usedCount: r.usedCount ?? 0,
+          startDate: r.startDate,
+          endDate: r.endDate,
+          status: 'ACTIVE',
+        }))
       );
     }
     setLoading(false);

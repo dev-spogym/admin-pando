@@ -896,7 +896,7 @@ export default function Calendar() {
       // 수업 일정 (classes 테이블)
       const { data: classData } = await supabase
         .from("classes")
-        .select("id, title, staffId, staffName, room, startTime, endTime, capacity, booked, isRecurring, branchId, target_type, schedule_category, approval_status, lesson_status, member_name")
+        .select("id, title, staffId, staffName, room, startTime, endTime, capacity, booked, isRecurring, branchId, targetType, scheduleCategory, approvalStatus")
         .eq("branchId", branchId);
 
       if (classData) {
@@ -912,10 +912,10 @@ export default function Calendar() {
           currentCount: c.booked ?? 0,
           status: "예약",
           type: "기타" as EventType,
-          scheduleCategory: c.schedule_category ?? null,
-          approvalStatus: c.approval_status ?? null,
-          targetType: c.target_type ?? null,
-          targetName: c.member_name ?? null,
+          scheduleCategory: c.scheduleCategory ?? null,
+          approvalStatus: c.approvalStatus ?? null,
+          targetType: c.targetType ?? null,
+          targetName: c.memberName ?? null,
         }));
         // #18 미승인 건수 계산
         const pendingItems = mapped.filter(e => e.approvalStatus === 'pending');
@@ -1030,13 +1030,32 @@ export default function Calendar() {
     }).filter((e): e is NonNullable<typeof e> => e !== null);
   }, [lessonSchedules, selectedInstructor, selectedLessonFilter, capacityFilter]);
 
-  // 선택 날짜의 lesson_schedules 리스트 (우측 패널용)
+  // 선택 날짜의 일정 리스트 (우측 패널용) — classes + lesson_schedules 합산
   const selectedDateSchedules = useMemo(() => {
-    return lessonSchedules.filter(s => {
+    const fromLessonSchedules = lessonSchedules.filter(s => {
       const dateStr = s.startAt?.split("T")[0];
       return dateStr === selectedDate;
     });
-  }, [lessonSchedules, selectedDate]);
+    const fromClasses = events.filter(e => {
+      const dateStr = e.start?.split("T")[0];
+      return dateStr === selectedDate;
+    }).map(e => ({
+      id: Number(e.id),
+      lessonId: 0,
+      branchId: 1,
+      instructorId: Number(e.instructorId) || 0,
+      startAt: e.start,
+      endAt: e.end,
+      currentCount: e.currentCount,
+      capacity: e.capacity,
+      status: e.status || '예약가능',
+      memo: null,
+      lessonName: e.title,
+      instructorName: e.instructor,
+      lessonColor: null,
+    }));
+    return [...fromLessonSchedules, ...fromClasses];
+  }, [lessonSchedules, selectedDate, events]);
 
   // --- FullCalendar 이벤트 변환 (메모이즈) — classes + lesson_schedules 합산 ---
   const calendarEvents = useMemo(
@@ -1401,7 +1420,7 @@ export default function Calendar() {
     if (!selectedEvent) return;
     const { error } = await supabase
       .from('classes')
-      .update({ approval_status: 'approved' })
+      .update({ approvalStatus: 'approved' })
       .eq('id', Number(selectedEvent.id));
     if (error) { toast.error('승인에 실패했습니다.'); return; }
     setEvents(prev => prev.map(e =>
@@ -1417,7 +1436,7 @@ export default function Calendar() {
     if (!selectedEvent) return;
     const { error } = await supabase
       .from('classes')
-      .update({ approval_status: 'rejected' })
+      .update({ approvalStatus: 'rejected' })
       .eq('id', Number(selectedEvent.id));
     if (error) { toast.error('거절에 실패했습니다.'); return; }
     setEvents(prev => prev.map(e =>

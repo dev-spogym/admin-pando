@@ -33,6 +33,7 @@ const ROUTE_TO_DOC: Record<string, RouteMapping> = {
   '/audit-log': { title: '감사 로그', category: '본사관리', functional: { file: '본사관리.md', keywords: ['감사 로그', '8. 감사 로그'] } },
   '/today-tasks': { title: 'Today Tasks', category: '본사관리', functional: { file: '본사관리.md', keywords: ['Today Tasks', '9. Today Tasks'] } },
   '/reports': { title: '자동 리포트', category: '본사관리', functional: { file: '본사관리.md', keywords: ['리포트', '10. 리포트'] } },
+  '/diagrams': { title: '다이어그램 브라우저', category: '공통', screen: { folder: 'D01-공통/SCR-107-화면설계서오버레이' } },
 
   // 회원관리
   '/members': { title: '회원 목록', category: '회원관리', functional: { file: '회원관리.md', keywords: ['회원 목록', '1. 회원 목록'] }, screen: { folder: 'D02-회원관리/SCR-M001-회원목록' } },

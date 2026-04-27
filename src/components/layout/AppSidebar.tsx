@@ -178,15 +178,6 @@ const MENU_ITEMS: MenuItem[] = [
       { label: "공지사항", path: "/notices" },
     ],
   },
-  {
-    label: "통합운영",
-    icon: LayoutDashboard,
-    children: [
-      { label: "출석 관리", path: "/attendance", viewId: 968 },
-      { label: "건강 연동 요약", path: "/health-summary" },
-      { label: "체성분 관리", path: "/body-composition" },
-    ],
-  },
 ];
 
 const AppSidebar: React.FC<AppSidebarProps> = ({

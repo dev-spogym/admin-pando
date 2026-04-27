@@ -422,9 +422,9 @@ function FunnelAnalysis({ branchId }: { branchId: number }) {
             .from("consultations")
             .select("id", { count: "exact", head: true })
             .eq("branchId", branchId)
-            .eq("status", "완료")
-            .gte("consultedAt", monthStart)
-            .lte("consultedAt", monthEnd),
+            .eq("status", "completed")
+            .gte("scheduledAt", monthStart)
+            .lte("scheduledAt", monthEnd),
           // 3. 회원 등록 (이번달)
           supabase
             .from("members")
@@ -626,8 +626,8 @@ export default function KpiDashboard() {
         supabase.from("attendance").select("id", { count: "exact", head: true }).eq("branchId", branchId).gte("checkInAt", `${todayStr}T00:00:00`).lte("checkInAt", `${todayStr}T23:59:59`),
         supabase.from("attendance").select("id", { count: "exact", head: true }).eq("branchId", branchId).gte("checkInAt", `${weekAgoStr}T00:00:00`).lte("checkInAt", `${todayStr}T23:59:59`),
         // 상담
-        supabase.from("consultations").select("id", { count: "exact", head: true }).eq("branchId", branchId).gte("consultedAt", monthStart),
-        supabase.from("consultations").select("id", { count: "exact", head: true }).eq("branchId", branchId).gte("consultedAt", monthStart).eq("status", "완료"),
+        supabase.from("consultations").select("id", { count: "exact", head: true }).eq("branchId", branchId).gte("scheduledAt", monthStart),
+        supabase.from("consultations").select("id", { count: "exact", head: true }).eq("branchId", branchId).gte("scheduledAt", monthStart).eq("status", "completed"),
         // PT (이번달)
         supabase.from("lesson_bookings").select("id", { count: "exact", head: true }).eq("branchId", branchId).gte("createdAt", monthStart),
         supabase.from("lesson_bookings").select("id", { count: "exact", head: true }).eq("branchId", branchId).gte("createdAt", monthStart).eq("status", "ATTENDED"),
@@ -673,8 +673,8 @@ export default function KpiDashboard() {
         .from("consultations")
         .select("inquiryType, type, result, status")
         .eq("branchId", branchId)
-        .gte("consultedAt", monthStart)
-        .lte("consultedAt", monthEnd);
+        .gte("scheduledAt", monthStart)
+        .lte("scheduledAt", monthEnd);
 
       // WI/TI 집계
       const wiAll = consultData?.filter(c => c.inquiryType === 'WI') || [];

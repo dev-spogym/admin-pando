@@ -106,34 +106,34 @@ async function fetchReportKpi(
   let revenueQuery = supabase
     .from('sales')
     .select('amount')
-    .gte('sale_date', startDate)
-    .lte('sale_date', endDate)
+    .gte('saleDate', startDate)
+    .lte('saleDate', endDate)
     .eq('status', 'COMPLETED');
-  if (branchId) revenueQuery = revenueQuery.eq('branch_id', branchId);
+  if (branchId) revenueQuery = revenueQuery.eq('branchId', branchId);
   const { data: salesData } = await revenueQuery;
   const totalRevenue = (salesData ?? []).reduce((s, r) => s + (r.amount ?? 0), 0);
 
   // 전체 활성 회원 수
   let memberQuery = supabase.from('members').select('id', { count: 'exact', head: true }).eq('status', 'ACTIVE');
-  if (branchId) memberQuery = memberQuery.eq('branch_id', branchId);
+  if (branchId) memberQuery = memberQuery.eq('branchId', branchId);
   const { count: totalMembers } = await memberQuery;
 
   // 기간 내 신규 회원
   let newMemberQuery = supabase
     .from('members')
     .select('id', { count: 'exact', head: true })
-    .gte('registered_at', startDate)
-    .lte('registered_at', endDate);
-  if (branchId) newMemberQuery = newMemberQuery.eq('branch_id', branchId);
+    .gte('registeredAt', startDate)
+    .lte('registeredAt', endDate);
+  if (branchId) newMemberQuery = newMemberQuery.eq('branchId', branchId);
   const { count: newMembers } = await newMemberQuery;
 
   // 출석 수
   let attQuery = supabase
-    .from('attendances')
+    .from('attendance')
     .select('id', { count: 'exact', head: true })
-    .gte('check_in_time', startDate)
-    .lte('check_in_time', endDate);
-  if (branchId) attQuery = attQuery.eq('branch_id', branchId);
+    .gte('checkInAt', startDate)
+    .lte('checkInAt', endDate);
+  if (branchId) attQuery = attQuery.eq('branchId', branchId);
   const { count: totalAttendance } = await attQuery;
 
   // 일 수 계산

@@ -127,22 +127,22 @@ export default function BranchReport() {
               .from('members')
               .select('*', { count: 'exact', head: true })
               .eq('branchId', b.id)
-              .gte('regDate', startDate)
-              .lte('regDate', endDateStr);
+              .gte('registeredAt', startDate)
+              .lte('registeredAt', endDateStr);
 
             // 활성 회원 (만료일이 endDate 이후)
             const { count: activeMembers } = await supabase
               .from('members')
               .select('*', { count: 'exact', head: true })
               .eq('branchId', b.id)
-              .gte('expireDate', startDate);
+              .gte('membershipExpiry', startDate);
 
             // 만료 회원 (만료일이 startDate 이전)
             const { count: expiredMembers } = await supabase
               .from('members')
               .select('*', { count: 'exact', head: true })
               .eq('branchId', b.id)
-              .lt('expireDate', startDate);
+              .lt('membershipExpiry', startDate);
 
             // 총 매출 (선택 월)
             const { data: salesData } = await supabase
