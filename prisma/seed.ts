@@ -735,6 +735,46 @@ async function main() {
   //   - 운영 시 seed-auth-users.ts 로 Supabase Auth 마이그레이션
   //   - 로그인 페이지 모달의 ACCOUNT_PRESETS 와 동기화 유지
   // ============================================================
+
+  // Role enum 이 없는 환경 대비 (멱등)
+  await prisma.$executeRawUnsafe(`
+    DO $$ BEGIN
+      IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'Role') THEN
+        CREATE TYPE "Role" AS ENUM ('ADMIN', 'OWNER', 'MANAGER', 'TRAINER', 'STAFF', 'RECEPTIONIST', 'READONLY');
+      END IF;
+    END $$
+  `);
+
+  // 멀티테넌트 마이그레이션이 아직 적용되지 않은 환경 대비 (멱등)
+  await prisma.$executeRawUnsafe(
+    `ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "tenantId" INT DEFAULT 1`,
+  );
+  await prisma.$executeRawUnsafe(
+    `ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "isSuperAdmin" BOOLEAN NOT NULL DEFAULT false`,
+  );
+  await prisma.$executeRawUnsafe(
+    `ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "currentBranchId" INT`,
+  );
+  await prisma.$executeRawUnsafe(
+    `ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "forcePasswordChange" BOOLEAN NOT NULL DEFAULT false`,
+  );
+  await prisma.$executeRawUnsafe(
+    `ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "loginFailCount" INT NOT NULL DEFAULT 0`,
+  );
+  await prisma.$executeRawUnsafe(
+    `ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "lockedUntil" TIMESTAMP`,
+  );
+  await prisma.$executeRawUnsafe(
+    `ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "lastLoginAt" TIMESTAMP`,
+  );
+  await prisma.$executeRawUnsafe(
+    `ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "passwordChangedAt" TIMESTAMP`,
+  );
+  // branchId 슈퍼관리자(NULL) 허용
+  await prisma.$executeRawUnsafe(
+    `ALTER TABLE "users" ALTER COLUMN "branchId" DROP NOT NULL`,
+  ).catch(() => { /* 이미 nullable */ });
+
   const userSeed: Array<{
     id: number;
     username: string;
@@ -766,18 +806,26 @@ async function main() {
     { id: 1010, username: 'mgr-br006',   password: 'mgr1234',     name: '신당 매니저',    role: 'MANAGER',      branchId: 6,    isSuperAdmin: false, email: 'mgr006@spogym.com' },
   ];
 
+  let userOk = 0;
+  let userFail = 0;
   for (const u of userSeed) {
-    await prisma.$executeRawUnsafe(
-      `INSERT INTO "users" (id, username, password, name, email, role, "branchId", "isActive", "tenantId", "isSuperAdmin", "currentBranchId", "forcePasswordChange", "createdAt", "updatedAt")
-       VALUES ($1,$2,$3,$4,$5,$6::"Role",$7,true,1,$8,$9,false,NOW(),NOW())
-       ON CONFLICT (id) DO UPDATE SET
-         username=$2, password=$3, name=$4, email=$5, role=$6::"Role", "branchId"=$7,
-         "isSuperAdmin"=$8, "currentBranchId"=$9, "updatedAt"=NOW()`,
-      u.id, u.username, u.password, u.name, u.email ?? null, u.role,
-      u.branchId, u.isSuperAdmin, u.branchId ?? null,
-    );
+    try {
+      await prisma.$executeRawUnsafe(
+        `INSERT INTO "users" (id, username, password, name, email, role, "branchId", "isActive", "tenantId", "isSuperAdmin", "currentBranchId", "forcePasswordChange", "createdAt", "updatedAt")
+         VALUES ($1,$2,$3,$4,$5,$6::"Role",$7,true,1,$8,$9,false,NOW(),NOW())
+         ON CONFLICT (id) DO UPDATE SET
+           username=$2, password=$3, name=$4, email=$5, role=$6::"Role", "branchId"=$7,
+           "isSuperAdmin"=$8, "currentBranchId"=$9, "updatedAt"=NOW()`,
+        u.id, u.username, u.password, u.name, u.email ?? null, u.role,
+        u.branchId, u.isSuperAdmin, u.branchId ?? null,
+      );
+      userOk += 1;
+    } catch (err) {
+      userFail += 1;
+      console.error(`    ❌ ${u.username} (${u.name}) — ${(err as Error).message}`);
+    }
   }
-  console.log(`  ✅ 사용자 계정 ${userSeed.length}개 생성`);
+  console.log(`  ✅ 사용자 계정 ${userOk}개 생성${userFail ? ` / ❌ ${userFail}개 실패` : ''}`);
 
   // users.id 시퀀스 보정 (수동 id 사용 후 다음 autoincrement 충돌 방지)
   await prisma.$executeRawUnsafe(
