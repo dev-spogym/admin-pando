@@ -1,6 +1,6 @@
 // X19 — 회원 이관 타지점 승인
 import {
-  setupBrowser, login, makeStepRunner, calcResult, printResult,
+  setupBrowser, loginAsHQ, makeStepRunner, calcResult, printResult,
   BASE_URL, STEP_TIMEOUT,
 } from './_setup'
 
@@ -14,7 +14,7 @@ async function run() {
   const t0 = Date.now()
 
   try {
-    await login(page)
+    await loginAsHQ(page)
 
     // Step 1: /members/transfer 이동 → 이관 페이지 확인
     await step(1, '/members/transfer 이관 페이지 이동 확인', async () => {

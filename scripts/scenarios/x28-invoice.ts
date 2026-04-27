@@ -1,6 +1,6 @@
 // X28 — 세금계산서 발행
 import {
-  setupBrowser, login, makeStepRunner, calcResult, printResult,
+  setupBrowser, loginAsHQ, makeStepRunner, calcResult, printResult,
   BASE_URL, STEP_TIMEOUT,
 } from './_setup'
 
@@ -14,7 +14,7 @@ async function run() {
   const t0 = Date.now()
 
   try {
-    await login(page)
+    await loginAsHQ(page)
 
     // Step 1: /sales/invoice 이동 및 세금계산서 목록 확인
     await step(1, '/sales/invoice 이동 및 세금계산서 목록 확인', async () => {

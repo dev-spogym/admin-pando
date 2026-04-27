@@ -1,6 +1,6 @@
 // X09 — KPI 롤업 및 주간 리포트
 import {
-  setupBrowser, login, makeStepRunner, calcResult, printResult,
+  setupBrowser, loginAsHQ, makeStepRunner, calcResult, printResult,
   BASE_URL, STEP_TIMEOUT,
 } from './_setup'
 
@@ -14,7 +14,7 @@ async function run() {
   const t0 = Date.now()
 
   try {
-    await login(page)
+    await loginAsHQ(page)
 
     // Step 1: /kpi 페이지 이동 → 콘텐츠 로드 확인
     await step(1, '/kpi 페이지 이동 및 콘텐츠 로드 확인', async () => {

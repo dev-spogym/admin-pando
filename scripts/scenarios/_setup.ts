@@ -8,6 +8,20 @@ export const LOGIN_PASSWORD = 'qwer1234!!'
 export const BRANCH_VALUE = '1'
 export const STEP_TIMEOUT = 10000
 
+// 계정 목록
+export const ACCOUNTS = {
+  // 본사 계정 (isSuperAdmin: true) — 지점 선택 없음, 전 지점 열람 가능
+  SUPER:       { id: 'super',       pw: 'super1234' },
+  HQ_OPS:      { id: 'hq-ops',     pw: 'hqops1234' },
+  // 지점 계정 — 로그인 후 지점 선택 필요
+  BRANCH_OWNER:  { id: 'br001',         pw: 'br1234' },
+  TRAINER:       { id: 'pt-br001',      pw: 'pt1234' },
+  RECEPTIONIST:  { id: 'front-br001',   pw: 'fr1234' },
+  DISTRICT1:     { id: 'district1',     pw: 'd1234' },
+  DISTRICT2:     { id: 'district2',     pw: 'd1234' },
+  MANAGER6:      { id: 'mgr-br006',     pw: 'mgr1234' },
+} as const
+
 export const SCREENSHOTS_BASE = path.join(process.cwd(), 'qa-results', 'scenarios')
 
 export type StepStatus = 'PASS' | 'FAIL' | 'SKIP'
@@ -35,14 +49,14 @@ export async function setupBrowser(): Promise<{ browser: Browser; page: Page }> 
   return { browser, page }
 }
 
-export async function login(page: Page): Promise<void> {
+async function doLogin(page: Page, id: string, pw: string): Promise<void> {
   await page.goto(`${BASE_URL}/login`, { waitUntil: 'networkidle', timeout: 15000 })
 
   const idInput = page.locator('input[placeholder*="아이디"]').first()
   const passwordInput = page.locator('input[type="password"]').first()
 
-  await idInput.fill(LOGIN_ID)
-  await passwordInput.fill(LOGIN_PASSWORD)
+  await idInput.fill(id)
+  await passwordInput.fill(pw)
 
   const loginButton = page
     .locator('button[type="submit"], button:has-text("로그인"), button:has-text("Login")')
@@ -53,8 +67,9 @@ export async function login(page: Page): Promise<void> {
     .waitForURL((url) => !url.pathname.includes('/login'), { timeout: 15000 })
     .catch(() => {})
   await page.waitForTimeout(500)
+}
 
-  // 지점 선택
+async function selectBranch(page: Page, branchValue: string = BRANCH_VALUE): Promise<void> {
   try {
     await page.waitForSelector('select', { timeout: 5000 })
     const selects = page.locator('select')
@@ -64,8 +79,8 @@ export async function login(page: Page): Promise<void> {
       const options = await sel.locator('option').all()
       for (const opt of options) {
         const val = await opt.getAttribute('value')
-        if (val === BRANCH_VALUE) {
-          await sel.selectOption({ value: BRANCH_VALUE })
+        if (val === branchValue) {
+          await sel.selectOption({ value: branchValue })
           const confirmBtn = page
             .locator('button:has-text("확인"), button:has-text("선택"), button[type="submit"]')
             .first()
@@ -79,8 +94,38 @@ export async function login(page: Page): Promise<void> {
       }
     }
   } catch {}
-
   await page.waitForTimeout(1000)
+}
+
+/** 광화문 지점 매니저 (branchId=1) — 기본 로그인 */
+export async function login(page: Page): Promise<void> {
+  await doLogin(page, LOGIN_ID, LOGIN_PASSWORD)
+  await selectBranch(page, BRANCH_VALUE)
+}
+
+/** 본사 슈퍼관리자 — 지점 선택 없음, 전 지점 열람 가능 */
+export async function loginAsHQ(page: Page): Promise<void> {
+  await doLogin(page, ACCOUNTS.SUPER.id, ACCOUNTS.SUPER.pw)
+  // 본사 계정은 isSuperAdmin=true, branchId=null → 지점 선택 화면 없음
+  await page.waitForTimeout(1000)
+}
+
+/** 광화문 지점장 (branchId=1) */
+export async function loginAsBranchOwner(page: Page): Promise<void> {
+  await doLogin(page, ACCOUNTS.BRANCH_OWNER.id, ACCOUNTS.BRANCH_OWNER.pw)
+  await selectBranch(page, '1')
+}
+
+/** 광화문 트레이너 (branchId=1) */
+export async function loginAsTrainer(page: Page): Promise<void> {
+  await doLogin(page, ACCOUNTS.TRAINER.id, ACCOUNTS.TRAINER.pw)
+  await selectBranch(page, '1')
+}
+
+/** 광화문 리셉션 (branchId=1) */
+export async function loginAsReceptionist(page: Page): Promise<void> {
+  await doLogin(page, ACCOUNTS.RECEPTIONIST.id, ACCOUNTS.RECEPTIONIST.pw)
+  await selectBranch(page, '1')
 }
 
 export async function takeScreenshot(
