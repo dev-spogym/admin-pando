@@ -8,7 +8,18 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "docs:check": "tsx scripts/sync-docs.ts"
+    "docs:check": "tsx scripts/sync-docs.ts",
+    "qa:scan": "tsx --tsconfig tsconfig.scripts.json scripts/qa-scan.ts",
+    "scenario:run": "tsx --tsconfig tsconfig.scripts.json scripts/run-scenarios.ts",
+    "scenario:x01": "tsx --tsconfig tsconfig.scripts.json scripts/scenarios/x01-onboarding.ts",
+    "scenario:x02": "tsx --tsconfig tsconfig.scripts.json scripts/scenarios/x02-renewal.ts",
+    "scenario:x03": "tsx --tsconfig tsconfig.scripts.json scripts/scenarios/x03-penalty.ts",
+    "scenario:x04": "tsx --tsconfig tsconfig.scripts.json scripts/scenarios/x04-body-composition.ts",
+    "scenario:x05": "tsx --tsconfig tsconfig.scripts.json scripts/scenarios/x05-pos-payment.ts",
+    "scenario:x06": "tsx --tsconfig tsconfig.scripts.json scripts/scenarios/x06-refund.ts",
+    "scenario:x07": "tsx --tsconfig tsconfig.scripts.json scripts/scenarios/x07-locker.ts",
+    "scenario:x08": "tsx --tsconfig tsconfig.scripts.json scripts/scenarios/x08-staff-attendance.ts",
+    "scenario:x12": "tsx --tsconfig tsconfig.scripts.json scripts/scenarios/x12-group-class.ts"
   },
   "dependencies": {
     "@fullcalendar/core": "^6.1.20",
