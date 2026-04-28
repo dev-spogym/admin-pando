@@ -300,7 +300,7 @@ function walkMasters(root: string, acc: string[] = []): string[] {
 
 function buildScreenIndex(): Map<string, string> {
   const idx = new Map<string, string>();
-  const root = path.join(process.cwd(), 'docs', '기획자', '화면설계서');
+  const root = path.join(process.cwd(), 'docs', 'admin', '화면설계서');
   const masters = walkMasters(root);
   for (const file of masters) {
     try {
@@ -326,7 +326,7 @@ function getScreenIndex(): Map<string, string> {
 
 function loadScreenDocs(folder: string): ScreenDocs | null {
   try {
-    const fullPath = path.join(process.cwd(), 'docs', '기획자', '화면설계서', folder);
+    const fullPath = path.join(process.cwd(), 'docs', 'admin', '화면설계서', folder);
     if (!fs.existsSync(fullPath)) return null;
 
     const entries = fs.readdirSync(fullPath).filter((name) => name.endsWith('.md'));
@@ -385,7 +385,7 @@ export async function GET(request: NextRequest) {
   let functional: { file: string; content: string; keywords: string[] } | null = null;
   if (mapping.functional) {
     try {
-      const docPath = path.join(process.cwd(), 'docs', '기획자', '기능명세서', mapping.functional.file);
+      const docPath = path.join(process.cwd(), 'docs', 'admin', '기능명세서', mapping.functional.file);
       let content = fs.readFileSync(docPath, 'utf-8');
 
       // 시스템 모듈 보너스 섹션 (plan/ 이동 후 경로 동기화)
