@@ -112,16 +112,15 @@ const RightQuickPanel = () => {
   }, []);
 
   return (
-    <div className="relative flex shrink-0">
+    <div className="relative hidden h-full shrink-0 xl:flex">
       {/* ── 슬라이드 패널 (w-80, 전체 높이) ── */}
       <div
         ref={panelRef}
         className={cn(
-          "absolute right-full top-0 h-full w-80 bg-surface border-l border-line shadow-lg",
+          "absolute right-full top-0 h-full w-80 border-l border-line/80 bg-white/88 shadow-card-deep backdrop-blur-xl",
           "transition-transform duration-200 ease-in-out z-30",
           activePanel ? "translate-x-0" : "translate-x-full pointer-events-none opacity-0"
         )}
-        style={{ height: "100vh", position: "fixed", right: "48px", top: 0 }}
       >
         {activePanel && (
           <div className="flex flex-col h-full">
@@ -144,8 +143,7 @@ const RightQuickPanel = () => {
       {/* ── 세로 버튼 바 (항상 표시) ── */}
       <div
         ref={barRef}
-        className="flex flex-col items-center gap-[2px] py-sm bg-surface border-l border-line w-12 shrink-0"
-        style={{ minHeight: "100vh" }}
+        className="flex h-full w-14 shrink-0 flex-col items-center gap-[6px] border-l border-line/80 bg-white/72 py-sm backdrop-blur-xl"
       >
         {QUICK_BUTTONS.map((btn) => {
           const isActive = activePanel === btn.key;
@@ -153,10 +151,10 @@ const RightQuickPanel = () => {
             <div key={btn.key} className="relative group">
               <button
                 className={cn(
-                  "flex h-10 w-10 flex-col items-center justify-center rounded-lg transition-all",
+                  "flex h-11 w-11 flex-col items-center justify-center rounded-2xl transition-all",
                   isActive
-                    ? "bg-primary text-white shadow-sm"
-                    : "text-content-tertiary hover:bg-surface-tertiary hover:text-content"
+                    ? "bg-gradient-to-br from-primary to-[#ff907f] text-white shadow-float"
+                    : "text-content-tertiary hover:bg-white/80 hover:text-content"
                 )}
                 onClick={() => handleButtonClick(btn.key)}
                 title={btn.label}

@@ -150,14 +150,13 @@ export default function Select({
         onKeyDown={handleKeyDown}
         onClick={handleToggle}
         className={cn(
-          "w-full h-[44px] px-md flex items-center justify-between gap-xs",
-          "bg-surface-secondary rounded-lg text-[13px] border transition-all duration-150 outline-none",
-          "focus-visible:ring-1 focus-visible:ring-primary/20",
+          "app-control flex h-[44px] w-full items-center justify-between gap-xs rounded-2xl px-md text-[13px] border transition-all duration-150 outline-none",
+          "focus-visible:ring-2 focus-visible:ring-primary/10",
           error
             ? "border-red-400 focus-visible:border-red-400"
             : open
-            ? "border-primary ring-1 ring-primary/20"
-            : "border-line hover:border-primary/50",
+            ? "border-primary ring-2 ring-primary/10"
+            : "border-line/80 hover:border-primary/50",
           disabled && "cursor-not-allowed opacity-50 bg-surface-tertiary"
         )}
       >
@@ -177,7 +176,7 @@ export default function Select({
       {open && (
         <div
           className={cn(
-            "absolute z-50 mt-1 w-full min-w-[160px] bg-surface rounded-lg border border-line shadow-card-deep",
+            "absolute z-50 mt-2 w-full min-w-[160px] rounded-2xl border border-line/80 bg-white/95 shadow-card-deep backdrop-blur-xl",
             "animate-in fade-in zoom-in-95 duration-100"
           )}
           style={{ top: "100%", left: 0 }}
@@ -193,7 +192,7 @@ export default function Select({
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
                   placeholder="검색..."
-                  className="w-full h-8 pl-7 pr-sm bg-surface-secondary rounded text-[12px] text-content border border-line focus:border-primary focus:ring-1 focus:ring-primary/20 outline-none"
+                  className="app-control h-8 w-full rounded-xl pl-7 pr-sm text-[12px] text-content focus:border-primary focus:ring-2 focus:ring-primary/10 outline-none"
                   onKeyDown={(e) => {
                     if (e.key === "Escape") {
                       setOpen(false);

@@ -16,7 +16,7 @@ journey
       로그인 /login: 5: staff
       지점 대시보드 확인 /: 5: staff
       오늘의 할일 /today-tasks: 5: staff
-      KPI 프리뷰 확인 /kpi-preview: 4: staff
+      KPI 센터 확인 /kpi-preview: 4: staff
       공지사항 확인 /notices: 5: staff
 
     section 회원 출석 처리 (핵심 업무)
@@ -51,7 +51,7 @@ journey
 | 화면 | 라우트 | 접근 | 비고 |
 |------|--------|:---:|------|
 | 대시보드/할일 | `/`, `/today-tasks` | ● | |
-| KPI 프리뷰 | `/kpi-preview` | ● | |
+| KPI 센터 | `/kpi-preview` | ● | |
 | 공지사항 | `/notices` | ● | |
 | 출석 관리 | `/` | ● | |
 | 회원 목록 | `/` | ○ | 조회만 |

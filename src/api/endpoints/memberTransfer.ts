@@ -3,6 +3,8 @@
  */
 import { supabase } from '../../lib/supabase';
 import type { ApiResponse } from '../types';
+import { getPreviewScenario, isPreviewMode } from '@/lib/preview';
+import { getPreviewTransferCheck } from '@/mocks/memberPreview';
 
 /** 이관 전 체크 결과 */
 export interface TransferCheckResult {
@@ -40,15 +42,19 @@ const getTenantId = (): number => {
   return stored ? Number(stored) : 1;
 };
 
-const getBranchId = (): number => { if (typeof window === "undefined") return 1;
-  const stored = localStorage.getItem('branchId');
-  return stored ? Number(stored) : 1;
-};
-
 /** 이관 전 체크리스트 확인 */
 export const checkTransferEligibility = async (
   memberId: number
 ): Promise<ApiResponse<TransferCheckResult>> => {
+  if (isPreviewMode()) {
+    void memberId;
+    const scenario = getPreviewScenario(undefined, 'eligible');
+    return {
+      success: true,
+      data: getPreviewTransferCheck(scenario),
+    };
+  }
+
   try {
     // 1. 회원 정보 조회
     const { data: member, error } = await supabase
@@ -100,7 +106,7 @@ export const checkTransferEligibility = async (
     const { count: couponCount } = await supabase
       .from('coupons')
       .select('id', { count: 'exact', head: true })
-      .eq('branchId', getBranchId())
+      .eq('branchId', member.branchId)
       .eq('isActive', true);
 
     // 7. 마일리지
@@ -141,11 +147,31 @@ export const checkTransferEligibility = async (
 export const transferMember = async (
   data: MemberTransferRequest
 ): Promise<ApiResponse<null>> => {
+  if (isPreviewMode()) {
+    void data;
+    return { success: true, data: null, message: '프리뷰 모드에서 회원 이관이 시뮬레이션되었습니다.' };
+  }
+
   try {
     // 1. 이관 전 체크
     const checkResult = await checkTransferEligibility(data.memberId);
     if (!checkResult.data.canTransfer) {
       return { success: false, data: null, message: checkResult.data.blockers.join('\n') };
+    }
+
+    const { data: memberBeforeTransfer, error: memberError } = await supabase
+      .from('members')
+      .select('branchId')
+      .eq('id', data.memberId)
+      .single();
+
+    if (memberError || !memberBeforeTransfer) {
+      throw new Error('이관 대상 회원의 현재 지점을 찾을 수 없습니다.');
+    }
+
+    const fromBranchId = Number(memberBeforeTransfer.branchId);
+    if (fromBranchId === data.toBranchId) {
+      return { success: false, data: null, message: '현재 소속 지점과 동일한 지점으로는 이관할 수 없습니다.' };
     }
 
     // 2. members.branchId 변경
@@ -167,7 +193,7 @@ export const transferMember = async (
     await supabase.from('member_transfer_log').insert({
       tenantId: getTenantId(),
       memberId: data.memberId,
-      fromBranchId: getBranchId(),
+      fromBranchId,
       toBranchId: data.toBranchId,
       transferType: data.transferType,
       approvedBy: user?.id ? Number(user.id) : 0,
@@ -185,6 +211,11 @@ export const transferMember = async (
 export const withdrawMember = async (
   data: MemberWithdrawRequest
 ): Promise<ApiResponse<null>> => {
+  if (isPreviewMode()) {
+    void data;
+    return { success: true, data: null, message: '프리뷰 모드에서 회원 탈퇴가 시뮬레이션되었습니다.' };
+  }
+
   try {
     // 1. 회원 상태 변경
     const { error } = await supabase

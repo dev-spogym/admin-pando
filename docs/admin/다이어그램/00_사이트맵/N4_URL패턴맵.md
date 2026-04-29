@@ -123,9 +123,9 @@ flowchart LR
 | `/branches` | SCR-092 | 지점 관리 |
 | `/branch-report` | SCR-093 | 지점 리포트 |
 | `/kpi` | SCR-094 | KPI 대시보드 |
-| `/kpi-preview` | SCR-095 | KPI 프리뷰 |
+| `/kpi-preview` | SCR-095 | KPI 센터 |
 | `/onboarding` | SCR-096 | 온보딩 |
-| `/audit-log` | SCR-097 | 감사 로그 |
+| `/audit-log` | SCR-097 | 히스토리 로그 |
 | `/today-tasks` | SCR-098 | 오늘의 할일 |
 | `/reports` | SCR-099 | 리포트 |
 | `/` | SCR-010 | 회원 목록 |

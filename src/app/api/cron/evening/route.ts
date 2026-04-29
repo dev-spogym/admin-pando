@@ -67,5 +67,19 @@ export async function GET() {
     }
   }
 
+  // 5. 환불 요청/처리 시뮬레이션 (45% 확률)
+  if (Math.random() < 0.45) {
+    try {
+      const res = await fetch(`${base}/api/simulate/refunds`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ branchId }),
+      })
+      results.refunds = await res.json()
+    } catch (err) {
+      results.refunds = { ok: false, error: err instanceof Error ? err.message : String(err) }
+    }
+  }
+
   return NextResponse.json({ ok: true, scenario: 'evening', timestamp: new Date().toISOString(), results })
 }

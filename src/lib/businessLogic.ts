@@ -559,7 +559,6 @@ export const syncAutoCompleteClasses = async (): Promise<number> => {
     .from('classes')
     .update({
       lesson_status: 'completed',
-      completed_at: new Date().toISOString(),
     })
     .eq('branchId', branchId)
     .in('lesson_status', ['scheduled', 'in_progress'])
@@ -567,6 +566,15 @@ export const syncAutoCompleteClasses = async (): Promise<number> => {
     .select('id');
 
   if (error) {
+    const isMissingClassCompletionSchema =
+      error.message.includes("column of 'classes'") &&
+      error.message.includes("'lesson_status'");
+
+    if (isMissingClassCompletionSchema) {
+      console.warn('자동 완료 처리를 건너뜁니다: classes 테이블 마이그레이션이 아직 적용되지 않았습니다.');
+      return 0;
+    }
+
     console.error('자동 완료 처리 실패:', error.message);
     return 0;
   }

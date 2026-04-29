@@ -4,33 +4,56 @@ export const dynamic = 'force-dynamic';
 import React, { useState } from 'react';
 import AppLayout from '@/components/layout/AppLayout';
 import PageHeader from '@/components/common/PageHeader';
-import { Brain, TrendingUp, AlertTriangle, Users, DollarSign, ArrowUpRight, ArrowDownRight } from 'lucide-react';
+import { Brain, AlertTriangle, ArrowUpRight, ArrowDownRight, RefreshCw } from 'lucide-react';
+import { usePageSeed } from '@/hooks';
+import type { AnalyticsForecastSeedPayload } from '@/lib/publishingPageSeed';
 
-const predictions = [
-  { metric: '다음 달 예상 매출', value: '₩47,200,000', change: '+8.3%', direction: 'up', confidence: 87, basis: '최근 3개월 추세 + 계절 요인' },
-  { metric: '예상 신규 등록', value: '38명', change: '+12.5%', direction: 'up', confidence: 72, basis: '리드 전환율 + 프로모션 효과' },
-  { metric: '예상 이탈 위험 회원', value: '23명', change: '+5명', direction: 'up', confidence: 81, basis: '방문 패턴 이상 감지' },
-  { metric: '예상 만료 처리', value: '67명', change: '-3.2%', direction: 'down', confidence: 94, basis: '이용권 만료일 기준' },
-];
-
-const riskMembers = [
-  { name: '김민준', risk: 92, lastVisit: '18일 전', signal: '방문 빈도 급감' },
-  { name: '이서연', risk: 85, lastVisit: '24일 전', signal: '만료 D-12, 미재등록' },
-  { name: '박지훈', risk: 78, lastVisit: '31일 전', signal: '장기 미방문' },
-  { name: '최유리', risk: 71, lastVisit: '15일 전', signal: '최근 예약 취소 3회' },
-  { name: '정현우', risk: 65, lastVisit: '20일 전', signal: '출석률 30%대' },
-];
+const FALLBACK_FORECAST: AnalyticsForecastSeedPayload = {
+  predictions: [
+    { metric: '다음 달 예상 매출', value: '₩47,200,000', change: '+8.3%', direction: 'up', confidence: 87, basis: '최근 3개월 추세 + 계절 요인' },
+    { metric: '예상 신규 등록', value: '38명', change: '+12.5%', direction: 'up', confidence: 72, basis: '리드 전환율 + 프로모션 효과' },
+    { metric: '예상 이탈 위험 회원', value: '23명', change: '+5명', direction: 'up', confidence: 81, basis: '방문 패턴 이상 감지' },
+    { metric: '예상 만료 처리', value: '67명', change: '-3.2%', direction: 'down', confidence: 94, basis: '이용권 만료일 기준' },
+  ],
+  riskMembers: [
+    { name: '김민준', risk: 92, lastVisit: '18일 전', signal: '방문 빈도 급감' },
+    { name: '이서연', risk: 85, lastVisit: '24일 전', signal: '만료 D-12, 미재등록' },
+    { name: '박지훈', risk: 78, lastVisit: '31일 전', signal: '장기 미방문' },
+    { name: '최유리', risk: 71, lastVisit: '15일 전', signal: '최근 예약 취소 3회' },
+    { name: '정현우', risk: 65, lastVisit: '20일 전', signal: '출석률 30%대' },
+  ],
+};
 
 export default function PredictiveAnalyticsPage() {
   const [tab, setTab] = useState<'예측지표' | '이탈위험'>('예측지표');
+  const { data, loading, error, branchId, snapshotDate, reload } = usePageSeed<AnalyticsForecastSeedPayload>(
+    '/analytics/forecast',
+    FALLBACK_FORECAST,
+  );
+  const { predictions, riskMembers } = data;
 
   return (
     <AppLayout>
-      <PageHeader title="예측 분석" description="과거 데이터와 패턴을 기반으로 미래 지표를 예측합니다" />
+      <PageHeader
+        title="예측 분석"
+        description="과거 데이터와 패턴을 기반으로 미래 지표를 예측합니다"
+        actions={
+          <button
+            className="flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+            onClick={() => void reload(true)}
+            type="button"
+          >
+            <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} /> seed 갱신
+          </button>
+        }
+      />
 
       <div className="flex items-center gap-2 mb-6 p-3 bg-indigo-50 border border-indigo-200 rounded-xl">
         <Brain className="w-4 h-4 text-indigo-600" />
-        <p className="text-sm text-indigo-700">AI 예측 모델이 2025.01 ~ 2026.04 데이터를 학습해 분석 중입니다</p>
+        <p className="text-sm text-indigo-700">
+          Supabase snapshot 기반 예측 · 지점 {branchId} · 기준일 {snapshotDate ?? '-'}
+          {error && <span className="ml-2 text-red-600">Fallback 사용: {error}</span>}
+        </p>
       </div>
 
       <div className="flex gap-2 mb-4">

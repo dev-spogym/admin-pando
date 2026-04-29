@@ -35,7 +35,7 @@ export default function TabNav({ tabs = [], activeTab, onTabChange, className = 
     <div
       ref={scrollContainerRef}
       className={cn(
-        "flex overflow-x-auto border-b border-line bg-surface",
+        "flex gap-1 overflow-x-auto rounded-[20px] border border-line/70 bg-white/78 p-1.5 shadow-sm backdrop-blur-sm",
         // 스크롤바 숨기기
         "[&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]",
         className
@@ -50,10 +50,10 @@ export default function TabNav({ tabs = [], activeTab, onTabChange, className = 
             ref={isActive ? activeButtonRef : undefined}
             type="button"
             className={cn(
-              "flex items-center gap-[6px] px-4 py-3 text-[13px] font-medium transition-all whitespace-nowrap shrink-0 border-b-2",
+              "flex shrink-0 items-center gap-[6px] whitespace-nowrap rounded-2xl border px-4 py-2.5 text-[13px] font-semibold transition-all",
               isActive
-                ? "border-primary text-primary"
-                : "border-transparent text-content-secondary hover:text-content hover:border-line"
+                ? "border-primary/30 bg-gradient-to-r from-primary-light to-white text-primary shadow-sm"
+                : "border-transparent text-content-secondary hover:border-line/70 hover:bg-white/72 hover:text-content"
             )}
             onClick={() => onTabChange(tab.key)}
           >
@@ -68,8 +68,8 @@ export default function TabNav({ tabs = [], activeTab, onTabChange, className = 
             {tab.count !== undefined && (
               <span
                 className={cn(
-                  "px-[6px] py-px rounded-full text-[10px] font-semibold tabular-nums",
-                  isActive ? "bg-primary text-white" : "bg-line text-content-secondary"
+                  "rounded-full px-[7px] py-px text-[10px] font-semibold tabular-nums",
+                  isActive ? "bg-primary text-white" : "bg-surface-tertiary text-content-secondary"
                 )}
               >
                 {tab.count}

@@ -34,7 +34,19 @@ type RefundItem = {
   method: string;
   reason: string;
   staffName: string;
+  assignmentStatus: 'assigned' | 'pending';
+  originalSaleId: number | null;
+  approvalNo: string;
+  penaltyAmount: number;
   status: string;
+};
+
+type RefundResponsibilityRow = {
+  staffName: string;
+  assignmentStatus: 'assigned' | 'pending';
+  count: number;
+  amount: number;
+  avgAmount: number;
 };
 
 // 로컬 날짜 포맷
@@ -91,6 +103,10 @@ const buildFallbackRefunds = (salesRows: Record<string, unknown>[]): RefundItem[
       method: METHOD_KO[(row.paymentMethod as string) ?? ''] ?? '카드',
       reason: REFUND_REASON_PRESETS[idx % REFUND_REASON_PRESETS.length],
       staffName: (row.staffName as string) ?? ['김매니저', '이상담', '박트레이너'][idx % 3],
+      assignmentStatus: 'assigned',
+      originalSaleId: (row.originalSaleId as number) ?? null,
+      approvalNo: (row.approvalNo as string) ?? '',
+      penaltyAmount: Number(row.penaltyAmount) || 0,
       status: refundedSales.length > 0 ? '완료' : idx % 3 === 0 ? '처리중' : '완료',
     };
   });
@@ -100,7 +116,6 @@ export default function RefundManagement() {
   const [refundData, setRefundData] = useState<RefundItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [penaltyTotal, setPenaltyTotal] = useState(0);
-  const [rePayCount, setRePayCount] = useState(0);
 
   // 날짜 필터 (이번달 기본)
   const today = new Date();
@@ -114,7 +129,7 @@ export default function RefundManagement() {
     setIsLoading(true);
     let query = supabase
       .from('sales')
-      .select('id, memberId, memberName, productName, amount, saleDate, paymentMethod, staffName, status, branchId')
+      .select('id, memberId, memberName, productName, amount, saleDate, paymentMethod, staffName, originalSaleId, approvalNo, penaltyAmount, status, branchId')
       .eq('branchId', getBranchId())
       .eq('status', 'REFUNDED')
       .order('saleDate', { ascending: false });
@@ -131,41 +146,29 @@ export default function RefundManagement() {
       return;
     }
 
-    const mapped = (data ?? []).map((row: Record<string, unknown>, idx: number) => ({
-      id: row.id as number,
-      no: (data ?? []).length - idx,
-      refundDate: (row.saleDate as string)?.slice(0, 10) ?? '',
-      memberName: (row.memberName as string) ?? '',
-      memberId: (row.memberId as number) ?? 0,
-      productName: (row.productName as string) ?? '',
-      amount: Number(row.amount) || 0,
-      method: METHOD_KO[(row.paymentMethod as string) ?? ''] ?? (row.paymentMethod as string) ?? '',
-      reason: '',
-      staffName: (row.staffName as string) ?? '',
-      status: '완료',
-    }));
+    const mapped = (data ?? []).map((row: Record<string, unknown>, idx: number) => {
+      const staffName = String(row.staffName ?? '').trim();
+      return {
+        id: row.id as number,
+        no: (data ?? []).length - idx,
+        refundDate: (row.saleDate as string)?.slice(0, 10) ?? '',
+        memberName: (row.memberName as string) ?? '',
+        memberId: (row.memberId as number) ?? 0,
+        productName: (row.productName as string) ?? '',
+        amount: Number(row.amount) || 0,
+        method: METHOD_KO[(row.paymentMethod as string) ?? ''] ?? (row.paymentMethod as string) ?? '',
+        reason: '',
+        staffName: staffName || '귀속 대기',
+        assignmentStatus: staffName ? 'assigned' as const : 'pending' as const,
+        originalSaleId: row.originalSaleId == null ? null : Number(row.originalSaleId),
+        approvalNo: String(row.approvalNo ?? ''),
+        penaltyAmount: Number(row.penaltyAmount) || 0,
+        status: '완료',
+      };
+    });
 
     setRefundData(mapped);
-
-    // 위약금 합계
-    const { data: penaltyData } = await supabase
-      .from('sales')
-      .select('penaltyAmount')
-      .eq('branchId', getBranchId())
-      .eq('status', 'REFUNDED')
-      .gte('saleDate', dateStart)
-      .lte('saleDate', dateEnd);
-    setPenaltyTotal(penaltyData?.reduce((sum, r) => sum + (Number(r.penaltyAmount) || 0), 0) || 0);
-
-    // 재결제 건수
-    const { count: rePay } = await supabase
-      .from('sales')
-      .select('id', { count: 'exact', head: true })
-      .eq('branchId', getBranchId())
-      .eq('saleCategory', '재결제')
-      .gte('saleDate', dateStart)
-      .lte('saleDate', dateEnd);
-    setRePayCount(rePay ?? 0);
+    setPenaltyTotal(mapped.reduce((sum, item) => sum + item.penaltyAmount, 0));
   }, [dateStart, dateEnd]);
 
   useEffect(() => {
@@ -177,7 +180,33 @@ export default function RefundManagement() {
     const totalAmount = refundData.reduce((s, i) => s + i.amount, 0);
     const totalCount = refundData.length;
     const avgAmount = totalCount > 0 ? Math.round(totalAmount / totalCount) : 0;
-    return { totalAmount, totalCount, avgAmount };
+    const assignedCount = refundData.filter(item => item.assignmentStatus === 'assigned').length;
+    const originalLinkedCount = refundData.filter(item => item.originalSaleId != null).length;
+    const approvalLinkedCount = refundData.filter(item => item.approvalNo).length;
+    return { totalAmount, totalCount, avgAmount, assignedCount, originalLinkedCount, approvalLinkedCount };
+  }, [refundData]);
+
+  const responsibilityRows = useMemo<RefundResponsibilityRow[]>(() => {
+    const map = new Map<string, { count: number; amount: number }>();
+    refundData.forEach(item => {
+      const key = item.assignmentStatus === 'assigned' ? item.staffName : '귀속 대기';
+      const prev = map.get(key) ?? { count: 0, amount: 0 };
+      prev.count += 1;
+      prev.amount += item.amount;
+      map.set(key, prev);
+    });
+    return Array.from(map.entries())
+      .map(([staffName, value]) => ({
+        staffName,
+        assignmentStatus: staffName === '귀속 대기' ? 'pending' as const : 'assigned' as const,
+        count: value.count,
+        amount: value.amount,
+        avgAmount: value.count > 0 ? Math.round(value.amount / value.count) : 0,
+      }))
+      .sort((a, b) => {
+        if (a.assignmentStatus !== b.assignmentStatus) return a.assignmentStatus === 'pending' ? 1 : -1;
+        return b.amount - a.amount;
+      });
   }, [refundData]);
 
   // 엑셀 다운로드
@@ -189,7 +218,11 @@ export default function RefundManagement() {
       { key: 'amount', header: '환불금액' },
       { key: 'method', header: '환불방법' },
       { key: 'reason', header: '사유' },
-      { key: 'staffName', header: '처리자' },
+      { key: 'staffName', header: '원판매 담당자' },
+      { key: 'assignmentStatus', header: '귀속상태' },
+      { key: 'originalSaleId', header: '원매출ID' },
+      { key: 'approvalNo', header: '승인번호' },
+      { key: 'penaltyAmount', header: '위약금' },
       { key: 'status', header: '상태' },
     ];
     exportToExcel(refundData as Record<string, unknown>[], exportColumns, { filename: '환불관리' });
@@ -233,10 +266,30 @@ export default function RefundManagement() {
     },
     { key: 'method', header: '환불방법', width: 100, align: 'center' as const },
     {
+      key: 'approvalNo', header: '승인번호', width: 120, align: 'center' as const,
+      render: (val: string) => <span className="text-[12px] text-content-secondary">{val || '-'}</span>,
+    },
+    {
+      key: 'penaltyAmount', header: '위약금', width: 110, align: 'right' as const,
+      render: (val: number) => <span className="text-[12px] tabular-nums text-content-secondary">{val ? formatKRW(val) : '-'}</span>,
+    },
+    {
       key: 'reason', header: '사유', width: 200,
       render: (val: string) => <span className="text-content-tertiary text-[12px]">{val}</span>,
     },
-    { key: 'staffName', header: '처리자', width: 100 },
+    { key: 'staffName', header: '원판매 담당자', width: 120 },
+    {
+      key: 'originalSaleId', header: '원매출', width: 90, align: 'center' as const,
+      render: (val: number | null) => <span className="text-[12px] text-content-secondary">{val ?? '-'}</span>,
+    },
+    {
+      key: 'assignmentStatus', header: '귀속', width: 90, align: 'center' as const,
+      render: (val: RefundItem['assignmentStatus']) => (
+        <StatusBadge variant={val === 'assigned' ? 'success' : 'warning'} dot>
+          {val === 'assigned' ? '완료' : '대기'}
+        </StatusBadge>
+      ),
+    },
     {
       key: 'status', header: '상태', width: 90, align: 'center' as const,
       render: (val: string) => (
@@ -262,7 +315,7 @@ export default function RefundManagement() {
       />
 
       {/* 통계 카드 */}
-      <StatCardGrid cols={6} className="mb-xl">
+      <StatCardGrid cols={4} className="mb-xl">
         <StatCard
           label="이번달 환불 총액"
           value={formatKRW(stats.totalAmount)}
@@ -272,6 +325,7 @@ export default function RefundManagement() {
         <StatCard
           label="환불 건수"
           value={`${stats.totalCount}건`}
+          description={`원매출 연결 ${stats.originalLinkedCount}건 / 담당자 귀속 ${stats.assignedCount}건`}
           icon={<Hash />}
         />
         <StatCard
@@ -284,17 +338,6 @@ export default function RefundManagement() {
           value={formatKRW(penaltyTotal)}
           description="환불 시 공제된 위약금"
           variant="peach"
-        />
-        <StatCard
-          label="재결제 건수"
-          value={rePayCount}
-          description="환불 후 재결제 복귀"
-          variant="mint"
-        />
-        <StatCard
-          label="재결제율"
-          value={`${stats.totalCount ? ((rePayCount / stats.totalCount) * 100).toFixed(1) : '0.0'}%`}
-          description="환불→재결제 복귀율"
         />
       </StatCardGrid>
 
@@ -340,6 +383,50 @@ export default function RefundManagement() {
             조회
           </button>
         </div>
+      </div>
+
+      {/* 원판매 담당자별 환불 책임 집계 */}
+      <div className="bg-surface rounded-xl border border-line shadow-card overflow-hidden mb-lg">
+        <div className="px-lg py-md border-b border-line">
+          <h3 className="text-[14px] font-bold text-content">원판매 담당자별 환불 책임 집계</h3>
+          <p className="mt-xs text-[12px] text-content-secondary">
+            환불 처리자가 아니라 원매출 담당자 기준입니다. 담당자 없는 환불은 귀속 대기로 분리됩니다.
+          </p>
+        </div>
+        {responsibilityRows.length === 0 ? (
+          <div className="px-lg py-lg text-center text-[13px] text-content-secondary">
+            담당자별 환불 데이터가 없습니다.
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-[13px]">
+              <thead>
+                <tr className="border-b border-line bg-surface-secondary">
+                  <th className="px-lg py-sm text-left font-medium text-content-secondary">원판매 담당자</th>
+                  <th className="px-md py-sm text-center font-medium text-content-secondary">귀속</th>
+                  <th className="px-md py-sm text-right font-medium text-content-secondary">환불 건수</th>
+                  <th className="px-md py-sm text-right font-medium text-content-secondary">환불 합계</th>
+                  <th className="px-lg py-sm text-right font-medium text-content-secondary">평균 환불액</th>
+                </tr>
+              </thead>
+              <tbody>
+                {responsibilityRows.map(row => (
+                  <tr key={row.staffName} className="border-b border-line last:border-b-0">
+                    <td className="px-lg py-sm font-semibold text-content">{row.staffName}</td>
+                    <td className="px-md py-sm text-center">
+                      <StatusBadge variant={row.assignmentStatus === 'assigned' ? 'success' : 'warning'} dot>
+                        {row.assignmentStatus === 'assigned' ? '완료' : '대기'}
+                      </StatusBadge>
+                    </td>
+                    <td className="px-md py-sm text-right tabular-nums text-content-secondary">{row.count}건</td>
+                    <td className="px-md py-sm text-right tabular-nums font-semibold text-state-error">{formatKRW(row.amount)}</td>
+                    <td className="px-lg py-sm text-right tabular-nums text-content-secondary">{formatKRW(row.avgAmount)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
 
       {/* 테이블 */}

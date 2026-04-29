@@ -98,7 +98,7 @@ function getNavigationViewId(entry: AuditLogEntry): number | null {
   if (targetType === "branch") return 984; // 지점 관리
   if (targetType === "payroll") return 976; // 급여 관리
   if (targetType === "settings") return 975; // 설정
-  if (action === "LOGIN" || action === "LOGOUT" || action === "LOGIN_FAILED") return 1001; // 감사 로그
+  if (action === "LOGIN" || action === "LOGOUT" || action === "LOGIN_FAILED") return 1001; // 히스토리 로그
   return null;
 }
 
@@ -475,7 +475,7 @@ const NotificationCenter: React.FC<NotificationCenterProps> = ({ collapsed = fal
               onClick={() => { setOpen(false); moveToPage(1001); }}
               className="text-[12px] text-content-tertiary hover:text-primary transition-colors w-full text-center"
             >
-              감사 로그 전체 보기
+              히스토리 로그 전체 보기
             </button>
           </div>
         </div>

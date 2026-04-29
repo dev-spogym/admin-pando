@@ -14,10 +14,12 @@ export default {
           light: '#FFF0ED',
           dark: '#E5614F',
         },
+        'primary-coral': '#FF7F6E',
         accent: {
           DEFAULT: '#48D1CC',
           light: '#EDFAFA',
         },
+        'secondary-mint': '#48D1CC',
         surface: {
           DEFAULT: '#FFFFFF',
           secondary: '#F8FAFC',
@@ -27,6 +29,7 @@ export default {
           DEFAULT: '#1E293B',
           secondary: '#64748B',
           tertiary: '#94A3B8',
+          quaternary: '#B7C3D3',
         },
         line: {
           DEFAULT: '#E2E8F0',
@@ -38,6 +41,10 @@ export default {
           error: '#EF4444',
           info: '#3B82F6',
         },
+        success: '#10B981',
+        warning: '#F59E0B',
+        error: '#EF4444',
+        info: '#3B82F6',
         // 하위 호환성 유지 (기존 숫자 토큰 → 시맨틱 매핑)
         '0': '#FF7F6E',
         '1': '#48D1CC',
@@ -82,6 +89,9 @@ export default {
         'md': '0 4px 12px rgba(0, 0, 0, 0.06)',
         'lg': '0 8px 24px rgba(0, 0, 0, 0.08)',
         'card': '0 1px 3px rgba(0, 0, 0, 0.04)',
+        'card-deep': '0 20px 40px rgba(15, 23, 42, 0.10)',
+        'shell': '0 32px 80px rgba(15, 23, 42, 0.10)',
+        'float': '0 16px 32px rgba(15, 23, 42, 0.08)',
         // 하위 호환
         '0': '0 1px 2px rgba(0, 0, 0, 0.04)',
         '1': '0 1px 3px rgba(0, 0, 0, 0.06)',

@@ -43,16 +43,17 @@ export default function FormSection({
   const [open, setOpen] = useState(defaultOpen);
 
   return (
-    <div className={cn("rounded-xl border-[1px] border-line bg-surface p-lg shadow-card", className)} >
+    <div className={cn("relative overflow-hidden rounded-[24px] border border-line/70 bg-white/82 p-lg shadow-card backdrop-blur-xl", className)} >
+      <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-primary/90 to-accent/85" />
       <div
         className={cn(
-          "flex items-center justify-between",
+          "flex items-center justify-between gap-md",
           collapsible && "cursor-pointer select-none"
         )} onClick={() => collapsible && setOpen(!open)}>
         <div className="flex-1" >
-          <h3 className="text-Section-Title text-content leading-[1.4] font-semibold" >{title}</h3>
+          <h3 className="text-Section-Title text-content leading-[1.4] font-bold" >{title}</h3>
           {description && (
-            <p className="mt-xs text-Body-Primary-KR text-content-secondary leading-[1.5]" >
+            <p className="mt-sm text-Body-Primary-KR text-content-secondary leading-[1.6]" >
               {description}
             </p>
           )}
@@ -68,7 +69,7 @@ export default function FormSection({
       {open && (
         <div 
           className={cn(
-            "mt-md grid gap-md",
+            "mt-lg grid gap-md",
             columns === 2 ? "grid-cols-1 md:grid-cols-2" : "grid-cols-1"
           )} >
           {children}

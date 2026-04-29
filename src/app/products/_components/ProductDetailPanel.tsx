@@ -54,6 +54,12 @@ export interface ProductRow {
   createdAt?: string;
 }
 
+interface ProductGroup {
+  id: number;
+  name: string;
+  branchId: number;
+}
+
 interface Props {
   product: ProductRow | null;
   isNew: boolean;
@@ -63,6 +69,8 @@ interface Props {
 }
 
 const PRODUCT_KIND_OPTIONS = ['레슨', '이용', '락커', '판매'] as const;
+const LESSON_CATEGORY_OPTIONS = ['PT', 'GX'] as const;
+const GX_SUB_CATEGORY_OPTIONS = ['요가', '필라테스', '스피닝', '줌바', '에어로빅', 'GX 기타'] as const;
 const USE_TYPE_OPTIONS = ['기간', '횟수', '포인트'] as const;
 const LESSON_TIME_OPTIONS = ['선택', '10분', '20분', '30분', '40분', '50분', '60분', '70분', '80분', '90분'];
 const LESSON_VALIDITY_OPTIONS = ['선택', '1개월', '3개월', '6개월', '12개월'];
@@ -100,6 +108,16 @@ const TYPE_MAP: Record<string, string> = {
   PT: 'LESSON',
   GX: 'LESSON',
   기타: 'GENERAL',
+};
+
+const inferProductGroupId = (groups: ProductGroup[], category: string): number | null => {
+  const keyword = category === 'PT' ? 'PT' : category === 'GX' ? 'GX' : category === '이용권' ? '이용권' : '기타';
+  return groups.find(group => group.name.includes(keyword))?.id ?? null;
+};
+
+const getProductGroupLabel = (groups: ProductGroup[], id: number | null): string => {
+  if (id == null) return '미지정';
+  return groups.find(group => group.id === id)?.name ?? '미지정';
 };
 
 const panelClass = 'border border-[#aeb6c3] bg-[#f1f1f1] text-[11px] text-[#222] shadow-[inset_1px_1px_0_#fff]';
@@ -142,6 +160,8 @@ function RowLabel({ children }: { children: React.ReactNode }) {
 export default function ProductDetailPanel({ product, isNew, onSave, onDelete, onClose }: Props) {
   const [name, setName] = useState('');
   const [productKind, setProductKind] = useState<(typeof PRODUCT_KIND_OPTIONS)[number]>('이용');
+  const [lessonCategory, setLessonCategory] = useState<(typeof LESSON_CATEGORY_OPTIONS)[number]>('PT');
+  const [gxSubCategory, setGxSubCategory] = useState('');
   const [cashPrice, setCashPrice] = useState('');
   const [duration, setDuration] = useState('');
   const [sessions, setSessions] = useState('');
@@ -188,10 +208,14 @@ export default function ProductDetailPanel({ product, isNew, onSave, onDelete, o
   const [showPriceHistory, setShowPriceHistory] = useState(false);
   const [priceHistory, setPriceHistory] = useState<TimelineItem[]>([]);
   const [priceHistoryLoading, setPriceHistoryLoading] = useState(false);
+  const [productGroupId, setProductGroupId] = useState('');
+  const [productGroups, setProductGroups] = useState<ProductGroup[]>([]);
 
   const resetForm = () => {
     setName('');
     setProductKind('이용');
+    setLessonCategory('PT');
+    setGxSubCategory('');
     setCashPrice('');
     setDuration('');
     setSessions('');
@@ -218,6 +242,7 @@ export default function ProductDetailPanel({ product, isNew, onSave, onDelete, o
     setPauseCount('선택');
     setPausePeriod('선택');
     setSalesChannel('ALL');
+    setProductGroupId('');
     setWeekdayRows(DAY_ROWS.map(day => ({ day, enabled: false, start: '09:00', end: '18:00' })));
     setPackageOpen(false);
     setIsPackage(false);
@@ -230,6 +255,12 @@ export default function ProductDetailPanel({ product, isNew, onSave, onDelete, o
     const catKo = CAT_KO_MAP[source.category] ?? source.category;
     setName(source.name);
     setProductKind(catKo === 'PT' || catKo === 'GX' ? '레슨' : catKo === '이용권' ? '이용' : '판매');
+    setLessonCategory(catKo === 'GX' ? 'GX' : 'PT');
+    setGxSubCategory(
+      catKo === 'GX' && GX_SUB_CATEGORY_OPTIONS.includes((source.sportType ?? source.tag ?? '') as (typeof GX_SUB_CATEGORY_OPTIONS)[number])
+        ? (source.sportType ?? source.tag ?? '')
+        : ''
+    );
     setCashPrice(formatNum(source.cashPrice ?? source.price));
     setDuration(source.duration?.toString() ?? '');
     setSessions(source.sessions?.toString() ?? '');
@@ -249,6 +280,7 @@ export default function ProductDetailPanel({ product, isNew, onSave, onDelete, o
     setLimitEnabled(Boolean(source.dailyUseLimit));
     setLimitCount(source.dailyUseLimit ? `${source.dailyUseLimit}회` : '1회');
     setSalesChannel(source.salesChannel ?? 'ALL');
+    setProductGroupId(source.productGroupId?.toString() ?? '');
 
     const availableDays = source.usage_restrictions?.availableDays ?? [];
     const start = source.usage_restrictions?.availableTimeStart ?? '09:00';
@@ -290,6 +322,20 @@ export default function ProductDetailPanel({ product, isNew, onSave, onDelete, o
   const isCreateMode = isNew || copiedFromProductId !== null;
 
   useEffect(() => {
+    const fetchProductGroups = async () => {
+      const { data, error } = await supabase
+        .from('product_groups')
+        .select('id, name, branchId')
+        .eq('branchId', getBranchId())
+        .order('id', { ascending: true });
+      if (!error && data) {
+        setProductGroups(data as ProductGroup[]);
+      }
+    };
+    fetchProductGroups();
+  }, []);
+
+  useEffect(() => {
     if (isNew || !product) {
       resetForm();
       setCopiedFromProductId(null);
@@ -323,7 +369,8 @@ export default function ProductDetailPanel({ product, isNew, onSave, onDelete, o
     fetchImportProducts();
   }, [showImportModal, packageOpen, product?.id]);
 
-  const effectiveCategory = productKind === '레슨' ? 'PT' : productKind === '이용' ? '이용권' : '기타';
+  const effectiveCategory = productKind === '레슨' ? lessonCategory : productKind === '이용' ? '이용권' : '기타';
+  const inferredProductGroupId = inferProductGroupId(productGroups, effectiveCategory);
 
   // 가격 이력 로드
   const fetchPriceHistory = async () => {
@@ -381,6 +428,10 @@ export default function ProductDetailPanel({ product, isNew, onSave, onDelete, o
       toast.error('금액을 입력하세요.');
       return;
     }
+    if (productKind === '레슨' && lessonCategory === 'GX' && !gxSubCategory) {
+      toast.error('GX 상품은 세부종목을 선택해야 합니다.');
+      return;
+    }
 
     // 동일 branchId 내 상품명 중복 체크
     const branchId = getBranchId();
@@ -421,6 +472,7 @@ export default function ProductDetailPanel({ product, isNew, onSave, onDelete, o
       isActive,
       kioskVisible,
       tag: tag.trim() || null,
+      sportType: effectiveCategory === 'GX' ? gxSubCategory : null,
       classType: classMode,
       deductionType: useType,
       dailyUseLimit: limitEnabled ? parseNum(limitCount) : null,
@@ -428,6 +480,7 @@ export default function ProductDetailPanel({ product, isNew, onSave, onDelete, o
       transferEnabled,
       pointAccrual,
       salesChannel,
+      productGroupId: productGroupId ? Number(productGroupId) : inferredProductGroupId,
       usage_restrictions: weekdayRows.some(row => row.enabled)
         ? {
             availableDays: weekdayRows
@@ -590,6 +643,70 @@ export default function ProductDetailPanel({ product, isNew, onSave, onDelete, o
                   <input value="1" readOnly className="h-6 w-[46px] border border-[#d0a400] bg-[#fff46b] px-1 text-center text-[11px]" />
                 </div>
               )}
+            </div>
+
+            {productKind === '레슨' && (
+              <div className="grid grid-cols-2 gap-1.5 rounded-sm border border-[#c8d7ee] bg-[#f8fbff] px-1.5 py-1">
+                <div className={cn(rowClass, 'min-w-0')}>
+                  <RowLabel>1단계</RowLabel>
+                  <div className="flex flex-wrap gap-3">
+                    {LESSON_CATEGORY_OPTIONS.map(option => (
+                      <label key={option} className={radioLabelClass}>
+                        <input
+                          type="radio"
+                          name="lessonCategory"
+                          checked={lessonCategory === option}
+                          onChange={() => {
+                            setLessonCategory(option);
+                            if (option === 'PT') setGxSubCategory('');
+                          }}
+                          className="h-3.5 w-3.5 accent-[#4f8fe6]"
+                        />
+                        {option}
+                      </label>
+                    ))}
+                  </div>
+                </div>
+
+                <div className={rowClass}>
+                  <RowLabel>2단계</RowLabel>
+                  {lessonCategory === 'GX' ? (
+                    <select
+                      value={gxSubCategory}
+                      onChange={e => setGxSubCategory(e.target.value)}
+                      className={cn(selectClass, !gxSubCategory && 'border-[#d26e2d] bg-[#fff8ed]')}
+                    >
+                      <option value="">GX 세부종목 선택</option>
+                      {GX_SUB_CATEGORY_OPTIONS.map(option => (
+                        <option key={option}>{option}</option>
+                      ))}
+                    </select>
+                  ) : (
+                    <input value="개인 PT" readOnly className={cn(fieldClass, 'bg-[#eef4ff] text-[#305f9f]')} />
+                  )}
+                </div>
+                {lessonCategory === 'GX' && (
+                  <div className="col-span-2 text-[10px] text-[#8a5a16]">
+                    GX 상품은 요가·필라테스·스피닝·줌바·에어로빅·GX 기타 중 하나를 필수 저장합니다.
+                  </div>
+                )}
+              </div>
+            )}
+
+            <div className={rowClass}>
+              <RowLabel>상품그룹</RowLabel>
+              <select
+                value={productGroupId}
+                onChange={e => setProductGroupId(e.target.value)}
+                className={selectClass}
+              >
+                <option value="">자동({getProductGroupLabel(productGroups, inferredProductGroupId)})</option>
+                {productGroups.map(group => (
+                  <option key={group.id} value={String(group.id)}>
+                    {group.name}
+                  </option>
+                ))}
+              </select>
             </div>
 
             <div className={rowClass}>

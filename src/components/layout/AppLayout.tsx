@@ -8,6 +8,7 @@ import { useUiStore } from "@/stores/uiStore";
 import { moveToPage } from "@/internal";
 import { useRouter, usePathname } from "next/navigation";
 import { useAuthStore } from "@/stores/authStore";
+import { ensurePreviewSession } from "@/lib/preview";
 
 interface AppLayoutProps {
   children: React.ReactNode;
@@ -19,29 +20,45 @@ const MOBILE_BREAKPOINT = 768;
 const AppLayout = ({ children }: AppLayoutProps) => {
   const router = useRouter();
   const pathname = usePathname();
+  const [hasMounted, setHasMounted] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
-  const [mounted, setMounted] = useState(false);
+  const [isPreview, setIsPreview] = useState(false);
+  const [previewReady, setPreviewReady] = useState(false);
   const authUser = useAuthStore((s) => s.user);
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
-  const designDocMode = useUiStore((s) => s.designDocMode);
   const toggleDesignDocMode = useUiStore((s) => s.toggleDesignDocMode);
 
   useEffect(() => {
-    setMounted(true);
+    const params = new URLSearchParams(window.location.search);
+    setIsPreview(params.get("preview") === "1");
     setIsMobile(window.innerWidth < MOBILE_BREAKPOINT);
-  }, []);
+    setHasMounted(true);
+  }, [pathname]);
 
-  // 인증 가드: 마운트 후 로그인 안 된 상태면 /login으로 리다이렉트
   useEffect(() => {
-    if (mounted && !isAuthenticated) {
+    if (!hasMounted) return;
+
+    if (isPreview) {
+      ensurePreviewSession();
+      setPreviewReady(true);
+      return;
+    }
+
+    setPreviewReady(false);
+  }, [hasMounted, isPreview]);
+
+  // 인증 가드: 로그인 안 된 상태면 /login으로 리다이렉트
+  useEffect(() => {
+    if (hasMounted && !isPreview && !isAuthenticated) {
       router.replace('/login');
     }
-  }, [mounted, isAuthenticated, router]);
+  }, [hasMounted, isAuthenticated, isPreview, router]);
 
   // Cmd/Ctrl + / 단축키로 화면설계서 모드 토글
   useEffect(() => {
+    if (!hasMounted || !isAuthenticated || isPreview) return;
     const handleKeyDown = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key === '/') {
         e.preventDefault();
@@ -50,18 +67,20 @@ const AppLayout = ({ children }: AppLayoutProps) => {
     };
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [toggleDesignDocMode]);
+  }, [hasMounted, isAuthenticated, isPreview, toggleDesignDocMode]);
 
   // 화면 크기 감지
   useEffect(() => {
+    if (!hasMounted) return;
     const handleResize = () => {
       const mobile = window.innerWidth < MOBILE_BREAKPOINT;
       setIsMobile(mobile);
       if (!mobile) setMobileOpen(false);
     };
+    handleResize();
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
-  }, []);
+  }, [hasMounted]);
 
   // 모바일 오버레이 ESC 닫기
   useEffect(() => {
@@ -130,8 +149,8 @@ const AppLayout = ({ children }: AppLayoutProps) => {
     }
   }, [isMobile]);
 
-  // 마운트 전 또는 인증 안 된 상태: 로딩 화면 (모든 hook 호출 후)
-  if (!mounted || !isAuthenticated) {
+  // hydration mismatch 방지를 위해 최초 서버/클라이언트 렌더는 동일한 플레이스홀더 유지
+  if (!hasMounted || (!isPreview && !isAuthenticated) || (isPreview && !previewReady)) {
     return (
       <div className="flex h-screen w-full items-center justify-center bg-surface-secondary">
         <div className="text-content-tertiary text-[13px]">로그인 페이지로 이동 중...</div>
@@ -139,8 +158,18 @@ const AppLayout = ({ children }: AppLayoutProps) => {
     );
   }
 
+  if (isPreview) {
+    return (
+      <div className="min-h-screen w-full bg-[linear-gradient(180deg,#fcfdfd_0%,#f4f7fb_46%,#edf2f8_100%)] p-4">
+        <div className="mx-auto max-w-[1480px]">
+          {children}
+        </div>
+      </div>
+    );
+  }
   return (
-    <div className="flex h-screen w-full overflow-hidden font-sans bg-surface-secondary">
+    <div className="min-h-screen w-full overflow-hidden p-3 lg:p-4">
+      <div className="app-shell-frame flex h-[calc(100dvh-1.5rem)] w-full overflow-hidden rounded-[28px] font-sans lg:h-[calc(100dvh-2rem)]">
       {/* 모바일 오버레이 */}
       {isMobile && mobileOpen && (
         <div
@@ -177,8 +206,8 @@ const AppLayout = ({ children }: AppLayoutProps) => {
         />
 
         {/* 콘텐츠 — 모바일에서 패딩 축소 */}
-        <main className={cn("flex-1 overflow-auto", isMobile ? "p-sm" : "p-lg")}>
-          <div className="mx-auto max-w-[1400px]">
+        <main className={cn("flex-1 overflow-auto", isMobile ? "px-sm pb-sm pt-sm" : "px-lg pb-lg pt-md")}>
+          <div className="mx-auto max-w-[1480px]">
             {children}
           </div>
         </main>
@@ -189,6 +218,7 @@ const AppLayout = ({ children }: AppLayoutProps) => {
 
       {/* 화면설계서 오버레이 패널 */}
       <DesignDocPanel />
+      </div>
     </div>
   );
 };

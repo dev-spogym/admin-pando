@@ -22,9 +22,9 @@ export interface CardProps {
 }
 
 const VARIANT_STYLES: Record<CardVariant, string> = {
-  default: "bg-surface border border-line",
-  bordered: "bg-surface border-2 border-line",
-  elevated: "bg-surface border border-line shadow-card-deep",
+  default: "bg-white/82 border border-line/70 shadow-card backdrop-blur-xl",
+  bordered: "bg-white/82 border-2 border-line/70 shadow-card backdrop-blur-xl",
+  elevated: "bg-white/88 border border-line/70 shadow-card-deep backdrop-blur-xl",
 };
 
 const PADDING_STYLES: Record<CardPadding, string> = {
@@ -48,7 +48,7 @@ export default function Card({
   return (
     <div
       className={cn(
-        "rounded-xl",
+        "rounded-[24px]",
         VARIANT_STYLES[variant],
         isClickable && "cursor-pointer transition-shadow hover:shadow-card-deep hover:border-primary/30",
         className

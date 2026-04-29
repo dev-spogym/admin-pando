@@ -208,13 +208,11 @@ export default function Login() {
           const isSuperAdmin = user.isSuperAdmin ?? false;
           const selectedBranch = branches.find((b) => String(b.id) === selectedBranchId);
 
-          // 슈퍼관리자는 branchId가 null일 수 있음 — 선택한 지점 또는 빈 문자열 사용
+          // 슈퍼관리자는 currentBranchId=null 상태를 전체 지점 모드로 사용한다.
           const branchIdToUse = isSuperAdmin
-            ? (selectedBranchId || '')
+            ? (selectedBranchId || String(user.branchId ?? 1))
             : (selectedBranchId || String(user.branchId ?? 1));
-          if (branchIdToUse) {
-            localStorage.setItem('branchId', branchIdToUse);
-          }
+          const currentBranchId = isSuperAdmin ? (selectedBranchId || null) : null;
 
           // authStore에 사용자 정보 저장
           authLogin(
@@ -224,11 +222,11 @@ export default function Login() {
               email: '',
               role: user.role,
               branchId: branchIdToUse,
-              branchName: isSuperAdmin ? (selectedBranch?.name ?? '전체 지점') : (selectedBranch?.name ?? ''),
+              branchName: isSuperAdmin ? (selectedBranch?.name ?? '전체 지점 (통합)') : (selectedBranch?.name ?? ''),
               // 멀티테넌트 신규 필드 (DB에 없으면 fallback)
               tenantId: String(user.tenantId ?? 1),
               isSuperAdmin,
-              currentBranchId: user.currentBranchId ? String(user.currentBranchId) : null,
+              currentBranchId,
             },
             accessToken,
           );
@@ -410,6 +408,15 @@ function AccountsModal({
   onPick: (preset: AccountPreset) => void;
   onCopy: (text: string, label: string) => void;
 }) {
+  const handlePresetKeyDown = (
+    event: React.KeyboardEvent<HTMLDivElement>,
+    preset: AccountPreset
+  ) => {
+    if (event.key !== 'Enter' && event.key !== ' ') return;
+    event.preventDefault();
+    onPick(preset);
+  };
+
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-md"
@@ -451,9 +458,11 @@ function AccountsModal({
                       key={preset.username}
                       className="group rounded-xl border border-line bg-surface-secondary p-md transition-colors hover:border-primary hover:bg-primary/5"
                     >
-                      <button
-                        type="button"
+                      <div
+                        role="button"
+                        tabIndex={0}
                         onClick={() => onPick(preset)}
+                        onKeyDown={(event) => handlePresetKeyDown(event, preset)}
                         className="flex w-full items-start justify-between gap-md text-left"
                       >
                         <div className="min-w-0 flex-1">
@@ -490,7 +499,7 @@ function AccountsModal({
                         <span className="self-center rounded-full bg-primary/10 px-sm py-[2px] text-[11px] font-semibold text-primary opacity-0 transition-opacity group-hover:opacity-100">
                           자동 입력
                         </span>
-                      </button>
+                      </div>
                     </li>
                   ))}
                 </ul>

@@ -77,14 +77,14 @@ export default function Modal({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-content/50 backdrop-blur-sm p-md animate-in fade-in duration-200"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/28 p-md animate-in fade-in duration-200"
       onClick={handleBackdropClick}
     >
       <div
         ref={panelRef}
         tabIndex={-1}
         className={cn(
-          "relative w-full rounded-modal bg-surface shadow-card-deep outline-none",
+          "relative w-full overflow-hidden rounded-[18px] border border-line/80 bg-white shadow-[0_24px_80px_rgba(15,23,42,0.22)] outline-none",
           "animate-in fade-in zoom-in-95 duration-200",
           SIZE_CLASSES[size]
         )}
@@ -94,10 +94,10 @@ export default function Modal({
       >
         {/* 헤더 */}
         {title && (
-          <div className="flex items-center justify-between border-b border-line px-xl py-lg">
+          <div className="flex items-center justify-between border-b border-line/70 px-lg py-md">
             <h2
               id="modal-title"
-              className="text-Section-Title text-content font-semibold leading-[1.4]"
+              className="text-Section-Title text-content font-bold leading-[1.4]"
             >
               {title}
             </h2>
@@ -123,11 +123,11 @@ export default function Modal({
         )}
 
         {/* 본문 */}
-        <div className="px-xl py-lg text-Body-Primary-KR text-content">{children}</div>
+        <div className="px-lg py-lg text-Body-Primary-KR text-content">{children}</div>
 
         {/* 푸터 */}
         {footer && (
-          <div className="border-t border-line px-xl py-lg">{footer}</div>
+          <div className="border-t border-line/70 bg-white px-lg py-md">{footer}</div>
         )}
       </div>
     </div>

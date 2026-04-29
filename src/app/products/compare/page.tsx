@@ -4,13 +4,17 @@ export const dynamic = 'force-dynamic';
 import React from 'react';
 import AppLayout from '@/components/layout/AppLayout';
 import PageHeader from '@/components/common/PageHeader';
-import { Check, X } from 'lucide-react';
+import { Check, RefreshCw, X } from 'lucide-react';
+import { usePageSeed } from '@/hooks';
+import type { ProductCompareSeedPayload } from '@/lib/publishingPageSeed';
 
-const compareProducts = [
-  { name: 'PT 10회권', price: 500000, category: 'PT', duration: '3개월', sessions: '10회', groupClass: false, locker: true, gx: false, transfer: true },
-  { name: 'PT 20회권', price: 900000, category: 'PT', duration: '6개월', sessions: '20회', groupClass: false, locker: true, gx: true, transfer: true },
-  { name: '3개월 이용권', price: 180000, category: '이용권', duration: '3개월', sessions: '무제한', groupClass: true, locker: false, gx: false, transfer: false },
-];
+const FALLBACK_COMPARE: ProductCompareSeedPayload = {
+  compareProducts: [
+    { name: 'PT 10회권', price: 500000, category: 'PT', duration: '3개월', sessions: '10회', groupClass: false, locker: true, gx: false, transfer: true },
+    { name: 'PT 20회권', price: 900000, category: 'PT', duration: '6개월', sessions: '20회', groupClass: false, locker: true, gx: true, transfer: true },
+    { name: '3개월 이용권', price: 180000, category: '이용권', duration: '3개월', sessions: '무제한', groupClass: true, locker: false, gx: false, transfer: false },
+  ],
+};
 
 const rows = [
   { label: '이용 기간', key: 'duration' },
@@ -22,9 +26,32 @@ const rows = [
 ];
 
 export default function ProductComparePage() {
+  const { data, loading, error, branchId, snapshotDate, reload } = usePageSeed<ProductCompareSeedPayload>(
+    '/products/compare',
+    FALLBACK_COMPARE,
+  );
+  const { compareProducts } = data;
+
   return (
     <AppLayout>
-      <PageHeader title="상품 비교" description="상품 간 가격·혜택·조건을 한눈에 비교합니다" />
+      <PageHeader
+        title="상품 비교"
+        description="상품 간 가격·혜택·조건을 한눈에 비교합니다"
+        actions={
+          <button
+            className="flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+            onClick={() => void reload(true)}
+            type="button"
+          >
+            <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} /> seed 갱신
+          </button>
+        }
+      />
+
+      <div className="mb-4 rounded-xl border border-blue-100 bg-blue-50 px-4 py-3 text-xs text-blue-700">
+        Supabase snapshot · 지점 {branchId} · 기준일 {snapshotDate ?? '-'}
+        {error && <span className="ml-2 text-red-600">Fallback 사용: {error}</span>}
+      </div>
 
       <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
         <table className="w-full">

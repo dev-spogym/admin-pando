@@ -17,6 +17,7 @@ import {
   ChevronRight,
   ExternalLink,
   AlertTriangle,
+  BarChart3,
 } from 'lucide-react';
 import AppLayout from "@/components/layout/AppLayout";
 import PageHeader from "@/components/common/PageHeader";
@@ -51,6 +52,13 @@ function formatTime(date: Date): string {
   return date.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', hour12: false });
 }
 
+function standardDeviation(values: number[]): number {
+  if (values.length === 0) return 0;
+  const avg = values.reduce((sum, value) => sum + value, 0) / values.length;
+  const variance = values.reduce((sum, value) => sum + (value - avg) ** 2, 0) / values.length;
+  return Math.round(Math.sqrt(variance));
+}
+
 // ─── 타입 ──────────────────────────────────────────────────────────────────
 
 interface KpiData {
@@ -62,6 +70,11 @@ interface KpiData {
   expiringMembers: number;
   expiredMembers: number;
   unpaidAmount: number;
+  totalRefundAmount: number;
+  totalRefundCount: number;
+  renewalSuccessRate: number;
+  revenueStdDev: number;
+  revenueVarianceRate: number;
   // 전월 대비 계산용
   prevMonthMembers: number;
   prevMonthRevenue: number;
@@ -76,6 +89,11 @@ interface BranchStats {
   expiredMembers: number;
   todayAttendance: number;
   newMembers: number;
+  refundAmount: number;
+  refundCount: number;
+  renewalSuccess: number;
+  renewalTotal: number;
+  renewalSuccessRate: number;
 }
 
 interface BranchRanking {
@@ -161,7 +179,7 @@ function KpiCard({ label, value, icon, change, changeLabel, loading }: KpiCardPr
   );
 }
 
-// ─── 감사 로그 액션 라벨 ───────────────────────────────────────────────────
+// ─── 히스토리 로그 액션 라벨 ───────────────────────────────────────────────
 
 const ACTION_LABELS: Record<string, string> = {
   LOGIN: '로그인',
@@ -207,6 +225,11 @@ export default function SuperDashboard() {
     expiringMembers: 0,
     expiredMembers: 0,
     unpaidAmount: 0,
+    totalRefundAmount: 0,
+    totalRefundCount: 0,
+    renewalSuccessRate: 0,
+    revenueStdDev: 0,
+    revenueVarianceRate: 0,
     prevMonthMembers: 0,
     prevMonthRevenue: 0,
     yesterdayAttendance: 0,
@@ -233,7 +256,17 @@ export default function SuperDashboard() {
 
     await Promise.all(
       branchList.map(async (branch) => {
-        const [membersRes, staffRes, revenueRes, attendanceRes, expiredRes, prevRevenueRes, newMembersRes] = await Promise.all([
+        const [
+          membersRes,
+          staffRes,
+          revenueRes,
+          attendanceRes,
+          expiredRes,
+          prevRevenueRes,
+          newMembersRes,
+          refundRes,
+          renewalRes,
+        ] = await Promise.all([
           supabase
             .from('members')
             .select('id', { count: 'exact', head: true })
@@ -278,6 +311,20 @@ export default function SuperDashboard() {
             .is('deletedAt', null)
             .gte('registeredAt', monthStart)
             .lte('registeredAt', monthEnd),
+          supabase
+            .from('sales')
+            .select('amount')
+            .eq('branchId', branch.id)
+            .eq('status', 'REFUNDED')
+            .gte('saleDate', monthStart)
+            .lte('saleDate', monthEnd),
+          supabase
+            .from('consultations')
+            .select('type, result, status')
+            .eq('branchId', branch.id)
+            .eq('type', '재등록상담')
+            .gte('scheduledAt', monthStart)
+            .lte('scheduledAt', monthEnd),
         ]);
 
         const revenue = (revenueRes.data ?? []).reduce(
@@ -288,6 +335,14 @@ export default function SuperDashboard() {
           (sum: number, r: { amount: unknown }) => sum + (Number(r.amount) || 0),
           0
         );
+        const refundRows = refundRes.data ?? [];
+        const refundAmount = refundRows.reduce(
+          (sum: number, r: { amount: unknown }) => sum + (Number(r.amount) || 0),
+          0
+        );
+        const renewalRows = renewalRes.data ?? [];
+        const renewalSuccess = renewalRows.filter((r: { result?: string | null }) => r.result === '등록').length;
+        const renewalTotal = renewalRows.length;
 
         statsMap[branch.id] = {
           members: membersRes.count ?? 0,
@@ -297,6 +352,11 @@ export default function SuperDashboard() {
           expiredMembers: expiredRes.count ?? 0,
           todayAttendance: attendanceRes.count ?? 0,
           newMembers: newMembersRes.count ?? 0,
+          refundAmount,
+          refundCount: refundRows.length,
+          renewalSuccess,
+          renewalTotal,
+          renewalSuccessRate: renewalTotal > 0 ? Math.round((renewalSuccess / renewalTotal) * 100) : 0,
         };
       })
     );
@@ -331,6 +391,15 @@ export default function SuperDashboard() {
     const totalMembers = Object.values(statsMap).reduce((s, b) => s + b.members, 0);
     const totalRevenue = Object.values(statsMap).reduce((s, b) => s + b.revenue, 0);
     const totalStaff = Object.values(statsMap).reduce((s, b) => s + b.staff, 0);
+    const totalRefundAmount = Object.values(statsMap).reduce((s, b) => s + b.refundAmount, 0);
+    const totalRefundCount = Object.values(statsMap).reduce((s, b) => s + b.refundCount, 0);
+    const renewalSuccessTotal = Object.values(statsMap).reduce((s, b) => s + b.renewalSuccess, 0);
+    const renewalTargetTotal = Object.values(statsMap).reduce((s, b) => s + b.renewalTotal, 0);
+    const renewalSuccessRate = renewalTargetTotal > 0 ? Math.round((renewalSuccessTotal / renewalTargetTotal) * 100) : 0;
+    const revenues = Object.values(statsMap).map((b) => b.revenue);
+    const revenueStdDev = standardDeviation(revenues);
+    const avgBranchRevenue = revenues.length > 0 ? revenues.reduce((sum, value) => sum + value, 0) / revenues.length : 0;
+    const revenueVarianceRate = avgBranchRevenue > 0 ? Math.round((revenueStdDev / avgBranchRevenue) * 100) : 0;
 
     // 오늘 전 지점 출석 합산
     const attendanceResults = await Promise.all(
@@ -442,7 +511,24 @@ export default function SuperDashboard() {
       0
     );
 
-    setKpiData({ totalMembers, totalRevenue, todayAttendance, totalStaff, newMembers, expiringMembers, expiredMembers, unpaidAmount, prevMonthMembers, prevMonthRevenue, yesterdayAttendance });
+    setKpiData({
+      totalMembers,
+      totalRevenue,
+      todayAttendance,
+      totalStaff,
+      newMembers,
+      expiringMembers,
+      expiredMembers,
+      unpaidAmount,
+      totalRefundAmount,
+      totalRefundCount,
+      renewalSuccessRate,
+      revenueStdDev,
+      revenueVarianceRate,
+      prevMonthMembers,
+      prevMonthRevenue,
+      yesterdayAttendance,
+    });
   }, []);
 
   // ─── 전체 데이터 로드 ────────────────────────────────────────────────────
@@ -581,6 +667,27 @@ export default function SuperDashboard() {
       change: 0,
       changeLabel: '현재',
     },
+    {
+      label: '전사 환불 규모',
+      value: formatAmount(kpiData.totalRefundAmount) + '원',
+      icon: <ArrowDownRight size={18} />,
+      change: 0,
+      changeLabel: `${formatNumber(kpiData.totalRefundCount)}건`,
+    },
+    {
+      label: '전사 재등록률',
+      value: `${kpiData.renewalSuccessRate}%`,
+      icon: <RefreshCw size={18} />,
+      change: 0,
+      changeLabel: '등록 / 재등록 상담',
+    },
+    {
+      label: '매출 편차율',
+      value: `${kpiData.revenueVarianceRate}%`,
+      icon: <BarChart3 size={18} />,
+      change: 0,
+      changeLabel: `표준편차 ${formatAmount(kpiData.revenueStdDev)}원`,
+    },
   ];
 
   // ─── 렌더 ────────────────────────────────────────────────────────────────
@@ -644,6 +751,9 @@ export default function SuperDashboard() {
         const avgRevenue = activeBranchCount > 0
           ? Object.values(branchStats).reduce((s, b) => s + b.revenue, 0) / activeBranchCount
           : 0;
+        const avgRefund = activeBranchCount > 0
+          ? Object.values(branchStats).reduce((s, b) => s + b.refundAmount, 0) / activeBranchCount
+          : 0;
 
         const alerts: { branch: Branch; reasons: string[] }[] = [];
 
@@ -674,6 +784,16 @@ export default function SuperDashboard() {
             reasons.push(
               `출석 저조 (활성 대비 ${Math.round((stats.todayAttendance / stats.members) * 100)}%)`
             );
+          }
+
+          // 규칙 4: 환불 집중 — 본사 개입이 필요한 환불 집중 지점
+          if (stats.refundAmount > 0 && avgRefund > 0 && stats.refundAmount >= avgRefund * 1.5) {
+            reasons.push(`환불 집중 (${formatAmount(stats.refundAmount)}원 / ${stats.refundCount}건)`);
+          }
+
+          // 규칙 5: 재등록 성공률 저하 — 재등록 상담 표본이 있는 지점만 판단
+          if (stats.renewalTotal >= 5 && stats.renewalSuccessRate < 40) {
+            reasons.push(`재등록 성공률 저하 (${stats.renewalSuccessRate}%)`);
           }
 
           if (reasons.length > 0) {
@@ -875,6 +995,29 @@ export default function SuperDashboard() {
                     </div>
                   </div>
 
+                  <div className="grid grid-cols-2 gap-sm">
+                    <div className="rounded-lg bg-red-50 p-sm text-center">
+                      <p className="text-[10px] text-red-500 mb-[2px]">환불 규모</p>
+                      {stats ? (
+                        <p className="text-[14px] font-bold text-red-700">
+                          {formatAmount(stats.refundAmount)}
+                        </p>
+                      ) : (
+                        <div className="h-5 w-full rounded bg-surface-secondary animate-pulse mx-auto" />
+                      )}
+                    </div>
+                    <div className="rounded-lg bg-green-50 p-sm text-center">
+                      <p className="text-[10px] text-green-600 mb-[2px]">재등록률</p>
+                      {stats ? (
+                        <p className="text-[14px] font-bold text-green-700">
+                          {stats.renewalTotal > 0 ? `${stats.renewalSuccessRate}%` : '-'}
+                        </p>
+                      ) : (
+                        <div className="h-5 w-full rounded bg-surface-secondary animate-pulse mx-auto" />
+                      )}
+                    </div>
+                  </div>
+
                   {/* 상세 보기 버튼 */}
                   <button
                     className="flex w-full items-center justify-center gap-xs rounded-lg border border-primary/30 bg-primary/5 py-[7px] text-[12px] font-semibold text-primary hover:bg-primary hover:text-white transition-all"
@@ -890,12 +1033,12 @@ export default function SuperDashboard() {
         )}
       </section>
 
-      {/* ── 섹션 5: 최근 감사 로그 ───────────────────────────────────────── */}
+      {/* ── 섹션 5: 최근 히스토리 로그 ───────────────────────────────────── */}
       <section>
         <div className="mb-md flex items-center justify-between">
           <h2 className="text-[16px] font-semibold text-content flex items-center gap-sm">
             <Clock size={17} className="text-primary" />
-            최근 활동 (감사 로그)
+            최근 활동 (히스토리 로그)
           </h2>
           <button
             className="flex items-center gap-xs text-[12px] text-primary font-medium hover:underline"
@@ -920,7 +1063,7 @@ export default function SuperDashboard() {
             </div>
           ) : auditLogs.length === 0 ? (
             <div className="flex items-center justify-center py-xl text-[13px] text-content-tertiary">
-              감사 로그가 없습니다.
+              히스토리 로그가 없습니다.
             </div>
           ) : (
             <>

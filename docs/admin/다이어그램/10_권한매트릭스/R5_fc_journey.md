@@ -16,7 +16,7 @@ journey
       로그인 /login: 5: fc
       지점 대시보드 확인 /: 5: fc
       오늘의 할일 /today-tasks: 5: fc
-      KPI 프리뷰 확인 /kpi-preview: 4: fc
+      KPI 센터 확인 /kpi-preview: 4: fc
       공지사항 확인 /notices: 4: fc
 
     section 회원 관리 (핵심 업무)
@@ -61,7 +61,7 @@ journey
 | 화면 | 라우트 | 접근 | 비고 |
 |------|--------|:---:|------|
 | 대시보드/할일 | `/`, `/today-tasks` | ● | |
-| KPI 프리뷰 | `/kpi-preview` | ● | |
+| KPI 센터 | `/kpi-preview` | ● | |
 | 공지사항 | `/notices` | ● | |
 | 회원 목록 | `/` | ● | |
 | 회원 등록/수정 | ``, `` | ● | |

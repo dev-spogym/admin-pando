@@ -79,6 +79,8 @@ import TabEvaluation from "@/components/member/TabEvaluation";
 import TabConsultation from "@/components/member/TabConsultation";
 import TabExerciseProgram from "@/components/member/TabExerciseProgram";
 import TabExerciseLog from "@/components/member/TabExerciseLog";
+import { getPreviewScenario, isPreviewMode } from "@/lib/preview";
+import { getPreviewMemberDetail } from "@/mocks/memberPreview";
 
 // ────────────────────────────────────────────────────────────
 // 타입 정의
@@ -1413,6 +1415,8 @@ function MemberDetail() {
   const canEdit = hasPermission(authUser?.role ?? '', '/members/edit', authUser?.isSuperAdmin);
 
   const searchParams = useSearchParams();
+  const isPreview = isPreviewMode(searchParams);
+  const scenario = getPreviewScenario(searchParams, "active");
   const router = useRouter();
   const activeTab = searchParams?.get("tab") || "info";
   const memberId = searchParams?.get("id") ?? null;
@@ -1420,6 +1424,8 @@ function MemberDetail() {
     const params = new URLSearchParams();
     if (memberId) params.set("id", memberId);
     params.set("tab", tab);
+    if (isPreview) params.set("preview", "1");
+    if (isPreview && scenario) params.set("scenario", scenario);
     router.push(`?${params.toString()}`);
   };
 
@@ -1443,6 +1449,12 @@ function MemberDetail() {
   }, [memberId]);
 
   const toggleFavorite = async () => {
+    if (isPreview) {
+      setIsFavorite((prev) => !prev);
+      toast.success(!isFavorite ? '프리뷰 즐겨찾기에 추가되었습니다.' : '프리뷰 즐겨찾기가 해제되었습니다.');
+      return;
+    }
+
     const branchId = Number(typeof window !== 'undefined' ? localStorage.getItem('branchId') : '1');
     let favIds = readBranchJson<number[]>('favorites', [], branchId);
 
@@ -1479,6 +1491,17 @@ function MemberDetail() {
     const fetchAll = async () => {
       setLoading(true);
       try {
+        if (isPreview) {
+          const previewBundle = getPreviewMemberDetail(Number(memberId), scenario);
+          setMember(previewBundle.member as Member);
+          setSales(previewBundle.sales as SaleRecord[]);
+          setAttendances(previewBundle.attendances as AttendanceRecord[]);
+          setBodyRecords(previewBundle.bodyRecords as BodyRecord[]);
+          setLocker(previewBundle.locker as LockerRecord | null);
+          setContracts(previewBundle.contracts as ContractRecord[]);
+          return;
+        }
+
         const [
           memberRes,
           salesRes,
@@ -1544,7 +1567,7 @@ function MemberDetail() {
     };
 
     fetchAll();
-  }, [memberId]);
+  }, [memberId, isPreview, scenario]);
 
   const tabs = [
     { key: "info", label: "회원정보", icon: User },
@@ -1568,6 +1591,12 @@ function MemberDetail() {
 
   const confirmDelete = async () => {
     if (!memberId) return;
+    if (isPreview) {
+      toast.success("프리뷰에서 회원 삭제가 시뮬레이션되었습니다.");
+      setIsDeleteDialogOpen(false);
+      moveToPage(967, { scenario: "default" });
+      return;
+    }
     const { error } = await supabase
       .from('members')
       .update({ deletedAt: new Date().toISOString(), status: 'INACTIVE' })
@@ -1583,6 +1612,13 @@ function MemberDetail() {
 
   const confirmWithdraw = async () => {
     if (!memberId) return;
+    if (isPreview) {
+      toast.success("프리뷰에서 회원 탈퇴 처리가 시뮬레이션되었습니다.");
+      setIsWithdrawModalOpen(false);
+      setWithdrawReason('');
+      moveToPage(967, { scenario: "default" });
+      return;
+    }
     const { error } = await supabase
       .from('members')
       .update({ status: 'WITHDRAWN', withdrawReason: withdrawReason.trim() || null, withdrawnAt: new Date().toISOString() })
@@ -1777,7 +1813,7 @@ function MemberDetail() {
                   메시지
                 </Button>
                 {canTransfer && (
-                  <Button variant="outline" size="sm" icon={<ArrowRightLeft size={13} />} onClick={() => moveToPage(968, { id: memberId ?? '' })}>
+                  <Button variant="outline" size="sm" icon={<ArrowRightLeft size={13} />} onClick={() => moveToPage(1002, { memberId: memberId ?? '' })}>
                     지점이관
                   </Button>
                 )}

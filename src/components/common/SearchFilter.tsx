@@ -60,13 +60,13 @@ export const SearchFilter = ({
   };
 
   return (
-    <div className={cn("space-y-sm w-full", className)}>
-      <div className="flex flex-wrap items-center gap-sm">
+    <div className={cn("w-full space-y-md", className)}>
+      <div className="flex flex-wrap items-center gap-sm rounded-[22px] border border-line/70 bg-white/70 p-sm shadow-sm backdrop-blur-sm">
         {/* 검색 */}
         <div className="relative flex-1 min-w-[240px]">
           <Search className="absolute left-[10px] top-1/2 -translate-y-1/2 text-content-tertiary" size={15} />
           <input
-            className="w-full pl-8 pr-3 py-[7px] bg-surface border border-line rounded-lg text-[13px] text-content placeholder-content-tertiary focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary/20 transition-all"
+            className="app-control w-full rounded-2xl pl-9 pr-3 py-[9px] text-[13px] text-content placeholder-content-tertiary transition-all focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/10"
             type="text"
             placeholder={searchPlaceholder}
             value={searchValue}
@@ -81,7 +81,7 @@ export const SearchFilter = ({
             {filter.type === "select" || filter.type === "multiSelect" ? (
               <div className="relative">
                 <select
-                  className="appearance-none pl-3 pr-8 py-[7px] bg-surface border border-line rounded-lg text-[13px] text-content-secondary font-medium focus:outline-none focus:border-primary cursor-pointer min-w-[110px] transition-colors"
+                  className="app-control min-w-[118px] appearance-none rounded-2xl pl-3 pr-8 py-[9px] text-[13px] font-medium text-content-secondary transition-colors cursor-pointer focus:outline-none focus:border-primary"
                   value={filter.type === "multiSelect" ? "" : String(filterValues[filter.key] ?? "")}
                   onChange={(e) => {
                     if (filter.type === "multiSelect") {
@@ -99,13 +99,13 @@ export const SearchFilter = ({
               </div>
             ) : filter.type === "date" ? (
               <input
-                className="px-3 py-[7px] bg-surface border border-line rounded-lg text-[13px] text-content font-medium focus:outline-none focus:border-primary cursor-pointer transition-colors"
+                className="app-control rounded-2xl px-3 py-[9px] text-[13px] font-medium text-content transition-colors cursor-pointer focus:outline-none focus:border-primary"
                 type="date"
                 value={filterValues[filter.key] ?? ""}
                 onChange={(e) => onFilterChange?.(filter.key, e.target.value)}
               />
             ) : filter.type === "dateRange" ? (
-              <div className="flex items-center gap-[4px] bg-surface border border-line rounded-lg px-3 focus-within:border-primary transition-colors">
+              <div className="app-control flex items-center gap-[4px] rounded-2xl px-3 transition-colors focus-within:border-primary">
                 <input
                   className="bg-transparent py-[7px] text-[13px] text-content font-medium focus:outline-none cursor-pointer tabular-nums"
                   type="date"
@@ -126,7 +126,7 @@ export const SearchFilter = ({
 
         {onReset && (
           <button
-            className="flex items-center gap-[4px] px-3 py-[7px] text-content-tertiary hover:text-content transition-colors text-[12px] font-medium"
+            className="flex items-center gap-[4px] rounded-2xl px-3 py-[9px] text-[12px] font-semibold text-content-tertiary transition-colors hover:bg-white/80 hover:text-content"
             onClick={onReset}
           >
             <RotateCcw size={13} />
@@ -145,7 +145,7 @@ export const SearchFilter = ({
           {activeTags.map((tag, index) => (
             <div
               key={`${tag.key}-${tag.value}-${index}`}
-              className="flex items-center gap-1 bg-primary-light text-primary rounded-md px-2 py-[3px] text-[11px] font-medium"
+              className="flex items-center gap-1 rounded-full border border-primary/15 bg-primary-light px-2.5 py-[4px] text-[11px] font-semibold text-primary"
             >
               <span>{tag.label}</span>
               <button

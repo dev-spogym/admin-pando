@@ -5,6 +5,7 @@
 // Next.js App Router 기반으로 변환
 
 import type { AppRouterInstance } from 'next/dist/shared/lib/app-router-context.shared-runtime';
+import { buildPreviewAwarePath } from '@/lib/preview';
 
 let routerInstance: AppRouterInstance | null = null;
 
@@ -49,7 +50,7 @@ const VIEW_ID_MAP: Record<number, string> = {
   998: '/staff/new',                 // 직원 등록
   999: '/staff/resignation',         // 직원 퇴사 처리
   1000: '/super-dashboard',          // 슈퍼관리자 통합 대시보드
-  1001: '/audit-log',                // 감사 로그
+  1001: '/audit-log',                // 히스토리 로그
   1002: '/members/transfer',         // 회원 이관
   1003: '/branch-report',            // 지점 비교 리포트
   1004: '/reports',                  // 자동 리포트
@@ -62,14 +63,7 @@ export function getPathFromViewId(viewId: number): string | undefined {
 export function moveToPage(viewId: number, params?: Record<string, string | number>) {
   const path = VIEW_ID_MAP[viewId];
   if (path && routerInstance) {
-    if (params) {
-      const search = new URLSearchParams(
-        Object.entries(params).map(([k, v]) => [k, String(v)])
-      ).toString();
-      routerInstance.push(`${path}?${search}`);
-    } else {
-      routerInstance.push(path);
-    }
+    routerInstance.push(buildPreviewAwarePath(path, params));
   } else {
     console.warn(`[moveToPage] viewId ${viewId} → 경로를 찾을 수 없거나 라우터 미등록`);
   }

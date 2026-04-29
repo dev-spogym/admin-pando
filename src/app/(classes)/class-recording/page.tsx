@@ -4,15 +4,25 @@ export const dynamic = 'force-dynamic';
 import React, { useState } from 'react';
 import AppLayout from '@/components/layout/AppLayout';
 import PageHeader from '@/components/common/PageHeader';
-import { Video, Play, Download, Trash2, Clock, HardDrive } from 'lucide-react';
+import { Video, Play, Download, Trash2, Clock, HardDrive, RefreshCw } from 'lucide-react';
+import { usePageSeed } from '@/hooks';
+import type { ClassRecordingSeedPayload } from '@/lib/publishingPageSeed';
 
-const recordings = [
-  { id: 1, class: '필라테스 A반', instructor: '이효리', date: '2026-04-26', duration: '55분', size: '2.1GB', status: '완료', viewers: 12 },
-  { id: 2, class: '요가 기초반', instructor: '김태희', date: '2026-04-25', duration: '50분', size: '1.8GB', status: '완료', viewers: 8 },
-  { id: 3, class: '스피닝 B반', instructor: '정지훈', date: '2026-04-25', duration: '45분', size: '1.6GB', status: '처리중', viewers: 0 },
-  { id: 4, class: 'PT 기초반', instructor: '박재범', date: '2026-04-24', duration: '60분', size: '2.4GB', status: '완료', viewers: 5 },
-  { id: 5, class: '필라테스 B반', instructor: '이효리', date: '2026-04-24', duration: '55분', size: '2.0GB', status: '완료', viewers: 9 },
-];
+const FALLBACK_RECORDINGS: ClassRecordingSeedPayload = {
+  recordings: [
+    { id: 1, class: '필라테스 A반', instructor: '이효리', date: '2026-04-26', duration: '55분', size: '2.1GB', status: '완료', viewers: 12 },
+    { id: 2, class: '요가 기초반', instructor: '김태희', date: '2026-04-25', duration: '50분', size: '1.8GB', status: '완료', viewers: 8 },
+    { id: 3, class: '스피닝 B반', instructor: '정지훈', date: '2026-04-25', duration: '45분', size: '1.6GB', status: '처리중', viewers: 0 },
+    { id: 4, class: 'PT 기초반', instructor: '박재범', date: '2026-04-24', duration: '60분', size: '2.4GB', status: '완료', viewers: 5 },
+    { id: 5, class: '필라테스 B반', instructor: '이효리', date: '2026-04-24', duration: '55분', size: '2.0GB', status: '완료', viewers: 9 },
+  ],
+  summary: {
+    monthlyRecordings: 42,
+    totalStorageGb: 87,
+    totalViews: 234,
+    remainingStorageGb: 413,
+  },
+};
 
 const statusColor: Record<string, string> = {
   '완료': 'bg-green-100 text-green-700',
@@ -22,27 +32,49 @@ const statusColor: Record<string, string> = {
 
 export default function ClassRecordingPage() {
   const [filter, setFilter] = useState('전체');
+  const { data, loading, error, branchId, snapshotDate, reload } = usePageSeed<ClassRecordingSeedPayload>(
+    '/class-recording',
+    FALLBACK_RECORDINGS,
+  );
+  const { recordings } = data;
 
   return (
     <AppLayout>
-      <PageHeader title="수업 녹화 관리" description="녹화된 수업 영상을 관리하고 회원에게 제공합니다" />
+      <PageHeader
+        title="수업 녹화 관리"
+        description="녹화된 수업 영상을 관리하고 회원에게 제공합니다"
+        actions={
+          <button
+            className="flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+            onClick={() => void reload(true)}
+            type="button"
+          >
+            <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} /> seed 갱신
+          </button>
+        }
+      />
+
+      <div className="mb-4 rounded-xl border border-blue-100 bg-blue-50 px-4 py-3 text-xs text-blue-700">
+        Supabase snapshot · 지점 {branchId} · 기준일 {snapshotDate ?? '-'}
+        {error && <span className="ml-2 text-red-600">Fallback 사용: {error}</span>}
+      </div>
 
       <div className="grid grid-cols-4 gap-4 mb-6">
         <div className="bg-white rounded-xl border border-gray-200 p-4">
           <p className="text-xs text-gray-500 mb-1">이번 달 녹화</p>
-          <p className="text-2xl font-bold text-gray-900">42건</p>
+          <p className="text-2xl font-bold text-gray-900">{data.summary.monthlyRecordings}건</p>
         </div>
         <div className="bg-white rounded-xl border border-gray-200 p-4">
           <p className="text-xs text-gray-500 mb-1">총 용량 사용</p>
-          <p className="text-2xl font-bold text-blue-600">87GB</p>
+          <p className="text-2xl font-bold text-blue-600">{data.summary.totalStorageGb}GB</p>
         </div>
         <div className="bg-white rounded-xl border border-gray-200 p-4">
           <p className="text-xs text-gray-500 mb-1">총 시청 횟수</p>
-          <p className="text-2xl font-bold text-green-600">234회</p>
+          <p className="text-2xl font-bold text-green-600">{data.summary.totalViews}회</p>
         </div>
         <div className="bg-white rounded-xl border border-gray-200 p-4">
           <p className="text-xs text-gray-500 mb-1">남은 저장 공간</p>
-          <p className="text-2xl font-bold text-gray-700">413GB</p>
+          <p className="text-2xl font-bold text-gray-700">{data.summary.remainingStorageGb}GB</p>
         </div>
       </div>
 

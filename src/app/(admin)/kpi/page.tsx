@@ -17,6 +17,13 @@ import { supabase } from "@/lib/supabase";
 import { toast } from "sonner";
 import { formatNumber } from '@/lib/format';
 import SimpleTable from '@/components/common/SimpleTable';
+import {
+  LESSON_SESSION_TYPES,
+  createLessonSessionCounts,
+  deriveLessonSessionType,
+  formatLessonSessionType,
+  type LessonSessionCounts,
+} from '@/lib/lessonSessionTypes';
 
 /**
  * KPI 대시보드 — 회사 성장 & Team Health KPI 종합
@@ -44,6 +51,7 @@ interface KpiMetrics {
   unpaidTotal: number;
   unpaidCount: number;
   vatExcluded: number;
+  weeklyRevenue: number[];
   // 출석
   avgWeeklyAttendance: number;
   todayAttendance: number;
@@ -58,10 +66,7 @@ interface KpiMetrics {
   totalClasses: number;
   totalClassAttendees: number;
   totalClassBooked: number;
-  // 만료 예정 D-day
-  expiringD7: number;
-  expiringD14: number;
-  expiringD30: number;
+  lessonSessionCounts: LessonSessionCounts;
   // WI/TI 상담 유형
   wiCount: number;
   tiCount: number;
@@ -70,6 +75,13 @@ interface KpiMetrics {
   otAssigned: number;
   otCompleted: number;
   otConvertRate: number;
+  otRejected: number;
+  otRejectRate: number;
+  otCarryover: number;
+  otCarryoverRate: number;
+  golfOtAssigned: number;
+  golfOtCompleted: number;
+  golfOtRegistered: number;
   renewalContacted: number;
   renewalSuccess: number;
   renewalRate: number;
@@ -79,6 +91,9 @@ interface StaffRevenue {
   staffName: string;
   ptRevenue: number;
   membershipRevenue: number;
+  newRevenue: number;
+  renewalRevenue: number;
+  golfRevenue: number;
   total: number;
   count: number;
 }
@@ -89,13 +104,16 @@ const EMPTY_METRICS: KpiMetrics = {
   monthlyRevenue: 0, prevMonthRevenue: 0,
   ptRevenue: 0, membershipRevenue: 0, gxRevenue: 0, otherRevenue: 0,
   refundTotal: 0, refundCount: 0, unpaidTotal: 0, unpaidCount: 0, vatExcluded: 0,
+  weeklyRevenue: [0, 0, 0, 0, 0, 0],
   avgWeeklyAttendance: 0, todayAttendance: 0,
   totalConsultations: 0, completedConsultations: 0,
   totalPtSessions: 0, completedPtSessions: 0, noShowPtSessions: 0,
   totalClasses: 0, totalClassAttendees: 0, totalClassBooked: 0,
-  expiringD7: 0, expiringD14: 0, expiringD30: 0,
+  lessonSessionCounts: createLessonSessionCounts(),
   wiCount: 0, tiCount: 0, wiRegisterRate: 0, tiRegisterRate: 0,
   otAssigned: 0, otCompleted: 0, otConvertRate: 0,
+  otRejected: 0, otRejectRate: 0, otCarryover: 0, otCarryoverRate: 0,
+  golfOtAssigned: 0, golfOtCompleted: 0, golfOtRegistered: 0,
   renewalContacted: 0, renewalSuccess: 0, renewalRate: 0,
 };
 
@@ -112,6 +130,37 @@ function formatAmount(amount: number): string {
   if (amount >= 10_000) return `${Math.round(amount / 10_000)}만`;
   return amount.toLocaleString("ko-KR");
 }
+
+const normalizeValue = (value: unknown) =>
+  (typeof value === 'string' || typeof value === 'number')
+    ? String(value).trim().toLowerCase()
+    : '';
+
+const valuesOf = (...values: unknown[]) => values.map(normalizeValue).filter(Boolean);
+
+const textOf = (...values: unknown[]) => valuesOf(...values).join(' ');
+
+const isRegisteredResult = (row: { result?: unknown; status?: unknown }) => {
+  const registeredValues = new Set(['등록', '등록완료', '전환', 'converted', 'registered']);
+  return valuesOf(row.result, row.status).some(value => registeredValues.has(value));
+};
+
+const isConsultProgressed = (row: { result?: unknown; status?: unknown }) => {
+  const status = normalizeValue(row.status);
+  if (['cancelled', 'canceled', 'no_show', '취소', '노쇼'].includes(status)) return false;
+  if (['completed', '완료', '상담완료', '방문완료', '등록완료'].includes(status)) return true;
+  return valuesOf(row.result).some(value =>
+    ['등록', '미등록', '보류', '거부', '이월', 'converted', 'registered', 'refused', 'rejected', 'hold', 'carryover'].includes(value)
+  );
+};
+
+const isRejectedOrHoldResult = (row: { result?: unknown; status?: unknown }) =>
+  valuesOf(row.result, row.status).some(value =>
+    ['미등록', '거부', '보류', 'refused', 'rejected', 'hold'].includes(value)
+  );
+
+const isCarryoverResult = (row: { result?: unknown; status?: unknown }) =>
+  valuesOf(row.result, row.status).some(value => ['이월', 'carry', 'carryover'].includes(value));
 
 // 목표 설정 모달 컴포넌트
 function TargetModal({
@@ -589,21 +638,12 @@ export default function KpiDashboard() {
       weekAgo.setDate(today.getDate() - 7);
       const weekAgoStr = weekAgo.toISOString().slice(0, 10);
 
-      // 만료 예정 D-day 기준일
-      const d7 = new Date(today); d7.setDate(today.getDate() + 7);
-      const d14 = new Date(today); d14.setDate(today.getDate() + 14);
-      const d30 = new Date(today); d30.setDate(today.getDate() + 30);
-      const d7Str = d7.toISOString().slice(0, 10);
-      const d14Str = d14.toISOString().slice(0, 10);
-      const d30Str = d30.toISOString().slice(0, 10);
-
       const base = () => supabase.from("members").select("id", { count: "exact", head: true }).eq("branchId", branchId).is("deletedAt", null);
 
       const [
         totalRes, activeRes, newRes, newPrevRes, expiredRes, expiringRes,
         revenueRes, prevRevenueRes,
         salesDetailRes,
-        expiringD30Res,
         todayAttRes, weekAttRes,
         consultRes, consultCompRes,
         ptTotalRes, ptCompRes, ptNoShowRes,
@@ -619,9 +659,7 @@ export default function KpiDashboard() {
         supabase.from("sales").select("amount").eq("branchId", branchId).eq("status", "COMPLETED").gte("saleDate", monthStart).lte("saleDate", monthEnd),
         supabase.from("sales").select("amount").eq("branchId", branchId).eq("status", "COMPLETED").gte("saleDate", prevMonthStart).lte("saleDate", prevMonthEnd),
         // 매출 유형별 + 환불/미수금
-        supabase.from("sales").select("type, amount, status, unpaid, staffName").eq("branchId", branchId).gte("saleDate", monthStart).lte("saleDate", monthEnd),
-        // 만료 예정 D-30 이내
-        supabase.from("members").select("id, membershipExpiry").eq("branchId", branchId).is("deletedAt", null).eq("status", "ACTIVE").lte("membershipExpiry", d30Str).gte("membershipExpiry", todayStr),
+        supabase.from("sales").select("type, amount, status, unpaid, staffName, saleDate, round, productName").eq("branchId", branchId).gte("saleDate", monthStart).lte("saleDate", monthEnd),
         // 출석
         supabase.from("attendance").select("id", { count: "exact", head: true }).eq("branchId", branchId).gte("checkInAt", `${todayStr}T00:00:00`).lte("checkInAt", `${todayStr}T23:59:59`),
         supabase.from("attendance").select("id", { count: "exact", head: true }).eq("branchId", branchId).gte("checkInAt", `${weekAgoStr}T00:00:00`).lte("checkInAt", `${todayStr}T23:59:59`),
@@ -633,7 +671,7 @@ export default function KpiDashboard() {
         supabase.from("lesson_bookings").select("id", { count: "exact", head: true }).eq("branchId", branchId).gte("createdAt", monthStart).eq("status", "ATTENDED"),
         supabase.from("lesson_bookings").select("id", { count: "exact", head: true }).eq("branchId", branchId).gte("createdAt", monthStart).eq("status", "NO_SHOW"),
         // 수업
-        supabase.from("classes").select("id, capacity", { count: "exact" }).eq("branchId", branchId).gte("startTime", monthStart).lte("startTime", monthEnd),
+        supabase.from("classes").select("id, title, type, capacity", { count: "exact" }).eq("branchId", branchId).gte("startTime", monthStart).lte("startTime", monthEnd),
         supabase.from("lesson_bookings").select("id", { count: "exact", head: true }).eq("branchId", branchId).gte("createdAt", monthStart).eq("status", "ATTENDED"),
         supabase.from("lesson_bookings").select("id", { count: "exact", head: true }).eq("branchId", branchId).gte("createdAt", monthStart).in("status", ["BOOKED", "ATTENDED"]),
       ]);
@@ -647,6 +685,13 @@ export default function KpiDashboard() {
       const membershipRevenue = completedSales.filter((r) => r.type === "이용권" || r.type === "MEMBERSHIP").reduce((s: number, r: any) => s + (Number(r.amount) || 0), 0);
       const gxRevenue = completedSales.filter((r) => r.type === "GX" || r.type === "수업").reduce((s: number, r: any) => s + (Number(r.amount) || 0), 0);
       const otherRevenue = completedSales.filter((r) => !["PT", "이용권", "MEMBERSHIP", "GX", "수업"].includes(r.type)).reduce((s: number, r: any) => s + (Number(r.amount) || 0), 0);
+      const weeklyRevenue = [0, 0, 0, 0, 0, 0];
+      completedSales.forEach((row: any) => {
+        const date = row.saleDate ? new Date(row.saleDate) : null;
+        if (!date || Number.isNaN(date.getTime())) return;
+        const weekIndex = Math.min(5, Math.floor((date.getDate() - 1) / 7));
+        weeklyRevenue[weekIndex] += Number(row.amount) || 0;
+      });
 
       // 환불
       const refundRows = salesRows.filter((r) => r.status === "REFUNDED");
@@ -662,11 +707,11 @@ export default function KpiDashboard() {
       const totalRevenue = sumAmount(revenueRes.data);
       const vatExcluded = Math.round(totalRevenue * 0.909);
 
-      // 만료 예정 D-day 분류
-      const expiringRows: any[] = expiringD30Res.data ?? [];
-      const expiringD7 = expiringRows.filter((r) => r.membershipExpiry && r.membershipExpiry.slice(0, 10) <= d7Str).length;
-      const expiringD14 = expiringRows.filter((r) => r.membershipExpiry && r.membershipExpiry.slice(0, 10) > d7Str && r.membershipExpiry.slice(0, 10) <= d14Str).length;
-      const expiringD30 = expiringRows.filter((r) => r.membershipExpiry && r.membershipExpiry.slice(0, 10) > d14Str && r.membershipExpiry.slice(0, 10) <= d30Str).length;
+      const lessonSessionCounts = createLessonSessionCounts();
+      (classRes.data ?? []).forEach((row: any) => {
+        const sessionType = deriveLessonSessionType(row.type, row.title);
+        if (sessionType !== '기타') lessonSessionCounts[sessionType] += 1;
+      });
 
       // 상담 데이터 (WI/TI 구분)
       const { data: consultData } = await supabase
@@ -679,30 +724,44 @@ export default function KpiDashboard() {
       // WI/TI 집계
       const wiAll = consultData?.filter(c => c.inquiryType === 'WI') || [];
       const tiAll = consultData?.filter(c => c.inquiryType === 'TI') || [];
-      const wiRegistered = wiAll.filter(c => c.result === '등록').length;
-      const tiRegistered = tiAll.filter(c => c.result === '등록').length;
+      const wiRegistered = wiAll.filter(isRegisteredResult).length;
+      const tiRegistered = tiAll.filter(isRegisteredResult).length;
 
       // OT 집계
-      const otData = consultData?.filter(c => c.type === 'OT') || [];
+      const otData = consultData?.filter(c => {
+        const typeText = textOf(c.type);
+        return typeText.includes('ot') || typeText.includes('오티');
+      }) || [];
       const otAssigned = otData.length;
-      const otCompleted = otData.filter(c => c.status === 'completed').length;
+      const isGolfOt = (c: { type?: string | null; status?: string | null; result?: string | null }) => textOf(c.type, c.status, c.result).includes('골프');
+      const otCompleted = otData.filter(isConsultProgressed).length;
+      const otRegistered = otData.filter(isRegisteredResult).length;
+      const otRejected = otData.filter(isRejectedOrHoldResult).length;
+      const otCarryover = otData.filter(isCarryoverResult).length;
+      const golfOtData = otData.filter(isGolfOt);
+      const golfOtAssigned = golfOtData.length;
+      const golfOtCompleted = golfOtData.filter(isConsultProgressed).length;
+      const golfOtRegistered = golfOtData.filter(isRegisteredResult).length;
 
       // 재등록 집계
       const renewalData = consultData?.filter(c => c.type === '재등록상담') || [];
-      const renewalContacted = renewalData.filter(c => c.status === 'completed').length;
-      const renewalSuccess = renewalData.filter(c => c.result === '등록').length;
+      const renewalContacted = renewalData.filter(isConsultProgressed).length;
+      const renewalSuccess = renewalData.filter(isRegisteredResult).length;
 
       // 담당자별 매출 집계
       const staffMap = new Map<string, StaffRevenue>();
       completedSales.forEach((r: any) => {
         const name = r.staffName ?? "미지정";
         if (!staffMap.has(name)) {
-          staffMap.set(name, { staffName: name, ptRevenue: 0, membershipRevenue: 0, total: 0, count: 0 });
+          staffMap.set(name, { staffName: name, ptRevenue: 0, membershipRevenue: 0, newRevenue: 0, renewalRevenue: 0, golfRevenue: 0, total: 0, count: 0 });
         }
         const entry = staffMap.get(name)!;
         const amt = Number(r.amount) || 0;
         if (r.type === "PT") entry.ptRevenue += amt;
         if (r.type === "이용권" || r.type === "MEMBERSHIP") entry.membershipRevenue += amt;
+        if (r.round === "신규") entry.newRevenue += amt;
+        if (r.round === "재등록") entry.renewalRevenue += amt;
+        if (textOf(r.type, r.productName).includes('골프')) entry.golfRevenue += amt;
         entry.total += amt;
         entry.count += 1;
       });
@@ -726,6 +785,7 @@ export default function KpiDashboard() {
         unpaidTotal,
         unpaidCount,
         vatExcluded,
+        weeklyRevenue,
         todayAttendance: todayAttRes.count ?? 0,
         avgWeeklyAttendance: Math.round((weekAttRes.count ?? 0) / 7),
         totalConsultations: consultRes.count ?? 0,
@@ -736,16 +796,21 @@ export default function KpiDashboard() {
         totalClasses: classRes.count ?? 0,
         totalClassAttendees: classAttendRes.count ?? 0,
         totalClassBooked: classBookedRes.count ?? 0,
-        expiringD7,
-        expiringD14,
-        expiringD30,
+        lessonSessionCounts,
         wiCount: wiAll.length,
         tiCount: tiAll.length,
         wiRegisterRate: wiAll.length > 0 ? (wiRegistered / wiAll.length) * 100 : 0,
         tiRegisterRate: tiAll.length > 0 ? (tiRegistered / tiAll.length) * 100 : 0,
         otAssigned,
         otCompleted,
-        otConvertRate: otAssigned > 0 ? (otCompleted / otAssigned) * 100 : 0,
+        otConvertRate: otCompleted > 0 ? (otRegistered / otCompleted) * 100 : 0,
+        otRejected,
+        otRejectRate: otCompleted > 0 ? (otRejected / otCompleted) * 100 : 0,
+        otCarryover,
+        otCarryoverRate: otAssigned > 0 ? (otCarryover / otAssigned) * 100 : 0,
+        golfOtAssigned,
+        golfOtCompleted,
+        golfOtRegistered,
         renewalContacted,
         renewalSuccess,
         renewalRate: renewalContacted > 0 ? (renewalSuccess / renewalContacted) * 100 : 0,
@@ -770,6 +835,7 @@ export default function KpiDashboard() {
   const newMemberMoM = mom(m.newMembersThisMonth, m.newMembersPrevMonth);
   const revenueMoM = mom(m.monthlyRevenue, m.prevMonthRevenue);
   const classAttendRate = pct(m.totalClassAttendees, m.totalClassBooked);
+  const maxWeeklyRevenue = Math.max(...m.weeklyRevenue, 1);
 
   return (
     <AppLayout>
@@ -838,6 +904,30 @@ export default function KpiDashboard() {
         <RevenueGauge revenue={m.monthlyRevenue} target={monthlyTarget} />
       </div>
 
+      <div className="bg-surface border border-line rounded-xl px-lg py-md mb-lg">
+        <div className="mb-md flex items-center justify-between">
+          <div>
+            <h3 className="text-[14px] font-bold text-content">이번 달 주차별 매출 추이</h3>
+            <p className="mt-xs text-[12px] text-content-secondary">1~6주차 매출 합계로 월중 목표 달성 가능성을 조기 확인합니다.</p>
+          </div>
+          <span className="text-[12px] text-content-tertiary">매출 기준</span>
+        </div>
+        <div className="grid grid-cols-6 gap-sm">
+          {m.weeklyRevenue.map((amount, index) => (
+            <div key={index} className="flex min-h-[110px] flex-col justify-end rounded-lg bg-surface-secondary px-sm py-sm">
+              <div className="mb-sm flex flex-1 items-end">
+                <div
+                  className="w-full rounded-md bg-primary transition-all"
+                  style={{ height: `${Math.max((amount / maxWeeklyRevenue) * 72, amount > 0 ? 8 : 2)}px` }}
+                />
+              </div>
+              <p className="text-center text-[11px] font-semibold text-content">{index + 1}주</p>
+              <p className="mt-[2px] text-center text-[11px] text-content-secondary">{formatAmount(amount)}원</p>
+            </div>
+          ))}
+        </div>
+      </div>
+
       {/* 상담/전환 */}
       <h3 className="text-[14px] font-bold text-content mb-sm">상담 / 전환</h3>
       <StatCardGrid cols={4} className="mb-lg">
@@ -865,6 +955,20 @@ export default function KpiDashboard() {
         <StatCard label="수업 출석률" value={`${classAttendRate}%`} icon={<Target size={18} />} variant={classAttendRate >= 80 ? "mint" : "peach"} />
       </StatCardGrid>
 
+      {/* 강습 세션수 */}
+      <h3 className="text-[14px] font-bold text-content mb-sm">강습 세션수</h3>
+      <StatCardGrid cols={4} className="mb-lg">
+        {LESSON_SESSION_TYPES.map((sessionType) => (
+          <StatCard
+            key={sessionType}
+            label={`${formatLessonSessionType(sessionType)} 세션`}
+            value={`${m.lessonSessionCounts[sessionType]}건`}
+            description="수업명/유형 기준"
+            icon={<CalendarCheck size={18} />}
+          />
+        ))}
+      </StatCardGrid>
+
       {/* 코호트 분석 */}
       <h3 className="text-[14px] font-bold text-content mb-sm">코호트 분석</h3>
       <CohortAnalysis branchId={branchId} />
@@ -887,14 +991,6 @@ export default function KpiDashboard() {
         <StatCard label="VAT 제외 순매출" value={`${formatAmount(m.vatExcluded)}원`} description="매출 × 90.9%" icon={<DollarSign size={18} />} variant="mint" />
       </StatCardGrid>
 
-      {/* 만료 예정 D-day 분류 */}
-      <h3 className="text-[14px] font-bold text-content mb-sm">만료 예정 D-day 분류</h3>
-      <StatCardGrid cols={3} className="mb-lg">
-        <StatCard label="D-7 이내 만료" value={`${m.expiringD7}명`} description="즉시 연락 필요" icon={<AlertCircle size={18} />} variant="peach" />
-        <StatCard label="D-14 이내 만료" value={`${m.expiringD14}명`} description="8~14일 이내" icon={<AlertCircle size={18} />} />
-        <StatCard label="D-30 이내 만료" value={`${m.expiringD30}명`} description="15~30일 이내" icon={<AlertCircle size={18} />} />
-      </StatCardGrid>
-
       {/* 담당자별 매출 */}
       <h3 className="text-[14px] font-bold text-content mb-sm">담당자별 매출</h3>
       <div className="bg-surface border border-line rounded-xl p-lg mb-lg">
@@ -906,8 +1002,11 @@ export default function KpiDashboard() {
               <thead>
                 <tr className="border-b border-line">
                   <th className="text-left py-sm pr-md text-content-secondary font-medium">담당자</th>
+                  <th className="text-right py-sm px-md text-content-secondary font-medium">신규</th>
+                  <th className="text-right py-sm px-md text-content-secondary font-medium">재등록</th>
                   <th className="text-right py-sm px-md text-content-secondary font-medium">PT</th>
                   <th className="text-right py-sm px-md text-content-secondary font-medium">이용권</th>
+                  <th className="text-right py-sm px-md text-content-secondary font-medium">골프</th>
                   <th className="text-right py-sm px-md text-content-secondary font-medium">합계</th>
                   <th className="text-right py-sm pl-md text-content-secondary font-medium">건수</th>
                 </tr>
@@ -916,14 +1015,38 @@ export default function KpiDashboard() {
                 {staffRevenues.map((s) => (
                   <tr key={s.staffName} className="border-b border-line last:border-0 hover:bg-surface-secondary transition-colors">
                     <td className="py-sm pr-md font-medium text-content">{s.staffName}</td>
+                    <td className="py-sm px-md text-right tabular-nums text-content-secondary">{formatAmount(s.newRevenue)}원</td>
+                    <td className="py-sm px-md text-right tabular-nums text-content-secondary">{formatAmount(s.renewalRevenue)}원</td>
                     <td className="py-sm px-md text-right tabular-nums text-content-secondary">{formatAmount(s.ptRevenue)}원</td>
                     <td className="py-sm px-md text-right tabular-nums text-content-secondary">{formatAmount(s.membershipRevenue)}원</td>
+                    <td className="py-sm px-md text-right tabular-nums text-content-secondary">{formatAmount(s.golfRevenue)}원</td>
                     <td className="py-sm px-md text-right tabular-nums font-semibold text-content">{formatAmount(s.total)}원</td>
                     <td className="py-sm pl-md text-right tabular-nums text-content-secondary">{s.count}건</td>
                   </tr>
                 ))}
               </tbody>
             </table>
+          </div>
+        )}
+      </div>
+
+      {/* 골프프로별 매출 */}
+      <h3 className="text-[14px] font-bold text-content mb-sm">골프프로별 매출</h3>
+      <div className="bg-surface border border-line rounded-xl p-lg mb-lg">
+        {staffRevenues.filter(s => s.golfRevenue > 0).length === 0 ? (
+          <p className="text-[13px] text-content-secondary text-center py-md">골프 매출 데이터가 없습니다. `[매출종합]` 골프매출 담당자 연동 후 표시됩니다.</p>
+        ) : (
+          <div className="grid grid-cols-1 gap-sm md:grid-cols-2 xl:grid-cols-3">
+            {staffRevenues.filter(s => s.golfRevenue > 0).map(s => (
+              <div key={s.staffName} className="rounded-lg border border-line bg-surface-secondary p-md">
+                <div className="flex items-center justify-between">
+                  <span className="text-[13px] font-semibold text-content">{s.staffName}</span>
+                  <span className="text-[12px] text-content-tertiary">골프 프로</span>
+                </div>
+                <p className="mt-xs text-[20px] font-bold text-content">{formatAmount(s.golfRevenue)}원</p>
+                <p className="mt-[2px] text-[11px] text-content-secondary">담당자별 골프 매출 합계</p>
+              </div>
+            ))}
           </div>
         )}
       </div>
@@ -946,14 +1069,34 @@ export default function KpiDashboard() {
             <div className="text-xs text-purple-500 mt-1">등록률 {metrics.tiRegisterRate.toFixed(1)}%</div>
           </div>
         </div>
-        <div className="grid grid-cols-3 gap-3">
+        <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
           <div className="text-center p-3 bg-gray-50 rounded-lg">
             <div className="text-xs text-gray-500 mb-1">OT 신규 배정</div>
             <div className="text-lg font-bold">{metrics.otAssigned}건</div>
           </div>
           <div className="text-center p-3 bg-gray-50 rounded-lg">
-            <div className="text-xs text-gray-500 mb-1">OT 전환율</div>
+            <div className="text-xs text-gray-500 mb-1">OT 등록 전환율</div>
             <div className="text-lg font-bold">{metrics.otConvertRate.toFixed(0)}%</div>
+          </div>
+          <div className="text-center p-3 bg-gray-50 rounded-lg">
+            <div className="text-xs text-gray-500 mb-1">OT 거부율</div>
+            <div className="text-lg font-bold">{metrics.otRejectRate.toFixed(0)}%</div>
+            <div className="mt-1 text-[10px] text-gray-400">미등록+거부+보류 {metrics.otRejected}건</div>
+          </div>
+          <div className="text-center p-3 bg-gray-50 rounded-lg">
+            <div className="text-xs text-gray-500 mb-1">OT 이월률</div>
+            <div className="text-lg font-bold">{metrics.otCarryoverRate.toFixed(0)}%</div>
+            <div className="mt-1 text-[10px] text-gray-400">이월 / OT 배정</div>
+          </div>
+          <div className="text-center p-3 bg-blue-50 rounded-lg">
+            <div className="text-xs text-blue-600 mb-1">골프 OT 전체 현황</div>
+            <div className="text-lg font-bold text-blue-800">{metrics.golfOtAssigned}건</div>
+            <div className="mt-1 text-[10px] text-blue-500">진행 {metrics.golfOtCompleted} · 등록 {metrics.golfOtRegistered}</div>
+          </div>
+          <div className="text-center p-3 bg-gray-50 rounded-lg">
+            <div className="text-xs text-gray-500 mb-1">재등록 상담 완료</div>
+            <div className="text-lg font-bold">{metrics.renewalContacted}건</div>
+            <div className="mt-1 text-[10px] text-gray-400">상담결과 입력 기준</div>
           </div>
           <div className="text-center p-3 bg-gray-50 rounded-lg">
             <div className="text-xs text-gray-500 mb-1">재등록 성공률</div>
@@ -966,7 +1109,6 @@ export default function KpiDashboard() {
       <div className="bg-surface-secondary border border-line rounded-xl p-lg mt-md">
         <h3 className="text-[14px] font-bold text-content mb-sm">추가 예정 KPI (정책/인프라 확정 후)</h3>
         <div className="grid grid-cols-2 lg:grid-cols-3 gap-sm text-[12px] text-content-secondary">
-          <div className="p-sm bg-surface rounded-lg border border-line">재등록률 (이탈 정의 필요)</div>
           <div className="p-sm bg-surface rounded-lg border border-line">이탈률 (만료 후 N일 기준 필요)</div>
           <div className="p-sm bg-surface rounded-lg border border-line">NPS 고객 추천 지수 (설문 시스템)</div>
           <div className="p-sm bg-surface rounded-lg border border-line">LTV 회원 생애가치 (유지기간 추적)</div>

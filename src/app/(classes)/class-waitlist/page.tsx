@@ -4,15 +4,22 @@ export const dynamic = 'force-dynamic';
 import React, { useState } from 'react';
 import AppLayout from '@/components/layout/AppLayout';
 import PageHeader from '@/components/common/PageHeader';
-import { Clock, Users, CheckCircle, XCircle, Bell, ChevronRight } from 'lucide-react';
+import { Bell, ChevronRight, RefreshCw } from 'lucide-react';
+import { usePageSeed } from '@/hooks';
+import type { ClassWaitlistSeedPayload } from '@/lib/publishingPageSeed';
 
-const waitlist = [
-  { id: 1, member: '김민준', class: '필라테스 A반 (화 10:00)', requested: '2026-04-25 09:12', rank: 1, status: '대기중' },
-  { id: 2, member: '이서연', class: '요가 기초반 (월 11:00)', requested: '2026-04-25 10:03', rank: 2, status: '대기중' },
-  { id: 3, member: '박지훈', class: '스피닝 B반 (수 18:00)', requested: '2026-04-24 15:44', rank: 1, status: '배정가능' },
-  { id: 4, member: '최유리', class: 'PT 기초반 (목 09:00)', requested: '2026-04-24 11:22', rank: 3, status: '대기중' },
-  { id: 5, member: '정현우', class: '필라테스 A반 (화 10:00)', requested: '2026-04-26 08:00', rank: 2, status: '배정가능' },
-];
+const FALLBACK_WAITLIST: ClassWaitlistSeedPayload = {
+  waitlist: [
+    { id: 1, member: '김민준', class: '필라테스 A반 (화 10:00)', requested: '2026-04-25 09:12', rank: 1, status: '대기중' },
+    { id: 2, member: '이서연', class: '요가 기초반 (월 11:00)', requested: '2026-04-25 10:03', rank: 2, status: '대기중' },
+    { id: 3, member: '박지훈', class: '스피닝 B반 (수 18:00)', requested: '2026-04-24 15:44', rank: 1, status: '배정가능' },
+    { id: 4, member: '최유리', class: 'PT 기초반 (목 09:00)', requested: '2026-04-24 11:22', rank: 3, status: '대기중' },
+    { id: 5, member: '정현우', class: '필라테스 A반 (화 10:00)', requested: '2026-04-26 08:00', rank: 2, status: '배정가능' },
+  ],
+  summary: {
+    notificationSent: 3,
+  },
+};
 
 const statusColor: Record<string, string> = {
   '대기중': 'bg-yellow-100 text-yellow-700',
@@ -22,26 +29,49 @@ const statusColor: Record<string, string> = {
 
 export default function ClassWaitlistPage() {
   const [filter, setFilter] = useState('전체');
+  const { data, loading, error, branchId, snapshotDate, reload } = usePageSeed<ClassWaitlistSeedPayload>(
+    '/class-waitlist',
+    FALLBACK_WAITLIST,
+  );
+  const waitlist = data.waitlist;
   const tabs = ['전체', '배정가능', '대기중'];
 
   const filtered = filter === '전체' ? waitlist : waitlist.filter(w => w.status === filter);
+  const assignableCount = waitlist.filter(item => item.status === '배정가능').length;
 
   return (
     <AppLayout>
-      <PageHeader title="대기열 관리" description="수업 정원 초과 시 대기 신청한 회원을 관리하고 자동 배정합니다" />
+      <PageHeader
+        title="대기열 관리"
+        description="수업 정원 초과 시 대기 신청한 회원을 관리하고 자동 배정합니다"
+        actions={
+          <button
+            className="flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+            onClick={() => void reload(true)}
+            type="button"
+          >
+            <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} /> seed 갱신
+          </button>
+        }
+      />
+
+      <div className="mb-4 rounded-xl border border-blue-100 bg-blue-50 px-4 py-3 text-xs text-blue-700">
+        Supabase snapshot · 지점 {branchId} · 기준일 {snapshotDate ?? '-'}
+        {error && <span className="ml-2 text-red-600">Fallback 사용: {error}</span>}
+      </div>
 
       <div className="grid grid-cols-3 gap-4 mb-6">
         <div className="bg-white rounded-xl border border-gray-200 p-4">
           <p className="text-xs text-gray-500 mb-1">전체 대기</p>
-          <p className="text-2xl font-bold text-gray-900">5명</p>
+          <p className="text-2xl font-bold text-gray-900">{waitlist.length}명</p>
         </div>
         <div className="bg-white rounded-xl border border-gray-200 p-4">
           <p className="text-xs text-gray-500 mb-1">배정 가능</p>
-          <p className="text-2xl font-bold text-green-600">2명</p>
+          <p className="text-2xl font-bold text-green-600">{assignableCount}명</p>
         </div>
         <div className="bg-white rounded-xl border border-gray-200 p-4">
           <p className="text-xs text-gray-500 mb-1">오늘 알림 발송</p>
-          <p className="text-2xl font-bold text-blue-600">3건</p>
+          <p className="text-2xl font-bold text-blue-600">{data.summary.notificationSent}건</p>
         </div>
       </div>
 

@@ -4,6 +4,8 @@
 import { supabase } from '@/lib/supabase';
 import type { ApiResponse } from '../types';
 import { createAuditLog, AUDIT_ACTIONS } from './auditLog';
+import { isPreviewMode } from '@/lib/preview';
+import { previewBranches } from '@/mocks/memberPreview';
 
 /** 로그인 요청 */
 export interface LoginRequest {
@@ -163,7 +165,7 @@ export const login = async (data: LoginRequest): Promise<ApiResponse<LoginRespon
 
 /** 로그아웃 */
 export const logout = async (): Promise<ApiResponse<null>> => {
-  // 감사 로그 기록 (세션 종료 전에 기록)
+  // 히스토리 로그 기록 (세션 종료 전에 기록)
   createAuditLog({ action: AUDIT_ACTIONS.LOGOUT });
   // Supabase Auth 세션 종료
   await supabase.auth.signOut();
@@ -246,6 +248,11 @@ export interface Branch {
  * tenantId 파라미터가 있으면 해당 테넌트의 지점만 반환 (슈퍼관리자 지점 필터)
  */
 export const getBranches = async (tenantId?: number): Promise<ApiResponse<Branch[]>> => {
+  if (isPreviewMode()) {
+    void tenantId;
+    return { success: true, data: previewBranches };
+  }
+
   let query = supabase
     .from('branches')
     .select('id, name, address, phone, status')

@@ -93,7 +93,7 @@ export const createProduct = async (payload: ProductRequest): Promise<ApiRespons
   return { success: true, data: data as Product, message: '상품이 등록되었습니다.' };
 };
 
-/** 상품 수정 (가격 변경 시 감사 로그 기록) */
+/** 상품 수정 (가격 변경 시 히스토리 로그 기록) */
 export const updateProduct = async (id: number, payload: Partial<ProductRequest>): Promise<ApiResponse<Product>> => {
   // 가격 변경 이력 기록을 위해 기존 상품 조회
   let prevPrice: number | null = null;
@@ -111,7 +111,7 @@ export const updateProduct = async (id: number, payload: Partial<ProductRequest>
 
   if (error) throw new Error(error.message);
 
-  // 가격이 실제로 변경되었으면 감사 로그 기록
+  // 가격이 실제로 변경되었으면 히스토리 로그 기록
   if (prevPrice !== null && payload.price !== undefined && prevPrice !== payload.price) {
     await supabase.from('audit_logs').insert({
       branchId: getBranchId(),

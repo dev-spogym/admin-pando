@@ -18,9 +18,13 @@ import type { z } from 'zod';
 type ProductFormData = z.input<typeof productFormSchema>;
 
 type ProductKind = '레슨' | '이용' | '락커' | '판매';
+type LessonCategory = 'PT' | 'GX';
 type UseCategory = '기간' | '횟수' | '포인트';
+type ProductGroup = { id: number; name: string; branchId: number };
 
 const PRODUCT_KIND_OPTIONS: ProductKind[] = ['레슨', '이용', '락커', '판매'];
+const LESSON_CATEGORY_OPTIONS: LessonCategory[] = ['PT', 'GX'];
+const GX_SUB_CATEGORY_OPTIONS = ['요가', '필라테스', '스피닝', '줌바', '에어로빅', 'GX 기타'];
 const USE_CATEGORY_OPTIONS: UseCategory[] = ['기간', '횟수', '포인트'];
 const OCCUPANCY_OPTIONS = ['1명', '2명', '3명', '4명'];
 const LESSON_DURATION_OPTIONS = [
@@ -79,6 +83,16 @@ const mapCategoryToKind = (category: string): ProductKind => {
     default:
       return '판매';
   }
+};
+
+const inferProductGroupId = (groups: ProductGroup[], category: string): number | null => {
+  const keyword = category === 'PT' ? 'PT' : category === 'GX' ? 'GX' : category === '이용권' ? '이용권' : '기타';
+  return groups.find(group => group.name.includes(keyword))?.id ?? null;
+};
+
+const getProductGroupLabel = (groups: ProductGroup[], id: number | null): string => {
+  if (id == null) return '미지정';
+  return groups.find(group => group.id === id)?.name ?? '미지정';
 };
 
 const emptyDayRows = () =>
@@ -190,8 +204,11 @@ function ProductForm() {
   const [isSaving, setIsSaving] = useState(false);
   const [showCancelConfirm, setShowCancelConfirm] = useState(false);
   const [existingProducts, setExistingProducts] = useState<{ name: string; category: string }[]>([]);
+  const [productGroups, setProductGroups] = useState<ProductGroup[]>([]);
 
   const [productKind, setProductKind] = useState<ProductKind>('이용');
+  const [lessonCategory, setLessonCategory] = useState<LessonCategory>('PT');
+  const [gxSubCategory, setGxSubCategory] = useState('');
   const [occupancy, setOccupancy] = useState('1명');
   const [lessonDuration, setLessonDuration] = useState('선택');
   const [lessonValidity, setLessonValidity] = useState('선택');
@@ -260,6 +277,7 @@ function ProductForm() {
   const watchedName = watch('name');
   const watchedPriceCash = watch('priceCash');
   const watchedPriceCard = watch('priceCard');
+  const inferredProductGroupId = inferProductGroupId(productGroups, watchedCategory);
 
   useEffect(() => {
     const fetchExisting = async () => {
@@ -272,6 +290,20 @@ function ProductForm() {
       }
     };
     fetchExisting();
+  }, []);
+
+  useEffect(() => {
+    const fetchProductGroups = async () => {
+      const { data, error } = await supabase
+        .from('product_groups')
+        .select('id, name, branchId')
+        .eq('branchId', getBranchId())
+        .order('id', { ascending: true });
+      if (!error && data) {
+        setProductGroups(data as ProductGroup[]);
+      }
+    };
+    fetchProductGroups();
   }, []);
 
   useEffect(() => {
@@ -295,6 +327,12 @@ function ProductForm() {
       const category = categoryMap[data.category] ?? data.category ?? '이용권';
       setValue('category', category);
       setProductKind(mapCategoryToKind(category));
+      setLessonCategory(category === 'GX' ? 'GX' : 'PT');
+      setGxSubCategory(
+        category === 'GX' && GX_SUB_CATEGORY_OPTIONS.includes(data.sportType ?? data.tag ?? '')
+          ? data.sportType ?? data.tag ?? ''
+          : ''
+      );
       setValue('name', data.name ?? '');
       setValue('priceCash', data.cashPrice ? formatPrice(String(Number(data.cashPrice))) : '');
       setValue('priceCard', data.cardPrice ? formatPrice(String(Number(data.cardPrice))) : '');
@@ -351,10 +389,16 @@ function ProductForm() {
 
   const handleKindChange = (kind: ProductKind) => {
     setProductKind(kind);
-    setValue('category', mapKindToCategory(kind), { shouldValidate: true });
+    setValue('category', kind === '레슨' ? lessonCategory : mapKindToCategory(kind), { shouldValidate: true });
     if (kind === '레슨') {
       setUseCategory('횟수');
     }
+  };
+
+  const handleLessonCategoryChange = (category: LessonCategory) => {
+    setLessonCategory(category);
+    setValue('category', category, { shouldValidate: true });
+    if (category === 'PT') setGxSubCategory('');
   };
 
   const handleDayRowChange = (index: number, key: 'enabled' | 'from' | 'to', value: boolean | string) => {
@@ -368,8 +412,15 @@ function ProductForm() {
       setError('name', { message: `'${data.name}' 상품명이 이미 존재합니다.` });
       return;
     }
+    if (productKind === '레슨' && lessonCategory === 'GX' && !gxSubCategory) {
+      toast.error('GX 상품은 세부종목을 선택해야 합니다.');
+      return;
+    }
 
     setIsSaving(true);
+    const resolvedProductGroupId = productGroupId
+      ? Number(productGroupId)
+      : inferProductGroupId(productGroups, data.category);
 
     const categoryMap: Record<string, string> = {
       이용권: 'MEMBERSHIP',
@@ -400,11 +451,12 @@ function ProductForm() {
       isActive: data.isUsed,
       kioskVisible: data.isKioskExposed ?? true,
       tag: data.tags || null,
+      sportType: data.category === 'GX' ? gxSubCategory : null,
       classType: classType || classMode,
       deductionType: deductionType || useCategory,
       suspendLimit: suspendLimit ? Number(suspendLimit) : null,
       dailyUseLimit: dailyUseLimit ? Number(dailyUseLimit) : null,
-      productGroupId: productGroupId ? Number(productGroupId) : null,
+      productGroupId: resolvedProductGroupId,
     };
 
     const query = isEditMode
@@ -459,6 +511,60 @@ function ProductForm() {
                 </div>
                 <div className="justify-self-end font-bold text-[#555]">사용인원</div>
                 <SelectBox value={occupancy} onChange={setOccupancy} options={OCCUPANCY_OPTIONS} />
+              </div>
+
+              {productKind === '레슨' && (
+                <div className="grid gap-x-[6px] gap-y-[4px] border border-[#9ec5ff] bg-[#f8fbff] p-[6px] md:grid-cols-[44px_1fr_52px_112px] md:items-center">
+                  <div className="font-bold text-[#555]">1단계</div>
+                  <div className="flex flex-wrap items-center gap-3">
+                    {LESSON_CATEGORY_OPTIONS.map(category => (
+                      <ClassicRadio
+                        key={category}
+                        checked={lessonCategory === category}
+                        onChange={() => handleLessonCategoryChange(category)}
+                        label={category}
+                      />
+                    ))}
+                  </div>
+                  <div className="justify-self-end font-bold text-[#555]">2단계</div>
+                  {lessonCategory === 'GX' ? (
+                    <select
+                      value={gxSubCategory}
+                      onChange={e => setGxSubCategory(e.target.value)}
+                      className="h-5 w-full border border-[#d26e2d] bg-[#fff8ed] px-1 text-[11px] text-[#444] outline-none"
+                    >
+                      <option value="">GX 세부종목 선택</option>
+                      {GX_SUB_CATEGORY_OPTIONS.map(option => (
+                        <option key={option}>{option}</option>
+                      ))}
+                    </select>
+                  ) : (
+                    <input value="개인 PT" readOnly className="h-5 w-full border border-[#bdbdbd] bg-[#eef4ff] px-1 text-[11px] text-[#305f9f] outline-none" />
+                  )}
+                  {lessonCategory === 'GX' && (
+                    <div className="md:col-span-4 text-[10px] text-[#8a5a16]">
+                      GX 상품은 요가·필라테스·스피닝·줌바·에어로빅·GX 기타 중 하나를 필수 선택해야 합니다.
+                    </div>
+                  )}
+                </div>
+              )}
+
+              <div className="grid gap-x-[6px] gap-y-[4px] md:grid-cols-[44px_1fr] md:items-center">
+                <div className="font-bold text-[#555]">상품그룹</div>
+                <select
+                  value={productGroupId}
+                  onChange={e => setProductGroupId(e.target.value)}
+                  className="h-5 w-full border border-[#bdbdbd] bg-white px-2 text-[11px] text-[#444] outline-none"
+                >
+                  <option value="">
+                    자동({getProductGroupLabel(productGroups, inferredProductGroupId)})
+                  </option>
+                  {productGroups.map(group => (
+                    <option key={group.id} value={String(group.id)}>
+                      {group.name}
+                    </option>
+                  ))}
+                </select>
               </div>
 
               <div className="grid gap-x-[6px] gap-y-[4px] md:grid-cols-[44px_1fr] md:items-center">

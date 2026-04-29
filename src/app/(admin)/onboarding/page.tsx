@@ -11,7 +11,7 @@ import DataTable from "@/components/common/DataTable";
 import StatusBadge from "@/components/common/StatusBadge";
 import {
   Users, UserPlus, UserCheck, TrendingUp, AlertCircle, CalendarCheck,
-  Clock, RefreshCw, Target,
+  Clock, RefreshCw, Target, PhoneCall, MapPin, Gift, BadgeCheck,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/lib/supabase";
@@ -58,6 +58,20 @@ interface SourceStat {
   convertRate: number;
 }
 
+interface FunnelSegmentationStats {
+  wiCount: number;
+  wiRegistered: number;
+  tiCount: number;
+  tiRegistered: number;
+  trialTotal: number;
+  trialRegistered: number;
+  dailyEntryTotal: number;
+  dailyEntryRegistered: number;
+  referralTotal: number;
+  referralRegistered: number;
+  sourceTotal: number;
+}
+
 interface NewMemberRow {
   id: number;
   name: string;
@@ -68,6 +82,69 @@ interface NewMemberRow {
   hasGxParticipation: boolean;
   status: string;
 }
+
+const EMPTY_SEGMENTATION: FunnelSegmentationStats = {
+  wiCount: 0,
+  wiRegistered: 0,
+  tiCount: 0,
+  tiRegistered: 0,
+  trialTotal: 0,
+  trialRegistered: 0,
+  dailyEntryTotal: 0,
+  dailyEntryRegistered: 0,
+  referralTotal: 0,
+  referralRegistered: 0,
+  sourceTotal: 0,
+};
+
+const normalizeValue = (value: unknown) =>
+  (typeof value === 'string' || typeof value === 'number')
+    ? String(value).trim().toLowerCase()
+    : '';
+
+const valuesOf = (...values: unknown[]) => values.map(normalizeValue).filter(Boolean);
+
+const textOf = (...values: unknown[]) => valuesOf(...values).join(' ');
+
+const isRegisteredResult = (row: Record<string, unknown>) => {
+  const registeredValues = new Set(['등록', '등록완료', '전환', 'converted', 'registered']);
+  return valuesOf(row.result, row.status).some(value => registeredValues.has(value));
+};
+
+const isContactedConsultation = (row: Record<string, unknown>) => {
+  const status = normalizeValue(row.status);
+  if (!status) return Boolean(normalizeValue(row.result));
+  return !['신규', '미컨택', 'new', 'uncontacted'].includes(status);
+};
+
+const isVisitedConsultation = (row: Record<string, unknown>) => {
+  const status = normalizeValue(row.status);
+  if (['cancelled', 'canceled', 'no_show', '취소', '노쇼'].includes(status)) return false;
+  if (['completed', '완료', '상담완료', '방문', '방문완료', '체험', '등록', '등록완료'].includes(status)) return true;
+  return ['등록', '미등록', '보류', '거부', '이월'].includes(normalizeValue(row.result));
+};
+
+const isWiRow = (row: Record<string, unknown>) => {
+  const text = textOf(row.inquiryType, row.source, row.type);
+  return text.includes('wi') || text.includes('방문') || text.includes('walk');
+};
+
+const isTiRow = (row: Record<string, unknown>) => {
+  const text = textOf(row.inquiryType, row.source, row.type);
+  return text.includes('ti') || text.includes('전화') || text.includes('유선') || text.includes('telephone');
+};
+
+const isTrialRow = (row: Record<string, unknown>) => textOf(row.source, row.type).includes('체험');
+const isDailyEntryRow = (row: Record<string, unknown>) => {
+  const text = textOf(row.source, row.type);
+  return text.includes('일일입장') || text.includes('1일입장') || text.includes('일일 입장') || text.includes('day pass');
+};
+const isReferralRow = (row: Record<string, unknown>) => {
+  const text = textOf(row.source, row.type);
+  return text.includes('회원소개') || text.includes('소개') || text.includes('추천') || text.includes('referral');
+};
+
+const rate = (part: number, total: number) => (total > 0 ? Math.round((part / total) * 100) : 0);
 
 export default function OnboardingDashboard() {
   const branchId = getBranchId();
@@ -84,6 +161,7 @@ export default function OnboardingDashboard() {
     totalLeads: 0, contacted: 0, visited: 0, trialDone: 0, registered: 0,
   });
   const [sourceStats, setSourceStats] = useState<SourceStat[]>([]);
+  const [segmentation, setSegmentation] = useState<FunnelSegmentationStats>(EMPTY_SEGMENTATION);
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -97,13 +175,23 @@ export default function OnboardingDashboard() {
       const day60Ago = new Date(today); day60Ago.setDate(today.getDate() - 60);
 
       // 리드 통계 (이번달)
-      const { data: leadsData } = await supabase
+      const { data: leadsData, error: leadsSourceError } = await supabase
         .from("leads")
-        .select("id, status")
+        .select("id, status, source")
         .eq("branchId", branchId)
         .gte("createdAt", monthStart);
 
-      const leads = leadsData ?? [];
+      let leadsWithSource = (leadsData ?? []) as Record<string, unknown>[];
+      if (leadsSourceError) {
+        const { data: fallbackLeads } = await supabase
+          .from("leads")
+          .select("id, status")
+          .eq("branchId", branchId)
+          .gte("createdAt", monthStart);
+        leadsWithSource = (fallbackLeads ?? []) as Record<string, unknown>[];
+      }
+
+      const leads = leadsWithSource;
       const newLeadsCount = leads.length;
       const leadsContactedCount = leads.filter((l: any) => l.status !== "신규").length;
       const leadsVisitedCount = leads.filter((l: any) => ["방문완료", "등록완료"].includes(l.status)).length;
@@ -224,35 +312,60 @@ export default function OnboardingDashboard() {
       });
 
       // 상담 퍼널 (consultations 테이블, 이번달)
-      const { data: consultData } = await supabase
+      const { data: consultData, error: consultDetailError } = await supabase
         .from("consultations")
-        .select("status, type")
+        .select("status, type, source, result, inquiryType")
         .eq("branchId", branchId)
         .gte("scheduledAt", monthStart);
 
-      const consults = consultData ?? [];
+      let consults = (consultData ?? []) as Record<string, unknown>[];
+      if (consultDetailError) {
+        const { data: fallbackConsultData } = await supabase
+          .from("consultations")
+          .select("status, type")
+          .eq("branchId", branchId)
+          .gte("scheduledAt", monthStart);
+        consults = (fallbackConsultData ?? []) as Record<string, unknown>[];
+      }
       const funnel: ConsultFunnel = {
         totalLeads: consults.length,
-        contacted: consults.filter((c: any) => c.status !== '미컨택').length,
-        visited: consults.filter((c: any) => ['방문', '체험', '등록'].includes(c.status)).length,
-        trialDone: consults.filter((c: any) => ['체험', '등록'].includes(c.status)).length,
-        registered: consults.filter((c: any) => c.status === '등록').length,
+        contacted: consults.filter(isContactedConsultation).length,
+        visited: consults.filter(isVisitedConsultation).length,
+        trialDone: consults.filter(c => isTrialRow(c) && isVisitedConsultation(c)).length,
+        registered: consults.filter(isRegisteredResult).length,
       };
       setConsultFunnel(funnel);
 
-      // 가입경로별 집계
-      const { data: sourceData } = await supabase
-        .from('consultations')
-        .select('source, result')
-        .eq('branchId', branchId)
-        .gte('scheduledAt', monthStart);
+      const leadRows = (leads ?? []) as Record<string, unknown>[];
+      const consultRows = (consults ?? []) as Record<string, unknown>[];
+      const channelBase = consultRows.some(row => isWiRow(row) || isTiRow(row)) ? consultRows : leadRows;
+      const sourceBase = consultRows.some(row => textOf(row.source, row.type)) ? consultRows : leadRows;
+      const wiRows = channelBase.filter(isWiRow);
+      const tiRows = channelBase.filter(isTiRow);
+      const trialRows = sourceBase.filter(isTrialRow);
+      const dailyRows = sourceBase.filter(isDailyEntryRow);
+      const referralRows = sourceBase.filter(isReferralRow);
+
+      setSegmentation({
+        wiCount: wiRows.length,
+        wiRegistered: wiRows.filter(isRegisteredResult).length,
+        tiCount: tiRows.length,
+        tiRegistered: tiRows.filter(isRegisteredResult).length,
+        trialTotal: trialRows.length,
+        trialRegistered: trialRows.filter(isRegisteredResult).length,
+        dailyEntryTotal: dailyRows.length,
+        dailyEntryRegistered: dailyRows.filter(isRegisteredResult).length,
+        referralTotal: referralRows.length,
+        referralRegistered: referralRows.filter(isRegisteredResult).length,
+        sourceTotal: sourceBase.length,
+      });
 
       const sourceMap = new Map<string, { total: number; registered: number }>();
-      for (const c of (sourceData ?? []) as any[]) {
-        const key = c.source || '기타';
+      for (const c of sourceBase) {
+        const key = String(c.source || c.type || '기타');
         const cur = sourceMap.get(key) || { total: 0, registered: 0 };
         cur.total++;
-        if (c.result === '등록') cur.registered++;
+        if (isRegisteredResult(c)) cur.registered++;
         sourceMap.set(key, cur);
       }
       const computedSourceStats: SourceStat[] = Array.from(sourceMap.entries())
@@ -261,7 +374,7 @@ export default function OnboardingDashboard() {
           ...v,
           convertRate: v.total ? (v.registered / v.total * 100) : 0,
         }))
-        .sort((a, b) => b.total - a.total);
+        .sort((a, b) => b.registered - a.registered || b.total - a.total);
       setSourceStats(computedSourceStats);
 
       setStats({
@@ -292,6 +405,12 @@ export default function OnboardingDashboard() {
   const day30Rate = s.day30TotalNew > 0 ? Math.round((s.day30ActiveCount / s.day30TotalNew) * 100) : 0;
   const ptTrialRate = s.day30TotalNew > 0 ? Math.round((s.ptTrialCount / s.day30TotalNew) * 100) : 0;
   const gxRate = s.day30TotalNew > 0 ? Math.round((s.gxFirstCount / s.day30TotalNew) * 100) : 0;
+  const wiRegisterRate = rate(segmentation.wiRegistered, segmentation.wiCount);
+  const tiRegisterRate = rate(segmentation.tiRegistered, segmentation.tiCount);
+  const trialRegisterRate = rate(segmentation.trialRegistered, segmentation.trialTotal);
+  const dailyEntryRegisterRate = rate(segmentation.dailyEntryRegistered, segmentation.dailyEntryTotal);
+  const referralShare = rate(segmentation.referralTotal, segmentation.sourceTotal);
+  const maxRegisteredBySource = Math.max(1, ...sourceStats.map(stat => stat.registered));
 
   function onboardVariant(status: string): "success" | "info" | "warning" | "error" | "default" {
     const m: Record<string, "success" | "info" | "warning" | "error" | "default"> = {
@@ -330,6 +449,37 @@ export default function OnboardingDashboard() {
         <StatCard label="리드 전환율" value={`${leadConvRate}%`} icon={<Target size={18} />} />
       </StatCardGrid>
 
+      {/* WI / TI 채널 분리 */}
+      <h3 className="text-[14px] font-bold text-content mb-sm">상담 채널 세분화</h3>
+      <StatCardGrid cols={4} className="mb-lg">
+        <StatCard
+          label="WI 방문문의"
+          value={`${segmentation.wiCount}건`}
+          description={`등록 ${segmentation.wiRegistered}건 · 등록률 ${wiRegisterRate}%`}
+          icon={<MapPin size={18} />}
+          variant="mint"
+        />
+        <StatCard
+          label="TI 전화문의"
+          value={`${segmentation.tiCount}건`}
+          description={`등록 ${segmentation.tiRegistered}건 · 등록률 ${tiRegisterRate}%`}
+          icon={<PhoneCall size={18} />}
+        />
+        <StatCard
+          label="WI 등록률"
+          value={`${wiRegisterRate}%`}
+          description="방문문의 중 등록 완료"
+          icon={<Target size={18} />}
+        />
+        <StatCard
+          label="TI 등록률"
+          value={`${tiRegisterRate}%`}
+          description="전화문의 중 등록 완료"
+          icon={<Target size={18} />}
+          variant="peach"
+        />
+      </StatCardGrid>
+
       {/* 상담 → 등록 퍼널 */}
       <div className="bg-surface rounded-xl border border-line shadow-sm p-lg mb-lg">
         <h3 className="text-[14px] font-bold text-content mb-md">이번달 상담 → 등록 퍼널</h3>
@@ -356,16 +506,33 @@ export default function OnboardingDashboard() {
 
       {/* 신규 유치 */}
       <h3 className="text-[14px] font-bold text-content mb-sm">신규 유치</h3>
-      <StatCardGrid cols={3} className="mb-lg">
+      <StatCardGrid cols={5} className="mb-lg">
         <StatCard label="이번달 신규 등록" value={`${s.newMembersThisMonth}명`} icon={<UserPlus size={18} />} variant="mint" />
         <StatCard label="온라인 유입 비중" value="집계 중" icon={<TrendingUp size={18} />} />
         <StatCard label="리드 누락률" value={s.newLeadsCount > 0 ? `${Math.round(((s.newLeadsCount - s.leadsContactedCount) / s.newLeadsCount) * 100)}%` : "0%"} icon={<AlertCircle size={18} />} variant="peach" />
+        <StatCard
+          label="회원소개 유입 비중"
+          value={`${referralShare}%`}
+          description={`${segmentation.referralTotal}건 / 전체 ${segmentation.sourceTotal}건`}
+          icon={<Gift size={18} />}
+          variant="mint"
+        />
+        <StatCard
+          label="회원소개 등록률"
+          value={`${rate(segmentation.referralRegistered, segmentation.referralTotal)}%`}
+          description={`등록 ${segmentation.referralRegistered}건`}
+          icon={<BadgeCheck size={18} />}
+        />
       </StatCardGrid>
 
       {/* 가입경로 분포 */}
-      {sourceStats.length > 0 && (
-        <div className="bg-white rounded-xl border border-gray-200 p-5 mb-lg">
-          <h3 className="text-sm font-semibold text-gray-800 mb-4">가입경로 분포</h3>
+      <div className="bg-white rounded-xl border border-gray-200 p-5 mb-lg">
+        <h3 className="text-sm font-semibold text-gray-800 mb-4">가입경로(등록자 기준) 분포</h3>
+        {sourceStats.length === 0 ? (
+          <div className="rounded-lg border border-dashed border-gray-200 bg-gray-50 p-4 text-sm text-gray-500">
+            가입경로 데이터가 아직 연동되지 않았습니다. `[신규DB]` D/E열 또는 상담 source/result 연동 후 자동 집계됩니다.
+          </div>
+        ) : (
           <div className="space-y-2">
             {sourceStats.map(s => (
               <div key={s.source} className="flex items-center gap-3">
@@ -373,10 +540,10 @@ export default function OnboardingDashboard() {
                 <div className="flex-1 h-6 bg-gray-100 rounded relative overflow-hidden">
                   <div
                     className="h-full bg-emerald-500 transition-all"
-                    style={{ width: `${sourceStats[0]?.total ? (s.total / sourceStats[0].total * 100) : 0}%` }}
+                    style={{ width: `${s.registered > 0 ? (s.registered / maxRegisteredBySource * 100) : 0}%` }}
                   />
                   <span className="absolute inset-0 flex items-center px-2 text-xs text-gray-700">
-                    {s.total}건
+                    등록 {s.registered}건 / 유입 {s.total}건
                   </span>
                 </div>
                 <div className="w-16 text-xs text-right shrink-0">
@@ -386,18 +553,31 @@ export default function OnboardingDashboard() {
               </div>
             ))}
           </div>
-          <div className="mt-3 text-xs text-gray-400">
-            소개 유입의 전환율이 가장 높은 경향 — 리퍼럴 프로그램 강화 고려
-          </div>
+        )}
+        <div className="mt-3 text-xs text-gray-400">
+          리드 유입경로가 아니라 등록 완료 건의 실제 가입경로 기준으로 해석합니다.
         </div>
-      )}
+      </div>
 
       {/* 신규 안정 */}
       <h3 className="text-[14px] font-bold text-content mb-sm">신규 안정 (온보딩)</h3>
-      <StatCardGrid cols={5} className="mb-lg">
+      <StatCardGrid cols={6} className="mb-lg">
         <StatCard label="7일 이용률" value={`${day7Rate}%`} icon={<Target size={18} />} variant={day7Rate >= 40 ? "mint" : "peach"} />
         <StatCard label="30일 활동률" value={`${day30Rate}%`} icon={<Target size={18} />} variant={day30Rate >= 50 ? "mint" : "peach"} />
         <StatCard label="PT 체험 참여율" value={`${ptTrialRate}%`} icon={<CalendarCheck size={18} />} />
+        <StatCard
+          label="체험→등록 전환율"
+          value={`${trialRegisterRate}%`}
+          description={`${segmentation.trialRegistered}/${segmentation.trialTotal}건`}
+          icon={<UserCheck size={18} />}
+          variant="mint"
+        />
+        <StatCard
+          label="일일입장→회원"
+          value={`${dailyEntryRegisterRate}%`}
+          description={`${segmentation.dailyEntryRegistered}/${segmentation.dailyEntryTotal}건`}
+          icon={<Target size={18} />}
+        />
         <StatCard label="GX 첫 참여율" value={`${gxRate}%`} icon={<Users size={18} />} />
         <StatCard label="초기 이탈" value={`${s.day30ChurnCount}명`} icon={<AlertCircle size={18} />} variant="peach" />
       </StatCardGrid>

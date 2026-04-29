@@ -31,7 +31,7 @@ export default function StatCard({
     return (
       <div
         className={cn(
-          "rounded-xl border border-line bg-surface p-lg transition-all",
+          "relative overflow-hidden rounded-[22px] border border-line/70 bg-white/82 p-lg shadow-card backdrop-blur-xl transition-all",
           className
         )}
       >
@@ -50,19 +50,30 @@ export default function StatCard({
   return (
     <div
       className={cn(
-        "rounded-xl border border-line bg-surface p-lg transition-all",
-        onClick && "cursor-pointer hover:shadow-md hover:-translate-y-px",
+        "relative overflow-hidden rounded-[22px] border border-line/70 bg-white/82 p-lg shadow-card backdrop-blur-xl transition-all",
+        onClick && "cursor-pointer hover:-translate-y-[2px] hover:shadow-card-deep",
         className
       )}
       onClick={onClick}
     >
+      <div
+        className={cn(
+          "absolute inset-x-0 top-0 h-1",
+          variant === "peach"
+            ? "bg-gradient-to-r from-primary to-[#ff9b8d]"
+            : variant === "mint"
+            ? "bg-gradient-to-r from-accent to-[#6be4df]"
+            : "bg-gradient-to-r from-slate-200 to-slate-100"
+        )}
+      />
+      <div className="absolute right-[-24px] top-[-24px] h-24 w-24 rounded-full bg-primary/6 blur-2xl" />
       <div className="flex items-start justify-between">
         <div className="flex-1">
-          <p className="text-[12px] font-medium text-content-secondary mb-[6px]">{label}</p>
-          <h3 className="text-KPI-Large text-content tabular-nums break-all leading-tight">{value}</h3>
+          <p className="mb-[8px] text-[12px] font-semibold tracking-[0.02em] text-content-secondary">{label}</p>
+          <h3 className="text-KPI-Large break-all leading-tight text-content tabular-nums">{value}</h3>
 
           {(description || change) && (
-            <div className="mt-[6px]">
+            <div className="mt-[8px]">
               {change && (
                 <div
                   className={cn(
@@ -85,12 +96,12 @@ export default function StatCard({
         {icon && (
           <div
             className={cn(
-              "w-9 h-9 rounded-lg flex items-center justify-center shrink-0",
+              "flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border",
               variant === "peach"
-                ? "bg-primary-light text-primary"
+                ? "border-primary/15 bg-primary-light text-primary"
                 : variant === "mint"
-                ? "bg-accent-light text-accent"
-                : "bg-surface-tertiary text-content-secondary"
+                ? "border-accent/15 bg-accent-light text-accent"
+                : "border-line/70 bg-surface-tertiary text-content-secondary"
             )}
           >
             {React.isValidElement(icon)

@@ -2,6 +2,7 @@
 export const dynamic = 'force-dynamic';
 
 import React, { useState, useMemo, useEffect, useRef, useCallback } from 'react';
+import { useSearchParams } from 'next/navigation';
 import {
   UserPlus,
   Settings,
@@ -14,6 +15,7 @@ import {
   Clock,
   AlertTriangle,
   ChevronDown,
+  ArrowRightLeft,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import AppLayout from "@/components/layout/AppLayout";
@@ -38,6 +40,8 @@ import { supabase } from '@/lib/supabase';
 import Select from '@/components/ui/Select';
 import { useAuthStore } from '@/stores/authStore';
 import { hasFeature, hasPermission } from '@/lib/permissions';
+import { getPreviewScenario, isPreviewMode } from '@/lib/preview';
+import { getBranchScope } from '@/lib/branchScope';
 
 const MAIN_TABS = [
   { key: 'members', label: '회원 전체' },
@@ -121,7 +125,10 @@ const STATUS_VARIANT: Record<string, BadgeVariant> = {
   INACTIVE: 'default', SUSPENDED: 'warning',
 };
 
-export default function MemberList() {
+function MemberList() {
+  const searchParams = useSearchParams();
+  const isPreview = isPreviewMode(searchParams);
+  const scenario = getPreviewScenario(searchParams, 'default');
   const authUser = useAuthStore((s) => s.user);
   const canExcel = hasFeature(authUser?.role ?? '', 'excelDownload', authUser?.isSuperAdmin);
   const canAddMember = hasPermission(authUser?.role ?? '', '/members/new', authUser?.isSuperAdmin);
@@ -150,6 +157,22 @@ export default function MemberList() {
   const [referralSourceFilter, setReferralSourceFilter] = useState<string>('all');
   // 상품별 탭에서 선택된 상품명
   const [selectedProductName, setSelectedProductName] = useState<string>('all');
+
+  useEffect(() => {
+    const mainTab = searchParams?.get('mainTab');
+    const status = searchParams?.get('status');
+
+    if (mainTab === 'product' || scenario === 'product') setActiveMainTab('product');
+    else if (mainTab === 'pass' || scenario === 'pass') setActiveMainTab('pass');
+    else setActiveMainTab('members');
+
+    if (status) setActiveStatusTab(status);
+    else if (scenario === 'expired') setActiveStatusTab('EXPIRED');
+    else if (scenario === 'holding') setActiveStatusTab('HOLDING');
+    else setActiveStatusTab('all');
+
+    setOnlyFavorite(scenario === 'favorites');
+  }, [scenario, searchParams]);
 
   // API 훅 (필터/정렬 파라미터 모두 전달)
   const membersQuery = useMembers({
@@ -231,6 +254,16 @@ export default function MemberList() {
       ),
     },
     {
+      key: 'branchName',
+      header: '소속 지점',
+      width: 120,
+      render: (_: unknown, row: Member) => (
+        <span className="text-[12px] font-medium text-content-secondary">
+          {row.branchName ?? `지점 #${row.branchId}`}
+        </span>
+      ),
+    },
+    {
       key: 'gender', header: '성별', width: 60, align: 'center' as const,
       render: (v: unknown) => v === 'M' ? '남' : v === 'F' ? '여' : '-',
     },
@@ -248,6 +281,17 @@ export default function MemberList() {
       key: 'registeredAt', header: '등록일', width: 110, sortable: true,
       render: (v: unknown) => <span className="tabular-nums">{v ? String(v).slice(0, 10) : '-'}</span>,
     },
+    {
+      key: 'transfer',
+      header: '이관',
+      width: 80,
+      align: 'center' as const,
+      render: (_: unknown, row: Member) => (
+        <Button variant="outline" size="sm" onClick={() => moveToPage(1002, { memberId: row.id })}>
+          이관
+        </Button>
+      ),
+    },
   ], [handleFavoriteToggle]);
 
   // 이용권 탭 컬럼 (pass): 회원명, 이용권, 시작일, 만료일, D-Day, 상태
@@ -257,6 +301,12 @@ export default function MemberList() {
       render: (value: unknown, row: Member) => (
         <Button variant="ghost" size="sm" onClick={() => moveToPage(985, { id: row.id })}>{String(value)}</Button>
       ),
+    },
+    {
+      key: 'branchName',
+      header: '소속 지점',
+      width: 120,
+      render: (_: unknown, row: Member) => <span>{row.branchName ?? `지점 #${row.branchId}`}</span>,
     },
     { key: 'membershipType', header: '이용권', width: 120, render: (v: unknown) => {
       const map: Record<string, string> = { MEMBERSHIP: '이용권', PT: 'PT', GX: 'GX', ETC: '기타', '이용권': '이용권', '기타': '기타' };
@@ -316,6 +366,12 @@ export default function MemberList() {
       ),
     },
     {
+      key: 'branchName',
+      header: '소속 지점',
+      width: 120,
+      render: (_: unknown, row: Member) => <span>{row.branchName ?? `지점 #${row.branchId}`}</span>,
+    },
+    {
       key: 'status', header: '상태', width: 90, align: 'center' as const,
       render: (_: unknown, row: Member) => (
         <StatusBadge label={STATUS_LABEL[row.status] ?? row.status} variant={STATUS_VARIANT[row.status] ?? 'default'} dot />
@@ -334,6 +390,7 @@ export default function MemberList() {
     const exportColumns = [
       { key: 'status', header: '상태' },
       { key: 'name', header: '회원명' },
+      { key: 'branchName', header: '소속 지점' },
       { key: 'gender', header: '성별' },
       { key: 'birthDate', header: '생년월일' },
       { key: 'phone', header: '연락처' },
@@ -341,21 +398,40 @@ export default function MemberList() {
       { key: 'membershipExpiry', header: '만료일' },
       { key: 'registeredAt', header: '등록일' },
     ];
+
+    if (isPreview) {
+      exportToExcel(members as unknown as Record<string, unknown>[], exportColumns, { filename: '회원목록_preview' });
+      toast.success(`프리뷰 데이터 ${members.length}건 다운로드`);
+      return;
+    }
     // 전체 회원 데이터를 가져와서 엑셀 다운로드
     try {
-      const branchId = typeof window !== 'undefined' ? localStorage.getItem('branchId') || '1' : '1';
-      const { data, error } = await supabase
+      const scope = getBranchScope();
+      let query = supabase
         .from('members')
         .select('*')
-        .eq('branchId', Number(branchId))
         .is('deletedAt', null)
         .order('createdAt', { ascending: false });
+
+      if (!scope.isAllBranches) {
+        query = query.eq('branchId', scope.branchId);
+      }
+
+      const [{ data, error }, { data: branchRows }] = await Promise.all([
+        query,
+        supabase.from('branches').select('id, name'),
+      ]);
       if (error || !data) {
         exportToExcel(members as unknown as Record<string, unknown>[], exportColumns, { filename: '회원목록' });
         toast.success(`${members.length}건 엑셀 다운로드 완료`);
         return;
       }
-      exportToExcel(data as unknown as Record<string, unknown>[], exportColumns, { filename: '회원목록_전체' });
+      const branchNameById = new Map((branchRows ?? []).map(branch => [branch.id, branch.name]));
+      const exportRows = data.map(row => ({
+        ...row,
+        branchName: branchNameById.get(Number(row.branchId)) ?? `지점 #${row.branchId}`,
+      }));
+      exportToExcel(exportRows as unknown as Record<string, unknown>[], exportColumns, { filename: '회원목록_전체' });
       toast.success(`${data.length}건 엑셀 다운로드 완료 (전체)`);
     } catch {
       exportToExcel(members as unknown as Record<string, unknown>[], exportColumns, { filename: '회원목록' });
@@ -378,6 +454,11 @@ export default function MemberList() {
   const handleStatusConfirm = useCallback(async () => {
     const ids = Array.from(selectedRows).map(idx => members[idx]?.id).filter(Boolean);
     setShowStatusModal(false);
+    if (isPreview) {
+      toast.success(`프리뷰에서 ${ids.length}명의 상태 변경이 시뮬레이션되었습니다.`);
+      setSelectedRows(new Set());
+      return;
+    }
     const { error } = await supabase
       .from('members')
       .update({ status: pendingStatusValue })
@@ -393,7 +474,7 @@ export default function MemberList() {
       membersQuery.refetch();
       statsQuery.refetch();
     }
-  }, [selectedRows, members, pendingStatusValue, membersQuery, statsQuery]);
+  }, [selectedRows, members, pendingStatusValue, membersQuery, statsQuery, isPreview]);
 
   /** ESC 키로 모달 닫기 */
   useEffect(() => {
@@ -416,13 +497,18 @@ export default function MemberList() {
   const handleBulkAttendance = async () => {
     if (selectedRows.size === 0) { toast.warning('회원을 먼저 선택해주세요.'); return; }
     const ids = Array.from(selectedRows).map(idx => members[idx]).filter(Boolean);
+    if (isPreview) {
+      toast.success(`프리뷰에서 ${ids.length}명의 출석 처리가 시뮬레이션되었습니다.`);
+      setSelectedRows(new Set());
+      return;
+    }
     const records = ids.map(m => ({
       memberId: m.id,
       memberName: m.name,
       checkInAt: new Date().toISOString(),
       type: 'MANUAL' as const,
       checkInMethod: 'MANUAL' as const,
-      branchId: Number(getBranchId()),
+      branchId: Number(m.branchId || getBranchId()),
     }));
     const { error } = await supabase.from('attendance').insert(records);
     if (error) {
@@ -450,6 +536,20 @@ export default function MemberList() {
       case '전송하기': handleSendMessage(); break;
       case '출석 처리': handleBulkAttendance(); break;
       case '관심회원': handleToggleVip(); break;
+      case '지점이관': {
+        if (selectedRows.size !== 1) {
+          toast.warning('지점 이관은 회원 1명만 선택해서 진행해주세요.');
+          return;
+        }
+        const selectedIndex = Array.from(selectedRows)[0];
+        const member = members[selectedIndex];
+        if (!member) {
+          toast.error('선택한 회원 정보를 찾지 못했습니다.');
+          return;
+        }
+        moveToPage(1002, { memberId: member.id });
+        break;
+      }
       default: toast.info(`${type} 기능은 준비 중입니다.`);
     }
   };
@@ -711,6 +811,7 @@ export default function MemberList() {
                   { icon: Send, label: '전송하기' },
                   { icon: CheckCircle, label: '출석 처리' },
                   { icon: Star, label: '관심회원' },
+                  { icon: ArrowRightLeft, label: '지점이관' },
                 ].map((action) => (
                   <Button key={action.label} variant="ghost" size="sm" className="text-white/90 hover:text-white hover:bg-white/10" onClick={() => handleAction(action.label)}>
                     <action.icon size={13} /> {action.label}
@@ -788,5 +889,13 @@ export default function MemberList() {
         </div>
       </Modal>
     </AppLayout>
+  );
+}
+
+export default function MemberListPage() {
+  return (
+    <React.Suspense>
+      <MemberList />
+    </React.Suspense>
   );
 }

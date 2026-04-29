@@ -4,16 +4,20 @@ export const dynamic = 'force-dynamic';
 import React, { useState } from 'react';
 import AppLayout from '@/components/layout/AppLayout';
 import PageHeader from '@/components/common/PageHeader';
-import { Wrench, AlertTriangle, CheckCircle, Clock, Plus } from 'lucide-react';
+import { Wrench, AlertTriangle, CheckCircle, Plus, RefreshCw } from 'lucide-react';
+import { usePageSeed } from '@/hooks';
+import type { EquipmentCheckSeedPayload } from '@/lib/publishingPageSeed';
 
-const equipment = [
-  { id: 1, name: '트레드밀 #1', location: 'A존', lastCheck: '2026-04-15', nextCheck: '2026-05-15', status: '정상', issue: null },
-  { id: 2, name: '레그프레스 #2', location: 'B존', lastCheck: '2026-04-10', nextCheck: '2026-05-10', status: '점검필요', issue: '소음 발생' },
-  { id: 3, name: '스미스머신 #1', location: 'C존', lastCheck: '2026-04-20', nextCheck: '2026-05-20', status: '정상', issue: null },
-  { id: 4, name: '러닝머신 #3', location: 'A존', lastCheck: '2026-03-28', nextCheck: '2026-04-28', status: '점검필요', issue: '벨트 마모' },
-  { id: 5, name: '케이블머신 #2', location: 'B존', lastCheck: '2026-04-18', nextCheck: '2026-05-18', status: '수리중', issue: '풀리 교체' },
-  { id: 6, name: '덤벨 랙 #1', location: 'D존', lastCheck: '2026-04-22', nextCheck: '2026-05-22', status: '정상', issue: null },
-];
+const FALLBACK_EQUIPMENT: EquipmentCheckSeedPayload = {
+  equipment: [
+    { id: 1, name: '트레드밀 #1', location: 'A존', lastCheck: '2026-04-15', nextCheck: '2026-05-15', status: '정상', issue: null },
+    { id: 2, name: '레그프레스 #2', location: 'B존', lastCheck: '2026-04-10', nextCheck: '2026-05-10', status: '점검필요', issue: '소음 발생' },
+    { id: 3, name: '스미스머신 #1', location: 'C존', lastCheck: '2026-04-20', nextCheck: '2026-05-20', status: '정상', issue: null },
+    { id: 4, name: '러닝머신 #3', location: 'A존', lastCheck: '2026-03-28', nextCheck: '2026-04-28', status: '점검필요', issue: '벨트 마모' },
+    { id: 5, name: '케이블머신 #2', location: 'B존', lastCheck: '2026-04-18', nextCheck: '2026-05-18', status: '수리중', issue: '풀리 교체' },
+    { id: 6, name: '덤벨 랙 #1', location: 'D존', lastCheck: '2026-04-22', nextCheck: '2026-05-22', status: '정상', issue: null },
+  ],
+};
 
 const statusIcon: Record<string, React.ReactNode> = {
   '정상': <CheckCircle className="w-4 h-4 text-green-500" />,
@@ -29,6 +33,11 @@ const statusColor: Record<string, string> = {
 
 export default function EquipmentMaintenancePage() {
   const [filter, setFilter] = useState('전체');
+  const { data, loading, error, branchId, snapshotDate, reload } = usePageSeed<EquipmentCheckSeedPayload>(
+    '/equipment-check',
+    FALLBACK_EQUIPMENT,
+  );
+  const equipment = data.equipment;
 
   const counts = { 전체: equipment.length, 정상: equipment.filter(e => e.status === '정상').length, 점검필요: equipment.filter(e => e.status === '점검필요').length, 수리중: equipment.filter(e => e.status === '수리중').length };
   const filtered = filter === '전체' ? equipment : equipment.filter(e => e.status === filter);
@@ -36,10 +45,24 @@ export default function EquipmentMaintenancePage() {
   return (
     <AppLayout>
       <PageHeader title="장비 점검 일정" description="시설 장비의 정기 점검과 수리 이력을 관리합니다" actions={
-        <button className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700">
-          <Plus className="w-4 h-4" /> 점검 등록
-        </button>
+        <div className="flex flex-wrap gap-2">
+          <button
+            className="flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+            onClick={() => void reload(true)}
+            type="button"
+          >
+            <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} /> seed 갱신
+          </button>
+          <button className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700">
+            <Plus className="w-4 h-4" /> 점검 등록
+          </button>
+        </div>
       } />
+
+      <div className="mb-4 rounded-xl border border-blue-100 bg-blue-50 px-4 py-3 text-xs text-blue-700">
+        Supabase snapshot · 지점 {branchId} · 기준일 {snapshotDate ?? '-'}
+        {error && <span className="ml-2 text-red-600">Fallback 사용: {error}</span>}
+      </div>
 
       <div className="grid grid-cols-4 gap-4 mb-6">
         {Object.entries(counts).map(([key, val]) => (

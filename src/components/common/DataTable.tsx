@@ -89,19 +89,19 @@ export default function DataTable<T extends Record<string, any>>({
 
   if (loading) {
     return (
-      <div className="w-full bg-surface rounded-xl border border-line overflow-hidden">
-        <div className="px-lg py-md border-b border-line flex justify-between items-center">
+      <div className="w-full overflow-hidden rounded-[24px] border border-line/70 bg-white/82 shadow-card backdrop-blur-xl">
+        <div className="flex items-center justify-between border-b border-line/70 px-lg py-md">
           <div className="h-5 w-[120px] bg-surface-tertiary animate-pulse rounded-md" />
           <div className="h-8 w-[100px] bg-surface-tertiary animate-pulse rounded-md" />
         </div>
         <table className="w-full">
-          <thead className="bg-surface-secondary">
+          <thead className="bg-surface-secondary/80">
             <tr>
               {selectable && <th className="w-10 px-3 py-2.5"><div className="h-4 w-4 bg-line rounded mx-auto" /></th>}
               {columns.map((_, i) => <th className="px-3 py-2.5" key={i}><div className="h-3 w-20 bg-line rounded" /></th>)}
             </tr>
           </thead>
-          <tbody className="divide-y divide-line-light">
+          <tbody className="divide-y divide-line/60">
             {Array.from({ length: 5 }).map((_, i) => (
               <tr key={i}>
                 {selectable && <td className="px-3 py-2.5"><div className="h-4 w-4 bg-surface-tertiary rounded mx-auto" /></td>}
@@ -117,16 +117,16 @@ export default function DataTable<T extends Record<string, any>>({
   const isAllSelected = data.length > 0 && selectedRows.size === data.length;
 
   return (
-    <div className="w-full bg-surface border border-line rounded-xl overflow-hidden">
+    <div className="w-full overflow-hidden rounded-[24px] border border-line/70 bg-white/82 shadow-card backdrop-blur-xl">
       {(title || onDownloadExcel || onSearch) && (
-        <div className="px-lg py-md border-b border-line flex flex-col lg:flex-row justify-between items-start lg:items-center gap-md">
+        <div className="flex flex-col items-start justify-between gap-md border-b border-line/70 px-lg py-md lg:flex-row lg:items-center">
           <div className="flex flex-col sm:flex-row items-start sm:items-center gap-md w-full lg:w-auto">
             {title && <h2 className="text-Section-Title text-content">{title}</h2>}
             {onSearch && (
               <div className="relative w-full sm:w-[280px]">
                 <Search className="absolute left-[10px] top-1/2 -translate-y-1/2 text-content-tertiary" size={15} />
                 <input
-                  className="w-full pl-8 pr-3 py-[6px] bg-surface-secondary border border-line rounded-lg text-[13px] text-content placeholder-content-tertiary focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary/20 transition-all"
+                  className="app-control w-full rounded-2xl pl-8 pr-3 py-[8px] text-[13px] text-content placeholder-content-tertiary transition-all focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/10"
                   type="text"
                   placeholder={searchPlaceholder}
                   value={searchValue}
@@ -138,7 +138,7 @@ export default function DataTable<T extends Record<string, any>>({
           <div className="flex items-center gap-sm ml-auto">
             {onDownloadExcel && (
               <button
-                className="flex items-center gap-[6px] px-3 py-[6px] bg-surface text-content-secondary border border-line hover:bg-surface-tertiary transition-colors rounded-lg text-[13px] font-medium"
+                className="flex items-center gap-[6px] rounded-2xl border border-line/80 bg-white/72 px-3 py-[8px] text-[13px] font-semibold text-content-secondary shadow-[inset_0_1px_0_rgba(255,255,255,0.75)] transition-colors hover:border-primary/30 hover:bg-white"
                 onClick={onDownloadExcel}
               >
                 <Download size={14} /> Excel
@@ -150,10 +150,10 @@ export default function DataTable<T extends Record<string, any>>({
 
       <div className="overflow-x-auto">
         <table className="w-full border-collapse">
-          <thead className="bg-surface-secondary">
+          <thead className="bg-surface-secondary/85">
             <tr>
               {selectable && (
-                <th className="w-10 px-3 py-2.5 text-center sticky left-0 z-20 bg-surface-secondary">
+                <th className="sticky left-0 z-20 w-10 bg-surface-secondary/85 px-3 py-3 text-center">
                   <input
                     className="w-3.5 h-3.5 rounded border-line text-primary focus:ring-0 cursor-pointer accent-primary"
                     type="checkbox"
@@ -169,11 +169,11 @@ export default function DataTable<T extends Record<string, any>>({
                   <th
                     key={col.key}
                     className={cn(
-                      "px-3 py-2.5 text-[11px] font-semibold text-content-secondary uppercase tracking-wider whitespace-nowrap",
+                      "px-3 py-3 text-[11px] font-black uppercase tracking-[0.12em] text-content-secondary whitespace-nowrap",
                       col.sortable && "cursor-pointer hover:text-content focus:outline-none focus:ring-2 focus:ring-primary/30",
                       col.align === "center" ? "text-center" : col.align === "right" ? "text-right" : "text-left",
                       isFirstDataCol && [
-                        "sticky z-20 bg-surface-secondary",
+                        "sticky z-20 bg-surface-secondary/85",
                         stickyLeft,
                         "after:absolute after:inset-y-0 after:right-0 after:w-px after:bg-line",
                         "md:static md:z-auto md:after:hidden",
@@ -200,16 +200,18 @@ export default function DataTable<T extends Record<string, any>>({
               })}
             </tr>
           </thead>
-          <tbody className="divide-y divide-line-light">
+          <tbody className="divide-y divide-line/60">
             {data.length === 0 ? (
               <tr>
-                <td className="px-lg py-xl text-center" colSpan={columns.length + (selectable ? 1 : 0)}>
+                <td className="px-lg py-[72px] text-center" colSpan={columns.length + (selectable ? 1 : 0)}>
                   <div className="flex flex-col items-center justify-center gap-sm">
-                    <Search className="text-line" size={36} />
-                    <p className="text-[13px] text-content-secondary">{emptyMessage}</p>
+                    <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-surface-secondary text-content-tertiary">
+                      <Search className="text-line" size={28} />
+                    </div>
+                    <p className="text-[13px] font-medium text-content-secondary">{emptyMessage}</p>
                     {emptyAction && (
                       <button
-                        className="text-[13px] text-primary font-semibold hover:underline"
+                        className="rounded-2xl border border-primary/15 bg-primary-light px-3 py-2 text-[13px] font-semibold text-primary transition-colors hover:bg-primary/10"
                         onClick={emptyAction.onClick}
                       >
                         + {emptyAction.label}
@@ -224,13 +226,13 @@ export default function DataTable<T extends Record<string, any>>({
                   key={idx}
                   className={cn(
                     "transition-colors",
-                    selectedRows.has(idx) ? "bg-primary-light/40" : "hover:bg-surface-secondary",
+                    selectedRows.has(idx) ? "bg-primary-light/40" : "hover:bg-surface-secondary/70",
                     onRowClick && "cursor-pointer"
                   )}
                   onClick={onRowClick ? () => onRowClick(row, idx) : undefined}
                 >
                   {selectable && (
-                    <td className="px-3 py-2.5 text-center sticky left-0 z-10 bg-[inherit]">
+                    <td className="sticky left-0 z-10 bg-[inherit] px-3 py-3 text-center">
                       <input
                         className="w-3.5 h-3.5 rounded border-line text-primary focus:ring-0 cursor-pointer accent-primary"
                         type="checkbox"
@@ -247,7 +249,7 @@ export default function DataTable<T extends Record<string, any>>({
                       <td
                         key={col.key}
                         className={cn(
-                          "px-3 py-2.5 text-[13px] text-content tabular-nums",
+                          "px-3 py-3 text-[13px] text-content tabular-nums align-middle",
                           col.align === "center" ? "text-center" : col.align === "right" ? "text-right" : "text-left",
                           isFirstDataCol && [
                             "sticky z-10",
@@ -270,7 +272,7 @@ export default function DataTable<T extends Record<string, any>>({
       </div>
 
       {pagination && (
-        <div className="px-lg py-md border-t border-line bg-surface flex flex-col md:flex-row justify-between items-center gap-md">
+        <div className="flex flex-col items-center justify-between gap-md border-t border-line/70 bg-white/72 px-lg py-md md:flex-row">
           <div className="flex items-center gap-lg">
             <p className="text-[12px] text-content-secondary">
               총 <span className="text-content font-semibold">{pagination.total}</span>건 중{" "}
@@ -280,7 +282,7 @@ export default function DataTable<T extends Record<string, any>>({
             </p>
             {onPageSizeChange && (
               <select
-                className="bg-surface border border-line rounded-md px-2 py-1 text-[12px] text-content outline-none cursor-pointer focus:border-primary"
+                className="app-control rounded-xl px-2 py-1 text-[12px] text-content outline-none cursor-pointer focus:border-primary"
                 value={pagination.pageSize}
                 onChange={(e) => onPageSizeChange(Number(e.target.value))}
               >
@@ -292,7 +294,7 @@ export default function DataTable<T extends Record<string, any>>({
           </div>
           <div className="flex items-center gap-[4px]">
             <button
-              className="p-1.5 rounded-md border border-line text-content-secondary hover:text-content hover:bg-surface-tertiary disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+              className="rounded-xl border border-line/80 p-1.5 text-content-secondary transition-colors hover:bg-white hover:text-content disabled:cursor-not-allowed disabled:opacity-40"
               onClick={() => onPageChange?.(pagination.page - 1)}
               disabled={pagination.page === 1}
             >
@@ -310,10 +312,10 @@ export default function DataTable<T extends Record<string, any>>({
                 <button
                   key={pageNum}
                   className={cn(
-                    "min-w-[30px] h-[30px] flex items-center justify-center rounded-md text-[12px] font-medium transition-colors",
+                    "flex h-[32px] min-w-[32px] items-center justify-center rounded-xl text-[12px] font-semibold transition-colors",
                     pagination.page === pageNum
                       ? "bg-primary text-white"
-                      : "text-content-secondary hover:bg-surface-tertiary"
+                      : "text-content-secondary hover:bg-white"
                   )}
                   onClick={() => onPageChange?.(pageNum)}
                 >
@@ -322,7 +324,7 @@ export default function DataTable<T extends Record<string, any>>({
               );
             })}
             <button
-              className="p-1.5 rounded-md border border-line text-content-secondary hover:text-content hover:bg-surface-tertiary disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+              className="rounded-xl border border-line/80 p-1.5 text-content-secondary transition-colors hover:bg-white hover:text-content disabled:cursor-not-allowed disabled:opacity-40"
               onClick={() => onPageChange?.(pagination.page + 1)}
               disabled={pagination.page === Math.ceil(pagination.total / pagination.pageSize)}
             >

@@ -76,7 +76,7 @@ const columns: Array<{ key: keyof StatRow | 'empty'; label: string; className?: 
   { key: 'category', label: '구분', className: 'bg-[#eef8cf]' },
   { key: 'saleAmount', label: '판매금액' },
   { key: 'discountAmount', label: '할인금액', className: 'bg-[#f8ebeb]' },
-  { key: 'receivedAmount', label: '받을금액', className: 'bg-[#e8edf9]' },
+  { key: 'receivedAmount', label: '받을금액(VAT제외)', className: 'bg-[#e8edf9]' },
   { key: 'cardAmount', label: '카드' },
   { key: 'cashAmount', label: '현금' },
   { key: 'voucherAmount', label: '상품권' },
@@ -212,12 +212,13 @@ export default function StatisticsManagement() {
       const memberInfo = row.memberId ? memberMap.get(row.memberId) : undefined;
       const saleAmount = toNumber(row.salePrice) || toNumber(row.amount);
       const discountAmount = toNumber(row.discountPrice);
-      const receivedAmount = toNumber(row.amount) || saleAmount;
+      const grossReceivedAmount = toNumber(row.amount) || saleAmount;
+      const receivedAmount = Math.round(grossReceivedAmount / 1.1);
       const cardAmount = toNumber(row.card);
       const cashAmount = toNumber(row.cash);
       const pointAmount = toNumber(row.mileageUsed);
       const unpaidCreated = toNumber(row.unpaid);
-      const finalReceived = Math.max(receivedAmount - unpaidCreated, 0);
+      const finalReceived = Math.max(grossReceivedAmount - unpaidCreated, 0);
       const category = deriveCategory(row);
       const voucherAmount = saleAmount > 0 && !cardAmount && !cashAmount && !pointAmount ? Math.round(saleAmount * 0.15) : 0;
       const unpaidCollected = unpaidCreated > 0 ? Math.max(Math.round(unpaidCreated * 0.4), 0) : 0;

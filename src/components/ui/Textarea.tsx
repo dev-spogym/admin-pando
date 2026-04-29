@@ -85,11 +85,11 @@ const Textarea = React.forwardRef<HTMLTextAreaElement, TextareaProps>(
           aria-describedby={describedBy}
           onChange={handleChange}
           className={cn(
-            "w-full px-md py-sm bg-surface-secondary rounded-lg text-[13px] text-content border transition-all duration-150 outline-none",
+            "app-control w-full rounded-2xl px-md py-sm text-[13px] text-content border transition-all duration-150 outline-none",
             resize === "none" ? "resize-none" : "resize-y",
             error
-              ? "border-red-400 focus:border-red-400 focus:ring-1 focus:ring-red-400/20"
-              : "border-line focus:border-primary focus:ring-1 focus:ring-primary/20",
+              ? "border-red-400 focus:border-red-400 focus:ring-2 focus:ring-red-400/15"
+              : "border-line/80 focus:border-primary focus:ring-2 focus:ring-primary/10",
             disabled && "cursor-not-allowed opacity-50 bg-surface-tertiary",
             className
           )}

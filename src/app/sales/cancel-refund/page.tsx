@@ -1,48 +1,155 @@
 'use client';
-import React, { useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { Search, RefreshCcw, AlertTriangle, CheckCircle } from 'lucide-react';
+import { toast } from 'sonner';
+import { supabase } from '@/lib/supabase';
 
 interface Payment {
-  id: string;
+  id: number;
+  memberId: number;
   memberName: string;
+  productId: number | null;
   product: string;
   amount: number;
   paidAt: string;
   method: string;
+  type: string;
+  round: string | null;
+  staffId: number | null;
+  staffName: string | null;
+  durationMonths: number | null;
 }
 
-const demoPayments: Payment[] = [
-  { id: 'PAY-001', memberName: '김민준', product: 'PT 30회 패키지', amount: 900000, paidAt: '2026-04-10', method: '카드' },
-  { id: 'PAY-002', memberName: '이서연', product: '연간 회원권', paidAt: '2026-04-15', amount: 1200000, method: '현금' },
-  { id: 'PAY-003', memberName: '박지호', product: '필라테스 3개월', amount: 390000, paidAt: '2026-04-18', method: '카드' },
-];
-
 const cancelReasons = ['단순 변심', '서비스 불만족', '중복 결제', '기타'];
+const METHOD_KO: Record<string, string> = {
+  CARD: '카드',
+  CASH: '현금',
+  TRANSFER: '계좌이체',
+  MILEAGE: '마일리지',
+};
 
 type ActionType = 'cancel' | 'partial';
 type ResultStatus = 'success' | null;
 
+const getBranchId = () => {
+  if (typeof window === 'undefined') return 1;
+  return Number(localStorage.getItem('branchId') ?? 1) || 1;
+};
+
+const approvalNo = () => `RF${Date.now().toString().slice(-6)}${Math.floor(Math.random() * 9000) + 1000}`;
+
 export default function CancelRefundPage() {
   const [query, setQuery] = useState('');
+  const [payments, setPayments] = useState<Payment[]>([]);
+  const [loading, setLoading] = useState(false);
   const [selected, setSelected] = useState<Payment | null>(null);
   const [action, setAction] = useState<ActionType>('cancel');
   const [partialAmount, setPartialAmount] = useState('');
   const [reason, setReason] = useState(cancelReasons[0]);
   const [result, setResult] = useState<ResultStatus>(null);
 
-  const filtered = demoPayments.filter(
-    (p) => p.memberName.includes(query) || p.id.includes(query) || p.product.includes(query)
+  const fetchPayments = useCallback(async () => {
+    setLoading(true);
+    const { data, error } = await supabase
+      .from('sales')
+      .select('id, memberId, memberName, productId, productName, amount, saleDate, paymentMethod, type, round, staffId, staffName, durationMonths')
+      .eq('branchId', getBranchId())
+      .eq('status', 'COMPLETED')
+      .gt('amount', 0)
+      .order('saleDate', { ascending: false })
+      .limit(150);
+
+    setLoading(false);
+
+    if (error) {
+      toast.error(`결제 내역 조회 실패: ${error.message}`);
+      return;
+    }
+
+    setPayments((data ?? []).map((row: Record<string, unknown>) => ({
+      id: Number(row.id),
+      memberId: Number(row.memberId),
+      memberName: String(row.memberName ?? ''),
+      productId: row.productId == null ? null : Number(row.productId),
+      product: String(row.productName ?? row.type ?? '상품 미지정'),
+      amount: Math.round(Number(row.amount) || 0),
+      paidAt: String(row.saleDate ?? '').slice(0, 10),
+      method: String(row.paymentMethod ?? 'CARD'),
+      type: String(row.type ?? '환불'),
+      round: row.round == null ? null : String(row.round),
+      staffId: row.staffId == null ? null : Number(row.staffId),
+      staffName: row.staffName == null ? null : String(row.staffName),
+      durationMonths: row.durationMonths == null ? null : Number(row.durationMonths),
+    })));
+  }, []);
+
+  useEffect(() => {
+    fetchPayments();
+  }, [fetchPayments]);
+
+  const filtered = payments.filter(
+    (p) => p.memberName.includes(query) || String(p.id).includes(query) || p.product.includes(query)
   );
 
-  function handleSubmit() {
-    // 실제 API 호출 대신 성공 처리
+  async function handleSubmit() {
+    if (!selected) return;
+    const refundAmount = action === 'cancel' ? selected.amount : Number(partialAmount);
+    if (!refundAmount || refundAmount <= 0 || refundAmount > selected.amount) {
+      toast.error('환불 금액을 확인해 주세요.');
+      return;
+    }
+
+    const { error } = await supabase.from('sales').insert({
+      memberId: selected.memberId,
+      memberName: selected.memberName,
+      productId: selected.productId,
+      productName: selected.product,
+      saleDate: new Date().toISOString(),
+      type: '환불',
+      round: action === 'cancel' ? '환불' : '부분환불',
+      quantity: 1,
+      originalPrice: refundAmount,
+      salePrice: refundAmount,
+      discountPrice: 0,
+      amount: refundAmount,
+      paymentMethod: selected.method,
+      paymentType: action === 'cancel' ? '전체환불' : '부분환불',
+      cash: selected.method === 'CASH' || selected.method === 'TRANSFER' ? refundAmount : 0,
+      card: selected.method === 'CARD' ? refundAmount : 0,
+      mileageUsed: 0,
+      approvalNo: approvalNo(),
+      status: 'REFUNDED',
+      unpaid: 0,
+      staffId: selected.staffId,
+      staffName: selected.staffName,
+      memo: `${action === 'cancel' ? '전체 취소' : '부분 환불'}: 원매출 #${selected.id}`,
+      durationMonths: selected.durationMonths,
+      saleCategory: '환불',
+      receiptIssued: false,
+      penaltyAmount: 0,
+      branchId: getBranchId(),
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      originalSaleId: selected.id,
+      refundReason: reason,
+      refundProcessedBy: 'ADMIN',
+      refundProcessedAt: new Date().toISOString(),
+    });
+
+    if (error) {
+      toast.error(`환불 처리 실패: ${error.message}`);
+      return;
+    }
+
     setResult('success');
+    toast.success('환불 처리가 완료되었습니다.');
     setTimeout(() => {
       setResult(null);
       setSelected(null);
       setPartialAmount('');
       setReason(cancelReasons[0]);
     }, 2000);
+    fetchPayments();
   }
 
   return (
@@ -69,7 +176,8 @@ export default function CancelRefundPage() {
             className="w-full pl-9 pr-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
         </div>
-        {query && (
+        {loading && <p className="text-sm text-gray-400">결제 내역을 불러오는 중입니다.</p>}
+        {query && !loading && (
           <div className="border rounded-lg overflow-hidden">
             <table className="w-full text-sm">
               <thead className="bg-gray-50 border-b">
@@ -88,12 +196,12 @@ export default function CancelRefundPage() {
                   <tr><td colSpan={7} className="text-center py-6 text-gray-400">검색 결과가 없습니다.</td></tr>
                 ) : filtered.map((p) => (
                   <tr key={p.id} className={`hover:bg-gray-50 transition-colors ${selected?.id === p.id ? 'bg-blue-50' : ''}`}>
-                    <td className="px-4 py-3 font-mono text-xs text-gray-600">{p.id}</td>
+                    <td className="px-4 py-3 font-mono text-xs text-gray-600">SALE-{p.id}</td>
                     <td className="px-4 py-3 text-gray-900">{p.memberName}</td>
                     <td className="px-4 py-3 text-gray-600">{p.product}</td>
                     <td className="px-4 py-3 text-right font-medium text-gray-900">{p.amount.toLocaleString()}원</td>
                     <td className="px-4 py-3 text-center text-gray-500">{p.paidAt}</td>
-                    <td className="px-4 py-3 text-center text-gray-500">{p.method}</td>
+                    <td className="px-4 py-3 text-center text-gray-500">{METHOD_KO[p.method] ?? p.method}</td>
                     <td className="px-4 py-3 text-center">
                       <button
                         onClick={() => { setSelected(p); setResult(null); }}

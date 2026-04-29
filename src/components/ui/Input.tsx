@@ -18,8 +18,8 @@ export interface InputProps
 }
 
 const SIZE_CLASSES: Record<NonNullable<InputProps["size"]>, string> = {
-  sm: "h-9 text-[12px] px-sm",
-  md: "h-[44px] text-[13px] px-md",
+  sm: "h-9 text-[12px] px-sm rounded-xl",
+  md: "h-[44px] text-[13px] px-md rounded-2xl",
 };
 
 const Input = React.forwardRef<HTMLInputElement, InputProps>(
@@ -77,11 +77,11 @@ const Input = React.forwardRef<HTMLInputElement, InputProps>(
             aria-invalid={!!error}
             aria-describedby={describedBy}
             className={cn(
-              "w-full bg-surface-secondary rounded-lg text-content border transition-all duration-150 outline-none",
+              "app-control w-full text-content border transition-all duration-150 outline-none",
               SIZE_CLASSES[size],
               error
-                ? "border-red-400 focus:border-red-400 focus:ring-1 focus:ring-red-400/20"
-                : "border-line focus:border-primary focus:ring-1 focus:ring-primary/20",
+                ? "border-red-400 focus:border-red-400 focus:ring-2 focus:ring-red-400/15"
+                : "border-line/80 focus:border-primary focus:ring-2 focus:ring-primary/10",
               leftIcon && "pl-9",
               rightIcon && "pr-9",
               (disabled || readOnly) && "cursor-not-allowed opacity-50 bg-surface-tertiary",

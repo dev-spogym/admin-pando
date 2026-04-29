@@ -18,7 +18,7 @@ journey
       오늘의 할일 확인 /today-tasks: 5: owner
       KPI 대시보드 조회 /kpi: 5: owner
       지점 관리 확인 /branches: 4: owner
-      감사 로그 확인 /audit-log: 4: owner
+      히스토리 로그 확인 /audit-log: 4: owner
 
     section 회원 관리
       회원 목록 조회 /: 5: owner
@@ -66,10 +66,10 @@ journey
 |------|--------|:---:|
 | 지점 대시보드 | `/` | ● |
 | KPI 대시보드 | `/kpi` | ● |
-| KPI 프리뷰 | `/kpi-preview` | ● |
+| KPI 센터 | `/kpi-preview` | ● |
 | 지점 관리 | `/branches` | ● |
 | 온보딩 | `/onboarding` | ● |
-| 감사 로그 | `/audit-log` | ● |
+| 히스토리 로그 | `/audit-log` | ● |
 | 구독 관리 | `/subscription` | ● |
 | 리포트 | `/reports` | ● |
 | 회원 전체 | `/*` | ● |

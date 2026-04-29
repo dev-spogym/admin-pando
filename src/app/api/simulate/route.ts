@@ -6,11 +6,11 @@ export async function GET() {
 }
 
 // POST /api/simulate
-// body: { type: 'all' | 'attendance' | 'members' | 'sales' | 'classes' | 'facilities' | 'staff', branchId?: number }
+// body: { type: 'all' | 'attendance' | 'members' | 'sales' | 'refunds' | 'classes' | 'facilities' | 'staff', branchId?: number }
 export async function POST(req: NextRequest) {
   const body = await req.json()
   const { type = 'all', branchId = 1 } = body as {
-    type?: 'all' | 'attendance' | 'members' | 'sales' | 'classes' | 'facilities' | 'staff'
+    type?: 'all' | 'attendance' | 'members' | 'sales' | 'refunds' | 'classes' | 'facilities' | 'staff'
     branchId?: number
   }
 
@@ -19,7 +19,7 @@ export async function POST(req: NextRequest) {
 
   const endpoints =
     type === 'all'
-      ? ['attendance', 'members', 'sales', 'classes', 'facilities', 'staff']
+      ? ['attendance', 'members', 'sales', 'refunds', 'classes', 'facilities', 'staff']
       : [type]
 
   await Promise.all(

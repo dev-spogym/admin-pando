@@ -267,7 +267,7 @@ function MemberTransfer() {
               <InfoRow
                 icon={<MapPin className="w-3.5 h-3.5" />}
                 label="현재 지점"
-                value={`지점 #${member.branchId}`}
+                value={member.branchName ?? `지점 #${member.branchId}`}
               />
               <InfoRow
                 icon={<User className="w-3.5 h-3.5" />}

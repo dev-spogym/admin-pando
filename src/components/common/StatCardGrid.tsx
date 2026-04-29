@@ -17,7 +17,7 @@ const GRID_COLS: Record<number, string> = {
 
 export default function StatCardGrid({ children, cols = 4, className }: StatCardGridProps) {
   return (
-    <div className={cn('grid gap-md', GRID_COLS[cols], className)}>
+    <div className={cn('grid gap-md lg:gap-lg', GRID_COLS[cols], className)}>
       {children}
     </div>
   );

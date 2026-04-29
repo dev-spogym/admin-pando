@@ -17,7 +17,7 @@ journey
       지점 대시보드 확인 /: 5: primary
       오늘의 할일 확인 /today-tasks: 5: primary
       KPI 대시보드 조회 /kpi: 5: primary
-      감사 로그 확인 /audit-log: 4: primary
+      히스토리 로그 확인 /audit-log: 4: primary
 
     section 회원 관리
       회원 목록 조회 /: 5: primary
@@ -60,7 +60,7 @@ journey
       지점 관리 /branches: 5: primary
       온보딩 대시보드 /onboarding: 4: primary
       구독 관리 /subscription: 3: primary
-      KPI 프리뷰 공유 /kpi-preview: 4: primary
+      KPI 센터 공유 /kpi-preview: 4: primary
 ```
 
 ---
@@ -74,9 +74,9 @@ journey
 | 본사 | 슈퍼 대시보드 | `/super-dashboard` | ● |
 | 본사 | 지점 관리 | `/branches` | ● |
 | 본사 | KPI 대시보드 | `/kpi` | ● |
-| 본사 | KPI 프리뷰 | `/kpi-preview` | ● |
+| 본사 | KPI 센터 | `/kpi-preview` | ● |
 | 본사 | 온보딩 | `/onboarding` | ● |
-| 본사 | 감사 로그 | `/audit-log` | ● |
+| 본사 | 히스토리 로그 | `/audit-log` | ● |
 | 본사 | 리포트 | `/reports` | ● |
 | 본사 | 구독 관리 | `/subscription` | ● |
 | 회원 | 전체 | `/*` | ● |

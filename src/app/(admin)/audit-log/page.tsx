@@ -175,7 +175,7 @@ export default function AuditLog() {
         };
         const res = await getAuditLogs(params);
         if (!res.success) {
-          toast.error(res.message ?? '감사 로그 조회에 실패했습니다.');
+          toast.error(res.message ?? '히스토리 로그 조회에 실패했습니다.');
           return;
         }
         let rows = res.data.data;
@@ -189,7 +189,7 @@ export default function AuditLog() {
         setLogs(rows);
         setTotalCount(res.data.pagination.total);
       } catch {
-        toast.error('감사 로그 조회 중 오류가 발생했습니다.');
+        toast.error('히스토리 로그 조회 중 오류가 발생했습니다.');
       } finally {
         setIsLoading(false);
       }
@@ -231,8 +231,8 @@ export default function AuditLog() {
             <Shield className="w-5 h-5" />
           </div>
           <div>
-            <h1 className="text-xl font-semibold text-content-primary">감사 로그</h1>
-            <p className="text-sm text-content-secondary">시스템 내 모든 중요 활동 이력</p>
+            <h1 className="text-xl font-semibold text-content-primary">히스토리 로그</h1>
+            <p className="text-sm text-content-secondary">시스템 내 모든 주요 활동 이력</p>
           </div>
         </div>
 
@@ -338,7 +338,7 @@ export default function AuditLog() {
                 { key: '상세', header: '상세' },
                 { key: 'IP', header: 'IP' },
               ]}
-              fileName={`감사로그_${fromDate}_${toDate}`}
+              fileName={`히스토리로그_${fromDate}_${toDate}`}
               format="csv"
             />
           </div>

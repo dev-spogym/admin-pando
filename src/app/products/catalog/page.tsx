@@ -4,16 +4,20 @@ export const dynamic = 'force-dynamic';
 import React, { useState } from 'react';
 import AppLayout from '@/components/layout/AppLayout';
 import PageHeader from '@/components/common/PageHeader';
-import { Package, Eye, Download, Grid, List } from 'lucide-react';
+import { Download, Grid, List, RefreshCw } from 'lucide-react';
+import { usePageSeed } from '@/hooks';
+import type { ProductCatalogSeedPayload } from '@/lib/publishingPageSeed';
 
-const products = [
-  { id: 1, name: 'PT 10회권', category: 'PT', price: 500000, desc: '1:1 퍼스널 트레이닝 10회 이용권', active: true, popular: true },
-  { id: 2, name: '3개월 이용권', category: '이용권', price: 180000, desc: '헬스장 3개월 자유 이용', active: true, popular: true },
-  { id: 3, name: '필라테스 월정액', category: 'GX', price: 120000, desc: '필라테스 그룹 수업 월 무제한', active: true, popular: false },
-  { id: 4, name: 'PT 20회권', category: 'PT', price: 900000, desc: '1:1 퍼스널 트레이닝 20회 이용권', active: true, popular: false },
-  { id: 5, name: '6개월 이용권', category: '이용권', price: 320000, desc: '헬스장 6개월 자유 이용', active: true, popular: false },
-  { id: 6, name: '요가 10회권', category: 'GX', price: 80000, desc: '요가 그룹 수업 10회 이용권', active: false, popular: false },
-];
+const FALLBACK_CATALOG: ProductCatalogSeedPayload = {
+  products: [
+    { id: 1, name: 'PT 10회권', category: 'PT', price: 500000, desc: '1:1 퍼스널 트레이닝 10회 이용권', active: true, popular: true },
+    { id: 2, name: '3개월 이용권', category: '이용권', price: 180000, desc: '헬스장 3개월 자유 이용', active: true, popular: true },
+    { id: 3, name: '필라테스 월정액', category: 'GX', price: 120000, desc: '필라테스 그룹 수업 월 무제한', active: true, popular: false },
+    { id: 4, name: 'PT 20회권', category: 'PT', price: 900000, desc: '1:1 퍼스널 트레이닝 20회 이용권', active: true, popular: false },
+    { id: 5, name: '6개월 이용권', category: '이용권', price: 320000, desc: '헬스장 6개월 자유 이용', active: true, popular: false },
+    { id: 6, name: '요가 10회권', category: 'GX', price: 80000, desc: '요가 그룹 수업 10회 이용권', active: false, popular: false },
+  ],
+};
 
 const catColor: Record<string, string> = {
   'PT': 'bg-purple-100 text-purple-700',
@@ -24,16 +28,35 @@ const catColor: Record<string, string> = {
 export default function ProductCatalogPage() {
   const [view, setView] = useState<'grid' | 'list'>('grid');
   const [cat, setCat] = useState('전체');
-  const cats = ['전체', 'PT', '이용권', 'GX'];
+  const { data, loading, error, branchId, snapshotDate, reload } = usePageSeed<ProductCatalogSeedPayload>(
+    '/products/catalog',
+    FALLBACK_CATALOG,
+  );
+  const products = data.products;
+  const cats = ['전체', ...Array.from(new Set(products.map(product => product.category)))];
   const filtered = cat === '전체' ? products : products.filter(p => p.category === cat);
 
   return (
     <AppLayout>
       <PageHeader title="상품 카탈로그" description="고객에게 제공하는 상품 목록을 카탈로그 형태로 확인합니다" actions={
-        <button className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700">
-          <Download className="w-4 h-4" /> PDF 내보내기
-        </button>
+        <div className="flex flex-wrap gap-2">
+          <button
+            className="flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+            onClick={() => void reload(true)}
+            type="button"
+          >
+            <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} /> seed 갱신
+          </button>
+          <button className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700">
+            <Download className="w-4 h-4" /> PDF 내보내기
+          </button>
+        </div>
       } />
+
+      <div className="mb-4 rounded-xl border border-blue-100 bg-blue-50 px-4 py-3 text-xs text-blue-700">
+        Supabase snapshot · 지점 {branchId} · 기준일 {snapshotDate ?? '-'}
+        {error && <span className="ml-2 text-red-600">Fallback 사용: {error}</span>}
+      </div>
 
       <div className="flex items-center justify-between mb-4">
         <div className="flex gap-2">

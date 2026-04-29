@@ -14,6 +14,7 @@ import {
   EyeOff,
   Loader2,
   ClipboardList,
+  LayoutGrid,
 } from "lucide-react";
 import { toast } from "sonner";
 import { moveToPage } from "@/internal";
@@ -23,6 +24,7 @@ import { normalizeRole, hasPermission } from "@/lib/permissions";
 import { supabase } from "@/lib/supabase";
 import { changePassword } from "@/api/endpoints/auth";
 import { readBranchJson } from "@/lib/branchStorage";
+import { getBranchScope } from "@/lib/branchScope";
 
 // ─── 타입 정의 ─────────────────────────────────────────────────────────────────
 
@@ -55,7 +57,7 @@ interface Notification {
 // ─── 유틸 ──────────────────────────────────────────────────────────────────────
 
 function getBranchId(): string {
-  return localStorage.getItem('branchId') || '1';
+  return String(getBranchScope().branchId);
 }
 
 /** 지정 시간 이후 "n분 전" / "n시간 전" 형태로 반환 */
@@ -225,13 +227,18 @@ const AppHeader = ({
 
     debounceTimer.current = setTimeout(async () => {
       setIsSearching(true);
-      const { data, error } = await supabase
+      const scope = getBranchScope();
+      let query = supabase
         .from('members')
         .select('id, name, phone, status')
         .or(`name.ilike.%${value}%,phone.ilike.%${value}%`)
-        .eq('branchId', getBranchId())
-        .is('deletedAt', null)
-        .limit(5);
+        .is('deletedAt', null);
+
+      if (!scope.isAllBranches) {
+        query = query.eq('branchId', scope.branchId);
+      }
+
+      const { data, error } = await query.limit(5);
 
       setIsSearching(false);
       if (!error && data) {
@@ -272,6 +279,12 @@ const AppHeader = ({
     window.location.reload();
   };
 
+  const handleAllBranchSelect = () => {
+    setBranch('all', '전체 지점 (통합)');
+    setOpenDropdown(null);
+    window.location.reload();
+  };
+
   // ── 알림 모두 읽음 처리 ──
   const handleMarkAllRead = () => {
     setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
@@ -291,13 +304,13 @@ const AppHeader = ({
   return (
     <header
       ref={headerRef}
-      className="flex h-[56px] items-center justify-between border-b border-line bg-surface px-lg shrink-0 relative z-40"
+      className="relative z-40 flex h-[72px] shrink-0 items-center justify-between border-b border-line/80 bg-white/72 px-lg backdrop-blur-xl"
     >
       {/* ── Left ── */}
       <div className="flex items-center gap-md">
         {/* 사이드바 토글 */}
         <button
-          className="flex h-8 w-8 items-center justify-center rounded-md text-content-secondary hover:bg-surface-tertiary hover:text-content transition-colors"
+          className="flex h-9 w-9 items-center justify-center rounded-xl text-content-secondary transition-colors hover:bg-white/75 hover:text-content"
           onClick={onToggleSidebar}
         >
           <Menu size={18} />
@@ -306,7 +319,7 @@ const AppHeader = ({
         {/* 지점 전환 드롭다운 트리거 */}
         <div className="relative">
           <button
-            className="flex items-center gap-sm rounded-md bg-surface-secondary px-md py-[6px] cursor-pointer hover:bg-surface-tertiary transition-colors"
+            className="app-control flex h-10 items-center gap-sm rounded-2xl px-md cursor-pointer hover:border-primary/40 transition-colors"
             onClick={() => toggleDropdown('branch')}
           >
             <span className="text-[13px] font-semibold text-content">{displayBranchName}</span>
@@ -318,11 +331,24 @@ const AppHeader = ({
 
           {/* 지점 드롭다운 */}
           {openDropdown === 'branch' && (
-            <div className="absolute left-0 top-full mt-1 w-52 rounded-xl border border-line bg-surface shadow-lg z-50 overflow-hidden">
+            <div className="absolute left-0 top-full z-50 mt-2 w-56 overflow-hidden rounded-2xl border border-line/80 bg-white/95 shadow-card-deep backdrop-blur-xl">
               <div className="px-md py-sm border-b border-line">
                 <span className="text-[11px] font-semibold text-content-tertiary uppercase tracking-wide">지점 선택</span>
               </div>
               <ul className="py-xs max-h-60 overflow-y-auto">
+                {authUser?.isSuperAdmin && (
+                  <li>
+                    <button
+                      className={`flex w-full items-center justify-between px-md py-[9px] text-[13px] hover:bg-surface-secondary transition-colors ${
+                        !authUser.currentBranchId ? 'text-primary font-semibold' : 'text-content'
+                      }`}
+                      onClick={handleAllBranchSelect}
+                    >
+                      <span>전체 지점 (통합)</span>
+                      {!authUser.currentBranchId && <Check size={14} className="text-primary" />}
+                    </button>
+                  </li>
+                )}
                 {branches.length === 0 ? (
                   <li className="px-md py-sm text-[13px] text-content-tertiary">지점 정보 없음</li>
                 ) : (
@@ -350,7 +376,7 @@ const AppHeader = ({
       </div>
 
       {/* ── Center: 글로벌 회원 검색 ── */}
-      <div className="flex-1 max-w-[420px] mx-xl" ref={searchRef}>
+      <div className="mx-xl flex-1 max-w-[440px]" ref={searchRef}>
         <div className="relative">
           {/* 돋보기 아이콘 (클릭 시 검색 실행) */}
           <button
@@ -362,7 +388,7 @@ const AppHeader = ({
           </button>
 
           <input
-            className="h-9 w-full rounded-lg border border-line bg-surface-secondary pl-9 pr-8 text-[13px] text-content placeholder:text-content-tertiary focus:border-primary focus:ring-1 focus:ring-primary/20 outline-none transition-all"
+            className="app-control h-10 w-full rounded-2xl pl-10 pr-8 text-[13px] text-content placeholder:text-content-tertiary outline-none transition-all focus:border-primary focus:ring-2 focus:ring-primary/10"
             type="text"
             placeholder="회원 이름, 연락처 검색..."
             value={searchQuery}
@@ -391,7 +417,7 @@ const AppHeader = ({
 
           {/* 검색 결과 드롭다운 */}
           {showSearchDrop && (
-            <div className="absolute left-0 top-full mt-1 w-full rounded-xl border border-line bg-surface shadow-lg z-50 overflow-hidden">
+            <div className="absolute left-0 top-full z-50 mt-2 w-full overflow-hidden rounded-2xl border border-line/80 bg-white/95 shadow-card-deep backdrop-blur-xl">
               {isSearching ? (
                 <div className="px-md py-sm text-[13px] text-content-tertiary">검색 중...</div>
               ) : searchResults.length === 0 ? (
@@ -435,13 +461,25 @@ const AppHeader = ({
 
       {/* ── Right ── */}
       <div className="flex items-center gap-sm">
+        <div className="relative group">
+          <button
+            className="flex h-9 w-9 items-center justify-center rounded-xl text-content-secondary transition-colors hover:bg-white/75 hover:text-content"
+            onClick={() => window.location.assign('/publishing')}
+          >
+            <LayoutGrid size={18} />
+          </button>
+          <span className="absolute -bottom-8 left-1/2 z-50 -translate-x-1/2 whitespace-nowrap rounded bg-content px-2 py-1 text-[11px] text-white opacity-0 transition-opacity pointer-events-none group-hover:opacity-100">
+            퍼블리싱 갤러리
+          </span>
+        </div>
+
         {/* ── 화면설계서 모드 토글 ── */}
         <div className="relative group">
           <button
-            className={`flex h-8 w-8 items-center justify-center rounded-md transition-colors ${
+            className={`flex h-9 w-9 items-center justify-center rounded-xl transition-colors ${
               designDocMode
                 ? 'bg-primary/10 text-primary'
-                : 'text-content-secondary hover:bg-surface-tertiary hover:text-content'
+                : 'text-content-secondary hover:bg-white/75 hover:text-content'
             }`}
             onClick={toggleDesignDocMode}
           >
@@ -455,7 +493,7 @@ const AppHeader = ({
         {/* ── 알림 드롭다운 ── */}
         <div className="relative">
           <button
-            className="relative flex h-8 w-8 items-center justify-center rounded-md text-content-secondary hover:bg-surface-tertiary hover:text-content transition-colors"
+            className="relative flex h-9 w-9 items-center justify-center rounded-xl text-content-secondary transition-colors hover:bg-white/75 hover:text-content"
             onClick={() => toggleDropdown('notification')}
           >
             <Bell size={18} />
@@ -468,7 +506,7 @@ const AppHeader = ({
 
           {/* 알림 드롭다운 패널 */}
           {openDropdown === 'notification' && (
-            <div className="absolute right-0 top-full mt-1 w-80 rounded-xl border border-line bg-surface shadow-lg z-50 overflow-hidden">
+            <div className="absolute right-0 top-full z-50 mt-2 w-80 overflow-hidden rounded-2xl border border-line/80 bg-white/95 shadow-card-deep backdrop-blur-xl">
               {/* 헤더 */}
               <div className="flex items-center justify-between px-md py-sm border-b border-line">
                 <span className="text-[13px] font-semibold text-content">알림</span>
@@ -518,10 +556,10 @@ const AppHeader = ({
         {/* ── 프로필 드롭다운 ── */}
         <div className="relative">
           <button
-            className="flex items-center gap-sm pl-sm ml-sm border-l border-line cursor-pointer hover:opacity-80 transition-opacity"
+            className="ml-sm flex items-center gap-sm border-l border-line/80 pl-sm cursor-pointer transition-opacity hover:opacity-80"
             onClick={() => toggleDropdown('profile')}
           >
-            <div className="h-7 w-7 rounded-full bg-primary-light flex items-center justify-center text-primary text-[12px] font-bold">
+            <div className="flex h-9 w-9 items-center justify-center rounded-2xl bg-primary-light text-primary text-[12px] font-bold">
               {displayUserName.substring(0, 1)}
             </div>
             <span className="hidden lg:block text-[13px] font-medium text-content">{displayUserName}</span>
@@ -533,7 +571,7 @@ const AppHeader = ({
 
           {/* 프로필 드롭다운 패널 */}
           {openDropdown === 'profile' && (
-            <div className="absolute right-0 top-full mt-1 w-56 rounded-xl border border-line bg-surface shadow-lg z-50 overflow-hidden">
+            <div className="absolute right-0 top-full z-50 mt-2 w-56 overflow-hidden rounded-2xl border border-line/80 bg-white/95 shadow-card-deep backdrop-blur-xl">
               {/* 사용자 정보 헤더 */}
               <div className="px-md py-sm border-b border-line">
                 <div className="flex items-center gap-sm">
@@ -598,7 +636,7 @@ const AppHeader = ({
         {/* 회원 등록 버튼 — /members/new 접근 권한이 있는 역할만 표시 */}
         {hasPermission(authUser?.role ?? '', '/members/new', authUser?.isSuperAdmin) && (
           <button
-            className="ml-sm h-8 rounded-lg bg-primary px-md flex items-center gap-xs text-[13px] font-semibold text-white hover:bg-primary-dark active:scale-[0.97] transition-all"
+            className="ml-sm flex h-10 items-center gap-xs rounded-2xl bg-gradient-to-r from-primary to-[#ff907f] px-md text-[13px] font-semibold text-white shadow-sm transition-all hover:translate-y-[-1px] hover:shadow-float active:scale-[0.98]"
             onClick={() => moveToPage(986)}
           >
             <Plus size={16} />

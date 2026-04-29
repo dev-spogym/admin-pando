@@ -11,7 +11,7 @@
  *   3. diagrams 배열의 각 경로가 실제 존재
  *
  * TODO(v2):
- *   - --write 모드로 docs/기능명세서/ 자동 재생성
+ *   - --write 모드로 docs/admin/기능명세서/ 자동 재생성
  *   - 라우트 매핑(ROUTE_TO_DOC)의 screen.folder, functional.file 존재 검증
  */
 
@@ -22,7 +22,7 @@ import { fileURLToPath } from 'node:url';
 
 const __filename = fileURLToPath(import.meta.url);
 const ROOT = path.resolve(path.dirname(__filename), '..');
-const SCREEN_ROOT = path.join(ROOT, 'docs', '화면설계서');
+const SCREEN_ROOT = path.join(ROOT, 'docs', 'admin', '화면설계서');
 const MASTER_NAME = '00-기본화면.md';
 
 interface Finding {
@@ -56,10 +56,19 @@ function findMasterFiles(dir: string, acc: string[] = []): string[] {
   return acc;
 }
 
-// 폴더명에서 ID prefix 추출. "SCR-100-로그인" → "SCR-100"
+// 폴더명에서 ID prefix 추출.
+// 예:
+// - "SCR-100-로그인" -> "SCR-100"
+// - "SCR-072A-자동알림운영현황" -> "SCR-072A"
+// - "DLG-080A-001-정책적용확인" -> "DLG-080A-001"
 function extractIdFromFolder(folderName: string): string | null {
-  const match = folderName.match(/^((?:SCR|DLG)-[A-Z]?\d+(?:-\d+)?)/);
+  const match = folderName.match(/^((?:SCR|DLG)-[A-Z]?\d+[A-Z]?(?:-\d+)?)/);
   return match ? match[1] : null;
+}
+
+function isSameDocId(frontmatterId: unknown, expectedId: string): boolean {
+  const actualId = String(frontmatterId);
+  return actualId === expectedId || actualId.startsWith(`${expectedId}-`) || actualId.startsWith(`${expectedId}_`);
 }
 
 // 폴더명이 SCR- 또는 DLG- 로 시작하는지로 kind 결정
@@ -133,7 +142,7 @@ function validateMaster(filePath: string) {
   const expectedId = extractIdFromFolder(screenFolder);
   const expectKind = expectedKind(screenFolder);
 
-  if (expectedId && data.id && String(data.id) !== expectedId) {
+  if (expectedId && data.id && !isSameDocId(data.id, expectedId)) {
     addError(rel, `id가 폴더명과 불일치: frontmatter=${data.id} vs folder=${expectedId}`);
   }
   if (expectKind && data.kind && String(data.kind) !== expectKind) {

@@ -1,17 +1,26 @@
 'use client';
 import React, { useState } from 'react';
-import { Filter, Plus, Users, Zap, ChevronRight, Tag } from 'lucide-react';
+import { Filter, Plus, Zap, ChevronRight, Tag, RefreshCw } from 'lucide-react';
+import { usePageSeed } from '@/hooks';
+import type { MemberSegmentSeedPayload } from '@/lib/publishingPageSeed';
 
-const segments = [
-  { id: 1, name: '만료 임박 회원', desc: '30일 이내 이용권 만료 예정', count: 23, color: 'text-red-600 bg-red-50 border-red-200', auto: true },
-  { id: 2, name: '장기 미방문', desc: '30일 이상 방문 없는 회원', count: 45, color: 'text-orange-600 bg-orange-50 border-orange-200', auto: true },
-  { id: 3, name: '신규 가입 (30일)', desc: '최근 30일 이내 등록 회원', count: 18, color: 'text-blue-600 bg-blue-50 border-blue-200', auto: true },
-  { id: 4, name: 'PT 미구매 회원', desc: 'PT 이용권 미보유 활성 회원', count: 134, color: 'text-purple-600 bg-purple-50 border-purple-200', auto: true },
-  { id: 5, name: '생일 회원 (이번달)', desc: '이번 달 생일인 회원', count: 12, color: 'text-pink-600 bg-pink-50 border-pink-200', auto: true },
-];
+const FALLBACK_SEGMENTS: MemberSegmentSeedPayload = {
+  segments: [
+    { id: 1, name: '만료 임박 회원', desc: '30일 이내 이용권 만료 예정', count: 23, color: 'text-red-600 bg-red-50 border-red-200', auto: true },
+    { id: 2, name: '장기 미방문', desc: '30일 이상 방문 없는 회원', count: 45, color: 'text-orange-600 bg-orange-50 border-orange-200', auto: true },
+    { id: 3, name: '신규 가입 (30일)', desc: '최근 30일 이내 등록 회원', count: 18, color: 'text-blue-600 bg-blue-50 border-blue-200', auto: true },
+    { id: 4, name: 'PT 미구매 회원', desc: 'PT 이용권 미보유 활성 회원', count: 134, color: 'text-purple-600 bg-purple-50 border-purple-200', auto: true },
+    { id: 5, name: '생일 회원 (이번달)', desc: '이번 달 생일인 회원', count: 12, color: 'text-pink-600 bg-pink-50 border-pink-200', auto: true },
+  ],
+};
 
 export default function SegmentPage() {
   const [showCreate, setShowCreate] = useState(false);
+  const { data, loading, error, branchId, snapshotDate, reload } = usePageSeed<MemberSegmentSeedPayload>(
+    '/members/segment',
+    FALLBACK_SEGMENTS,
+  );
+  const segments = data.segments;
 
   return (
     <div className="max-w-4xl mx-auto space-y-6 p-6">
@@ -22,9 +31,23 @@ export default function SegmentPage() {
           </h1>
           <p className="text-sm text-gray-500 mt-1">회원 그룹을 만들어 타겟 마케팅에 활용합니다</p>
         </div>
-        <button onClick={() => setShowCreate(true)} className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors">
-          <Plus className="w-4 h-4" /> 세그먼트 생성
-        </button>
+        <div className="flex flex-wrap gap-2">
+          <button
+            onClick={() => void reload(true)}
+            className="flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+            type="button"
+          >
+            <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} /> seed 갱신
+          </button>
+          <button onClick={() => setShowCreate(true)} className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors">
+            <Plus className="w-4 h-4" /> 세그먼트 생성
+          </button>
+        </div>
+      </div>
+
+      <div className="rounded-xl border border-blue-100 bg-blue-50 px-4 py-3 text-xs text-blue-700">
+        Supabase snapshot · 지점 {branchId} · 기준일 {snapshotDate ?? '-'}
+        {error && <span className="ml-2 text-red-600">Fallback 사용: {error}</span>}
       </div>
 
       {/* 세그먼트 목록 */}

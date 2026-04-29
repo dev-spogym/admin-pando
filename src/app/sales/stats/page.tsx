@@ -91,6 +91,11 @@ const deriveStaffRole = (staffRole: string | null | undefined, type: string | nu
   return 'staff';
 };
 
+const isCorporateSale = (row: Pick<SalesRow, 'type' | 'productName'>) => {
+  const text = `${row.type ?? ''} ${row.productName ?? ''}`.toLowerCase();
+  return text.includes('법인권') || text.includes('법인') || text.includes('corporate') || text.includes('b2b');
+};
+
 // 탭 색상 팔레트 (바 차트 / 파이 차트용)
 const COLORS = [
   'bg-primary',
@@ -350,6 +355,19 @@ export default function SalesStats() {
   const typeRows = useMemo(() => aggregate(r => r.type), [salesData]);
   const paymentRows = useMemo(() => aggregate(r => r.paymentMethod), [salesData]);
   const categoryRows = useMemo(() => aggregate(r => r.category), [salesData]);
+  const corporateRows = useMemo(() => {
+    const targetRows = salesData.filter(isCorporateSale);
+    const totalSales = salesData.reduce((s, row) => s + row.salePrice, 0) || 1;
+    const total = targetRows.reduce((s, row) => s + row.salePrice, 0);
+    return [
+      {
+        label: '법인권',
+        count: targetRows.length,
+        total,
+        pct: (total / totalSales) * 100,
+      },
+    ];
+  }, [salesData]);
 
   // 직군별 집계
   const roleRows = useMemo(() => {
@@ -415,11 +433,14 @@ export default function SalesStats() {
 
   // 개월별 집계
   const durationAgg = useMemo(() => {
-    const map = new Map<string, { count: number; total: number }>();
+    const bucketOrder = ['1개월', '3개월', '6개월', '12개월', '기타'];
+    const map = new Map<string, { count: number; total: number }>(
+      bucketOrder.map(label => [label, { count: 0, total: 0 }])
+    );
     for (const row of salesData) {
-      const key = row.durationMonths
+      const key = row.durationMonths && [1, 3, 6, 12].includes(row.durationMonths)
         ? `${row.durationMonths}개월`
-        : (row.type?.includes('PT') ? 'PT(횟수)' : '기타');
+        : '기타';
       const cur = map.get(key) || { count: 0, total: 0 };
       cur.count++;
       cur.total += row.salePrice || 0;
@@ -428,7 +449,7 @@ export default function SalesStats() {
     const total = Array.from(map.values()).reduce((s, v) => s + v.count, 0);
     return Array.from(map.entries())
       .map(([label, v]) => ({ label, ...v, pct: total ? (v.count / total) * 100 : 0 }))
-      .sort((a, b) => b.count - a.count);
+      .sort((a, b) => bucketOrder.indexOf(a.label) - bucketOrder.indexOf(b.label));
   }, [salesData]);
 
   // 공통 테이블 컬럼
@@ -455,6 +476,7 @@ export default function SalesStats() {
     { key: 'category', label: '종목별' },
     { key: '개월별', label: '개월별' },
     { key: 'GX종목별', label: 'GX종목별' },
+    { key: 'corporate', label: '법인권' },
   ];
 
   // 탭별 렌더 데이터
@@ -463,6 +485,7 @@ export default function SalesStats() {
     type:     { rows: typeRows,     labelHeader: '상품타입',   chartType: 'donut' },
     payment:  { rows: paymentRows,  labelHeader: '결제수단',   chartType: 'donut' },
     category: { rows: categoryRows, labelHeader: '종목',      chartType: 'bar' },
+    corporate:{ rows: corporateRows,labelHeader: '구분',      chartType: 'bar' },
   };
 
   const current = tabConfig[activeTab];
@@ -476,6 +499,7 @@ export default function SalesStats() {
       type: r => r.type,
       payment: r => r.paymentMethod,
       category: r => r.category,
+      corporate: r => isCorporateSale(r) ? '법인권' : '일반',
     };
     const keyFn = keyFns[activeTab] ?? (r => r.productName);
     const map = new Map<string, { count: number; total: number }>();

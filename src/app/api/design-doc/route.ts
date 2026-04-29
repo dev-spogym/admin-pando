@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import fs from 'fs';
 import path from 'path';
-import matter from 'gray-matter';
+import { parseFrontmatter } from '@/lib/frontmatter';
 import { stripDevSections } from '@/lib/stripDevSections';
 
 // ─── 라우트 매핑 (designDocMap.ts 와 구조 동일 · 서버 사이드 복사본) ──────────
@@ -28,11 +28,12 @@ const ROUTE_TO_DOC: Record<string, RouteMapping> = {
   '/branches': { title: '지점 관리', category: '본사관리', functional: { file: '본사관리.md', keywords: ['지점 관리', '3. 지점 관리'] } },
   '/branch-report': { title: '지점 리포트', category: '본사관리', functional: { file: '본사관리.md', keywords: ['지점 리포트', '4. 지점 리포트'] } },
   '/kpi': { title: 'KPI 대시보드', category: '본사관리', functional: { file: '본사관리.md', keywords: ['KPI 대시보드', '5. KPI 대시보드'] } },
-  '/kpi-preview': { title: 'KPI 프리뷰', category: '본사관리', functional: { file: '본사관리.md', keywords: ['KPI 센터', '6. KPI 센터'] } },
+  '/kpi-preview': { title: 'KPI 센터', category: '본사관리', functional: { file: '본사관리.md', keywords: ['KPI 센터', '6. KPI 센터'] } },
   '/onboarding': { title: '온보딩 대시보드', category: '본사관리', functional: { file: '본사관리.md', keywords: ['온보딩', '7. 온보딩'] } },
-  '/audit-log': { title: '감사 로그', category: '본사관리', functional: { file: '본사관리.md', keywords: ['감사 로그', '8. 감사 로그'] } },
+  '/audit-log': { title: '히스토리 로그', category: '본사관리', functional: { file: '본사관리.md', keywords: ['히스토리 로그', '8. 히스토리 로그'] } },
   '/today-tasks': { title: 'Today Tasks', category: '본사관리', functional: { file: '본사관리.md', keywords: ['Today Tasks', '9. Today Tasks'] } },
   '/reports': { title: '자동 리포트', category: '본사관리', functional: { file: '본사관리.md', keywords: ['리포트', '10. 리포트'] } },
+  '/hq/automation-policies': { title: '자동화 정책 라이브러리', category: '본사관리', functional: { file: '본사관리.md', keywords: ['자동화 정책', '자동화 정책 라이브러리'] }, screen: { folder: 'D10-본사관리/SCR-100-자동화정책라이브러리' } },
   '/diagrams': { title: '다이어그램 브라우저', category: '공통', screen: { folder: 'D01-공통/SCR-107-화면설계서오버레이' } },
 
   // 회원관리
@@ -86,6 +87,7 @@ const ROUTE_TO_DOC: Record<string, RouteMapping> = {
 
   // 설정관리
   '/settings': { title: '센터 설정', category: '설정관리', functional: { file: '설정관리.md', keywords: ['센터 설정', '1. 센터 설정'] }, screen: { folder: 'D09-설정관리/SCR-080-센터설정' } },
+  '/settings/automation': { title: '지점 자동화 적용', category: '설정관리', functional: { file: '설정관리.md', keywords: ['자동화', '지점 자동화'] }, screen: { folder: 'D09-설정관리/SCR-080A-지점자동화적용' } },
   '/settings/permissions': { title: '권한 설정', category: '설정관리', functional: { file: '설정관리.md', keywords: ['권한 설정', '2. 권한 설정'] }, screen: { folder: 'D09-설정관리/SCR-081-권한설정' } },
   '/settings/kiosk': { title: '키오스크 설정', category: '설정관리', functional: { file: '통합운영_IOT_헬스.md', keywords: ['키오스크 설정', '2. 키오스크 설정'] }, screen: { folder: 'D09-설정관리/SCR-082-키오스크설정' } },
   '/settings/iot': { title: 'IoT 연동 관리', category: '설정관리', functional: { file: '통합운영_IOT_헬스.md', keywords: ['IoT 연동 관리', '3. IoT 연동 관리'] }, screen: { folder: 'D09-설정관리/SCR-083-IoT출입관리' } },
@@ -112,6 +114,7 @@ const ROUTE_TO_DOC: Record<string, RouteMapping> = {
 
   // 상품관리
   '/products': { title: '상품 목록', category: '상품관리', functional: { file: '상품관리.md', keywords: ['상품 목록', '1. 상품 목록'] }, screen: { folder: 'D05-상품관리/SCR-P001-상품관리' } },
+  '/products/detail': { title: '상품 상세 패널', category: '상품관리', functional: { file: '상품관리.md', keywords: ['상품 상세', '2. 상품 상세'] }, screen: { folder: 'D05-상품관리/SCR-P003-상품상세패널' } },
   '/products/new': { title: '상품 등록', category: '상품관리', functional: { file: '상품관리.md', keywords: ['상품 상세/등록', '2. 상품 상세'] }, screen: { folder: 'D05-상품관리/SCR-P002-상품등록수정' } },
   '/products/edit': { title: '상품 수정', category: '상품관리', functional: { file: '상품관리.md', keywords: ['상품 상세/등록', '2. 상품 상세'] }, screen: { folder: 'D05-상품관리/SCR-P002-상품등록수정' } },
   '/discount-settings': { title: '할인 설정', category: '상품관리', functional: { file: '상품관리.md', keywords: ['할인 설정', '3. 할인 설정'] }, screen: { folder: 'D05-상품관리/SCR-P004-할인설정' } },
@@ -120,38 +123,39 @@ const ROUTE_TO_DOC: Record<string, RouteMapping> = {
   '/products/catalog': { title: '상품 카탈로그', category: '상품관리', functional: { file: '상품관리.md', keywords: ['상품 카탈로그', '4. 상품 카탈로그'] }, screen: { folder: 'D05-상품관리/SCR-P005-상품카탈로그' } },
   '/products/compare': { title: '상품 비교', category: '상품관리', functional: { file: '상품관리.md', keywords: ['상품 비교', '5. 상품 비교'] }, screen: { folder: 'D05-상품관리/SCR-P006-상품비교' } },
   '/products/inventory': { title: '재고 관리', category: '상품관리', functional: { file: '상품관리.md', keywords: ['재고 관리', '6. 재고 관리'] }, screen: { folder: 'D05-상품관리/SCR-P007-재고관리' } },
-  '/products/seasonal-pricing': { title: '시즌 가격 관리', category: '상품관리', functional: { file: '상품관리.md', keywords: ['시즌 가격', '7. 시즌 가격'] }, screen: { folder: 'D05-상품관리/SCR-P008-시즌가격관리' } },
+  '/products/seasonal-price': { title: '시즌 가격 관리', category: '상품관리', functional: { file: '상품관리.md', keywords: ['시즌 가격', '7. 시즌 가격'] }, screen: { folder: 'D05-상품관리/SCR-P008-시즌가격관리' } },
 
   // 수업관리 추가
-  '/qr-checkin': { title: '출석 QR 체크인', category: '수업관리', functional: { file: '수업관리.md', keywords: ['QR 체크인', '14. QR 체크인'] }, screen: { folder: 'D04-수업관리/SCR-C014-출석QR체크인' } },
+  '/attendance/qr': { title: '출석 QR 체크인', category: '수업관리', functional: { file: '수업관리.md', keywords: ['QR 체크인', '14. QR 체크인'] }, screen: { folder: 'D04-수업관리/SCR-C014-출석QR체크인' } },
   '/class-recording': { title: '수업 녹화 관리', category: '수업관리', functional: { file: '수업관리.md', keywords: ['수업 녹화', '15. 수업 녹화'] }, screen: { folder: 'D04-수업관리/SCR-C015-수업녹화관리' } },
 
   // 시설관리 추가
-  '/equipment-maintenance': { title: '장비 점검 일정', category: '시설관리', functional: { file: '시설관리.md', keywords: ['장비 점검', '7. 장비 점검'] }, screen: { folder: 'D06-시설관리/SCR-056-장비점검일정' } },
+  '/equipment-check': { title: '장비 점검 일정', category: '시설관리', functional: { file: '시설관리.md', keywords: ['장비 점검', '7. 장비 점검'] }, screen: { folder: 'D06-시설관리/SCR-056-장비점검일정' } },
   '/consumables': { title: '소모품 재고 관리', category: '시설관리', functional: { file: '시설관리.md', keywords: ['소모품', '8. 소모품'] }, screen: { folder: 'D06-시설관리/SCR-057-소모품재고관리' } },
   '/cleaning-schedule': { title: '청소 스케줄', category: '시설관리', functional: { file: '시설관리.md', keywords: ['청소', '9. 청소'] }, screen: { folder: 'D06-시설관리/SCR-058-청소스케줄' } },
   '/clothing-locker': { title: '옷 보관함 운영', category: '시설관리', functional: { file: '통합운영_IOT_헬스.md', keywords: ['옷락커', '4. 옷락커'] }, screen: { folder: 'D11-통합운영/SCR-I004-옷락커운영관리' } },
 
   // 마케팅 추가
-  '/message/campaigns': { title: '캠페인 관리', category: '마케팅', functional: { file: '마케팅.md', keywords: ['캠페인', '7. 캠페인'] }, screen: { folder: 'D08-마케팅/SCR-076-캠페인관리' } },
-  '/referral': { title: '리퍼럴 프로그램', category: '마케팅', functional: { file: '마케팅.md', keywords: ['리퍼럴', '8. 리퍼럴'] }, screen: { folder: 'D08-마케팅/SCR-077-리퍼럴프로그램' } },
-  '/message/sms': { title: 'SMS / 카카오 발송', category: '마케팅', functional: { file: '마케팅.md', keywords: ['SMS', '9. SMS'] }, screen: { folder: 'D08-마케팅/SCR-078-SMS카카오발송' } },
-  '/message/ab-test': { title: 'A/B 테스트', category: '마케팅', functional: { file: '마케팅.md', keywords: ['A/B 테스트', '10. A/B 테스트'] }, screen: { folder: 'D08-마케팅/SCR-079-AB테스트' } },
+  '/marketing/campaign': { title: '캠페인 관리', category: '마케팅', functional: { file: '마케팅.md', keywords: ['캠페인', '7. 캠페인'] }, screen: { folder: 'D08-마케팅/SCR-076-캠페인관리' } },
+  '/marketing/referral': { title: '리퍼럴 프로그램', category: '마케팅', functional: { file: '마케팅.md', keywords: ['리퍼럴', '8. 리퍼럴'] }, screen: { folder: 'D08-마케팅/SCR-077-리퍼럴프로그램' } },
+  '/marketing/sms': { title: 'SMS / 카카오 발송', category: '마케팅', functional: { file: '마케팅.md', keywords: ['SMS', '9. SMS'] }, screen: { folder: 'D08-마케팅/SCR-078-SMS카카오발송' } },
+  '/marketing/ab-test': { title: 'A/B 테스트', category: '마케팅', functional: { file: '마케팅.md', keywords: ['A/B 테스트', '10. A/B 테스트'] }, screen: { folder: 'D08-마케팅/SCR-079-AB테스트' } },
 
   // 설정관리 추가
   '/settings/attendance': { title: '출석 관리 설정', category: '설정관리', functional: { file: '설정관리.md', keywords: ['출석 설정', '7. 출석 설정'] }, screen: { folder: 'D09-설정관리/SCR-086-출석관리설정' } },
-  '/settings/custom-roles': { title: '커스텀 역할 생성', category: '설정관리', functional: { file: '설정관리.md', keywords: ['커스텀 역할', '8. 커스텀 역할'] }, screen: { folder: 'D09-설정관리/SCR-087-커스텀역할생성' } },
+  '/settings/custom-role': { title: '커스텀 역할 생성', category: '설정관리', functional: { file: '설정관리.md', keywords: ['커스텀 역할', '8. 커스텀 역할'] }, screen: { folder: 'D09-설정관리/SCR-087-커스텀역할생성' } },
   '/settings/language': { title: '다국어 설정', category: '설정관리', functional: { file: '설정관리.md', keywords: ['다국어', '9. 다국어'] }, screen: { folder: 'D09-설정관리/SCR-088-다국어설정' } },
   '/settings/backup': { title: '데이터 백업 / 복원', category: '설정관리', functional: { file: '설정관리.md', keywords: ['데이터 백업', '10. 데이터 백업'] }, screen: { folder: 'D09-설정관리/SCR-089-데이터백업복원' } },
 
   // 본사관리 추가
-  '/custom-dashboard': { title: '커스텀 대시보드 빌더', category: '본사관리', functional: { file: '본사관리.md', keywords: ['커스텀 대시보드', '12. 커스텀 대시보드'] }, screen: { folder: 'D10-본사관리/SCR-101-커스텀대시보드빌더' } },
+  '/dashboard/builder': { title: '커스텀 대시보드 빌더', category: '본사관리', functional: { file: '본사관리.md', keywords: ['커스텀 대시보드', '12. 커스텀 대시보드'] }, screen: { folder: 'D10-본사관리/SCR-101-커스텀대시보드빌더' } },
   '/benchmark': { title: '벤치마크 비교', category: '본사관리', functional: { file: '본사관리.md', keywords: ['벤치마크', '13. 벤치마크'] }, screen: { folder: 'D10-본사관리/SCR-102-벤치마크비교' } },
-  '/predictive-analytics': { title: '예측 분석', category: '본사관리', functional: { file: '본사관리.md', keywords: ['예측 분석', '14. 예측 분석'] }, screen: { folder: 'D10-본사관리/SCR-103-예측분석' } },
+  '/analytics/forecast': { title: '예측 분석', category: '본사관리', functional: { file: '본사관리.md', keywords: ['예측 분석', '14. 예측 분석'] }, screen: { folder: 'D10-본사관리/SCR-103-예측분석' } },
   '/nps': { title: 'NPS 설문', category: '본사관리', functional: { file: '본사관리.md', keywords: ['NPS', '15. NPS'] }, screen: { folder: 'D10-본사관리/SCR-104-NPS설문' } },
 
   // 통합운영 추가
-  '/health-summary': { title: '회원 건강 연동 요약', category: '통합운영', functional: { file: '통합운영_IOT_헬스.md', keywords: ['건강 연동', '7. 건강 연동'] }, screen: { folder: 'D11-통합운영/SCR-I007-회원건강연동요약' } },
+  '/members/health': { title: '회원 건강 연동 요약', category: '통합운영', functional: { file: '통합운영_IOT_헬스.md', keywords: ['건강 연동', '7. 건강 연동'] }, screen: { folder: 'D11-통합운영/SCR-I007-회원건강연동요약' } },
+  '/kiosk-ops': { title: '키오스크 운영 현황', category: '통합운영', functional: { file: '통합운영_IOT_헬스.md', keywords: ['키오스크 운영', '키오스크 운영 현황'] }, screen: { folder: 'D11-통합운영/SCR-I008-키오스크운영현황' } },
 };
 
 // ─── 시스템 모듈 / KPI 참조 매핑 (기존 동일) ─────────────────────────────────
@@ -268,7 +272,7 @@ interface StateDoc {
 
 interface ScreenDocs {
   folder: string;
-  /** 마스터 파일(00-기본화면.md) frontmatter (gray-matter) */
+  /** 마스터 파일(00-기본화면.md) frontmatter */
   frontmatter: Record<string, unknown> | null;
   /** 마스터 파일 본문 (frontmatter 제외) */
   masterContent: string;
@@ -305,7 +309,7 @@ function buildScreenIndex(): Map<string, string> {
   for (const file of masters) {
     try {
       const raw = fs.readFileSync(file, 'utf-8');
-      const parsed = matter(raw);
+      const parsed = parseFrontmatter(raw);
       const route = typeof parsed.data?.route === 'string' ? parsed.data.route.trim() : null;
       if (!route) continue;
       const folder = path.relative(root, path.dirname(file));
@@ -338,7 +342,7 @@ function loadScreenDocs(folder: string): ScreenDocs | null {
     const masterName = '00-기본화면.md';
     if (entries.includes(masterName)) {
       const raw = fs.readFileSync(path.join(fullPath, masterName), 'utf-8');
-      const parsed = matter(raw);
+      const parsed = parseFrontmatter(raw);
       frontmatter = parsed.data as Record<string, unknown>;
       masterContent = stripDevSections(parsed.content.trim());
     }
@@ -350,7 +354,7 @@ function loadScreenDocs(folder: string): ScreenDocs | null {
 
     const states: StateDoc[] = stateFiles.map((file) => {
       const raw = fs.readFileSync(path.join(fullPath, file), 'utf-8');
-      const parsed = matter(raw);
+      const parsed = parseFrontmatter(raw);
       const fmLabel = typeof parsed.data?.state === 'string' ? parsed.data.state : null;
       return {
         file,

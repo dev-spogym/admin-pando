@@ -31,11 +31,10 @@ import Button from "@/components/ui/Button";
 import { supabase } from "@/lib/supabase";
 import { toast } from "sonner";
 import { exportToExcel } from "@/lib/exportExcel";
+import { getBranchScope } from "@/lib/branchScope";
 
 const getBranchId = (): number => {
-  if (typeof window === 'undefined') return 1;
-  const stored = localStorage.getItem('branchId');
-  return stored ? Number(stored) : 1;
+  return getBranchScope().branchId;
 };
 
 // --- 역할 설정 ---
@@ -64,22 +63,26 @@ interface StaffRow {
   id: number;
   name: string;
   role: RoleKey;
+  branchId: number;
+  branchName: string;
   contact: string;
   joinDate: string;
   status: string;
   memo: string;
 }
 
-type SortKey = "name" | "role" | "joinDate" | "status";
+type SortKey = "name" | "role" | "branchName" | "joinDate" | "status";
 type SortDir = "asc" | "desc" | null;
 
 export default function StaffList() {
   const [staffData, setStaffData] = useState<StaffRow[]>([]);
+  const [branches, setBranches] = useState<Array<{ id: number; name: string }>>([]);
+  const [isAllBranchesMode, setIsAllBranchesMode] = useState(false);
   const [isLoadingData, setIsLoadingData] = useState(true);
   const [selectedRows, setSelectedRows] = useState(new Set<number>());
   const [isRetireDialogOpen, setIsRetireDialogOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
-  const [filterValues, setFilterValues] = useState({ role: "", status: "" });
+  const [filterValues, setFilterValues] = useState({ role: "", status: "", branchId: "" });
   const [sortKey, setSortKey] = useState<SortKey | null>(null);
   const [sortDir, setSortDir] = useState<SortDir>(null);
   const [currentPage, setCurrentPage] = useState(1);
@@ -88,10 +91,28 @@ export default function StaffList() {
   // 직원 목록 fetch (퇴사 처리 후 재호출 가능)
   const fetchStaff = async () => {
     setIsLoadingData(true);
-    const { data, error } = await supabase
+    const scope = getBranchScope();
+    setIsAllBranchesMode(scope.isAllBranches);
+
+    const { data: branchRows } = await supabase
+      .from("branches")
+      .select("id, name")
+      .order("id", { ascending: true });
+    const branchList = (branchRows ?? []) as Array<{ id: number; name: string }>;
+    const branchNameById = new Map(branchList.map(branch => [branch.id, branch.name]));
+    setBranches(branchList);
+
+    let query = supabase
       .from("staff")
       .select("id, name, phone, email, role, position, hireDate, salary, color, isActive, branchId")
-      .eq("branchId", getBranchId());
+      .order("branchId", { ascending: true })
+      .order("name", { ascending: true });
+
+    if (!scope.isAllBranches) {
+      query = query.eq("branchId", getBranchId());
+    }
+
+    const { data, error } = await query;
 
     if (error) {
       console.error("직원 데이터 로드 실패:", error);
@@ -101,6 +122,8 @@ export default function StaffList() {
         id: s.id,
         name: s.name,
         role: s.role as RoleKey,
+        branchId: Number(s.branchId ?? scope.branchId),
+        branchName: branchNameById.get(Number(s.branchId ?? scope.branchId)) ?? `지점 #${s.branchId ?? scope.branchId}`,
         contact: s.phone ?? "",
         joinDate: s.hireDate ?? "",
         status: s.isActive === false ? "resigned" : "active",
@@ -121,7 +144,7 @@ export default function StaffList() {
   };
 
   const handleResetFilters = () => {
-    setFilterValues({ role: "", status: "" });
+    setFilterValues({ role: "", status: "", branchId: "" });
     setSearchQuery("");
     setCurrentPage(1);
   };
@@ -155,10 +178,11 @@ export default function StaffList() {
 
   const filtered = useMemo(() => {
     let data = staffData.filter(s => {
-      const matchSearch = !searchQuery || s.name.includes(searchQuery) || s.contact.includes(searchQuery);
+      const matchSearch = !searchQuery || s.name.includes(searchQuery) || s.contact.includes(searchQuery) || s.branchName.includes(searchQuery);
       const matchRole   = !filterValues.role   || s.role   === filterValues.role;
       const matchStatus = !filterValues.status || s.status === filterValues.status;
-      return matchSearch && matchRole && matchStatus;
+      const matchBranch = !filterValues.branchId || String(s.branchId) === filterValues.branchId;
+      return matchSearch && matchRole && matchStatus && matchBranch;
     });
 
     if (sortKey && sortDir) {
@@ -171,6 +195,8 @@ export default function StaffList() {
     }
     return data;
   }, [staffData, searchQuery, filterValues, sortKey, sortDir]);
+
+  const currentPageRows = filtered.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
 
   // 통계
   const total    = staffData.length;
@@ -199,6 +225,12 @@ export default function StaffList() {
           {val}
         </Button>
       )
+    },
+    {
+      key: "branchName",
+      header: <SortHeader col="branchName" label="소속 지점" />,
+      width: 140,
+      render: (val: string) => <span className="font-medium text-content-secondary">{val}</span>,
     },
     {
       key: "role",
@@ -273,6 +305,14 @@ export default function StaffList() {
             searchValue={searchQuery}
             onSearchChange={setSearchQuery}
             filters={[
+              ...(isAllBranchesMode ? [
+                {
+                  key: "branchId",
+                  label: "소속 지점",
+                  type: "select" as const,
+                  options: branches.map(branch => ({ value: String(branch.id), label: branch.name })),
+                },
+              ] : []),
               {
                 key: "role",
                 label: "역할",
@@ -336,7 +376,7 @@ export default function StaffList() {
         <div className="flex-1 overflow-auto pb-xxl">
           <DataTable
             columns={columns}
-            data={filtered.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE)}
+            data={currentPageRows}
             selectable={true}
             selectedRows={selectedRows}
             onSelectRows={setSelectedRows}
@@ -346,6 +386,7 @@ export default function StaffList() {
               const exportColumns = [
                 { key: 'id', header: 'No' },
                 { key: 'name', header: '직원명' },
+                { key: 'branchName', header: '소속 지점' },
                 { key: 'role', header: '역할' },
                 { key: 'contact', header: '연락처' },
                 { key: 'joinDate', header: '입사일' },
@@ -368,7 +409,13 @@ export default function StaffList() {
           confirmationText="퇴사처리"
           onConfirm={async () => {
             // 선택된 직원 ID 목록으로 isActive: false 업데이트
-            const ids = Array.from(selectedRows);
+            const ids = Array.from(selectedRows)
+              .map(index => currentPageRows[index]?.id)
+              .filter((id): id is number => Number.isFinite(id));
+            if (ids.length === 0) {
+              toast.error("퇴사 처리할 직원을 찾지 못했습니다.");
+              return;
+            }
             const { error } = await supabase
               .from("staff")
               .update({ isActive: false })

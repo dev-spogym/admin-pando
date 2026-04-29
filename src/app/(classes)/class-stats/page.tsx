@@ -10,6 +10,12 @@ import StatCardGrid from "@/components/common/StatCardGrid";
 import DataTable from "@/components/common/DataTable";
 import { BarChart3, Users, CalendarCheck, TrendingUp } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
+import {
+  LESSON_SESSION_TYPES,
+  createLessonSessionCounts,
+  deriveLessonSessionType,
+  formatLessonSessionType,
+} from '@/lib/lessonSessionTypes';
 
 // 기간 필터 옵션
 const PERIOD_OPTIONS = [
@@ -21,6 +27,7 @@ const PERIOD_OPTIONS = [
 interface ClassStat {
   id: number;
   title: string;
+  type: string | null;
   room: string | null;
   capacity: number;
   bookedCount: number;
@@ -77,7 +84,7 @@ export default function ClassStats() {
     // 수업 목록 + 예약(출석) 수 조회
     const { data: classes } = await supabase
       .from('classes')
-      .select('id, title, room, capacity, startTime')
+      .select('id, title, type, room, capacity, startTime')
       .eq('branchId', branchId)
       .gte('startTime', `${start}T00:00:00`)
       .lte('startTime', `${end}T23:59:59`)
@@ -114,6 +121,7 @@ export default function ClassStats() {
       return {
         id: c.id,
         title: c.title ?? '-',
+        type: c.type ?? null,
         room: c.room,
         capacity: cap,
         bookedCount,
@@ -167,7 +175,12 @@ export default function ClassStats() {
       .sort((a, b) => b.attendeeCount - a.attendeeCount)
       .slice(0, 3)
       .map((c) => c.title);
-    return { total, totalBooked, totalAttendees, avgBookingRate, avgAttendRate, top3 };
+    const sessionCounts = createLessonSessionCounts();
+    classStats.forEach((row) => {
+      const sessionType = deriveLessonSessionType(row.type, row.title);
+      if (sessionType !== '기타') sessionCounts[sessionType] += 1;
+    });
+    return { total, totalBooked, totalAttendees, avgBookingRate, avgAttendRate, top3, sessionCounts };
   }, [classStats]);
 
   // 검색 필터
@@ -184,6 +197,11 @@ export default function ClassStats() {
   const columns = [
     { key: 'no', header: 'No', width: 50, render: (_: any, __: any, idx: number) => idx + 1 },
     { key: 'title', header: '수업명', render: (v: string) => <span className="font-medium text-content">{v}</span> },
+    {
+      key: 'sessionType',
+      header: '강습유형',
+      render: (_: unknown, row: ClassStat) => formatLessonSessionType(deriveLessonSessionType(row.type, row.title)),
+    },
     { key: 'room', header: '장소', render: (v: string | null) => v ?? '-' },
     { key: 'capacity', header: '정원', align: 'center' as const, render: (v: number) => `${v}명` },
     { key: 'bookedCount', header: '예약자', align: 'center' as const, render: (v: number) => `${v}명` },
@@ -257,6 +275,16 @@ export default function ClassStats() {
         <StatCard label="총 출석자" value={`${summary.totalAttendees}명`} icon={<Users />} />
         <StatCard label="평균 예약률" value={`${summary.avgBookingRate}%`} icon={<TrendingUp />} variant="peach" />
         <StatCard label="평균 출석률" value={`${summary.avgAttendRate}%`} icon={<BarChart3 />} />
+      </StatCardGrid>
+      <StatCardGrid cols={4} className="mb-lg">
+        {LESSON_SESSION_TYPES.map((sessionType) => (
+          <StatCard
+            key={sessionType}
+            label={`${formatLessonSessionType(sessionType)} 세션`}
+            value={summary.sessionCounts[sessionType]}
+            icon={<CalendarCheck />}
+          />
+        ))}
       </StatCardGrid>
 
       {/* 월별 트렌드 바 차트 */}

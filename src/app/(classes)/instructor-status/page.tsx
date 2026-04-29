@@ -11,6 +11,13 @@ import Modal from "@/components/ui/Modal";
 import { Users, Clock, CalendarCheck, BookOpen, Activity, AlertTriangle } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import AsyncBoundary from '@/components/common/AsyncBoundary';
+import {
+  LESSON_SESSION_TYPES,
+  createLessonSessionCounts,
+  deriveLessonSessionType,
+  formatLessonSessionType,
+  type LessonSessionCounts,
+} from '@/lib/lessonSessionTypes';
 
 // 기간 필터
 const PERIOD_OPTIONS = [
@@ -32,11 +39,20 @@ interface InstructorStat {
   attendanceRate: number;
   noShowRate: number;
   salesAmount: number;
+  newRevenue: number;
+  renewalRevenue: number;
+  otAssigned: number;
+  otFirstDone: number;
+  otFirstPlanned: number;
+  otSecondDone: number;
+  otSecondPlanned: number;
+  sessionCounts: LessonSessionCounts;
 }
 
 interface ClassDetail {
   id: number;
   title: string;
+  type: string | null;
   startTime: string;
   endTime: string;
   room: string | null;
@@ -50,6 +66,13 @@ const ROLE_LABEL: Record<string, string> = {
   fc: '트레이너',
   staff: '직원',
 };
+
+const textOf = (...values: unknown[]) =>
+  values
+    .filter((value): value is string | number => typeof value === 'string' || typeof value === 'number')
+    .map(value => String(value).trim().toLowerCase())
+    .filter(Boolean)
+    .join(' ');
 
 /** 기간 계산 */
 const getPeriodRange = (key: string, customStart: string, customEnd: string) => {
@@ -101,7 +124,7 @@ export default function InstructorStatus() {
     // 기간 내 수업 조회
     const { data: classes } = await supabase
       .from('classes')
-      .select('id, staffId, startTime, endTime, capacity')
+      .select('id, title, type, staffId, startTime, endTime, capacity')
       .eq('branchId', branchId)
       .gte('startTime', `${start}T00:00:00`)
       .lte('startTime', `${end}T23:59:59`);
@@ -140,28 +163,66 @@ export default function InstructorStatus() {
     }
 
     // 강사별 수업 수 + 근무시간 집계
-    const classCountMap: Record<number, { count: number; minutes: number }> = {};
+    const classCountMap: Record<number, { count: number; minutes: number; sessionCounts: LessonSessionCounts }> = {};
     for (const c of (classes ?? []) as any[]) {
       if (!c.staffId) continue;
-      const prev = classCountMap[c.staffId] ?? { count: 0, minutes: 0 };
+      const prev = classCountMap[c.staffId] ?? { count: 0, minutes: 0, sessionCounts: createLessonSessionCounts() };
       const start_ = new Date(c.startTime);
       const end_ = new Date(c.endTime);
       const min = Math.round((end_.getTime() - start_.getTime()) / 60000);
-      classCountMap[c.staffId] = { count: prev.count + 1, minutes: prev.minutes + (min > 0 ? min : 0) };
+      const sessionType = deriveLessonSessionType(c.type, c.title);
+      if (sessionType !== '기타') prev.sessionCounts[sessionType] += 1;
+      classCountMap[c.staffId] = { count: prev.count + 1, minutes: prev.minutes + (min > 0 ? min : 0), sessionCounts: prev.sessionCounts };
     }
 
     // 강사별 매출 기여 집계
     const salesAmountMap: Record<string, number> = {};
+    const newRevenueMap: Record<string, number> = {};
+    const renewalRevenueMap: Record<string, number> = {};
     const { data: salesData } = await supabase
       .from('sales')
-      .select('staffName, amount')
+      .select('staffName, amount, round, type')
       .eq('branchId', branchId)
       .gte('saleDate', start)
       .lte('saleDate', end);
     if (salesData) {
       for (const sale of salesData as any[]) {
         if (!sale.staffName) continue;
-        salesAmountMap[sale.staffName] = (salesAmountMap[sale.staffName] ?? 0) + (sale.amount ?? 0);
+        const amount = Number(sale.amount) || 0;
+        salesAmountMap[sale.staffName] = (salesAmountMap[sale.staffName] ?? 0) + amount;
+        if (sale.round === '신규') newRevenueMap[sale.staffName] = (newRevenueMap[sale.staffName] ?? 0) + amount;
+        if (sale.round === '재등록') renewalRevenueMap[sale.staffName] = (renewalRevenueMap[sale.staffName] ?? 0) + amount;
+      }
+    }
+
+    // 트레이너별 OT 1/2차 완료·예정 집계
+    const otMap: Record<string, { assigned: number; firstDone: number; firstPlanned: number; secondDone: number; secondPlanned: number }> = {};
+    const { data: otData, error: otError } = await supabase
+      .from('consultations')
+      .select('staffName, type, status, result')
+      .eq('branchId', branchId)
+      .gte('scheduledAt', `${start}T00:00:00`)
+      .lte('scheduledAt', `${end}T23:59:59`);
+
+    if (!otError && otData) {
+      for (const row of otData as any[]) {
+        const typeText = textOf(row.type);
+        if (!typeText.includes('ot') && !typeText.includes('오티')) continue;
+        const staffName = row.staffName || '미지정';
+        const prev = otMap[staffName] ?? { assigned: 0, firstDone: 0, firstPlanned: 0, secondDone: 0, secondPlanned: 0 };
+        const fullText = textOf(row.type, row.status, row.result);
+        const isSecond = fullText.includes('2차') || fullText.includes('second');
+        const isDone = fullText.includes('완료') || fullText.includes('completed') || fullText.includes('등록');
+        const isPlanned = fullText.includes('예정') || fullText.includes('예약') || fullText.includes('scheduled');
+        prev.assigned += 1;
+        if (isSecond) {
+          if (isDone) prev.secondDone += 1;
+          else if (isPlanned || !isDone) prev.secondPlanned += 1;
+        } else {
+          if (isDone) prev.firstDone += 1;
+          else if (isPlanned || !isDone) prev.firstPlanned += 1;
+        }
+        otMap[staffName] = prev;
       }
     }
 
@@ -182,6 +243,14 @@ export default function InstructorStatus() {
         ? Math.round(((bookingStatsMap[s.id]?.noShowCount ?? 0) / bookingStatsMap[s.id].bookingCount) * 100)
         : 0,
       salesAmount: salesAmountMap[s.name] ?? 0,
+      newRevenue: newRevenueMap[s.name] ?? 0,
+      renewalRevenue: renewalRevenueMap[s.name] ?? 0,
+      otAssigned: otMap[s.name]?.assigned ?? 0,
+      otFirstDone: otMap[s.name]?.firstDone ?? 0,
+      otFirstPlanned: otMap[s.name]?.firstPlanned ?? 0,
+      otSecondDone: otMap[s.name]?.secondDone ?? 0,
+      otSecondPlanned: otMap[s.name]?.secondPlanned ?? 0,
+      sessionCounts: classCountMap[s.id]?.sessionCounts ?? createLessonSessionCounts(),
     }));
 
     setInstructors(stats);
@@ -206,7 +275,7 @@ export default function InstructorStatus() {
     const { start, end } = getPeriodRange(period, customStart, customEnd);
     const { data } = await supabase
       .from('classes')
-      .select('id, title, startTime, endTime, room, capacity')
+      .select('id, title, type, startTime, endTime, room, capacity')
       .eq('branchId', branchId)
       .eq('staffId', instr.id)
       .gte('startTime', `${start}T00:00:00`)
@@ -346,6 +415,51 @@ export default function InstructorStatus() {
                   ₩{(instr.salesAmount / 10000).toFixed(1)}만
                 </p>
               </div>
+
+              <div className="mt-sm grid grid-cols-2 gap-xs">
+                <div className="rounded-lg border border-line bg-surface px-sm py-xs">
+                  <p className="text-[10px] text-content-tertiary">신규 매출</p>
+                  <p className="text-[13px] font-semibold text-content">₩{(instr.newRevenue / 10000).toFixed(1)}만</p>
+                </div>
+                <div className="rounded-lg border border-line bg-surface px-sm py-xs">
+                  <p className="text-[10px] text-content-tertiary">재등록 매출</p>
+                  <p className="text-[13px] font-semibold text-content">₩{(instr.renewalRevenue / 10000).toFixed(1)}만</p>
+                </div>
+              </div>
+
+              <div className="mt-sm rounded-lg border border-[#b8d6ff] bg-[#f8fbff] px-sm py-xs">
+                <div className="mb-[4px] flex items-center justify-between">
+                  <p className="text-[10px] font-semibold text-[#305f9f]">OT 진행 현황</p>
+                  <span className="text-[10px] text-[#5478a9]">배정 {instr.otAssigned}건</span>
+                </div>
+                <div className="grid grid-cols-2 gap-[4px] text-center">
+                  <div className="rounded bg-white px-[4px] py-[5px]">
+                    <p className="text-[9px] text-content-tertiary">1차 완료</p>
+                    <p className="text-[11px] font-semibold text-content">{instr.otFirstDone}</p>
+                  </div>
+                  <div className="rounded bg-white px-[4px] py-[5px]">
+                    <p className="text-[9px] text-content-tertiary">1차 예정</p>
+                    <p className="text-[11px] font-semibold text-content">{instr.otFirstPlanned}</p>
+                  </div>
+                  <div className="rounded bg-white px-[4px] py-[5px]">
+                    <p className="text-[9px] text-content-tertiary">2차 완료</p>
+                    <p className="text-[11px] font-semibold text-content">{instr.otSecondDone}</p>
+                  </div>
+                  <div className="rounded bg-white px-[4px] py-[5px]">
+                    <p className="text-[9px] text-content-tertiary">2차 예정</p>
+                    <p className="text-[11px] font-semibold text-content">{instr.otSecondPlanned}</p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="mt-sm grid grid-cols-4 gap-[4px]">
+                {LESSON_SESSION_TYPES.map((sessionType) => (
+                  <div key={sessionType} className="rounded-md bg-surface-secondary px-[4px] py-[5px] text-center">
+                    <p className="text-[9px] text-content-tertiary">{formatLessonSessionType(sessionType)}</p>
+                    <p className="text-[11px] font-semibold text-content">{instr.sessionCounts[sessionType]}</p>
+                  </div>
+                ))}
+              </div>
             </button>
           ))}
         </div>
@@ -372,7 +486,9 @@ export default function InstructorStatus() {
                     <BookOpen size={14} className="text-primary shrink-0" />
                     <div>
                       <p className="text-[13px] font-medium text-content">{cls.title}</p>
-                      <p className="text-[11px] text-content-tertiary">{dateStr} · {startStr}~{endStr}{cls.room ? ` · ${cls.room}` : ''}</p>
+                      <p className="text-[11px] text-content-tertiary">
+                        {formatLessonSessionType(deriveLessonSessionType(cls.type, cls.title))} · {dateStr} · {startStr}~{endStr}{cls.room ? ` · ${cls.room}` : ''}
+                      </p>
                     </div>
                   </div>
                   <span className="text-[12px] text-content-secondary shrink-0">{cls.capacity}명</span>

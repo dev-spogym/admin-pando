@@ -1,7 +1,7 @@
 'use client';
 export const dynamic = 'force-dynamic';
 
-import React, { useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Activity,
   BellRing,
@@ -12,6 +12,7 @@ import {
   Coins,
   LayoutDashboard,
   MessageSquare,
+  RefreshCw,
   ShieldAlert,
   Sparkles,
   Target,
@@ -32,12 +33,27 @@ import { normalizeRole } from "@/lib/permissions";
 
 type BoardKey = "hq" | "branch" | "fc" | "trainer" | "operations";
 type Tone = "success" | "info" | "default" | "error";
+type MetricIconKey =
+  | "activity"
+  | "bell"
+  | "building"
+  | "calendar"
+  | "coins"
+  | "message"
+  | "refresh"
+  | "shield"
+  | "target"
+  | "trending"
+  | "userCheck"
+  | "users"
+  | "alert";
 
 interface HeroMetric {
   label: string;
   value: string;
   description: string;
-  icon: React.ReactNode;
+  icon?: React.ReactNode;
+  iconKey?: MetricIconKey;
   variant?: "default" | "mint" | "peach";
 }
 
@@ -60,6 +76,23 @@ interface FunnelItem {
   change: string;
 }
 
+interface RuleStatusItem {
+  label: string;
+  status: string;
+  tone: Tone;
+}
+
+interface GoalItem {
+  label: string;
+  rate: string;
+}
+
+interface RiskItem {
+  label: string;
+  count: string;
+  tone: Tone;
+}
+
 interface BoardContent {
   subtitle: string;
   metrics: HeroMetric[];
@@ -71,6 +104,21 @@ interface BoardContent {
   funnel: FunnelItem[];
   insightTitle: string;
   insights: string[];
+  rules?: RuleStatusItem[];
+  goals?: GoalItem[];
+  risks?: RiskItem[];
+}
+
+interface KpiCenterResponse {
+  ok: boolean;
+  source: "supabase";
+  seeded: boolean;
+  branchId: number;
+  branchName: string;
+  snapshotDate: string;
+  updatedAt: string;
+  boards: Record<BoardKey, BoardContent>;
+  error?: string;
 }
 
 const boardTabs = [
@@ -81,6 +129,40 @@ const boardTabs = [
   { key: "operations", label: "운영", icon: BellRing },
 ];
 
+const metricIconMap: Record<MetricIconKey, React.ReactNode> = {
+  activity: <Activity />,
+  bell: <BellRing />,
+  building: <Building2 />,
+  calendar: <CalendarDays />,
+  coins: <Coins />,
+  message: <MessageSquare />,
+  refresh: <RefreshCw />,
+  shield: <ShieldAlert />,
+  target: <Target />,
+  trending: <TrendingUp />,
+  userCheck: <UserCheck />,
+  users: <Users />,
+  alert: <CircleAlert />,
+};
+
+const DEFAULT_RULES: RuleStatusItem[] = [
+  { label: "Welcome Flow", status: "정상", tone: "success" },
+  { label: "만료 예정 리마인드", status: "정상", tone: "success" },
+  { label: "Today Tasks 배정", status: "정상", tone: "success" },
+];
+
+const DEFAULT_GOALS: GoalItem[] = [
+  { label: "신규 상담 12건", rate: "67%" },
+  { label: "재등록 8건", rate: "50%" },
+  { label: "노쇼 복구 3건", rate: "33%" },
+];
+
+const DEFAULT_RISKS: RiskItem[] = [
+  { label: "10일 미방문 + PT 잔여", count: "6명", tone: "error" },
+  { label: "만료 D-1 미응답", count: "4명", tone: "info" },
+  { label: "리드 미응답 30분 초과", count: "3건", tone: "error" },
+];
+
 const boardContents: Record<BoardKey, BoardContent> = {
   hq: {
     subtitle: "전사 성장률, 지점 비교, 이탈위험, 자동화 효율을 한 번에 관리합니다.",
@@ -89,10 +171,14 @@ const boardContents: Record<BoardKey, BoardContent> = {
       { label: "전사 활성 회원", value: "3,241명", description: "전 지점 활성 회원 합계", icon: <Users />, variant: "mint" },
       { label: "지점 성과 랭킹 1위", value: "강남점", description: "목표 달성 121%", icon: <TrendingUp /> },
       { label: "FC 상담 전환율 평균", value: "37.2%", description: "전 지점 FC 평균", icon: <MessageSquare /> },
+      { label: "전사 환불 규모", value: "2,840만원", description: "지점별 환불액 SUM + 분산", icon: <CircleAlert />, variant: "peach" },
+      { label: "전사 재등록률", value: "58.6%", description: "전지점 등록 / 재등록 상담", icon: <RefreshCw /> },
+      { label: "매출 편차율", value: "18%", description: "지점 간 매출 표준편차 기준", icon: <Activity /> },
     ],
     queueTitle: "본사 액션 큐",
     queue: [
-      { title: "재등록률 40% 이하 지점 코칭", owner: "운영총괄", due: "오늘 14:00", level: "error" },
+      { title: "재등록 성공률 40% 이하 지점 코칭", owner: "운영총괄", due: "오늘 14:00", level: "error" },
+      { title: "환불 집중 지점 본사 개입 검토", owner: "운영총괄", due: "오늘", level: "error" },
       { title: "신규 리드 응답 지연 지점 점검", owner: "CRM 매니저", due: "오늘 16:00", level: "info" },
       { title: "4월 자동알림 시나리오 승인", owner: "마케팅", due: "내일", level: "default" },
       { title: "운영비 급증 지점 원인 확인", owner: "재무", due: "이번 주", level: "success" },
@@ -102,7 +188,7 @@ const boardContents: Record<BoardKey, BoardContent> = {
       { label: "강남점", value: "목표 달성 121%", delta: "+18%" },
       { label: "송도점", value: "유지율 92.4%", delta: "+6%" },
       { label: "분당점", value: "PT 재구매 38%", delta: "+9%" },
-      { label: "마곡점", value: "자동화 실행률 94%", delta: "+11%" },
+      { label: "전지점 표준편차", value: "860만원", delta: "매출 격차 정량화" },
     ],
     funnelTitle: "전사 퍼널 요약",
     funnel: [
@@ -115,7 +201,8 @@ const boardContents: Record<BoardKey, BoardContent> = {
     insights: [
       "PT 재구매율은 강남/분당에서 강하고, 송도/마곡은 체험 참여율이 더 높습니다.",
       "리드 응답 속도 30분 이내 지점이 등록 전환율에서도 상위권을 유지하고 있습니다.",
-      "자동화 규칙이 켜진 지점은 만료 D-7 응답률이 평균보다 높습니다.",
+      "환불 규모가 평균보다 높은 지점은 고객 불만·결제 오류·계약 이슈를 분리해 본사 개입 여부를 판단합니다.",
+      "매출 편차율이 커지면 운영 표준화와 지점 교육 우선순위를 재조정합니다.",
     ],
   },
   branch: {
@@ -123,12 +210,12 @@ const boardContents: Record<BoardKey, BoardContent> = {
     metrics: [
       { label: "이번달 매출", value: "3,840만원", description: "월 목표 84% 달성", icon: <Coins />, variant: "peach" },
       { label: "신규 등록", value: "28명", description: "이번달 신규 회원", icon: <Users />, variant: "mint" },
-      { label: "재등록률", value: "61.2%", description: "만료 후 재등록 비율", icon: <CalendarDays /> },
+      { label: "재등록 성공률", value: "61.2%", description: "등록 / 재등록 상담 전체", icon: <CalendarDays /> },
       { label: "미수금 총액", value: "420만원", description: "미결제 누적 금액", icon: <ShieldAlert /> },
     ],
     queueTitle: "오늘 우선 액션",
     queue: [
-      { title: "만료 D-7 회원 재등록 상담 배정", owner: "FC팀", due: "오늘", level: "error" },
+      { title: "만료 예정 회원 재등록 상담 배정", owner: "FC팀", due: "오늘", level: "error" },
       { title: "PT 노쇼 3건 복구 메시지 발송", owner: "트레이너", due: "오늘", level: "info" },
       { title: "저녁 시간대 GX 증설 여부 확인", owner: "운영", due: "오늘", level: "default" },
       { title: "미수금 회원 2건 결제 일정 확인", owner: "프론트", due: "18:00", level: "success" },
@@ -158,9 +245,9 @@ const boardContents: Record<BoardKey, BoardContent> = {
     subtitle: "FC가 신규 리드와 재등록 리스트를 놓치지 않도록 응대 큐와 전환 지표 중심으로 구성합니다.",
     metrics: [
       { label: "신규 리드", value: "34건", description: "오늘 유입 / 미응답 5건", icon: <Users />, variant: "mint" },
-      { label: "상담 전환율", value: "37%", description: "주간 기준 / 목표 40%", icon: <MessageSquare /> },
-      { label: "WI 등록률", value: "52%", description: "체험→WI 전환율", icon: <TrendingUp />, variant: "peach" },
-      { label: "TI 등록률", value: "29%", description: "WI→TI(정식) 전환율", icon: <BellRing /> },
+      { label: "TI 방문 전환율", value: "37%", description: "전화문의 중 대면 상담 전환", icon: <MessageSquare /> },
+      { label: "WI 등록률", value: "52%", description: "방문문의 중 등록 완료", icon: <TrendingUp />, variant: "peach" },
+      { label: "TI 등록률", value: "29%", description: "전화문의 중 등록 완료", icon: <BellRing /> },
     ],
     queueTitle: "FC 실행 큐",
     queue: [
@@ -169,12 +256,12 @@ const boardContents: Record<BoardKey, BoardContent> = {
       { title: "만료 D-1 회원 재등록 제안", owner: "나", due: "오늘", level: "default" },
       { title: "상담 결과 미기입 2건 정리", owner: "나", due: "퇴근 전", level: "success" },
     ],
-    rankingTitle: "오늘의 리스트",
+    rankingTitle: "FC 개인 KPI",
     ranking: [
-      { label: "체험 후 미등록", value: "7명", delta: "고위험" },
-      { label: "만료 D-7", value: "11명", delta: "우선" },
-      { label: "장기 미방문", value: "9명", delta: "회복 대상" },
-      { label: "상담 예약", value: "6건", delta: "오늘 일정" },
+      { label: "상담 건수", value: "34건", delta: "담당자별" },
+      { label: "상담→등록률", value: "29%", delta: "등록 / 전체" },
+      { label: "등록 건수", value: "10건", delta: "A열=등록" },
+      { label: "미응답 리드", value: "5건", delta: "즉시 처리" },
     ],
     funnelTitle: "FC 퍼널",
     funnel: [
@@ -187,16 +274,16 @@ const boardContents: Record<BoardKey, BoardContent> = {
     insights: [
       "리드 유입은 충분하지만 첫 응답 속도 편차가 커서 예약률이 흔들리고 있습니다.",
       "체험 완료 회원의 후속조치 메모가 정리되면 등록 전환 관리가 쉬워집니다.",
-      "만료 D-7 회원 중 출석 빈도가 높은 회원은 재등록 가능성이 높습니다.",
+      "만료 예정 회원 중 출석 빈도가 높은 회원은 재등록 가능성이 높습니다.",
     ],
   },
   trainer: {
     subtitle: "트레이너가 회원 세션 상태, 노쇼 복구, 재구매 기회를 바로 확인할 수 있도록 구성합니다.",
     metrics: [
       { label: "이번달 PT 매출", value: "1,280만원", description: "개인 PT 누적 매출", icon: <Coins />, variant: "peach" },
-      { label: "담당 회원수", value: "42명", description: "현재 활성 PT 회원", icon: <Users />, variant: "mint" },
-      { label: "OT 전환율", value: "64%", description: "OT→정식 PT 전환", icon: <Activity /> },
-      { label: "체험→구매 전환율", value: "27%", description: "체험 후 PT 구매 비율", icon: <TrendingUp /> },
+      { label: "OT 배정 합계", value: "18건", description: "[강습업무보고] E열 합계", icon: <Users />, variant: "mint" },
+      { label: "OT 등록 전환율", value: "64%", description: "등록 / OT 진행", icon: <Activity /> },
+      { label: "OT 체험→등록률", value: "27%", description: "OT 체험 등록 / 체험 대상", icon: <TrendingUp /> },
     ],
     queueTitle: "트레이너 액션 큐",
     queue: [
@@ -205,12 +292,12 @@ const boardContents: Record<BoardKey, BoardContent> = {
       { title: "체험 회원 후기 회수", owner: "나", due: "오늘", level: "default" },
       { title: "주간 소화율 70% 미만 회원 체크", owner: "나", due: "이번 주", level: "success" },
     ],
-    rankingTitle: "회원 상태",
+    rankingTitle: "트레이너 개인 KPI",
     ranking: [
-      { label: "완강 임박", value: "8명", delta: "잔여 3회 이하" },
-      { label: "노쇼 위험", value: "4명", delta: "최근 2주" },
-      { label: "체험 예정", value: "5명", delta: "이번 주" },
-      { label: "리뷰 요청", value: "6명", delta: "세션 완료 후" },
+      { label: "신규 매출", value: "520만원", delta: "주간신규" },
+      { label: "재등록 매출", value: "760만원", delta: "주간재등록" },
+      { label: "OT 1차 예정", value: "5건", delta: "이번 주" },
+      { label: "OT 2차 예정", value: "3건", delta: "후속 진행" },
     ],
     funnelTitle: "PT 퍼널",
     funnel: [
@@ -230,7 +317,7 @@ const boardContents: Record<BoardKey, BoardContent> = {
     subtitle: "자동알림, Today Tasks, 중복방지, 운영 로그 상태를 한 화면에서 관리합니다.",
     metrics: [
       { label: "오늘 출석", value: "187명", description: "오늘 센터 출석 회원수", icon: <UserCheck />, variant: "mint" },
-      { label: "만료 예정 D-7", value: "49명", description: "7일 내 이용권 만료 회원", icon: <CalendarDays /> },
+      { label: "만료 예정", value: "49명", description: "30일 내 이용권 만료 회원", icon: <CalendarDays /> },
       { label: "미결제 건수", value: "12건", description: "미수금 처리 대기 건수", icon: <CircleAlert />, variant: "peach" },
       { label: "이번달 GX 가동률", value: "78%", description: "GX 수업 정원 대비 출석률", icon: <Activity /> },
     ],
@@ -277,6 +364,15 @@ function defaultBoardKey(role: string, isSuperAdmin: boolean): BoardKey {
   return "branch";
 }
 
+function getKstDateLabel() {
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Seoul",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(new Date());
+}
+
 function ActionQueue({ title, items }: { title: string; items: QueueItem[] }) {
   return (
     <div className="rounded-xl border border-line bg-surface p-lg">
@@ -321,7 +417,7 @@ function RankingPanel({ title, items }: { title: string; items: RankingItem[] })
       </div>
       <div className="space-y-sm">
         {items.map((item, index) => (
-          <div key={item.label} className="flex items-center justify-between rounded-xl border border-line bg-surface-secondary/50 px-md py-sm">
+          <div key={`${item.label}-${index}`} className="flex items-center justify-between rounded-xl border border-line bg-surface-secondary/50 px-md py-sm">
             <div className="flex items-center gap-sm">
               <div className="flex h-7 w-7 items-center justify-center rounded-full bg-primary/10 text-[12px] font-bold text-primary">
                 {index + 1}
@@ -378,10 +474,47 @@ export default function KpiPreviewCenter() {
   const isSuperAdmin = authUser?.isSuperAdmin ?? false;
   const initialBoard = defaultBoardKey(authUser?.role ?? "", isSuperAdmin);
   const [activeBoard, setActiveBoard] = useState<BoardKey>(initialBoard);
+  const [contents, setContents] = useState<Record<BoardKey, BoardContent>>(boardContents);
+  const [snapshotDate, setSnapshotDate] = useState(getKstDateLabel);
+  const [updatedAt, setUpdatedAt] = useState<string | null>(null);
+  const [dataLoading, setDataLoading] = useState(false);
+  const [dataError, setDataError] = useState<string | null>(null);
 
-  const board = boardContents[activeBoard];
+  const branchId = Number(authUser?.currentBranchId ?? authUser?.branchId ?? 1) || 1;
+  const board = contents[activeBoard] ?? boardContents[activeBoard];
+  const boardRules = board.rules ?? DEFAULT_RULES;
+  const boardGoals = board.goals ?? DEFAULT_GOALS;
+  const boardRisks = board.risks ?? DEFAULT_RISKS;
   const branchName = authUser?.branchName || "센터";
   const userLabel = isSuperAdmin ? "본사 운영" : `${branchName} 운영`;
+  const updatedAtLabel = updatedAt
+    ? new Date(updatedAt).toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit" })
+    : "동기화 대기";
+
+  const fetchKpiCenter = useCallback(async (force = false) => {
+    setDataLoading(true);
+    setDataError(null);
+    try {
+      const response = await fetch(`/api/kpi-center?branchId=${branchId}${force ? "&force=1" : ""}`, {
+        cache: "no-store",
+      });
+      const payload = await response.json() as KpiCenterResponse;
+      if (!response.ok || !payload.ok) {
+        throw new Error(payload.error ?? "KPI 센터 데이터를 불러오지 못했습니다.");
+      }
+      setContents(payload.boards);
+      setSnapshotDate(payload.snapshotDate);
+      setUpdatedAt(payload.updatedAt);
+    } catch (error) {
+      setDataError(error instanceof Error ? error.message : "KPI 센터 데이터를 불러오지 못했습니다.");
+    } finally {
+      setDataLoading(false);
+    }
+  }, [branchId]);
+
+  useEffect(() => {
+    fetchKpiCenter();
+  }, [fetchKpiCenter]);
 
   return (
     <AppLayout>
@@ -390,6 +523,14 @@ export default function KpiPreviewCenter() {
         description={`${userLabel}에서 성장, CRM, PT, 운영 지표를 한 화면에서 확인하고 바로 액션으로 연결합니다.`}
         actions={
           <>
+            <button
+              className="flex items-center gap-xs rounded-button border border-line bg-surface px-md py-sm text-[13px] font-medium text-content-secondary hover:bg-surface-secondary disabled:opacity-60"
+              disabled={dataLoading}
+              onClick={() => fetchKpiCenter(true)}
+            >
+              <RefreshCw size={14} className={dataLoading ? "animate-spin" : ""} />
+              샘플 재생성
+            </button>
             <button
               className="flex items-center gap-xs rounded-button border border-line bg-surface px-md py-sm text-[13px] font-medium text-content-secondary hover:bg-surface-secondary"
               onClick={() => moveToPage(992)}
@@ -425,8 +566,19 @@ export default function KpiPreviewCenter() {
           <TabNav tabs={boardTabs} activeTab={activeBoard} onTabChange={(key) => setActiveBoard(key as BoardKey)} />
           <span className="inline-flex items-center gap-[6px] rounded-full bg-accent-light px-md py-[6px] text-[12px] font-semibold text-accent">
             <CalendarDays size={13} />
-            2026-04-09 기준
+            {snapshotDate} 기준
           </span>
+          {dataError ? (
+            <span className="inline-flex items-center gap-[6px] rounded-full bg-red-50 px-md py-[6px] text-[12px] font-semibold text-state-error">
+              <CircleAlert size={13} />
+              Supabase 동기화 실패
+            </span>
+          ) : (
+            <span className="inline-flex items-center gap-[6px] rounded-full bg-emerald-50 px-md py-[6px] text-[12px] font-semibold text-state-success">
+              <Sparkles size={13} />
+              Supabase snapshot
+            </span>
+          )}
         </div>
       </PageHeader>
 
@@ -440,7 +592,7 @@ export default function KpiPreviewCenter() {
               </span>
               <span className="inline-flex items-center gap-[6px] rounded-full bg-surface px-md py-[6px] text-[12px] font-semibold text-content-secondary">
                 <TrendingUp size={13} />
-                업데이트 09:00
+                업데이트 {updatedAtLabel}
               </span>
             </div>
             <h2 className="text-[28px] font-bold tracking-tight text-content">
@@ -466,7 +618,7 @@ export default function KpiPreviewCenter() {
               <div key={metric.label} className="rounded-xl border border-line bg-surface/90 p-md">
                 <div className="mb-sm flex items-center justify-between">
                   <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10 text-primary">
-                    {metric.icon}
+                    {metric.icon ?? metricIconMap[metric.iconKey ?? "target"]}
                   </div>
                   <StatusBadge variant="info">LIVE</StatusBadge>
                 </div>
@@ -483,7 +635,7 @@ export default function KpiPreviewCenter() {
       <div className="mb-lg grid gap-md sm:grid-cols-2 xl:grid-cols-5">
         {boardTabs.map((tab) => {
           const bKey = tab.key as BoardKey;
-          const bContent = boardContents[bKey];
+          const bContent = contents[bKey] ?? boardContents[bKey];
           const isActive = activeBoard === bKey;
           const boardIcons: Record<BoardKey, string> = {
             hq: "🏢",
@@ -588,14 +740,10 @@ export default function KpiPreviewCenter() {
             <span className="text-[13px] font-semibold">규칙 운영 상태</span>
           </div>
           <div className="space-y-sm">
-            {[
-              ["Welcome Flow", "정상"],
-              ["만료 D-7 리마인드", "정상"],
-              ["Today Tasks 배정", "정상"],
-            ].map(([label, status]) => (
-              <div key={label} className="flex items-center justify-between rounded-lg bg-surface-secondary/50 px-md py-sm">
-                <span className="text-[12px] text-content-secondary">{label}</span>
-                <StatusBadge variant={status === "관심" ? "info" : "success"}>{status}</StatusBadge>
+            {boardRules.map((item) => (
+              <div key={item.label} className="flex items-center justify-between rounded-lg bg-surface-secondary/50 px-md py-sm">
+                <span className="text-[12px] text-content-secondary">{item.label}</span>
+                <StatusBadge variant={toneVariant(item.tone)}>{item.status}</StatusBadge>
               </div>
             ))}
           </div>
@@ -607,11 +755,7 @@ export default function KpiPreviewCenter() {
             <span className="text-[13px] font-semibold">오늘의 목표</span>
           </div>
           <div className="space-y-sm">
-            {[
-              { label: "신규 상담 12건", rate: "67%" },
-              { label: "재등록 8건", rate: "50%" },
-              { label: "노쇼 복구 3건", rate: "33%" },
-            ].map((item) => (
+            {boardGoals.map((item) => (
               <div key={item.label}>
                 <div className="mb-[6px] flex items-center justify-between text-[12px]">
                   <span className="text-content-secondary">{item.label}</span>
@@ -631,11 +775,7 @@ export default function KpiPreviewCenter() {
             <span className="text-[13px] font-semibold">위험 감지</span>
           </div>
           <div className="space-y-sm">
-            {[
-              { label: "10일 미방문 + PT 잔여", count: "6명", tone: "error" as Tone },
-              { label: "만료 D-1 미응답", count: "4명", tone: "info" as Tone },
-              { label: "리드 미응답 30분 초과", count: "3건", tone: "error" as Tone },
-            ].map((item) => (
+            {boardRisks.map((item) => (
               <div key={item.label} className="flex items-center justify-between rounded-lg bg-surface-secondary/50 px-md py-sm">
                 <span className="text-[12px] text-content-secondary">{item.label}</span>
                 <StatusBadge variant={toneVariant(item.tone)}>{item.count}</StatusBadge>

@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { supabaseAdmin, randomInt, randomPick, randomKoreanName, randomPhone } from '@/lib/simulator/utils'
+import { PUBLISHING_SEED_ROUTES } from '@/lib/publishingPageSeed'
 
 const LEAD_SOURCES = ['온라인', '전화', '방문', '인스타그램', '네이버'] as const
 const LEAD_STATUSES = ['신규', '상담예약', '상담완료'] as const
@@ -70,6 +71,55 @@ export async function GET() {
   }
 
   results.leads = { inserted: leadsInserted.length, names: leadsInserted }
+
+  // 4. KPI 센터 오늘자 Supabase snapshot 보장
+  try {
+    const res = await fetch(`${base}/api/kpi-center?branchId=${branchId}`, {
+      method: 'GET',
+      headers: { 'Content-Type': 'application/json' },
+    })
+    results.kpiCenter = await res.json()
+  } catch (err) {
+    results.kpiCenter = { ok: false, error: err instanceof Error ? err.message : String(err) }
+  }
+
+  // 5. 퍼블리싱 전용 화면의 지점별 일일 Supabase snapshot 보장
+  try {
+    const { data: branches } = await supabaseAdmin
+      .from('branches')
+      .select('id')
+      .order('id', { ascending: true })
+
+    let seeded = 0
+    let failed = 0
+
+    for (const branch of branches ?? [{ id: branchId }]) {
+      for (const route of PUBLISHING_SEED_ROUTES) {
+        const params = new URLSearchParams({
+          route,
+          branchId: String(branch.id),
+        })
+
+        const res = await fetch(`${base}/api/page-seed?${params.toString()}`, {
+          method: 'GET',
+          headers: { 'Content-Type': 'application/json' },
+        })
+
+        if (res.ok) seeded++
+        else failed++
+      }
+    }
+
+    results.publishingSeeds = {
+      ok: failed === 0,
+      routes: PUBLISHING_SEED_ROUTES.length,
+      branches: branches?.length ?? 1,
+      seeded,
+      failed,
+    }
+  } catch (err) {
+    results.publishingSeeds = { ok: false, error: err instanceof Error ? err.message : String(err) }
+  }
 
   return NextResponse.json({ ok: true, scenario: 'morning', timestamp: new Date().toISOString(), results })
 }

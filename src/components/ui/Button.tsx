@@ -18,21 +18,21 @@ export interface ButtonProps
 
 const VARIANT_CLASSES: Record<NonNullable<ButtonProps["variant"]>, string> = {
   primary:
-    "bg-primary text-white hover:opacity-90 active:opacity-80 focus-visible:ring-2 focus-visible:ring-primary/40",
+    "bg-gradient-to-r from-primary to-[#ff907f] text-white shadow-sm hover:-translate-y-[1px] hover:shadow-float active:translate-y-0 focus-visible:ring-2 focus-visible:ring-primary/30",
   secondary:
-    "bg-surface-secondary text-content hover:bg-surface-tertiary active:bg-surface-tertiary focus-visible:ring-2 focus-visible:ring-line",
+    "app-control text-content hover:border-primary/30 hover:bg-white active:bg-surface-secondary focus-visible:ring-2 focus-visible:ring-primary/15",
   outline:
-    "border border-line bg-transparent text-content hover:bg-surface-secondary active:bg-surface-tertiary focus-visible:ring-2 focus-visible:ring-line",
+    "border border-line/80 bg-white/72 text-content shadow-[inset_0_1px_0_rgba(255,255,255,0.7)] hover:border-primary/35 hover:bg-white active:bg-surface-secondary focus-visible:ring-2 focus-visible:ring-primary/15",
   ghost:
-    "bg-transparent text-content hover:bg-surface-secondary active:bg-surface-tertiary focus-visible:ring-2 focus-visible:ring-line",
+    "bg-transparent text-content hover:bg-white/70 active:bg-surface-secondary focus-visible:ring-2 focus-visible:ring-primary/15",
   danger:
-    "bg-red-500 text-white hover:bg-red-600 active:bg-red-700 focus-visible:ring-2 focus-visible:ring-red-400/40",
+    "bg-gradient-to-r from-error to-[#ff7b7b] text-white shadow-sm hover:-translate-y-[1px] hover:shadow-float active:translate-y-0 focus-visible:ring-2 focus-visible:ring-error/30",
 };
 
 const SIZE_CLASSES: Record<NonNullable<ButtonProps["size"]>, string> = {
-  sm: "h-8 px-sm text-[12px] gap-xs rounded-button",
-  md: "h-[44px] px-md text-[13px] gap-xs rounded-button",
-  lg: "h-12 px-lg text-[14px] gap-sm rounded-lg",
+  sm: "h-9 px-sm text-[12px] gap-xs rounded-xl",
+  md: "h-10 px-md text-[13px] gap-xs rounded-2xl",
+  lg: "h-12 px-lg text-[14px] gap-sm rounded-2xl",
 };
 
 export default function Button({
@@ -54,7 +54,7 @@ export default function Button({
       aria-disabled={isDisabled}
       aria-busy={loading}
       className={cn(
-        "inline-flex items-center justify-center font-medium transition-all duration-150 outline-none select-none",
+        "inline-flex items-center justify-center font-semibold transition-all duration-150 outline-none select-none whitespace-nowrap",
         VARIANT_CLASSES[variant],
         SIZE_CLASSES[size],
         fullWidth && "w-full",

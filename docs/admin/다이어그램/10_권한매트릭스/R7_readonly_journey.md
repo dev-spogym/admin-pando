@@ -17,7 +17,7 @@ journey
       로그인 /login: 5: readonly
       지점 대시보드 조회(○) /: 4: readonly
       오늘의 할일 조회(○) /today-tasks: 4: readonly
-      KPI 프리뷰 조회(○) /kpi-preview: 4: readonly
+      KPI 센터 조회(○) /kpi-preview: 4: readonly
       공지사항 조회(○) /notices: 4: readonly
 
     section 회원 데이터 조회
@@ -50,7 +50,7 @@ journey
 |------|--------|:---:|------|
 | 대시보드 | `/` | ● | 버튼 비활성 |
 | 오늘의 할일 | `/today-tasks` | ● | 완료 버튼 비활성 |
-| KPI 프리뷰 | `/kpi-preview` | ● | |
+| KPI 센터 | `/kpi-preview` | ● | |
 | 공지사항 | `/notices` | ● | 등록 버튼 비활성 |
 | 출석 관리 | `/` | ● | 출석 처리 버튼 비활성 |
 | 회원 목록 | `/` | ○ | 등록 버튼 숨김 |

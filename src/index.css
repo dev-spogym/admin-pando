@@ -2,25 +2,109 @@
 @tailwind components;
 @tailwind utilities;
 
-* {
-  margin: 0;
-  padding: 0;
-  box-sizing: border-box;
+@layer base {
+  :root {
+    color-scheme: light;
+    --app-bg-top: rgba(255, 127, 110, 0.18);
+    --app-bg-right: rgba(72, 209, 204, 0.18);
+    --app-surface-strong: rgba(255, 255, 255, 0.92);
+    --app-surface-soft: rgba(255, 255, 255, 0.78);
+    --app-border-soft: rgba(148, 163, 184, 0.18);
+  }
+
+  * {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+  }
+
+  html {
+    min-height: 100%;
+    background: #f4f6fb;
+    scroll-behavior: smooth;
+  }
+
+  body {
+    min-height: 100vh;
+    font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    background:
+      radial-gradient(circle at left top, var(--app-bg-top), transparent 28%),
+      radial-gradient(circle at right top, var(--app-bg-right), transparent 22%),
+      linear-gradient(180deg, #fcfdfd 0%, #f5f7fb 44%, #eef3f9 100%);
+    color: #1e293b;
+  }
+
+  ::selection {
+    background: rgba(255, 127, 110, 0.22);
+    color: #1e293b;
+  }
+
+  button,
+  input,
+  select,
+  textarea {
+    font: inherit;
+  }
+
+  *::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+
+  *::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  *::-webkit-scrollbar-thumb {
+    border: 2px solid transparent;
+    border-radius: 9999px;
+    background: rgba(148, 163, 184, 0.4);
+    background-clip: padding-box;
+  }
+
+  *::-webkit-scrollbar-thumb:hover {
+    background: rgba(100, 116, 139, 0.55);
+    background-clip: padding-box;
+  }
 }
 
-body {
-  font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-  background-color: #F8FAFC;
-  color: #1E293B;
+@layer components {
+  .app-shell-frame {
+    background: linear-gradient(180deg, var(--app-surface-strong), var(--app-surface-soft));
+    border: 1px solid rgba(255, 255, 255, 0.72);
+    box-shadow: 0 32px 80px rgba(15, 23, 42, 0.1);
+    backdrop-filter: blur(18px);
+  }
+
+  .app-panel {
+    background: rgba(255, 255, 255, 0.84);
+    border: 1px solid var(--app-border-soft);
+    box-shadow: 0 16px 40px rgba(15, 23, 42, 0.06);
+    backdrop-filter: blur(14px);
+  }
+
+  .app-panel-muted {
+    background: rgba(248, 250, 252, 0.88);
+    border: 1px solid rgba(226, 232, 240, 0.9);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.7);
+  }
+
+  .app-chip {
+    @apply inline-flex items-center gap-1 rounded-full border border-line/80 bg-white/80 px-2.5 py-1 text-[11px] font-semibold text-content-secondary;
+  }
+
+  .app-control {
+    @apply border border-line/80 bg-white/80 shadow-[inset_0_1px_0_rgba(255,255,255,0.75)] backdrop-blur-sm;
+  }
 }
 
 #root {
   min-height: 100vh;
 }
 
-/* 다크모드 CSS 변수 */
+/* Dark mode variables */
 [data-theme="dark"] {
   --color-bg: #1F2937;
   --color-surface: #111827;
@@ -28,7 +112,6 @@ body {
   --color-border: #374151;
 }
 
-/* 스크롤바 최소화 */
 .scrollbar-hide::-webkit-scrollbar {
   display: none;
 }

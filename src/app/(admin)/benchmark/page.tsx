@@ -22,6 +22,11 @@ const avg = {
   newMember: Math.round(branches.reduce((s, b) => s + b.newMember, 0) / branches.length),
 };
 
+const revenueStdDev = Math.round(Math.sqrt(
+  branches.reduce((sum, branch) => sum + (branch.revenue - avg.revenue) ** 2, 0) / branches.length
+));
+const revenueVarianceRate = avg.revenue > 0 ? Math.round((revenueStdDev / avg.revenue) * 100) : 0;
+
 function Indicator({ value, avg }: { value: number; avg: number }) {
   const diff = value - avg;
   if (diff > 0) return <TrendingUp className="w-4 h-4 text-green-500 inline" />;
@@ -45,7 +50,7 @@ export default function BenchmarkPage() {
       <PageHeader title="벤치마크 비교" description="지점 간 핵심 지표를 비교해 우수 사례와 개선 포인트를 파악합니다" />
 
       {/* 업계 평균 기준선 */}
-      <div className="grid grid-cols-4 gap-4 mb-6">
+      <div className="grid grid-cols-1 md:grid-cols-3 xl:grid-cols-6 gap-4 mb-6">
         {metrics.map(m => (
           <div key={m.key} className="bg-white rounded-xl border border-gray-200 p-4">
             <p className="text-xs text-gray-500 mb-1">전체 평균 {m.label}</p>
@@ -54,6 +59,14 @@ export default function BenchmarkPage() {
             </p>
           </div>
         ))}
+        <div className="bg-white rounded-xl border border-gray-200 p-4">
+          <p className="text-xs text-gray-500 mb-1">전지점 매출 표준편차</p>
+          <p className="text-lg font-bold text-gray-800">{(revenueStdDev / 10000).toFixed(0)}만원</p>
+        </div>
+        <div className="bg-white rounded-xl border border-gray-200 p-4">
+          <p className="text-xs text-gray-500 mb-1">매출 편차율</p>
+          <p className="text-lg font-bold text-gray-800">{revenueVarianceRate}%</p>
+        </div>
       </div>
 
       {/* 지표 선택 */}
@@ -78,6 +91,7 @@ export default function BenchmarkPage() {
               <th className="text-right px-5 py-3 text-xs font-semibold text-gray-500">출석률</th>
               <th className="text-right px-5 py-3 text-xs font-semibold text-gray-500">재등록률</th>
               <th className="text-right px-5 py-3 text-xs font-semibold text-gray-500">신규</th>
+              <th className="text-right px-5 py-3 text-xs font-semibold text-gray-500">평균 대비</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100">
@@ -101,6 +115,9 @@ export default function BenchmarkPage() {
                 </td>
                 <td className="px-5 py-3.5 text-right text-sm text-gray-700">
                   {b.newMember}명 <Indicator value={b.newMember} avg={avg.newMember} />
+                </td>
+                <td className={`px-5 py-3.5 text-right text-sm font-semibold ${b.revenue >= avg.revenue ? 'text-green-600' : 'text-red-500'}`}>
+                  {b.revenue >= avg.revenue ? '+' : '-'}{Math.abs(Math.round(((b.revenue - avg.revenue) / avg.revenue) * 100))}%
                 </td>
               </tr>
             ))}

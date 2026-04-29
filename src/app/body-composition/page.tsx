@@ -31,6 +31,8 @@ import { formatNumber } from '@/lib/format';
 import Button from "@/components/ui/Button";
 import { supabase } from "@/lib/supabase";
 import { useSearchParams } from "next/navigation";
+import { getPreviewScenario, isPreviewMode } from "@/lib/preview";
+import { getPreviewBodyComposition } from "@/mocks/memberPreview";
 
 // ────────────────────────────────────────────────────────────
 // 타입 정의
@@ -341,6 +343,8 @@ function AnalysisRow({
 
 function BodyComposition() {
   const searchParams = useSearchParams();
+  const isPreview = isPreviewMode(searchParams);
+  const scenario = getPreviewScenario(searchParams, "default");
   const memberId = searchParams?.get("memberId") ?? "1";
 
   const [activeTab, setActiveTab] = useState("list");
@@ -349,6 +353,13 @@ function BodyComposition() {
 
   useEffect(() => {
     const fetchData = async () => {
+      if (isPreview) {
+        const previewData = getPreviewBodyComposition(Number(memberId), scenario);
+        setMemberInfo(previewData.memberInfo);
+        setMeasurements(previewData.measurements);
+        return;
+      }
+
       // 회원 정보 로드 (height, birthDate 포함)
       const { data: memberData } = await supabase
         .from('members')
@@ -392,7 +403,7 @@ function BodyComposition() {
       }
     };
     fetchData();
-  }, [memberId]);
+  }, [memberId, isPreview, scenario]);
 
   // UI-121 측정값 입력 모달
   const [showAddModal, setShowAddModal] = useState(false);
@@ -414,6 +425,16 @@ function BodyComposition() {
   // 목표값 DB에서 로드
   useEffect(() => {
     const fetchGoals = async () => {
+      if (isPreview) {
+        const previewData = getPreviewBodyComposition(Number(memberId), scenario);
+        setGoals(previewData.goals);
+        setGoalDraft({
+          weight: String(previewData.goals.weight),
+          pbf: String(previewData.goals.pbf),
+        });
+        return;
+      }
+
       const { data } = await supabase
         .from('member_goals')
         .select('goalWeight, goalPbf')
@@ -427,7 +448,7 @@ function BodyComposition() {
       }
     };
     fetchGoals();
-  }, [memberId]);
+  }, [memberId, isPreview, scenario]);
 
   const latest = measurements[0] ?? { id: 0, date: '-', weight: 0, muscle: 0, fat: 0, bmi: 0, pbf: 0, bmr: 0 };
   const prev = measurements[1] ?? latest;
@@ -490,6 +511,21 @@ function BodyComposition() {
   };
 
   const commitEntry = async (entry: Omit<Measurement, "id">) => {
+    if (isPreview) {
+      const next: Measurement = {
+        ...entry,
+        id: Date.now(),
+      };
+      setMeasurements((prev) => [next, ...prev.filter((item) => item.date !== entry.date)].sort((a, b) => b.date.localeCompare(a.date)));
+      setShowAddModal(false);
+      setShowOverwriteDialog(false);
+      setPendingEntry(null);
+      setFormData({ date: new Date().toISOString().split("T")[0], weight: "", muscle: "", pbf: "", bodyWater: "" });
+      setFormErrors({});
+      toast.success("프리뷰에서 측정값 저장이 시뮬레이션되었습니다.");
+      return;
+    }
+
     // Supabase에 체성분 데이터 저장 (같은 날짜면 upsert)
     const existing = measurements.find(m => m.date === entry.date);
     const payload = {
@@ -979,6 +1015,12 @@ function BodyComposition() {
                     weight: parseFloat(goalDraft.weight) || 0,
                     pbf:    parseFloat(goalDraft.pbf) || 0,
                   };
+                  if (isPreview) {
+                    setGoals(newGoals);
+                    setShowGoalModal(false);
+                    toast.success("프리뷰에서 목표 저장이 시뮬레이션되었습니다.");
+                    return;
+                  }
                   const { error } = await supabase
                     .from('member_goals')
                     .upsert({

@@ -49,6 +49,8 @@ import PageHeader from "@/components/common/PageHeader";
 import TabNav from "@/components/common/TabNav";
 import FormSection from "@/components/common/FormSection";
 import ConfirmDialog from "@/components/ui/ConfirmDialog";
+import { getPreviewScenario, isPreviewMode } from "@/lib/preview";
+import { getPreviewMemberById, previewMembers, previewStaffOptions } from "@/mocks/memberPreview";
 
 // ────────────────────────────────────────────────────────────
 // 주소 Mock (DB에 없으므로 하드코딩 유지)
@@ -108,6 +110,8 @@ interface StaffOption {
 
 function MemberForm() {
   const searchParams = useSearchParams();
+  const isPreview = isPreviewMode(searchParams);
+  const scenario = getPreviewScenario(searchParams, "create");
   const urlMemberId = searchParams?.get('id') ?? null;
   const isEditRoute = typeof window !== 'undefined' ? window.location.pathname.includes("/edit") : false;
 
@@ -172,6 +176,12 @@ function MemberForm() {
   // staff 목록 로드
   useEffect(() => {
     const fetchStaff = async () => {
+      if (isPreview) {
+        setFcList(previewStaffOptions.fc);
+        setTrainerList(previewStaffOptions.trainer);
+        return;
+      }
+
       const { data, error } = await supabase
         .from('staff')
         .select('id, name, role')
@@ -188,12 +198,41 @@ function MemberForm() {
       }
     };
     fetchStaff();
-  }, []);
+  }, [isPreview]);
 
   // ── 수정 모드: URL에서 memberId 추출 후 실제 DB 데이터 로드 ──
   useEffect(() => {
     if (!isEditRoute || !urlMemberId) return;
     const fetchMember = async () => {
+      if (isPreview) {
+        const data = getPreviewMemberById(Number(urlMemberId));
+        reset({
+          name: data.name ?? "",
+          gender: data.gender === 'M' ? 'male' : data.gender === 'F' ? 'female' : undefined,
+          phone: data.phone ?? "",
+          memberType: data.membershipType ?? "일반",
+          birthDate: data.birthDate ? data.birthDate.slice(0, 10) : "",
+          height: data.height ? String(data.height) : "",
+          email: data.email ?? "",
+          notes: data.memo ?? "",
+          profileImage: null,
+          address: "",
+          addressDetail: "",
+          fc: "홍FC",
+          trainer: "김트레이너",
+          visitPath: "",
+          exerciseGoal: "",
+          nickname: "",
+          company: "",
+          marketingConsent: false,
+          attendanceNumber: "",
+          referralSource: data.referralSource ?? "",
+          companyName: data.companyName ?? "",
+        });
+        setPhoneChecked(true);
+        return;
+      }
+
       const { data, error } = await supabase
         .from('members')
         .select('*')
@@ -229,7 +268,7 @@ function MemberForm() {
       setPhoneChecked(true);
     };
     fetchMember();
-  }, [isEditRoute, urlMemberId, reset]);
+  }, [isEditRoute, urlMemberId, reset, isPreview]);
 
   // ── 핸들러 ──
 
@@ -242,6 +281,16 @@ function MemberForm() {
     const phone = watchedValues.phone;
     const isPhoneValid = await trigger("phone");
     if (!isPhoneValid) return;
+
+    if (isPreview) {
+      const duplicated = previewMembers.some((member) => {
+        if (isEditMode && urlMemberId && Number(urlMemberId) === member.id) return false;
+        return member.phone === phone;
+      });
+      setPhoneChecked(true);
+      setPhoneDuplicate(duplicated);
+      return;
+    }
 
     // 실제 Supabase 중복 조회 (같은 branchId + 같은 phone)
     let query = supabase
@@ -313,6 +362,13 @@ function MemberForm() {
     };
 
     try {
+      if (isPreview) {
+        const previewTargetId = isEditMode && urlMemberId ? Number(urlMemberId) : 1001;
+        toast.success(isEditMode ? "프리뷰에서 회원 수정이 완료되었습니다." : "프리뷰에서 신규 회원 등록이 완료되었습니다.");
+        moveToPage(985, { id: previewTargetId, scenario: "active" });
+        return;
+      }
+
       if (isEditMode && urlMemberId) {
         const { error } = await supabase
           .from('members')
@@ -394,6 +450,13 @@ function MemberForm() {
   const handleProfileImageChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+
+    if (isPreview) {
+      setValue('profileImage', URL.createObjectURL(file), { shouldDirty: true });
+      toast.success('프리뷰에서 프로필 이미지가 적용되었습니다.');
+      e.target.value = '';
+      return;
+    }
 
     // 파일 타입 검증
     if (!file.type.startsWith('image/')) {

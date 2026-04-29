@@ -4,15 +4,27 @@ export const dynamic = 'force-dynamic';
 import React, { useState } from 'react';
 import AppLayout from '@/components/layout/AppLayout';
 import PageHeader from '@/components/common/PageHeader';
-import { QrCode, CheckCircle, Clock, Users, RefreshCw } from 'lucide-react';
+import { QrCode, Clock, RefreshCw } from 'lucide-react';
+import { usePageSeed } from '@/hooks';
+import type { AttendanceQrSeedPayload } from '@/lib/publishingPageSeed';
 
-const recentCheckins = [
-  { id: 1, member: '김민준', time: '10:02', class: '필라테스 A반', method: 'QR', status: '출석' },
-  { id: 2, member: '이서연', time: '09:58', class: '요가 기초반', method: 'QR', status: '출석' },
-  { id: 3, member: '박지훈', time: '09:55', class: '스피닝 B반', method: '수동', status: '출석' },
-  { id: 4, member: '최유리', time: '10:15', class: '필라테스 A반', method: 'QR', status: '지각' },
-  { id: 5, member: '정현우', time: '10:30', class: '스피닝 B반', method: 'QR', status: '결석' },
-];
+const FALLBACK_QR: AttendanceQrSeedPayload = {
+  recentCheckins: [
+    { id: 1, member: '김민준', time: '10:02', class: '필라테스 A반', method: 'QR', status: '출석' },
+    { id: 2, member: '이서연', time: '09:58', class: '요가 기초반', method: 'QR', status: '출석' },
+    { id: 3, member: '박지훈', time: '09:55', class: '스피닝 B반', method: '수동', status: '출석' },
+    { id: 4, member: '최유리', time: '10:15', class: '필라테스 A반', method: 'QR', status: '지각' },
+    { id: 5, member: '정현우', time: '10:30', class: '스피닝 B반', method: 'QR', status: '결석' },
+  ],
+  summary: {
+    present: 38,
+    late: 4,
+    absent: 7,
+    qr: 33,
+    manual: 5,
+    qrRate: 87,
+  },
+};
 
 const statusColor: Record<string, string> = {
   '출석': 'bg-green-100 text-green-700',
@@ -22,10 +34,32 @@ const statusColor: Record<string, string> = {
 
 export default function QrCheckinPage() {
   const [qrActive, setQrActive] = useState(true);
+  const { data, loading, error, branchId, snapshotDate, reload } = usePageSeed<AttendanceQrSeedPayload>(
+    '/attendance/qr',
+    FALLBACK_QR,
+  );
+  const { recentCheckins, summary } = data;
 
   return (
     <AppLayout>
-      <PageHeader title="출석 QR 체크인" description="QR 코드를 통해 회원 출석을 빠르게 처리합니다" />
+      <PageHeader
+        title="출석 QR 체크인"
+        description="QR 코드를 통해 회원 출석을 빠르게 처리합니다"
+        actions={
+          <button
+            className="flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+            onClick={() => void reload(true)}
+            type="button"
+          >
+            <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} /> seed 갱신
+          </button>
+        }
+      />
+
+      <div className="mb-4 rounded-xl border border-blue-100 bg-blue-50 px-4 py-3 text-xs text-blue-700">
+        Supabase snapshot · 지점 {branchId} · 기준일 {snapshotDate ?? '-'}
+        {error && <span className="ml-2 text-red-600">Fallback 사용: {error}</span>}
+      </div>
 
       <div className="grid grid-cols-2 gap-6 mb-6">
         {/* QR 코드 영역 */}
@@ -51,27 +85,27 @@ export default function QrCheckinPage() {
           <h3 className="text-sm font-semibold text-gray-800 mb-4">오늘 출석 현황</h3>
           <div className="grid grid-cols-3 gap-3 mb-4">
             <div className="text-center p-3 bg-green-50 rounded-xl">
-              <p className="text-xl font-bold text-green-600">38</p>
+              <p className="text-xl font-bold text-green-600">{summary.present}</p>
               <p className="text-xs text-gray-500 mt-1">출석</p>
             </div>
             <div className="text-center p-3 bg-yellow-50 rounded-xl">
-              <p className="text-xl font-bold text-yellow-600">4</p>
+              <p className="text-xl font-bold text-yellow-600">{summary.late}</p>
               <p className="text-xs text-gray-500 mt-1">지각</p>
             </div>
             <div className="text-center p-3 bg-red-50 rounded-xl">
-              <p className="text-xl font-bold text-red-600">7</p>
+              <p className="text-xl font-bold text-red-600">{summary.absent}</p>
               <p className="text-xs text-gray-500 mt-1">결석</p>
             </div>
           </div>
           <div className="space-y-2">
             <div className="flex justify-between text-xs text-gray-500">
-              <span>QR 체크인</span><span className="font-medium text-gray-800">33건</span>
+              <span>QR 체크인</span><span className="font-medium text-gray-800">{summary.qr}건</span>
             </div>
             <div className="flex justify-between text-xs text-gray-500">
-              <span>수동 처리</span><span className="font-medium text-gray-800">5건</span>
+              <span>수동 처리</span><span className="font-medium text-gray-800">{summary.manual}건</span>
             </div>
             <div className="flex justify-between text-xs text-gray-500">
-              <span>QR 사용률</span><span className="font-medium text-blue-600">87%</span>
+              <span>QR 사용률</span><span className="font-medium text-blue-600">{summary.qrRate}%</span>
             </div>
           </div>
         </div>

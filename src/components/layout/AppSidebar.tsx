@@ -19,6 +19,7 @@ import {
   Target,
   ClipboardList,
   FileText,
+  BellRing,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuthStore } from "@/stores/authStore";
@@ -48,12 +49,13 @@ const SUPER_ADMIN_MENU_ITEMS: MenuItem[] = [
   { label: "지점 관리", icon: Building2, path: "/branches", viewId: 984 },
   { label: "지점 비교 리포트", icon: BarChart3, path: "/branch-report" },
   { label: "자동 리포트", icon: FileText, path: "/reports", viewId: 1004 },
+  { label: "자동화 정책", icon: BellRing, path: "/hq/automation-policies" },
   { label: "전체 직원 관리", icon: Users, path: "/staff", viewId: 974 },
-  { label: "감사 로그", icon: Shield, path: "/audit-log" },
+  { label: "히스토리 로그", icon: Shield, path: "/audit-log" },
   { label: "구독 관리", icon: CreditCard, path: "/subscription", viewId: 983 },
-  { label: "커스텀 대시보드", icon: LayoutDashboard, path: "/custom-dashboard" },
+  { label: "커스텀 대시보드", icon: LayoutDashboard, path: "/dashboard/builder" },
   { label: "벤치마크 비교", icon: BarChart3, path: "/benchmark" },
-  { label: "예측 분석", icon: Target, path: "/predictive-analytics" },
+  { label: "예측 분석", icon: Target, path: "/analytics/forecast" },
   { label: "NPS 설문", icon: MessageSquare, path: "/nps" },
 ];
 
@@ -87,7 +89,7 @@ const MENU_ITEMS: MenuItem[] = [
       { label: "강사 현황", path: "/instructor-status" },
       { label: "대기열 관리", path: "/class-waitlist" },
       { label: "수업 평가", path: "/class-feedback" },
-      { label: "QR 체크인", path: "/qr-checkin" },
+      { label: "QR 체크인", path: "/attendance/qr" },
       { label: "수업 녹화", path: "/class-recording" },
     ],
   },
@@ -115,7 +117,7 @@ const MENU_ITEMS: MenuItem[] = [
       { label: "상품 카탈로그", path: "/products/catalog" },
       { label: "상품 비교", path: "/products/compare" },
       { label: "재고 관리", path: "/products/inventory" },
-      { label: "시즌 가격", path: "/products/seasonal-pricing" },
+      { label: "시즌 가격", path: "/products/seasonal-price" },
       { label: "할인 설정", path: "/discount-settings" },
     ],
   },
@@ -130,7 +132,7 @@ const MENU_ITEMS: MenuItem[] = [
       { label: "골프 타석", path: "/golf-bays" },
       { label: "운동복", path: "/clothing" },
       { label: "옷 보관함", path: "/clothing-locker" },
-      { label: "장비 점검", path: "/equipment-maintenance" },
+      { label: "장비 점검", path: "/equipment-check" },
       { label: "소모품 재고", path: "/consumables" },
       { label: "청소 스케줄", path: "/cleaning-schedule" },
     ],
@@ -151,10 +153,10 @@ const MENU_ITEMS: MenuItem[] = [
       { label: "메시지 발송", path: "/message", viewId: 980 },
       { label: "자동 알림", path: "/message/auto-alarm", viewId: 992 },
       { label: "쿠폰 관리", path: "/message/coupon", viewId: 993 },
-      { label: "캠페인 관리", path: "/message/campaigns" },
-      { label: "리퍼럴 프로그램", path: "/referral" },
-      { label: "SMS/카카오", path: "/message/sms" },
-      { label: "A/B 테스트", path: "/message/ab-test" },
+      { label: "캠페인 관리", path: "/marketing/campaign" },
+      { label: "리퍼럴 프로그램", path: "/marketing/referral" },
+      { label: "SMS/카카오", path: "/marketing/sms" },
+      { label: "A/B 테스트", path: "/marketing/ab-test" },
       { label: "마일리지", path: "/mileage", viewId: 981 },
     ],
   },
@@ -168,9 +170,11 @@ const MENU_ITEMS: MenuItem[] = [
       { label: "운동 프로그램", path: "/exercise-programs" },
       { label: "권한 설정", path: "/settings/permissions", viewId: 996 },
       { label: "키오스크", path: "/settings/kiosk", viewId: 994 },
+      { label: "키오스크 운영", path: "/kiosk-ops" },
       { label: "출입문/IoT", path: "/settings/iot", viewId: 995 },
+      { label: "자동화 적용", path: "/settings/automation" },
       { label: "출석 설정", path: "/settings/attendance" },
-      { label: "커스텀 역할", path: "/settings/custom-roles" },
+      { label: "커스텀 역할", path: "/settings/custom-role" },
       { label: "다국어 설정", path: "/settings/language" },
       { label: "백업/복원", path: "/settings/backup" },
       { label: "구독 관리", path: "/subscription", viewId: 983 },
@@ -244,10 +248,10 @@ const AppSidebar: React.FC<AppSidebarProps> = ({
       <div key={item.label} className="mb-px">
         <button
           className={cn(
-            "group flex h-[34px] w-full items-center gap-[10px] px-[10px] rounded-md text-[13px] font-medium transition-colors",
+            "group flex h-[40px] w-full items-center gap-[10px] rounded-xl px-[12px] text-[13px] font-semibold transition-all",
             isActive
-              ? "bg-primary-light text-primary"
-              : "text-content-secondary hover:bg-surface-tertiary hover:text-content"
+              ? "bg-gradient-to-r from-primary-light via-primary-light to-white text-primary shadow-sm"
+              : "text-content-secondary hover:bg-white/70 hover:text-content"
           )}
           onClick={() => item.path && handleNavigate(item.path, item.viewId)}
         >
@@ -284,26 +288,29 @@ const AppSidebar: React.FC<AppSidebarProps> = ({
   return (
     <aside
       className={cn(
-        "flex flex-col h-screen border-r border-line bg-surface transition-all duration-200 shrink-0 sticky top-0",
-        collapsed ? "w-[60px]" : "w-[220px]"
+        "flex h-full shrink-0 flex-col border-r border-line/80 bg-white/68 backdrop-blur-xl transition-all duration-200",
+        collapsed ? "w-[72px]" : "w-[236px]"
       )}
     >
       {/* 로고 */}
-      <div className="flex h-[56px] items-center px-lg border-b border-line shrink-0">
+      <div className="flex h-[72px] items-center border-b border-line/80 px-lg shrink-0">
         {!collapsed ? (
           <div className="flex items-center justify-between w-full">
             <div className="flex items-center gap-sm cursor-pointer" onClick={() => handleNavigate("/", 966)}>
-              <div className="h-7 w-7 rounded-lg bg-primary flex items-center justify-center text-white text-[13px] font-bold">
-                S
+              <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-gradient-to-br from-primary via-primary to-accent text-white text-[13px] font-black shadow-float">
+                FG
               </div>
-              <span className="text-[16px] font-bold text-content tracking-tight">FitGenie CRM</span>
+              <div className="flex min-w-0 flex-col">
+                <span className="truncate text-[15px] font-black tracking-tight text-content">FitGenie CRM</span>
+                <span className="text-[11px] font-medium text-content-tertiary">Publishing Workspace</span>
+              </div>
             </div>
             <NotificationCenter collapsed={false} />
           </div>
         ) : (
           <div className="flex flex-col items-center gap-2 w-full">
-            <div className="h-7 w-7 rounded-lg bg-primary flex items-center justify-center text-white text-[13px] font-bold cursor-pointer" onClick={() => handleNavigate("/", 966)}>
-              S
+            <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-gradient-to-br from-primary via-primary to-accent text-white text-[12px] font-black shadow-float cursor-pointer" onClick={() => handleNavigate("/", 966)}>
+              FG
             </div>
             <NotificationCenter collapsed={true} />
           </div>
@@ -388,12 +395,12 @@ const AppSidebar: React.FC<AppSidebarProps> = ({
       )}
 
       {/* 메뉴 */}
-      <nav className="flex-1 overflow-y-auto py-sm px-sm scrollbar-hide">
+      <nav className="flex-1 overflow-y-auto px-sm py-md scrollbar-hide">
         {/* 슈퍼관리자 전용 본사 관리 섹션 */}
         {isSuperAdmin && (
           <div className="mb-2">
             {!collapsed && (
-              <p className="px-[10px] py-[6px] text-[10px] font-semibold text-content-tertiary uppercase tracking-wider">
+              <p className="px-[12px] py-[8px] text-[10px] font-black uppercase tracking-[0.18em] text-content-tertiary">
                 본사 관리
               </p>
             )}
@@ -416,10 +423,10 @@ const AppSidebar: React.FC<AppSidebarProps> = ({
             <div key={item.label} className="mb-px">
               <button
                 className={cn(
-                  "group flex h-[34px] w-full items-center gap-[10px] px-[10px] rounded-md text-[13px] font-medium transition-colors",
+                  "group flex h-[40px] w-full items-center gap-[10px] rounded-xl px-[12px] text-[13px] font-semibold transition-all",
                   isMenuGroupActive(item)
-                    ? "bg-primary-light text-primary"
-                    : "text-content-secondary hover:bg-surface-tertiary hover:text-content"
+                    ? "bg-gradient-to-r from-primary-light via-primary-light to-white text-primary shadow-sm"
+                    : "text-content-secondary hover:bg-white/70 hover:text-content"
                 )}
                 aria-label={collapsed ? item.label : undefined}
                 title={collapsed ? item.label : undefined}
@@ -455,15 +462,15 @@ const AppSidebar: React.FC<AppSidebarProps> = ({
               </button>
 
               {!collapsed && filteredChildren && openMenus.has(item.label) && (
-                <div className="mt-px ml-[18px] border-l border-line pl-[14px] space-y-px py-[2px]">
+                <div className="ml-[20px] mt-1 space-y-1 border-l border-line/80 pl-[14px] py-[4px]">
                   {filteredChildren.map((child) => (
                     <button
                       key={child.label}
                       className={cn(
-                        "flex h-[30px] w-full items-center px-[8px] rounded-md text-[12px] transition-colors",
+                        "flex h-[32px] w-full items-center rounded-lg px-[10px] text-[12px] transition-all",
                         activePath === child.path
-                          ? "text-primary font-semibold bg-primary-light/50"
-                          : "text-content-secondary hover:text-content hover:bg-surface-tertiary"
+                          ? "bg-primary-light/60 text-primary font-semibold"
+                          : "text-content-secondary hover:bg-white/70 hover:text-content"
                       )}
                       onClick={() => handleNavigate(child.path, child.viewId)}
                     >
@@ -478,20 +485,20 @@ const AppSidebar: React.FC<AppSidebarProps> = ({
       </nav>
 
       {/* 하단 프로필 */}
-      <div className="border-t border-line p-sm shrink-0">
+      <div className="border-t border-line/80 p-sm shrink-0">
         {!collapsed ? (
           <div className="space-y-px">
-            <div className="flex items-center gap-sm p-[8px] rounded-md hover:bg-surface-tertiary transition-colors cursor-pointer">
-              <div className="h-7 w-7 rounded-full bg-primary-light flex items-center justify-center shrink-0">
+            <div className="flex cursor-pointer items-center gap-sm rounded-xl p-[10px] transition-colors hover:bg-white/70">
+              <div className="flex h-9 w-9 items-center justify-center rounded-2xl bg-primary-light shrink-0">
                 <User className="text-primary" size={14} />
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-[13px] font-semibold text-content truncate">{getUserDisplayName()}</p>
+                <p className="truncate text-[13px] font-semibold text-content">{getUserDisplayName()}</p>
                 <p className="text-[11px] text-content-tertiary truncate">{getUserRoleLabel()}</p>
               </div>
             </div>
             <button
-              className="flex w-full items-center gap-[10px] h-[30px] px-[10px] rounded-md text-content-secondary hover:bg-surface-tertiary hover:text-content transition-colors text-[12px]"
+              className="flex h-[34px] w-full items-center gap-[10px] rounded-lg px-[10px] text-[12px] text-content-secondary transition-colors hover:bg-white/70 hover:text-content"
               onClick={() => { useAuthStore.getState().logout(); moveToPage(990); }}
             >
               <LogOut size={14} strokeWidth={1.5} />

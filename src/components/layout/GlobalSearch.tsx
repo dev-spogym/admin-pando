@@ -33,7 +33,7 @@ const MENU_ITEMS = [
   { label: '공지사항', path: '/notices', viewId: 0 },
   { label: 'KPI 대시보드', path: '/kpi', viewId: 0 },
   { label: '통합 대시보드', path: '/super-dashboard', viewId: 0 },
-  { label: '감사 로그', path: '/audit-log', viewId: 0 },
+  { label: '히스토리 로그', path: '/audit-log', viewId: 0 },
 ];
 
 const RECENT_KEY = 'global_search_recent';

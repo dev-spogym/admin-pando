@@ -64,13 +64,16 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   ...restoreFromStorage(),
 
   login: (user, token) => {
+    const scopedBranchId = user.currentBranchId || user.branchId || '1';
     // localStorage에 저장
     localStorage.setItem(STORAGE_KEY_TOKEN, token);
     localStorage.setItem(STORAGE_KEY_USER, JSON.stringify(user));
-    localStorage.setItem('branchId', user.branchId);
+    localStorage.setItem('branchId', scopedBranchId);
     localStorage.setItem('tenantId', user.tenantId);
     if (user.currentBranchId) {
       localStorage.setItem('currentBranchId', user.currentBranchId);
+    } else {
+      localStorage.removeItem('currentBranchId');
     }
     set({ user, token, isAuthenticated: true });
   },
@@ -89,15 +92,21 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   switchBranch: (branchId, branchName) => {
     set((state) => {
       if (!state.user) return state;
+      const isAllBranches = branchId === '' || branchId === 'all';
+      const scopedBranchId = isAllBranches ? (state.user.branchId || '1') : branchId;
       const updatedUser: User = {
         ...state.user,
-        branchId,
-        branchName,
-        currentBranchId: branchId,
+        branchId: scopedBranchId,
+        branchName: isAllBranches ? '전체 지점 (통합)' : branchName,
+        currentBranchId: isAllBranches ? null : branchId,
       };
       localStorage.setItem(STORAGE_KEY_USER, JSON.stringify(updatedUser));
-      localStorage.setItem('branchId', branchId);
-      localStorage.setItem('currentBranchId', branchId);
+      localStorage.setItem('branchId', scopedBranchId);
+      if (isAllBranches) {
+        localStorage.removeItem('currentBranchId');
+      } else {
+        localStorage.setItem('currentBranchId', branchId);
+      }
       return { user: updatedUser };
     });
   },

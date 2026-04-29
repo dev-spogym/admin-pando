@@ -20,6 +20,12 @@ import SignaturePad from "@/components/common/SignaturePad";
 import { supabase } from '@/lib/supabase';
 import { bulkUpdateClasses, bulkDeleteClasses } from '@/api/endpoints/classSchedule';
 import { readBranchJson, writeBranchJson } from '@/lib/branchStorage';
+import {
+  LESSON_SESSION_TYPES,
+  createLessonSessionCounts,
+  deriveLessonSessionType,
+  formatLessonSessionType,
+} from '@/lib/lessonSessionTypes';
 
 // ─── 수업 상태 설정 ────────────────────────────────────────────
 type LessonStatus = 'scheduled' | 'in_progress' | 'completed' | 'no_show' | 'cancelled';
@@ -300,12 +306,17 @@ export default function LessonManagement() {
     const total = lessons.length;
     const active = lessons.filter((l) => l.status === 'ACTIVE').length;
     const instructors = new Set(lessons.map((l) => l.instructorId).filter(Boolean)).size;
+    const sessionCounts = createLessonSessionCounts();
+    classRecords.forEach((record) => {
+      const sessionType = deriveLessonSessionType(record.type, record.title);
+      if (sessionType !== '기타') sessionCounts[sessionType] += 1;
+    });
     const completedToday = classRecords.filter((c) => {
       if (c.lesson_status !== 'completed') return false;
       const today = new Date().toDateString();
       return new Date(c.startTime).toDateString() === today;
     }).length;
-    return { total, active, instructors, completedToday };
+    return { total, active, instructors, completedToday, sessionCounts };
   }, [lessons, classRecords]);
 
   // 검색 필터
@@ -451,7 +462,6 @@ export default function LessonManagement() {
   // ── 수업 기록 상태 변경 ───────────────────────────────────────
   const updateClassStatus = async (classId: number, newStatus: LessonStatus) => {
     const extra: Record<string, any> = { lesson_status: newStatus };
-    if (newStatus === 'completed') extra.completed_at = new Date().toISOString();
 
     const { error } = await supabase
       .from('classes')
@@ -503,15 +513,27 @@ export default function LessonManagement() {
       }
       // 업로드 실패해도 완료 처리는 진행 (서명 URL만 null)
 
-      const { error } = await supabase
+      const completionPayload = {
+        lesson_status: 'completed',
+        signature_url: signatureUrl,
+        signature_at: new Date().toISOString(),
+      };
+      let { error } = await supabase
         .from('classes')
-        .update({
-          lesson_status: 'completed',
-          completed_at: new Date().toISOString(),
-          signature_url: signatureUrl,
-          signature_at: new Date().toISOString(),
-        })
+        .update(completionPayload)
         .eq('id', selectedClass.id);
+
+      if (
+        error &&
+        error.message.includes("column of 'classes'") &&
+        (error.message.includes("'signature_url'") || error.message.includes("'signature_at'"))
+      ) {
+        const fallback = await supabase
+          .from('classes')
+          .update({ lesson_status: 'completed' })
+          .eq('id', selectedClass.id);
+        error = fallback.error;
+      }
 
       if (error) {
         toast.error('수업 완료 처리에 실패했습니다.');
@@ -567,6 +589,11 @@ export default function LessonManagement() {
         <StatusBadge variant={LESSON_TYPE_VARIANT[v] ?? 'default'} label={LESSON_TYPE_LABEL[v] ?? v} />
       ),
     },
+    {
+      key: 'sessionType',
+      header: '강습유형',
+      render: (_: unknown, row: Lesson) => formatLessonSessionType(deriveLessonSessionType(row.type, row.name)),
+    },
     { key: 'instructorName', header: '강사명' },
     { key: 'capacity', header: '정원', render: (v: number) => `${v}명` },
     { key: 'durationMin', header: '시간(분)', render: (v: number) => `${v}분` },
@@ -607,6 +634,11 @@ export default function LessonManagement() {
       key: 'title', header: '수업명', render: (v: string) => (
         <span className="font-medium text-content">{v}</span>
       ),
+    },
+    {
+      key: 'sessionType',
+      header: '강습유형',
+      render: (_: unknown, row: ClassRecord) => formatLessonSessionType(deriveLessonSessionType(row.type, row.title)),
     },
     {
       key: 'startTime', header: '일시', render: (v: string) => (
@@ -685,6 +717,16 @@ export default function LessonManagement() {
         <StatCard label="활성 수업" value={stats.active} icon={<CalendarCheck />} variant="mint" />
         <StatCard label="강사 수" value={stats.instructors} icon={<Users />} variant="peach" />
         <StatCard label="오늘 완료" value={stats.completedToday} icon={<Clock />} variant="mint" />
+      </div>
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-md mb-lg">
+        {LESSON_SESSION_TYPES.map((sessionType) => (
+          <StatCard
+            key={sessionType}
+            label={`${formatLessonSessionType(sessionType)} 세션`}
+            value={stats.sessionCounts[sessionType]}
+            icon={<CalendarCheck />}
+          />
+        ))}
       </div>
 
       {/* 수업 정의 목록 */}

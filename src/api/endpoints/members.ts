@@ -4,6 +4,14 @@
 import { supabase } from '@/lib/supabase';
 import type { ApiResponse, PaginatedResponse, PaginationParams } from '../types';
 import { createAuditLog, AUDIT_ACTIONS } from './auditLog';
+import { getPreviewScenario, isPreviewMode } from '@/lib/preview';
+import {
+  getPreviewMemberById,
+  getPreviewMembers,
+  getPreviewMemberStats,
+  previewMembers,
+} from '@/mocks/memberPreview';
+import { getBranchScope } from '@/lib/branchScope';
 
 /** 회원 정보 */
 export interface Member {
@@ -25,6 +33,7 @@ export interface Member {
   staffId?: number;
   deletedAt?: string;
   branchId: number;
+  branchName?: string;
   createdAt?: string;
   updatedAt?: string;
   /** 관심회원 여부 */
@@ -100,6 +109,7 @@ function rowToMember(row: Record<string, any>): Member {
     staffId: row.staffId ?? row.staff_id ?? undefined,
     deletedAt: row.deletedAt ?? row.deleted_at ?? undefined,
     branchId: row.branchId ?? row.branch_id ?? 1,
+    branchName: row.branchName ?? row.branch_name ?? undefined,
     createdAt: row.createdAt ?? row.created_at ?? undefined,
     updatedAt: row.updatedAt ?? row.updated_at ?? undefined,
     isFavorite: row.isFavorite ?? row.is_favorite ?? false,
@@ -112,9 +122,14 @@ function rowToMember(row: Record<string, any>): Member {
 
 /** branchId 가져오기 (localStorage 또는 기본값 1) */
 function getCurrentBranchId(): number {
-  const raw = typeof window !== "undefined" ? localStorage.getItem('branchId') : null;
-  const parsed = raw ? parseInt(raw, 10) : NaN;
-  return isNaN(parsed) ? 1 : parsed;
+  return getBranchScope().branchId;
+}
+
+async function getBranchNameMap() {
+  const { data } = await supabase
+    .from('branches')
+    .select('id, name');
+  return new Map((data ?? []).map((branch: { id: number; name: string }) => [branch.id, branch.name]));
 }
 
 /** 회원 목록 조회 파라미터 */
@@ -144,13 +159,37 @@ export const getMembers = async (
 ): Promise<ApiResponse<PaginatedResponse<Member>>> => {
   const page = params?.page ?? 1;
   const size = params?.size ?? 20;
-  const branchId = getCurrentBranchId();
+
+  if (isPreviewMode()) {
+    const scenario = getPreviewScenario(undefined, 'default');
+    const filteredMembers = getPreviewMembers({ ...params, page: 1, size: previewMembers.length }, scenario);
+    const pagedMembers = getPreviewMembers(params, scenario);
+    const total = filteredMembers.length;
+
+    return {
+      success: true,
+      data: {
+        data: pagedMembers,
+        pagination: {
+          page,
+          size,
+          total,
+          totalPages: Math.max(1, Math.ceil(total / size)),
+        },
+      },
+    };
+  }
+
+  const scope = getBranchScope();
 
   let query = supabase
     .from('members')
     .select('*', { count: 'exact' })
-    .eq('branchId', branchId)
     .is('deletedAt', null); // soft delete 필터
+
+  if (!scope.isAllBranches) {
+    query = query.eq('branchId', scope.branchId);
+  }
 
   if (params?.status && params.status !== 'all') {
     query = query.eq('status', params.status.toUpperCase());
@@ -217,7 +256,13 @@ export const getMembers = async (
   }
 
   const total = count ?? 0;
-  const members = (data ?? []).map(rowToMember);
+  const branchNameMap = await getBranchNameMap();
+  const members = (data ?? []).map((row: Record<string, unknown>) =>
+    rowToMember({
+      ...row,
+      branchName: branchNameMap.get(Number(row.branchId ?? row.branch_id)),
+    }),
+  );
 
   return {
     success: true,
@@ -235,6 +280,10 @@ export const getMembers = async (
 
 /** 회원 단건 조회 */
 export const getMember = async (id: number): Promise<ApiResponse<Member>> => {
+  if (isPreviewMode()) {
+    return { success: true, data: getPreviewMemberById(id) };
+  }
+
   const { data, error } = await supabase
     .from('members')
     .select('*')
@@ -245,11 +294,29 @@ export const getMember = async (id: number): Promise<ApiResponse<Member>> => {
     return { success: false, data: null as unknown as Member, message: error?.message ?? '회원을 찾을 수 없습니다.' };
   }
 
-  return { success: true, data: rowToMember(data) };
+  const branchNameMap = await getBranchNameMap();
+  return {
+    success: true,
+    data: rowToMember({
+      ...data,
+      branchName: branchNameMap.get(Number(data.branchId ?? data.branch_id)),
+    }),
+  };
 };
 
 /** 회원 생성 */
 export const createMember = async (req: MemberRequest): Promise<ApiResponse<Member>> => {
+  if (isPreviewMode()) {
+    const mockMember = {
+      ...getPreviewMemberById(1001),
+      ...req,
+      id: 1999,
+      branchId: req.branchId ?? 1,
+      registeredAt: new Date().toISOString(),
+    } as Member;
+    return { success: true, data: mockMember, message: '프리뷰 모드에서 회원 등록이 시뮬레이션되었습니다.' };
+  }
+
   const branchId = req.branchId ?? getCurrentBranchId();
 
   const payload = {
@@ -286,6 +353,15 @@ export const createMember = async (req: MemberRequest): Promise<ApiResponse<Memb
 
 /** 회원 수정 */
 export const updateMember = async (id: number, req: Partial<MemberRequest>): Promise<ApiResponse<Member>> => {
+  if (isPreviewMode()) {
+    const mockMember = {
+      ...getPreviewMemberById(id),
+      ...req,
+      id,
+    } as Member;
+    return { success: true, data: mockMember, message: '프리뷰 모드에서 회원 수정이 시뮬레이션되었습니다.' };
+  }
+
   // undefined 필드는 제외하고 전송
   const payload: Record<string, unknown> = {};
   if (req.name !== undefined) payload.name = req.name;
@@ -320,6 +396,11 @@ export const updateMember = async (id: number, req: Partial<MemberRequest>): Pro
 
 /** 회원 삭제 (soft delete) */
 export const deleteMember = async (id: number): Promise<ApiResponse<null>> => {
+  if (isPreviewMode()) {
+    void id;
+    return { success: true, data: null, message: '프리뷰 모드에서 회원 삭제가 시뮬레이션되었습니다.' };
+  }
+
   const { error } = await supabase
     .from('members')
     .update({ deletedAt: new Date().toISOString(), status: 'INACTIVE' })
@@ -335,6 +416,11 @@ export const deleteMember = async (id: number): Promise<ApiResponse<null>> => {
 
 /** 관심회원 토글 */
 export const toggleFavorite = async (memberId: number, isFavorite: boolean): Promise<ApiResponse<null>> => {
+  if (isPreviewMode()) {
+    void memberId;
+    return { success: true, data: null, message: isFavorite ? '프리뷰 관심회원 등록' : '프리뷰 관심회원 해제' };
+  }
+
   const { error } = await supabase
     .from('members')
     .update({ isFavorite, updatedAt: new Date().toISOString() })
@@ -348,13 +434,32 @@ export const toggleFavorite = async (memberId: number, isFavorite: boolean): Pro
 
 /** 회원 통계 조회 */
 export const getMemberStats = async (): Promise<ApiResponse<MemberStats>> => {
-  const branchId = getCurrentBranchId();
+  if (isPreviewMode()) {
+    const scenario = getPreviewScenario(undefined, 'default');
+    return {
+      success: true,
+      data: getPreviewMemberStats(scenario),
+    };
+  }
+
+  const scope = getBranchScope();
   const now = new Date();
   const firstOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
   const lastOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString();
   const in30Days = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000).toISOString();
 
-  const base = () => supabase.from('members').select('id', { count: 'exact', head: true }).eq('branchId', branchId).is('deletedAt', null);
+  const base = () => {
+    let query = supabase
+      .from('members')
+      .select('id', { count: 'exact', head: true })
+      .is('deletedAt', null);
+
+    if (!scope.isAllBranches) {
+      query = query.eq('branchId', scope.branchId);
+    }
+
+    return query;
+  };
 
   const [totalRes, activeRes, inactiveRes, expiredRes, holdingRes, suspendedRes, expiredMonthRes, newRes, expiringRes] = await Promise.all([
     base(),

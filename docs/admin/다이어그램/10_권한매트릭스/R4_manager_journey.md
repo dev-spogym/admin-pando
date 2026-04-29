@@ -17,8 +17,8 @@ journey
       지점 대시보드 확인 /: 5: manager
       오늘의 할일 /today-tasks: 5: manager
       KPI 대시보드 조회(○) /kpi: 3: manager
-      KPI 프리뷰 /kpi-preview: 5: manager
-      감사 로그 확인 /audit-log: 3: manager
+      KPI 센터 /kpi-preview: 5: manager
+      히스토리 로그 확인 /audit-log: 3: manager
 
     section 회원 관리
       회원 목록 조회 /: 5: manager
@@ -68,8 +68,8 @@ journey
 |------|--------|:---:|------|
 | 대시보드 | `/`, `/today-tasks` | ● | |
 | KPI 대시보드 | `/kpi` | ○ | 조회만 |
-| KPI 프리뷰 | `/kpi-preview` | ● | |
-| 감사 로그 | `/audit-log` | ● | |
+| KPI 센터 | `/kpi-preview` | ● | |
+| 히스토리 로그 | `/audit-log` | ● | |
 | 리포트 | `/reports` | ○ | 조회만 |
 | 회원 목록/등록/수정/상세 | `/*` | ● | |
 | 회원 이관 | `` | — | 차단 |
