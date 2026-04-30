@@ -16,11 +16,28 @@ export interface Product {
   name: string;
   category: 'PT' | 'MEMBERSHIP' | 'GX' | 'PRODUCT' | 'SERVICE';
   price: number;
+  cashPrice?: number | null;
+  cardPrice?: number | null;
+  productType?: 'MEMBERSHIP' | 'LESSON' | 'RENTAL' | 'GENERAL' | string | null;
+  totalCount?: number | null;
   duration?: number;
   sessions?: number;
   description?: string;
   isActive: boolean;
   branchId: number;
+  kioskVisible?: boolean | null;
+  sportType?: string | null;
+  tag?: string | null;
+  classType?: string | null;
+  deductionType?: string | null;
+  suspendLimit?: number | null;
+  dailyUseLimit?: number | null;
+  productGroupId?: number | null;
+  holdingEnabled?: boolean | null;
+  transferEnabled?: boolean | null;
+  pointAccrual?: boolean | null;
+  salesChannel?: string | null;
+  usage_restrictions?: Record<string, unknown> | null;
 }
 
 /** 상품 생성/수정 요청 */
@@ -28,10 +45,27 @@ export interface ProductRequest {
   name: string;
   category: 'PT' | 'MEMBERSHIP' | 'GX' | 'PRODUCT' | 'SERVICE';
   price: number;
+  cashPrice?: number | null;
+  cardPrice?: number | null;
+  productType?: string | null;
+  totalCount?: number | null;
   duration?: number;
   sessions?: number;
   description?: string;
   isActive?: boolean;
+  kioskVisible?: boolean | null;
+  sportType?: string | null;
+  tag?: string | null;
+  classType?: string | null;
+  deductionType?: string | null;
+  suspendLimit?: number | null;
+  dailyUseLimit?: number | null;
+  productGroupId?: number | null;
+  holdingEnabled?: boolean | null;
+  transferEnabled?: boolean | null;
+  pointAccrual?: boolean | null;
+  salesChannel?: string | null;
+  usage_restrictions?: Record<string, unknown> | null;
 }
 
 /** 상품 목록 조회 */
@@ -85,7 +119,13 @@ export const createProduct = async (payload: ProductRequest): Promise<ApiRespons
 
   const { data, error } = await supabase
     .from('products')
-    .insert({ ...payload, isActive: payload.isActive ?? true, branchId })
+    .insert({
+      ...payload,
+      cashPrice: payload.cashPrice ?? payload.price,
+      cardPrice: payload.cardPrice ?? payload.cashPrice ?? payload.price,
+      isActive: payload.isActive ?? true,
+      branchId,
+    })
     .select()
     .single();
 
@@ -113,17 +153,16 @@ export const updateProduct = async (id: number, payload: Partial<ProductRequest>
 
   // 가격이 실제로 변경되었으면 히스토리 로그 기록
   if (prevPrice !== null && payload.price !== undefined && prevPrice !== payload.price) {
-    await supabase.from('audit_logs').insert({
-      branchId: getBranchId(),
-      userId: null,
-      userName: '시스템',
+    await supabase.from('audit_log').insert({
+      tenantId: typeof window === 'undefined' ? 1 : Number(localStorage.getItem('tenantId') || 1),
+      userId: 0,
       action: 'UPDATE',
       targetType: 'product',
       targetId: id,
+      beforeValue: { price: prevPrice },
+      afterValue: { price: payload.price },
       detail: {
         field: 'price',
-        prevValue: prevPrice,
-        newValue: payload.price,
         productName: (data as Product)?.name ?? '',
       },
     }).then(() => {/* 로그 실패해도 무시 */});

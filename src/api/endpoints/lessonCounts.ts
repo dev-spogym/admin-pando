@@ -3,6 +3,7 @@
  */
 import { supabase } from '@/lib/supabase';
 import type { ApiResponse } from '../types';
+import { AUDIT_ACTIONS, createAuditLog } from './auditLog';
 
 /** 횟수 정보 */
 export interface LessonCount {
@@ -82,6 +83,18 @@ export const createLessonCount = async (
       .single();
 
     if (error) throw new Error(error.message);
+    await createAuditLog({
+      action: AUDIT_ACTIONS.CREATE,
+      targetType: 'lesson_count',
+      targetId: (data as LessonCount).id,
+      afterValue: {
+        memberId: payload.memberId,
+        productId: payload.productId ?? null,
+        productName: payload.productName,
+        totalCount: payload.totalCount,
+      },
+      detail: { message: '레슨 횟수 등록됨' },
+    });
     return { success: true, data: data as LessonCount, message: '횟수가 등록되었습니다.' };
   } catch (err) {
     console.error('createLessonCount 오류:', err);
@@ -121,8 +134,20 @@ export const deductCount = async (id: number): Promise<ApiResponse<LessonCount>>
       .from('lesson_count_histories')
       .insert({ lessonCountId: id, memberId: (data as LessonCount).memberId, deductedAt: new Date().toISOString() })
       .then(({ error: histError }) => {
-        if (histError) console.error('횟수 이력 기록 오류:', histError);
+          if (histError) console.error('횟수 이력 기록 오류:', histError);
       });
+
+    await createAuditLog({
+      action: AUDIT_ACTIONS.UPDATE,
+      targetType: 'lesson_count',
+      targetId: id,
+      afterValue: {
+        memberId: (data as LessonCount).memberId,
+        usedCount,
+        remainCount,
+      },
+      detail: { message: '레슨 횟수 차감됨' },
+    });
 
     return { success: true, data: data as LessonCount, message: '1회 차감되었습니다.' };
   } catch (err) {

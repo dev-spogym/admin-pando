@@ -3,6 +3,7 @@
  * 테이블: consultations
  */
 import { supabase } from '@/lib/supabase';
+import { AUDIT_ACTIONS, createAuditLog } from './auditLog';
 
 const getBranchId = (): number => {
   if (typeof window === 'undefined') return 1;
@@ -68,6 +69,37 @@ export interface CreateConsultationInput {
   linkedSaleId?: number | null;
 }
 
+const STATUS_TO_DB: Record<ConsultationStatus, string> = {
+  예정: 'scheduled',
+  완료: 'completed',
+  취소: 'cancelled',
+  노쇼: 'no_show',
+};
+
+const STATUS_TO_UI: Record<string, ConsultationStatus> = {
+  scheduled: '예정',
+  pending: '예정',
+  완료예정: '예정',
+  completed: '완료',
+  done: '완료',
+  cancelled: '취소',
+  canceled: '취소',
+  no_show: '노쇼',
+  noshow: '노쇼',
+  noShow: '노쇼',
+};
+
+const normalizeStatus = (status: unknown): ConsultationStatus => {
+  if (typeof status !== 'string') return '예정';
+  if (status === '예정' || status === '완료' || status === '취소' || status === '노쇼') return status;
+  return STATUS_TO_UI[status] ?? '예정';
+};
+
+const toDbStatus = (status: ConsultationStatus | undefined): string | undefined => {
+  if (status === undefined) return undefined;
+  return STATUS_TO_DB[status] ?? status;
+};
+
 /** row → Consultation 변환 */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function rowToConsultation(row: Record<string, any>): Consultation {
@@ -88,7 +120,7 @@ function rowToConsultation(row: Record<string, any>): Consultation {
     channel: row.channel ?? null,
     staffName: row.staffName ?? row.staff_name ?? null,
     content: row.content ?? null,
-    status: row.status,
+    status: normalizeStatus(row.status),
     result: row.result ?? null,
     nextAction: row.nextAction ?? row.next_action ?? null,
     linkedSaleId: row.linkedSaleId ?? row.linked_sale_id ?? null,
@@ -96,15 +128,10 @@ function rowToConsultation(row: Record<string, any>): Consultation {
   };
 }
 
-const isSchemaError = (message: string | undefined, columnNames: string[]): boolean => {
-  if (!message) return false;
-  return columnNames.some((column) => message.includes(column));
-};
-
 /** 회원 상담 이력 목록 조회 */
 export async function getConsultations(memberId: number): Promise<Consultation[]> {
   const branchId = getBranchId();
-  const modernQuery = await supabase
+  const query = await supabase
     .from('consultations')
     .select('*')
     .eq('memberId', memberId)
@@ -112,20 +139,8 @@ export async function getConsultations(memberId: number): Promise<Consultation[]
     .order('completedAt', { ascending: false, nullsFirst: false })
     .order('scheduledAt', { ascending: false, nullsFirst: false });
 
-  if (!modernQuery.error && modernQuery.data) {
-    return modernQuery.data.map(rowToConsultation);
-  }
-
-  const legacyQuery = await supabase
-    .from('consultations')
-    .select('*')
-    .eq('member_id', memberId)
-    .eq('branch_id', branchId)
-    .order('completed_at', { ascending: false, nullsFirst: false })
-    .order('scheduled_at', { ascending: false, nullsFirst: false });
-
-  if (legacyQuery.error || !legacyQuery.data) return [];
-  return legacyQuery.data.map(rowToConsultation);
+  if (query.error || !query.data) return [];
+  return query.data.map(rowToConsultation);
 }
 
 /** 상담 이력 생성 */
@@ -133,155 +148,154 @@ export async function createConsultation(input: CreateConsultationInput): Promis
   const branchId = getBranchId();
   const currentUser = getCurrentUser();
   const staffName = input.staffName?.trim() || currentUser.name || '담당자 미지정';
-  const scheduleTime = input.consultedAt;
-  const completedTime = input.status === '완료' ? input.consultedAt : null;
+  const scheduledAt = input.consultedAt;
+  const dbStatus = toDbStatus(input.status) ?? 'scheduled';
+  const completedAt = dbStatus === 'completed' ? input.consultedAt : null;
 
-  const modernInsertPayload = {
+  const insertPayload = {
     memberId: input.memberId,
     staffId: currentUser.id,
     branchId,
     type: input.type,
+    channel: input.channel ?? null,
     staffName,
     content: input.content ?? '',
-    status: input.status,
+    status: dbStatus,
     result: input.result ?? null,
     nextAction: input.nextAction ?? null,
     linkedSaleId: input.linkedSaleId ?? null,
-    consultedAt: input.consultedAt,
-    scheduledAt: scheduleTime,
-    completedAt: completedTime,
+    scheduledAt,
+    completedAt,
   };
 
-  const modernInsert = await supabase
+  const { data, error } = await supabase
     .from('consultations')
-    .insert(modernInsertPayload)
+    .insert(insertPayload)
     .select()
     .single();
 
-  if (!modernInsert.error && modernInsert.data) {
-    return rowToConsultation(modernInsert.data);
+  if (error || !data) {
+    throw new Error(error?.message ?? '상담 이력 저장 실패');
   }
 
-  const legacyInsertPayload = {
-    member_id: input.memberId,
-    staff_id: currentUser.id,
-    branch_id: branchId,
-    type: input.type,
-    staff_name: staffName,
-    content: input.content ?? '',
-    status: input.status,
-    result: input.result ?? null,
-    next_action: input.nextAction ?? null,
-    linked_sale_id: input.linkedSaleId ?? null,
-    scheduled_at: scheduleTime,
-    completed_at: completedTime,
-  };
+  const created = rowToConsultation(data);
+  await createAuditLog({
+    action: AUDIT_ACTIONS.CREATE,
+    targetType: 'consultation',
+    targetId: created.id,
+    fromBranchId: branchId,
+    afterValue: {
+      memberId: created.memberId,
+      type: created.type,
+      status: created.status,
+      scheduledAt,
+      channel: created.channel,
+    },
+    detail: { message: '상담 이력 추가됨', memberId: created.memberId },
+  });
 
-  const fallbackInsertPayload = isSchemaError(modernInsert.error?.message, ['result', 'nextAction', 'linkedSaleId'])
-    ? {
-        memberId: input.memberId,
-        staffId: currentUser.id,
-        branchId,
-        type: input.type,
-        staffName,
-        content: input.content ?? '',
-        status: input.status,
-        consultedAt: input.consultedAt,
-      }
-    : legacyInsertPayload;
-
-  const legacyInsert = await supabase
-    .from('consultations')
-    .insert(fallbackInsertPayload)
-    .select()
-    .single();
-
-  if (legacyInsert.error || !legacyInsert.data) {
-    throw new Error(legacyInsert.error?.message ?? modernInsert.error?.message ?? '상담 이력 저장 실패');
-  }
-
-  return rowToConsultation(legacyInsert.data);
+  return created;
 }
 
 /** 상담 이력 수정 */
 export async function updateConsultation(id: number, input: Partial<CreateConsultationInput>): Promise<void> {
   const currentUser = getCurrentUser();
+  const branchId = getBranchId();
+  const { data: before } = await supabase
+    .from('consultations')
+    .select('*')
+    .eq('id', id)
+    .maybeSingle();
+
   const payload: Record<string, unknown> = {};
 
   if (input.consultedAt !== undefined) {
-    payload.consultedAt = input.consultedAt;
     payload.scheduledAt = input.consultedAt;
-    if (input.status === '완료' || input.status === undefined) {
+    const nextStatus = input.status ? toDbStatus(input.status) : before?.status;
+    if (nextStatus === 'completed') {
       payload.completedAt = input.consultedAt;
     }
   }
   if (input.type !== undefined) payload.type = input.type;
+  if (input.channel !== undefined) payload.channel = input.channel;
   if (input.staffName !== undefined) payload.staffName = input.staffName?.trim() || currentUser.name || '담당자 미지정';
   if (input.content !== undefined) payload.content = input.content;
   if (input.status !== undefined) {
-    payload.status = input.status;
-    if (input.status === '완료' && input.consultedAt === undefined) {
+    const dbStatus = toDbStatus(input.status);
+    payload.status = dbStatus;
+    if (dbStatus === 'completed' && input.consultedAt === undefined) {
       payload.completedAt = new Date().toISOString();
     }
-    if (input.status !== '완료') {
+    if (dbStatus !== 'completed') {
       payload.completedAt = null;
     }
   }
   if (input.result !== undefined) payload.result = input.result;
   if (input.nextAction !== undefined) payload.nextAction = input.nextAction;
   if (input.linkedSaleId !== undefined) payload.linkedSaleId = input.linkedSaleId;
+  payload.updatedAt = new Date().toISOString();
 
-  const modernUpdate = await supabase
+  const { data, error } = await supabase
     .from('consultations')
     .update(payload)
-    .eq('id', id);
+    .eq('id', id)
+    .select()
+    .single();
 
-  if (!modernUpdate.error) return;
+  if (error) throw new Error(error.message);
 
-  const legacyPayload: Record<string, unknown> = {};
-
-  if (input.consultedAt !== undefined) {
-    legacyPayload.scheduled_at = input.consultedAt;
-    if (input.status === '완료' || input.status === undefined) {
-      legacyPayload.completed_at = input.consultedAt;
-    }
-  }
-  if (input.type !== undefined) legacyPayload.type = input.type;
-  if (input.staffName !== undefined) legacyPayload.staff_name = input.staffName?.trim() || currentUser.name || '담당자 미지정';
-  if (input.content !== undefined) legacyPayload.content = input.content;
-  if (input.status !== undefined) {
-    legacyPayload.status = input.status;
-    if (input.status === '완료' && input.consultedAt === undefined) {
-      legacyPayload.completed_at = new Date().toISOString();
-    }
-    if (input.status !== '완료') {
-      legacyPayload.completed_at = null;
-    }
-  }
-  if (input.result !== undefined) legacyPayload.result = input.result;
-  if (input.nextAction !== undefined) legacyPayload.next_action = input.nextAction;
-  if (input.linkedSaleId !== undefined) legacyPayload.linked_sale_id = input.linkedSaleId;
-
-  const fallbackLegacyPayload = isSchemaError(modernUpdate.error?.message, ['result', 'nextAction', 'linkedSaleId'])
-    ? Object.fromEntries(
-        Object.entries(payload).filter(([key]) => !['result', 'nextAction', 'linkedSaleId', 'scheduledAt', 'completedAt'].includes(key))
-      )
-    : legacyPayload;
-
-  const legacyUpdate = await supabase
-    .from('consultations')
-    .update(fallbackLegacyPayload)
-    .eq('id', id);
-
-  if (legacyUpdate.error) throw new Error(legacyUpdate.error.message);
+  await createAuditLog({
+    action: AUDIT_ACTIONS.UPDATE,
+    targetType: 'consultation',
+    targetId: id,
+    fromBranchId: branchId,
+    beforeValue: before ? {
+      memberId: before.memberId,
+      type: before.type,
+      status: normalizeStatus(before.status),
+      scheduledAt: before.scheduledAt,
+      channel: before.channel ?? null,
+    } : undefined,
+    afterValue: {
+      memberId: data?.memberId ?? before?.memberId ?? input.memberId,
+      type: data?.type ?? input.type,
+      status: data ? normalizeStatus(data.status) : input.status,
+      scheduledAt: data?.scheduledAt ?? input.consultedAt,
+      channel: data?.channel ?? input.channel ?? null,
+      message: '상담 이력 수정됨',
+    },
+    detail: { message: '상담 이력 수정됨', memberId: data?.memberId ?? before?.memberId ?? input.memberId ?? null },
+  });
 }
 
 /** 상담 이력 삭제 */
 export async function deleteConsultation(id: number): Promise<void> {
+  const branchId = getBranchId();
+  const { data: before } = await supabase
+    .from('consultations')
+    .select('*')
+    .eq('id', id)
+    .maybeSingle();
+
   const { error } = await supabase
     .from('consultations')
     .delete()
     .eq('id', id);
 
   if (error) throw new Error(error.message);
+
+  await createAuditLog({
+    action: AUDIT_ACTIONS.DELETE,
+    targetType: 'consultation',
+    targetId: id,
+    fromBranchId: branchId,
+    beforeValue: before ? {
+      memberId: before.memberId,
+      type: before.type,
+      status: normalizeStatus(before.status),
+      scheduledAt: before.scheduledAt,
+      channel: before.channel ?? null,
+    } : undefined,
+    detail: { message: '상담 이력 삭제됨', memberId: before?.memberId ?? null },
+  });
 }

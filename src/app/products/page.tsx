@@ -230,13 +230,25 @@ export default function ProductList() {
   const [salesCountMap, setSalesCountMap] = useState<Map<string, number>>(new Map());
 
   // 동적 카테고리 목록 (product_groups + 실제 상품에서 추출)
+  const groupNameById = useMemo(() => {
+    return new Map(groups.map(group => [group.id, group.name]));
+  }, [groups]);
+
+  const getProductGroupName = useCallback((product: ProductRow) => {
+    return product.productGroupId ? groupNameById.get(product.productGroupId) : undefined;
+  }, [groupNameById]);
+
   const dynamicCategories = useMemo(() => {
-    // product_groups에서 가져온 분류 + 실제 상품의 카테고리 합집합
+    // product_groups에서 가져온 분류 + 실제 상품에 연결된 그룹/대분류 합집합
     const fromGroups = groups.filter(g => g.isActive).map(g => g.name);
-    const fromProducts = [...new Set(products.map(p => toCategoryKo(p.category)))];
+    const fromProducts = [
+      ...new Set(
+        products.map(product => getProductGroupName(product) ?? toCategoryKo(product.category))
+      ),
+    ];
     const all = [...new Set([...fromGroups, ...fromProducts])].filter(Boolean);
     return all;
-  }, [groups, products]);
+  }, [groups, products, getProductGroupName]);
 
   // 마스터-디테일 패널 상태
   const [selectedProduct, setSelectedProduct] = useState<ProductRow | null>(null);
@@ -286,12 +298,16 @@ export default function ProductList() {
   const filteredData = useMemo(() => {
     return products.filter(item => {
       const matchTypeTab = activeTypeTab === 'all' || item.productType === activeTypeTab;
-      const matchCategory = activeCategoryTab === 'all' || toCategoryKo(item.category) === activeCategoryTab;
+      const itemGroupName = getProductGroupName(item);
+      const matchCategory =
+        activeCategoryTab === 'all' ||
+        itemGroupName === activeCategoryTab ||
+        (!itemGroupName && toCategoryKo(item.category) === activeCategoryTab);
       const matchSport = sportFilter === '전체' || item.sportType === sportFilter;
       const matchSearch = item.name.toLowerCase().includes(searchValue.toLowerCase());
       return matchTypeTab && matchCategory && matchSport && matchSearch;
     });
-  }, [products, activeTypeTab, activeCategoryTab, sportFilter, searchValue]);
+  }, [products, activeTypeTab, activeCategoryTab, sportFilter, searchValue, getProductGroupName]);
 
   // 행 클릭 → 상세 패널 열기
   const handleRowClick = (product: ProductRow) => {
@@ -568,7 +584,7 @@ export default function ProductList() {
                   >
                     {cat}
                     <span className="ml-[3px] text-[10px] opacity-70">
-                      {products.filter(p => toCategoryKo(p.category) === cat).length}
+                      {products.filter(p => (getProductGroupName(p) ?? toCategoryKo(p.category)) === cat).length}
                     </span>
                   </button>
                 ))}
@@ -678,6 +694,7 @@ export default function ProductList() {
                     <tbody className="divide-y divide-line-light">
                       {filteredData.map(product => {
                         const isSelected = selectedProduct?.id === product.id && panelOpen;
+                        const productGroupName = getProductGroupName(product);
                         return (
                           <tr
                             key={product.id}
@@ -703,6 +720,11 @@ export default function ProductList() {
                                 {isPackageProduct(product) && (
                                   <span className="text-[9px] font-bold px-[4px] py-[1px] rounded shrink-0 bg-amber-100 text-amber-700 flex items-center gap-[2px]">
                                     📦 패키지
+                                  </span>
+                                )}
+                                {productGroupName && (
+                                  <span className="text-[9px] font-bold px-[4px] py-[1px] rounded shrink-0 bg-sky-100 text-sky-700">
+                                    {productGroupName}
                                   </span>
                                 )}
                                 <span className={cn(

@@ -62,11 +62,23 @@ export function getPathFromViewId(viewId: number): string | undefined {
 
 export function moveToPage(viewId: number, params?: Record<string, string | number>) {
   const path = VIEW_ID_MAP[viewId];
-  if (path && routerInstance) {
-    routerInstance.push(buildPreviewAwarePath(path, params));
-  } else {
-    console.warn(`[moveToPage] viewId ${viewId} → 경로를 찾을 수 없거나 라우터 미등록`);
+  if (!path) {
+    console.warn(`[moveToPage] viewId ${viewId} → 경로 매핑 없음`);
+    return;
   }
+
+  const targetPath = buildPreviewAwarePath(path, params);
+  if (routerInstance) {
+    routerInstance.push(targetPath);
+    return;
+  }
+
+  if (typeof window !== 'undefined') {
+    window.location.assign(targetPath);
+    return;
+  }
+
+  console.warn(`[moveToPage] viewId ${viewId} → router 미등록`);
 }
 
 export function stackPage(viewId: number, params?: Record<string, string | number>) {

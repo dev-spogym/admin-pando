@@ -13,6 +13,7 @@ import { moveToPage } from '@/internal';
 import { supabase } from '@/lib/supabase';
 import { cn } from '@/lib/utils';
 import { formatPrice, parsePrice, productFormSchema } from '@/lib/validations';
+import { getProductGroups } from '@/api/endpoints/productGroups';
 import type { z } from 'zod';
 
 type ProductFormData = z.input<typeof productFormSchema>;
@@ -20,7 +21,8 @@ type ProductFormData = z.input<typeof productFormSchema>;
 type ProductKind = '레슨' | '이용' | '락커' | '판매';
 type LessonCategory = 'PT' | 'GX';
 type UseCategory = '기간' | '횟수' | '포인트';
-type ProductGroup = { id: number; name: string; branchId: number };
+type ProductGroup = { id: number; name: string; branchId: number; sortOrder: number; isActive: boolean };
+type ExistingProduct = { id: number; name: string; category: string };
 
 const PRODUCT_KIND_OPTIONS: ProductKind[] = ['레슨', '이용', '락커', '판매'];
 const LESSON_CATEGORY_OPTIONS: LessonCategory[] = ['PT', 'GX'];
@@ -72,6 +74,16 @@ const mapKindToCategory = (kind: ProductKind): string => {
   }
 };
 
+const mapCategoryToDb = (category: string): string => {
+  const categoryMap: Record<string, string> = {
+    이용권: 'MEMBERSHIP',
+    PT: 'PT',
+    GX: 'GX',
+    기타: 'PRODUCT',
+  };
+  return categoryMap[category] ?? category;
+};
+
 const mapCategoryToKind = (category: string): ProductKind => {
   switch (category) {
     case 'PT':
@@ -83,16 +95,6 @@ const mapCategoryToKind = (category: string): ProductKind => {
     default:
       return '판매';
   }
-};
-
-const inferProductGroupId = (groups: ProductGroup[], category: string): number | null => {
-  const keyword = category === 'PT' ? 'PT' : category === 'GX' ? 'GX' : category === '이용권' ? '이용권' : '기타';
-  return groups.find(group => group.name.includes(keyword))?.id ?? null;
-};
-
-const getProductGroupLabel = (groups: ProductGroup[], id: number | null): string => {
-  if (id == null) return '미지정';
-  return groups.find(group => group.id === id)?.name ?? '미지정';
 };
 
 const emptyDayRows = () =>
@@ -203,7 +205,7 @@ function ProductForm() {
 
   const [isSaving, setIsSaving] = useState(false);
   const [showCancelConfirm, setShowCancelConfirm] = useState(false);
-  const [existingProducts, setExistingProducts] = useState<{ name: string; category: string }[]>([]);
+  const [existingProducts, setExistingProducts] = useState<ExistingProduct[]>([]);
   const [productGroups, setProductGroups] = useState<ProductGroup[]>([]);
 
   const [productKind, setProductKind] = useState<ProductKind>('이용');
@@ -277,16 +279,15 @@ function ProductForm() {
   const watchedName = watch('name');
   const watchedPriceCash = watch('priceCash');
   const watchedPriceCard = watch('priceCard');
-  const inferredProductGroupId = inferProductGroupId(productGroups, watchedCategory);
 
   useEffect(() => {
     const fetchExisting = async () => {
       const { data, error } = await supabase
         .from('products')
-        .select('name, category')
+        .select('id, name, category')
         .eq('branchId', getBranchId());
       if (!error && data) {
-        setExistingProducts(data as { name: string; category: string }[]);
+        setExistingProducts(data as ExistingProduct[]);
       }
     };
     fetchExisting();
@@ -294,13 +295,9 @@ function ProductForm() {
 
   useEffect(() => {
     const fetchProductGroups = async () => {
-      const { data, error } = await supabase
-        .from('product_groups')
-        .select('id, name, branchId')
-        .eq('branchId', getBranchId())
-        .order('id', { ascending: true });
+      const { data, error } = await getProductGroups(getBranchId());
       if (!error && data) {
-        setProductGroups(data as ProductGroup[]);
+        setProductGroups(data.filter(group => group.isActive));
       }
     };
     fetchProductGroups();
@@ -326,7 +323,7 @@ function ProductForm() {
 
       const category = categoryMap[data.category] ?? data.category ?? '이용권';
       setValue('category', category);
-      setProductKind(mapCategoryToKind(category));
+      setProductKind(data.productType === 'RENTAL' ? '락커' : mapCategoryToKind(category));
       setLessonCategory(category === 'GX' ? 'GX' : 'PT');
       setGxSubCategory(
         category === 'GX' && GX_SUB_CATEGORY_OPTIONS.includes(data.sportType ?? data.tag ?? '')
@@ -353,9 +350,9 @@ function ProductForm() {
   }, [editId, setValue]);
 
   const checkDuplicate = (name: string, category: string): boolean => {
-    const originalName = isEditMode ? watchedName : null;
+    const dbCategory = mapCategoryToDb(category);
     return existingProducts.some(
-      product => product.category === category && product.name === name && product.name !== originalName
+      product => product.category === dbCategory && product.name === name && (!isEditMode || product.id !== Number(editId))
     );
   };
 
@@ -363,6 +360,9 @@ function ProductForm() {
     const raw = value.replace(/[^0-9]/g, '');
     const formatted = formatPrice(raw);
     setValue(field, formatted, { shouldValidate: true });
+    if (field === 'priceCash' && !watchedPriceCard) {
+      setValue('priceCard', formatted, { shouldValidate: false });
+    }
     if (!formatted) {
       setError(field, { message: '가격은 1원 이상이어야 합니다.' });
       return;
@@ -416,18 +416,60 @@ function ProductForm() {
       toast.error('GX 상품은 세부종목을 선택해야 합니다.');
       return;
     }
+    const durationValue =
+      productKind === '락커' || (productKind === '이용' && useCategory === '기간')
+        ? data.period || useAmount
+        : '';
+    const countValue =
+      productKind === '레슨'
+        ? data.count || useAmount
+        : productKind === '이용' && useCategory !== '기간'
+          ? data.count || useAmount
+          : '';
+    if ((productKind === '락커' || (productKind === '이용' && useCategory === '기간')) && !durationValue) {
+      setError('period', { message: '기간 상품은 이용 기간을 입력해주세요.' });
+      return;
+    }
+    if ((productKind === '레슨' || (productKind === '이용' && useCategory !== '기간')) && !countValue) {
+      setError('count', { message: '횟수 또는 포인트 수량을 입력해주세요.' });
+      return;
+    }
 
     setIsSaving(true);
     const resolvedProductGroupId = productGroupId
       ? Number(productGroupId)
-      : inferProductGroupId(productGroups, data.category);
-
-    const categoryMap: Record<string, string> = {
-      이용권: 'MEMBERSHIP',
-      PT: 'PT',
-      GX: 'GX',
-      기타: 'PRODUCT',
-    };
+      : null;
+    const cashPrice = parsePrice(data.priceCash);
+    const cardPrice = parsePrice(data.priceCard || data.priceCash);
+    const enabledRows = dayRows.filter(row => row.enabled);
+    const firstEnabled = enabledRows[0];
+    const usageRestrictions =
+      enabledRows.length > 0 ||
+      lessonDuration !== '선택' ||
+      lessonValidity !== '선택' ||
+      optionStates.lockerAvailable ||
+      optionStates.reservationAvailable ||
+      optionStates.memberDirectTransfer
+        ? {
+            availableDays: enabledRows
+              .map(row => WEEKDAY_ROWS.indexOf(row.day))
+              .map(index => (index === 6 ? 0 : index + 1)),
+            availableTimeStart: firstEnabled?.from ?? '',
+            availableTimeEnd: firstEnabled?.to ?? '',
+            weekdayPrice: null,
+            weekendPrice: null,
+            lessonTime: lessonDuration !== '선택' ? lessonDuration : null,
+            lessonValidity: lessonValidity !== '선택' ? lessonValidity : null,
+            facilityAvailable: optionStates.lockerAvailable,
+            reservationAvailable: optionStates.reservationAvailable,
+            memberPauseEnabled: optionStates.memberDirectTransfer,
+            facilityUseTime: footerSelects.facilityUseTime,
+            reservationOpenDate: footerSelects.reservationOpenDate,
+            reservationInterval: footerSelects.reservationTimeGap,
+            pauseCount: footerSelects.pauseCount,
+            pausePeriod: footerSelects.pausePeriod,
+          }
+        : null;
 
     const typeMap: Record<string, string> = {
       이용권: 'MEMBERSHIP',
@@ -439,24 +481,29 @@ function ProductForm() {
     const productData = {
       branchId: getBranchId(),
       name: data.name,
-      category: categoryMap[data.category] ?? 'PRODUCT',
-      price: parsePrice(data.priceCash),
-      cashPrice: parsePrice(data.priceCash),
-      cardPrice: parsePrice(data.priceCard),
-      productType: typeMap[data.category] ?? 'GENERAL',
-      totalCount: data.count ? Number(data.count) : null,
-      duration: data.period ? Number(data.period) : null,
-      sessions: data.count ? Number(data.count) : null,
+      category: mapCategoryToDb(data.category),
+      price: cashPrice,
+      cashPrice,
+      cardPrice,
+      productType: productKind === '락커' ? 'RENTAL' : typeMap[data.category] ?? 'GENERAL',
+      totalCount: countValue ? parsePrice(countValue) : null,
+      duration: durationValue ? parsePrice(durationValue) : null,
+      sessions: countValue ? parsePrice(countValue) : null,
       description: data.description || null,
       isActive: data.isUsed,
-      kioskVisible: data.isKioskExposed ?? true,
+      kioskVisible: optionStates.kioskUsage || (data.isKioskExposed ?? true),
       tag: data.tags || null,
       sportType: data.category === 'GX' ? gxSubCategory : null,
       classType: classType || classMode,
       deductionType: deductionType || useCategory,
-      suspendLimit: suspendLimit ? Number(suspendLimit) : null,
+      suspendLimit: optionStates.memberDirectTransfer && footerSelects.pausePeriod !== '선택' ? parsePrice(footerSelects.pausePeriod) : (suspendLimit ? Number(suspendLimit) : null),
       dailyUseLimit: dailyUseLimit ? Number(dailyUseLimit) : null,
       productGroupId: resolvedProductGroupId,
+      holdingEnabled: data.isHoldingEnabled ?? false,
+      transferEnabled: optionStates.transferable,
+      pointAccrual: true,
+      salesChannel: optionStates.kioskUsage ? 'KIOSK' : 'ALL',
+      usage_restrictions: usageRestrictions,
     };
 
     const query = isEditMode
@@ -556,14 +603,13 @@ function ProductForm() {
                   onChange={e => setProductGroupId(e.target.value)}
                   className="h-5 w-full border border-[#bdbdbd] bg-white px-2 text-[11px] text-[#444] outline-none"
                 >
-                  <option value="">
-                    자동({getProductGroupLabel(productGroups, inferredProductGroupId)})
-                  </option>
+                  <option value="">상품그룹 선택</option>
                   {productGroups.map(group => (
                     <option key={group.id} value={String(group.id)}>
                       {group.name}
                     </option>
                   ))}
+                  {productGroups.length === 0 && <option disabled>등록된 상품그룹 없음</option>}
                 </select>
               </div>
 
@@ -583,8 +629,8 @@ function ProductForm() {
                 </div>
               </div>
 
-              <div className="grid gap-x-[6px] gap-y-[4px] md:grid-cols-[44px_60px_54px_90px_78px_96px] md:items-center">
-                <div className="font-bold text-[#555]">금액</div>
+              <div className="grid gap-x-[6px] gap-y-[4px] md:grid-cols-[44px_72px_44px_72px_54px_90px_78px_96px] md:items-center">
+                <div className="font-bold text-[#555]">현금가</div>
                 <div className="flex items-center border border-[#bdbdbd] bg-[#efefef]">
                   <input
                     type="text"
@@ -592,6 +638,19 @@ function ProductForm() {
                     value={watchedPriceCash}
                     onChange={e => handlePriceChange('priceCash', e.target.value)}
                     className="h-5 w-full bg-transparent px-1 text-right text-[11px] outline-none"
+                  />
+                  <span className="pr-1 text-[11px]">원</span>
+                </div>
+
+                <div className="justify-self-end font-bold text-[#555]">카드가</div>
+                <div className="flex items-center border border-[#bdbdbd] bg-[#efefef]">
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    value={watchedPriceCard}
+                    onChange={e => handlePriceChange('priceCard', e.target.value)}
+                    className="h-5 w-full bg-transparent px-1 text-right text-[11px] outline-none"
+                    placeholder={watchedPriceCash}
                   />
                   <span className="pr-1 text-[11px]">원</span>
                 </div>
@@ -931,7 +990,7 @@ function ProductForm() {
                 disabled={isSaving}
                 className="border border-[#d26e2d] bg-[linear-gradient(to_bottom,#fff3ec,#ff9b5a)] px-3 py-[3px] text-[11px] font-bold text-[#c04d00] disabled:opacity-60"
               >
-                {isSaving ? '저장중...' : '등록2'}
+                {isSaving ? '저장중...' : isEditMode ? '수정' : '등록'}
               </button>
               <button
                 type="button"

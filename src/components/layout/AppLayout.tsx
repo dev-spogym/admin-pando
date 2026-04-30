@@ -5,10 +5,9 @@ import RightQuickPanel from "@/components/panels/RightQuickPanel";
 import DesignDocPanel from "@/components/layout/DesignDocPanel";
 import { cn } from "@/lib/utils";
 import { useUiStore } from "@/stores/uiStore";
-import { moveToPage } from "@/internal";
 import { useRouter, usePathname } from "next/navigation";
 import { useAuthStore } from "@/stores/authStore";
-import { ensurePreviewSession } from "@/lib/preview";
+import { buildPreviewAwarePath, ensurePreviewSession } from "@/lib/preview";
 
 interface AppLayoutProps {
   children: React.ReactNode;
@@ -92,53 +91,10 @@ const AppLayout = ({ children }: AppLayoutProps) => {
     return () => document.removeEventListener('keydown', handleEsc);
   }, [mobileOpen]);
 
-  const handleNavigate = useCallback((path: string, viewId?: number) => {
+  const handleNavigate = useCallback((path: string, _viewId?: number) => {
     // 모바일에서 네비게이션 시 사이드바 자동 닫기
     if (isMobile) setMobileOpen(false);
-    if (viewId) {
-      moveToPage(viewId);
-      return;
-    }
-    const viewMap: Record<string, number> = {
-      "/": 966,
-      "/members": 967,
-      "/members/:memberId": 985,
-      "/members/new": 986,
-      "/attendance": 968,
-      "/calendar": 969,
-      "/sales": 970,
-      "/pos": 971,
-      "/pos/payment": 982,
-      "/products": 972,
-      "/products/new": 987,
-      "/locker": 973,
-      "/locker/management": 991,
-      "/rfid": 979,
-      "/rooms": 978,
-      "/staff": 974,
-      "/staff/new": 988,
-      "/settings": 975,
-      "/settings/kiosk": 994,
-      "/settings/iot": 995,
-      "/settings/permissions": 996,
-      "/payroll": 976,
-      "/payroll/statements": 989,
-      "/contracts/new": 977,
-      "/members/:id/body": 990,
-      "/message": 980,
-      "/message/auto-alarm": 992,
-      "/message/coupon": 993,
-      "/mileage": 981,
-      "/subscription": 983,
-      "/branches": 984,
-      "/temp-member-form": 997,
-    };
-    const targetViewId = viewMap[path];
-    if (targetViewId) {
-      moveToPage(targetViewId);
-    } else {
-      router.push(path);
-    }
+    router.push(buildPreviewAwarePath(path));
   }, [isMobile, router]);
 
   const handleToggleSidebar = useCallback(() => {

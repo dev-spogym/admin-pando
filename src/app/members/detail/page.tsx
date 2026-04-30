@@ -79,6 +79,11 @@ import TabEvaluation from "@/components/member/TabEvaluation";
 import TabConsultation from "@/components/member/TabConsultation";
 import TabExerciseProgram from "@/components/member/TabExerciseProgram";
 import TabExerciseLog from "@/components/member/TabExerciseLog";
+import {
+  createMemberLessonRecord,
+  getMemberLessonRecords,
+  type MemberLessonRecord,
+} from "@/api/endpoints/memberLessonRecords";
 import { getPreviewScenario, isPreviewMode } from "@/lib/preview";
 import { getPreviewMemberDetail } from "@/mocks/memberPreview";
 
@@ -1171,39 +1176,74 @@ function TabMemo({ memberId }: { memberId: string }) {
 // UI-028 레슨 탭 (FN-039 / FN-040)
 // ────────────────────────────────────────────────────────────
 
-type LessonRecord = {
-  id: string;
+type LessonFormRecord = {
   date: string;
   className: string;
   trainer: string;
   memo: string;
-  signature: string; // dataUrl or ""
+  signatureUrl: string | null;
 };
 
-function TabLesson({ memberId }: { memberId: string }) {
-  const SETTINGS_KEY = `lesson_records_${memberId}`;
-  const branchId = typeof window !== "undefined" ? localStorage.getItem("branchId") || "1" : "1";
-
-  const [records, setRecords] = useState<LessonRecord[]>([]);
+function TabLesson({
+  memberId,
+  memberName,
+  memberBranchId,
+}: {
+  memberId: string;
+  memberName: string;
+  memberBranchId?: number | null;
+}) {
+  const [records, setRecords] = useState<MemberLessonRecord[]>([]);
   const [showModal, setShowModal] = useState(false);
+  const [loading, setLoading] = useState(true);
 
   // 저장 / 불러오기
   const loadRecords = async () => {
-    const saved = readBranchJson<LessonRecord[]>(SETTINGS_KEY, [], branchId);
-    if (Array.isArray(saved)) setRecords(saved);
+    const numericMemberId = Number(memberId);
+    if (!Number.isFinite(numericMemberId) || numericMemberId <= 0) {
+      setRecords([]);
+      setLoading(false);
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const data = await getMemberLessonRecords(numericMemberId, memberBranchId);
+      setRecords(data);
+    } catch (e: unknown) {
+      toast.error(`레슨 기록 조회 실패: ${e instanceof Error ? e.message : '알 수 없는 오류'}`);
+      setRecords([]);
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const saveRecords = async (next: LessonRecord[]) => {
-    writeBranchJson(SETTINGS_KEY, next, branchId);
-  };
+  useEffect(() => { loadRecords(); }, [memberId, memberBranchId]);
 
-  useEffect(() => { loadRecords(); }, [memberId]);
+  const handleAdd = async (rec: LessonFormRecord) => {
+    const numericMemberId = Number(memberId);
+    if (!Number.isFinite(numericMemberId) || numericMemberId <= 0) {
+      toast.error("회원 정보를 찾을 수 없습니다.");
+      return;
+    }
 
-  const handleAdd = async (rec: Omit<LessonRecord, "id">) => {
-    const next = [{ ...rec, id: Date.now().toString() }, ...records];
-    setRecords(next);
-    await saveRecords(next);
-    toast.success("레슨 기록이 저장되었습니다.");
+    try {
+      const created = await createMemberLessonRecord({
+        memberId: numericMemberId,
+        memberName,
+        branchId: memberBranchId,
+        date: rec.date,
+        className: rec.className,
+        trainer: rec.trainer,
+        memo: rec.memo,
+        signatureDataUrl: rec.signatureUrl ?? undefined,
+      });
+      setRecords(prev => [created, ...prev]);
+      toast.success(created.signatureUrl ? "레슨 기록과 서명이 저장되었습니다." : "레슨 기록이 저장되었습니다. 모바일 서명 대기 상태입니다.");
+    } catch (e: unknown) {
+      toast.error(`레슨 기록 저장 실패: ${e instanceof Error ? e.message : '알 수 없는 오류'}`);
+      throw e;
+    }
   };
 
   // FN-040 통계
@@ -1214,6 +1254,17 @@ function TabLesson({ memberId }: { memberId: string }) {
   const classFreq: Record<string, number> = {};
   for (const r of records) classFreq[r.className] = (classFreq[r.className] || 0) + 1;
   const topClass = Object.entries(classFreq).sort((a, b) => b[1] - a[1])[0]?.[0] ?? "-";
+  const statusLabel: Record<MemberLessonRecord["status"], string> = {
+    scheduled: "예약",
+    in_progress: "서명 대기",
+    completed: "완료",
+    no_show: "노쇼",
+    cancelled: "취소",
+  };
+
+  if (loading) {
+    return <div className="flex items-center justify-center py-xl text-content-secondary text-[13px]">레슨 기록을 불러오는 중...</div>;
+  }
 
   return (
     <div className="space-y-lg">
@@ -1259,10 +1310,17 @@ function TabLesson({ memberId }: { memberId: string }) {
                   <span className="text-[13px] font-bold text-content">{r.className}</span>
                   <span className="text-[12px] text-content-secondary">{r.date}</span>
                   <span className="text-[12px] text-content-secondary">트레이너: {r.trainer}</span>
+                  <StatusBadge variant={r.status === "completed" ? "success" : r.status === "in_progress" ? "warning" : "default"}>
+                    {statusLabel[r.status]}
+                  </StatusBadge>
                 </div>
-                {r.signature && (
+                {r.signatureUrl ? (
                   <span className="text-[11px] text-state-success font-semibold flex items-center gap-xs">
                     <CheckCircle2 size={13} /> 서명 완료
+                  </span>
+                ) : (
+                  <span className="text-[11px] text-state-warning font-semibold flex items-center gap-xs">
+                    <Clock size={13} /> 모바일 서명 대기
                   </span>
                 )}
               </div>
@@ -1289,13 +1347,14 @@ function LessonModal({
   onSave,
 }: {
   onClose: () => void;
-  onSave: (rec: Omit<LessonRecord, "id">) => void;
+  onSave: (rec: LessonFormRecord) => Promise<void>;
 }) {
   const [date, setDate] = useState(new Date().toISOString().split("T")[0]);
   const [className, setClassName] = useState("");
   const [trainer, setTrainer] = useState("");
   const [memo, setMemo] = useState("");
   const [signature, setSignature] = useState("");
+  const [saving, setSaving] = useState(false);
 
   const isValid = className.trim().length > 0 && trainer.trim().length > 0;
 
@@ -1388,16 +1447,21 @@ function LessonModal({
           <button
             className={cn(
               "flex-1 h-11 rounded-lg text-[13px] font-bold shadow-sm transition-all",
-              isValid ? "bg-primary text-white hover:opacity-90" : "bg-surface-tertiary text-content-tertiary cursor-not-allowed"
+              isValid && !saving ? "bg-primary text-white hover:opacity-90" : "bg-surface-tertiary text-content-tertiary cursor-not-allowed"
             )}
-            disabled={!isValid}
-            onClick={() => {
-              if (!isValid) return;
-              onSave({ date, className, trainer, memo, signature });
-              onClose();
+            disabled={!isValid || saving}
+            onClick={async () => {
+              if (!isValid || saving) return;
+              setSaving(true);
+              try {
+                await onSave({ date, className, trainer, memo, signatureUrl: signature });
+                onClose();
+              } finally {
+                setSaving(false);
+              }
             }}
           >
-            저장
+            {saving ? "저장 중..." : "저장"}
           </button>
         </div>
       </div>
@@ -1909,7 +1973,13 @@ function MemberDetail() {
             )}
             {activeTab === "body" && <TabBody initialRecords={bodyRecords} memberHeight={member?.height ?? 0} />}
             {activeTab === "memo" && <TabMemo memberId={memberId ?? ''} />}
-            {activeTab === "lesson" && <TabLesson memberId={memberId ?? ''} />}
+            {activeTab === "lesson" && (
+              <TabLesson
+                memberId={memberId ?? ''}
+                memberName={member.name}
+                memberBranchId={member.branchId}
+              />
+            )}
             {/* Sprint 2: 신규 탭 렌더 */}
             {activeTab === "bodyInfo" && <TabBodyInfo memberId={member.id} />}
             {activeTab === "evaluation" && <TabEvaluation memberId={member.id} />}

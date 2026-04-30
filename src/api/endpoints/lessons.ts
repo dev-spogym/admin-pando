@@ -3,6 +3,7 @@
  */
 import { supabase } from '@/lib/supabase';
 import type { ApiResponse } from '../types';
+import { AUDIT_ACTIONS, createAuditLog } from './auditLog';
 
 /** branchId 가져오기 */
 const getBranchId = (): number => { if (typeof window === "undefined") return 1;
@@ -111,6 +112,14 @@ export const createLesson = async (payload: LessonRequest): Promise<ApiResponse<
       .single();
 
     if (error) throw new Error(error.message);
+    await createAuditLog({
+      action: AUDIT_ACTIONS.CREATE,
+      targetType: 'lesson',
+      targetId: (data as Lesson).id,
+      fromBranchId: branchId,
+      afterValue: { name: payload.name, type: payload.type },
+      detail: { message: '레슨 정보 등록됨' },
+    });
     return { success: true, data: data as Lesson, message: '수업이 등록되었습니다.' };
   } catch (err) {
     console.error('createLesson 오류:', err);
@@ -132,6 +141,13 @@ export const updateLesson = async (
       .single();
 
     if (error) throw new Error(error.message);
+    await createAuditLog({
+      action: AUDIT_ACTIONS.UPDATE,
+      targetType: 'lesson',
+      targetId: id,
+      afterValue: payload as Record<string, unknown>,
+      detail: { message: '레슨 정보 수정됨' },
+    });
     return { success: true, data: data as Lesson, message: '수업이 수정되었습니다.' };
   } catch (err) {
     console.error('updateLesson 오류:', err);
@@ -144,6 +160,12 @@ export const deleteLesson = async (id: number): Promise<ApiResponse<null>> => {
   try {
     const { error } = await supabase.from('lessons').delete().eq('id', id);
     if (error) throw new Error(error.message);
+    await createAuditLog({
+      action: AUDIT_ACTIONS.DELETE,
+      targetType: 'lesson',
+      targetId: id,
+      detail: { message: '레슨 정보 삭제됨' },
+    });
     return { success: true, data: null, message: '수업이 삭제되었습니다.' };
   } catch (err) {
     console.error('deleteLesson 오류:', err);
@@ -192,6 +214,14 @@ export const createSchedule = async (
       .single();
 
     if (error) throw new Error(error.message);
+    await createAuditLog({
+      action: AUDIT_ACTIONS.CREATE,
+      targetType: 'lesson_schedule',
+      targetId: (data as LessonSchedule).id,
+      fromBranchId: branchId,
+      afterValue: { lessonId: payload.lessonId, startAt: payload.startAt, endAt: payload.endAt },
+      detail: { message: '레슨 일정 등록됨' },
+    });
     return { success: true, data: data as LessonSchedule, message: '일정이 등록되었습니다.' };
   } catch (err) {
     console.error('createSchedule 오류:', err);
@@ -213,6 +243,13 @@ export const updateSchedule = async (
       .single();
 
     if (error) throw new Error(error.message);
+    await createAuditLog({
+      action: AUDIT_ACTIONS.UPDATE,
+      targetType: 'lesson_schedule',
+      targetId: id,
+      afterValue: payload as Record<string, unknown>,
+      detail: { message: '레슨 일정 수정됨' },
+    });
     return { success: true, data: data as LessonSchedule, message: '일정이 수정되었습니다.' };
   } catch (err) {
     console.error('updateSchedule 오류:', err);
@@ -225,6 +262,12 @@ export const deleteSchedule = async (id: number): Promise<ApiResponse<null>> => 
   try {
     const { error } = await supabase.from('lesson_schedules').delete().eq('id', id);
     if (error) throw new Error(error.message);
+    await createAuditLog({
+      action: AUDIT_ACTIONS.DELETE,
+      targetType: 'lesson_schedule',
+      targetId: id,
+      detail: { message: '레슨 일정 삭제됨' },
+    });
     return { success: true, data: null, message: '일정이 삭제되었습니다.' };
   } catch (err) {
     console.error('deleteSchedule 오류:', err);
@@ -259,6 +302,13 @@ export const createBooking = async (payload: BookingRequest): Promise<ApiRespons
       .single();
 
     if (error) throw new Error(error.message);
+    await createAuditLog({
+      action: AUDIT_ACTIONS.CREATE,
+      targetType: 'lesson_booking',
+      targetId: (data as Booking).id,
+      afterValue: { scheduleId: payload.scheduleId, memberId: payload.memberId, memberName: payload.memberName, status: 'BOOKED' },
+      detail: { message: '레슨 예약 등록됨' },
+    });
     return { success: true, data: data as Booking, message: '예약이 완료되었습니다.' };
   } catch (err) {
     console.error('createBooking 오류:', err);
@@ -280,6 +330,13 @@ export const cancelBooking = async (
       .single();
 
     if (error) throw new Error(error.message);
+    await createAuditLog({
+      action: AUDIT_ACTIONS.UPDATE,
+      targetType: 'lesson_booking',
+      targetId: id,
+      afterValue: { status: 'CANCELLED', cancelReason: reason ?? null },
+      detail: { message: '레슨 예약 취소됨' },
+    });
     return { success: true, data: data as Booking, message: '예약이 취소되었습니다.' };
   } catch (err) {
     console.error('cancelBooking 오류:', err);
@@ -298,6 +355,13 @@ export const attendBooking = async (id: number): Promise<ApiResponse<Booking>> =
       .single();
 
     if (error) throw new Error(error.message);
+    await createAuditLog({
+      action: AUDIT_ACTIONS.UPDATE,
+      targetType: 'lesson_booking',
+      targetId: id,
+      afterValue: { status: 'ATTENDED' },
+      detail: { message: '레슨 출석 처리됨' },
+    });
     return { success: true, data: data as Booking, message: '출석 처리되었습니다.' };
   } catch (err) {
     console.error('attendBooking 오류:', err);

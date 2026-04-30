@@ -3,6 +3,7 @@
  */
 import { supabase } from '@/lib/supabase';
 import type { ApiResponse } from '../types';
+import { AUDIT_ACTIONS, createAuditLog } from './auditLog';
 
 /** branchId 가져오기 */
 const getBranchId = (): number => { if (typeof window === "undefined") return 1;
@@ -13,14 +14,19 @@ const getBranchId = (): number => { if (typeof window === "undefined") return 1;
 /** 수업 일정 행 */
 export interface ClassRow {
   branchId: number;
-  templateId: number | null;
-  instructorId: number | null;
+  staffId: number;
+  staffName: string;
   title: string;
-  startAt: string;  // ISO datetime
-  endAt: string;    // ISO datetime
+  type: string;
+  startTime: string;  // ISO datetime
+  endTime: string;    // ISO datetime
   capacity: number;
+  booked: number;
   room: string | null;
-  status: string;   // OPEN | CANCELLED
+  isRecurring: boolean;
+  lesson_status: string;
+  targetType: string;
+  approvalStatus: string;
 }
 
 /** 일괄 생성 입력 */
@@ -51,6 +57,29 @@ const toISO = (date: Date, time: string): string => {
   return dt.toISOString();
 };
 
+const resolveStaff = async (branchId: number, instructorId: number | null): Promise<{ id: number; name: string }> => {
+  if (instructorId) {
+    const { data } = await supabase
+      .from('staff')
+      .select('id,name')
+      .eq('id', instructorId)
+      .maybeSingle();
+    if (data) return { id: data.id as number, name: (data.name as string | null) ?? '담당자 미지정' };
+  }
+
+  const { data } = await supabase
+    .from('staff')
+    .select('id,name')
+    .eq('branchId', branchId)
+    .eq('isActive', true)
+    .order('id', { ascending: true })
+    .limit(1)
+    .maybeSingle();
+
+  if (data) return { id: data.id as number, name: (data.name as string | null) ?? '담당자 미지정' };
+  return { id: 1, name: '담당자 미지정' };
+};
+
 /**
  * 선택 요일 × 기간 범위로 수업 일괄 생성
  * @returns 생성된 수업 수
@@ -68,6 +97,7 @@ export const bulkCreateClasses = async (
     return { success: false, data: 0, message: '시작일이 종료일보다 늦습니다.' };
   }
 
+  const staff = await resolveStaff(resolvedBranchId, input.instructorId);
   const rows: ClassRow[] = [];
   const cur = new Date(start);
 
@@ -76,14 +106,19 @@ export const bulkCreateClasses = async (
     if (input.weekdays.includes(cur.getDay())) {
       rows.push({
         branchId: resolvedBranchId,
-        templateId: input.templateId,
-        instructorId: input.instructorId,
+        staffId: staff.id,
+        staffName: staff.name,
         title: input.templateName,
-        startAt: toISO(cur, input.startTime),
-        endAt: toISO(cur, input.endTime),
+        type: 'GX',
+        startTime: toISO(cur, input.startTime),
+        endTime: toISO(cur, input.endTime),
         capacity: input.capacity,
+        booked: 0,
         room: input.room || null,
-        status: 'OPEN',
+        isRecurring: false,
+        lesson_status: 'scheduled',
+        targetType: 'class',
+        approvalStatus: 'approved',
       });
     }
     cur.setDate(cur.getDate() + 1);
@@ -96,6 +131,19 @@ export const bulkCreateClasses = async (
   try {
     const { error } = await supabase.from('classes').insert(rows);
     if (error) throw new Error(error.message);
+    await createAuditLog({
+      action: AUDIT_ACTIONS.CREATE,
+      targetType: 'lesson',
+      fromBranchId: resolvedBranchId,
+      afterValue: {
+        count: rows.length,
+        title: input.templateName,
+        staffId: staff.id,
+        periodStart: input.periodStart,
+        periodEnd: input.periodEnd,
+      },
+      detail: { message: '레슨 시간표 일괄 생성됨' },
+    });
     return { success: true, data: rows.length, message: `${rows.length}개 수업이 생성되었습니다.` };
   } catch (err) {
     console.error('bulkCreateClasses 오류:', err);
@@ -115,12 +163,17 @@ export const getClasses = async (
       .from('classes')
       .select('*, users(name)')
       .eq('branchId', resolvedBranchId)
-      .order('startAt', { ascending: true });
-    if (startDate) query = query.gte('startAt', startDate);
-    if (endDate) query = query.lte('startAt', endDate);
+      .order('startTime', { ascending: true });
+    if (startDate) query = query.gte('startTime', startDate);
+    if (endDate) query = query.lte('startTime', endDate);
     const { data, error } = await query;
     if (error) throw new Error(error.message);
-    return { success: true, data: data ?? [] };
+    const rows = (data ?? []).map((row: Record<string, unknown>) => ({
+      ...row,
+      startAt: row.startTime,
+      endAt: row.endTime,
+    }));
+    return { success: true, data: rows };
   } catch (err) {
     console.error('getClasses 오류:', err);
     throw err;
@@ -138,6 +191,12 @@ export const bulkUpdateClasses = async (
       .update(updates)
       .in('id', ids);
     if (error) throw new Error(error.message);
+    await createAuditLog({
+      action: AUDIT_ACTIONS.UPDATE,
+      targetType: 'lesson',
+      afterValue: { ids, updates },
+      detail: { message: '레슨 시간표 일괄 수정됨', count: ids.length },
+    });
     return { success: true, data: null, message: `${ids.length}개 수업이 수정되었습니다.` };
   } catch (err) {
     console.error('bulkUpdateClasses 오류:', err);
@@ -150,6 +209,12 @@ export const bulkDeleteClasses = async (ids: number[]): Promise<ApiResponse<null
   try {
     const { error } = await supabase.from('classes').delete().in('id', ids);
     if (error) throw new Error(error.message);
+    await createAuditLog({
+      action: AUDIT_ACTIONS.DELETE,
+      targetType: 'lesson',
+      beforeValue: { ids },
+      detail: { message: '레슨 시간표 일괄 삭제됨', count: ids.length },
+    });
     return { success: true, data: null, message: `${ids.length}개 수업이 삭제되었습니다.` };
   } catch (err) {
     console.error('bulkDeleteClasses 오류:', err);

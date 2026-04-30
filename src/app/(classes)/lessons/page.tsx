@@ -19,6 +19,7 @@ import ConfirmDialog from "@/components/ui/ConfirmDialog";
 import SignaturePad from "@/components/common/SignaturePad";
 import { supabase } from '@/lib/supabase';
 import { bulkUpdateClasses, bulkDeleteClasses } from '@/api/endpoints/classSchedule';
+import { AUDIT_ACTIONS, createAuditLog } from '@/api/endpoints/auditLog';
 import { readBranchJson, writeBranchJson } from '@/lib/branchStorage';
 import {
   LESSON_SESSION_TYPES,
@@ -394,15 +395,36 @@ export default function LessonManagement() {
       if (error) {
         toast.error('수업 수정에 실패했습니다.');
       } else {
+        await createAuditLog({
+          action: AUDIT_ACTIONS.UPDATE,
+          targetType: 'lesson',
+          targetId: editTarget.id,
+          fromBranchId: branchId,
+          beforeValue: { name: editTarget.name, type: editTarget.type, status: editTarget.status },
+          afterValue: { name: payload.name, type: payload.type, status: payload.status },
+          detail: { message: '레슨 정보 수정됨' },
+        });
         toast.success('수업이 수정되었습니다.');
         setModalOpen(false);
         fetchLessons();
       }
     } else {
-      const { error } = await supabase.from('lessons').insert(payload);
+      const { data, error } = await supabase
+        .from('lessons')
+        .insert(payload)
+        .select('id')
+        .single();
       if (error) {
         toast.error('수업 등록에 실패했습니다.');
       } else {
+        await createAuditLog({
+          action: AUDIT_ACTIONS.CREATE,
+          targetType: 'lesson',
+          targetId: data?.id,
+          fromBranchId: branchId,
+          afterValue: { name: payload.name, type: payload.type, status: payload.status },
+          detail: { message: '레슨 정보 등록됨' },
+        });
         toast.success('수업이 등록되었습니다.');
         setModalOpen(false);
         fetchLessons();
@@ -420,6 +442,14 @@ export default function LessonManagement() {
     if (error) {
       toast.error('수업 삭제에 실패했습니다.');
     } else {
+      await createAuditLog({
+        action: AUDIT_ACTIONS.DELETE,
+        targetType: 'lesson',
+        targetId: deleteTargetId,
+        fromBranchId: branchId,
+        beforeValue: { id: deleteTargetId },
+        detail: { message: '레슨 정보 삭제됨' },
+      });
       toast.success('수업이 삭제되었습니다.');
       fetchLessons();
     }
@@ -461,6 +491,7 @@ export default function LessonManagement() {
 
   // ── 수업 기록 상태 변경 ───────────────────────────────────────
   const updateClassStatus = async (classId: number, newStatus: LessonStatus) => {
+    const before = classRecords.find((record) => record.id === classId);
     const extra: Record<string, any> = { lesson_status: newStatus };
 
     const { error } = await supabase
@@ -472,6 +503,15 @@ export default function LessonManagement() {
       toast.error('상태 변경에 실패했습니다.');
       return false;
     }
+    await createAuditLog({
+      action: AUDIT_ACTIONS.UPDATE,
+      targetType: 'lesson',
+      targetId: classId,
+      fromBranchId: branchId,
+      beforeValue: before ? { title: before.title, status: before.lesson_status } : undefined,
+      afterValue: { status: newStatus },
+      detail: { message: '레슨 상태 변경됨' },
+    });
     toast.success(
       newStatus === 'in_progress' ? '수업이 시작되었습니다.' :
       newStatus === 'no_show' ? '노쇼 처리되었습니다.' :
@@ -511,12 +551,15 @@ export default function LessonManagement() {
         const { data: urlData } = supabase.storage.from('files').getPublicUrl(fileName);
         signatureUrl = urlData.publicUrl;
       }
-      // 업로드 실패해도 완료 처리는 진행 (서명 URL만 null)
+      // 업로드 실패 시에도 서명 원본(data URL)을 저장해 완료 서명 누락을 방지한다.
+      if (!signatureUrl) signatureUrl = signatureDataUrl;
 
+      const completedAt = new Date().toISOString();
       const completionPayload = {
         lesson_status: 'completed',
         signature_url: signatureUrl,
-        signature_at: new Date().toISOString(),
+        signature_at: completedAt,
+        completed_at: completedAt,
       };
       let { error } = await supabase
         .from('classes')
@@ -538,6 +581,28 @@ export default function LessonManagement() {
       if (error) {
         toast.error('수업 완료 처리에 실패했습니다.');
       } else {
+        await createAuditLog({
+          action: AUDIT_ACTIONS.UPDATE,
+          targetType: 'lesson',
+          targetId: selectedClass.id,
+          fromBranchId: branchId,
+          beforeValue: {
+            title: selectedClass.title,
+            status: selectedClass.lesson_status,
+            signatureUrl: selectedClass.signature_url,
+          },
+          afterValue: {
+            status: 'completed',
+            signatureUrl,
+            completedAt,
+          },
+          detail: {
+            message: '레슨 완료 서명 저장됨',
+            memberId: selectedClass.member_id,
+            memberName: selectedClass.member_name,
+            mobileSignatureLinked: true,
+          },
+        });
         toast.success('수업이 완료 처리되었습니다.');
         setSignModalOpen(false);
         setClassDetailOpen(false);

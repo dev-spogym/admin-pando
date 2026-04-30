@@ -9,6 +9,7 @@ import StatusBadge from "@/components/common/StatusBadge";
 import Modal from "@/components/ui/Modal";
 import Timeline, { type TimelineItem } from '@/components/common/Timeline';
 import { createAuditLog } from '@/api/endpoints/auditLog';
+import { getProductGroups } from '@/api/endpoints/productGroups';
 
 export interface PackageItem {
   productId: number;
@@ -22,6 +23,16 @@ export interface UsageRestrictions {
   availableTimeEnd: string;
   weekdayPrice: number | null;
   weekendPrice: number | null;
+  lessonTime?: string | null;
+  lessonValidity?: string | null;
+  facilityAvailable?: boolean;
+  reservationAvailable?: boolean;
+  memberPauseEnabled?: boolean;
+  facilityUseTime?: string | null;
+  reservationOpenDate?: string | null;
+  reservationInterval?: string | null;
+  pauseCount?: string | null;
+  pausePeriod?: string | null;
 }
 
 export interface ProductRow {
@@ -58,6 +69,8 @@ interface ProductGroup {
   id: number;
   name: string;
   branchId: number;
+  sortOrder: number;
+  isActive: boolean;
 }
 
 interface Props {
@@ -110,16 +123,6 @@ const TYPE_MAP: Record<string, string> = {
   기타: 'GENERAL',
 };
 
-const inferProductGroupId = (groups: ProductGroup[], category: string): number | null => {
-  const keyword = category === 'PT' ? 'PT' : category === 'GX' ? 'GX' : category === '이용권' ? '이용권' : '기타';
-  return groups.find(group => group.name.includes(keyword))?.id ?? null;
-};
-
-const getProductGroupLabel = (groups: ProductGroup[], id: number | null): string => {
-  if (id == null) return '미지정';
-  return groups.find(group => group.id === id)?.name ?? '미지정';
-};
-
 const panelClass = 'border border-[#aeb6c3] bg-[#f1f1f1] text-[11px] text-[#222] shadow-[inset_1px_1px_0_#fff]';
 const fieldClass =
   'h-6 w-full border border-[#a8adb7] bg-white px-1.5 text-[11px] text-[#222] outline-none focus:border-[#5a91d8]';
@@ -163,6 +166,7 @@ export default function ProductDetailPanel({ product, isNew, onSave, onDelete, o
   const [lessonCategory, setLessonCategory] = useState<(typeof LESSON_CATEGORY_OPTIONS)[number]>('PT');
   const [gxSubCategory, setGxSubCategory] = useState('');
   const [cashPrice, setCashPrice] = useState('');
+  const [cardPrice, setCardPrice] = useState('');
   const [duration, setDuration] = useState('');
   const [sessions, setSessions] = useState('');
   const [description, setDescription] = useState('');
@@ -217,6 +221,7 @@ export default function ProductDetailPanel({ product, isNew, onSave, onDelete, o
     setLessonCategory('PT');
     setGxSubCategory('');
     setCashPrice('');
+    setCardPrice('');
     setDuration('');
     setSessions('');
     setDescription('');
@@ -254,7 +259,7 @@ export default function ProductDetailPanel({ product, isNew, onSave, onDelete, o
   const applyProductToForm = (source: ProductRow, options?: { markAsCopy?: boolean }) => {
     const catKo = CAT_KO_MAP[source.category] ?? source.category;
     setName(source.name);
-    setProductKind(catKo === 'PT' || catKo === 'GX' ? '레슨' : catKo === '이용권' ? '이용' : '판매');
+    setProductKind(source.productType === 'RENTAL' ? '락커' : catKo === 'PT' || catKo === 'GX' ? '레슨' : catKo === '이용권' ? '이용' : '판매');
     setLessonCategory(catKo === 'GX' ? 'GX' : 'PT');
     setGxSubCategory(
       catKo === 'GX' && GX_SUB_CATEGORY_OPTIONS.includes((source.sportType ?? source.tag ?? '') as (typeof GX_SUB_CATEGORY_OPTIONS)[number])
@@ -262,6 +267,7 @@ export default function ProductDetailPanel({ product, isNew, onSave, onDelete, o
         : ''
     );
     setCashPrice(formatNum(source.cashPrice ?? source.price));
+    setCardPrice(formatNum(source.cardPrice ?? source.cashPrice ?? source.price));
     setDuration(source.duration?.toString() ?? '');
     setSessions(source.sessions?.toString() ?? '');
     setTag(source.tag ?? '');
@@ -271,20 +277,31 @@ export default function ProductDetailPanel({ product, isNew, onSave, onDelete, o
     setPointAccrual(source.pointAccrual ?? true);
     setHoldingEnabled(source.holdingEnabled ?? false);
     setClassMode(source.classType === '정규클래스' ? '정규클래스' : '개인');
-    setUseType(
+    const sourceUseType =
       source.deductionType === '횟수' || source.deductionType === '포인트' || source.deductionType === '기간'
         ? source.deductionType
-        : '기간'
-    );
-    setUseAmount(source.sessions?.toString() ?? '');
+        : '기간';
+    setUseType(sourceUseType);
+    setUseAmount(sourceUseType === '기간' ? source.duration?.toString() ?? '' : source.sessions?.toString() ?? '');
     setLimitEnabled(Boolean(source.dailyUseLimit));
     setLimitCount(source.dailyUseLimit ? `${source.dailyUseLimit}회` : '1회');
     setSalesChannel(source.salesChannel ?? 'ALL');
     setProductGroupId(source.productGroupId?.toString() ?? '');
 
-    const availableDays = source.usage_restrictions?.availableDays ?? [];
-    const start = source.usage_restrictions?.availableTimeStart ?? '09:00';
-    const end = source.usage_restrictions?.availableTimeEnd ?? '18:00';
+    const restrictions = source.usage_restrictions;
+    const availableDays = restrictions?.availableDays ?? [];
+    const start = restrictions?.availableTimeStart || '09:00';
+    const end = restrictions?.availableTimeEnd || '18:00';
+    setLessonTime(restrictions?.lessonTime ?? '선택');
+    setLessonValidity(restrictions?.lessonValidity ?? '선택');
+    setFacilityAvailable(Boolean(restrictions?.facilityAvailable));
+    setReservationAvailable(Boolean(restrictions?.reservationAvailable));
+    setMemberPauseEnabled(Boolean(restrictions?.memberPauseEnabled));
+    setFacilityUseTime(restrictions?.facilityUseTime ?? '기본');
+    setReservationOpenDate(restrictions?.reservationOpenDate ?? '당일');
+    setReservationInterval(restrictions?.reservationInterval ?? '10분');
+    setPauseCount(restrictions?.pauseCount ?? '선택');
+    setPausePeriod(restrictions?.pausePeriod ?? '선택');
     setWeekdayRows(
       DAY_ROWS.map((day, index) => {
         const mapped = index === 6 ? 0 : index + 1;
@@ -323,13 +340,9 @@ export default function ProductDetailPanel({ product, isNew, onSave, onDelete, o
 
   useEffect(() => {
     const fetchProductGroups = async () => {
-      const { data, error } = await supabase
-        .from('product_groups')
-        .select('id, name, branchId')
-        .eq('branchId', getBranchId())
-        .order('id', { ascending: true });
+      const { data, error } = await getProductGroups(getBranchId());
       if (!error && data) {
-        setProductGroups(data as ProductGroup[]);
+        setProductGroups(data.filter(group => group.isActive));
       }
     };
     fetchProductGroups();
@@ -370,7 +383,6 @@ export default function ProductDetailPanel({ product, isNew, onSave, onDelete, o
   }, [showImportModal, packageOpen, product?.id]);
 
   const effectiveCategory = productKind === '레슨' ? lessonCategory : productKind === '이용' ? '이용권' : '기타';
-  const inferredProductGroupId = inferProductGroupId(productGroups, effectiveCategory);
 
   // 가격 이력 로드
   const fetchPriceHistory = async () => {
@@ -411,10 +423,10 @@ export default function ProductDetailPanel({ product, isNew, onSave, onDelete, o
     setPriceHistoryLoading(false);
   };
 
-  const handlePriceChange = (value: string) => {
+  const handlePriceChange = (value: string, setter: (value: string) => void) => {
     const raw = value.replace(/[^0-9]/g, '');
     const num = parseInt(raw, 10);
-    setCashPrice(Number.isNaN(num) ? '' : formatNumber(num));
+    setter(Number.isNaN(num) ? '' : formatNumber(num));
   };
 
   const handleSave = async () => {
@@ -425,11 +437,37 @@ export default function ProductDetailPanel({ product, isNew, onSave, onDelete, o
 
     const cashVal = parseNum(cashPrice);
     if (cashVal === null || cashVal <= 0) {
-      toast.error('금액을 입력하세요.');
+      toast.error('현금가를 입력하세요.');
+      return;
+    }
+    const cardVal = parseNum(cardPrice) ?? cashVal;
+    if (cardVal <= 0) {
+      toast.error('카드가를 입력하세요.');
       return;
     }
     if (productKind === '레슨' && lessonCategory === 'GX' && !gxSubCategory) {
       toast.error('GX 상품은 세부종목을 선택해야 합니다.');
+      return;
+    }
+
+    const durationInput =
+      productKind === '락커' || (productKind === '이용' && useType === '기간')
+        ? duration || useAmount
+        : '';
+    const sessionsInput =
+      productKind === '레슨'
+        ? sessions
+        : productKind === '이용' && useType !== '기간'
+          ? sessions || useAmount
+          : '';
+    const durationVal = parseNum(durationInput);
+    const sessionsVal = parseNum(sessionsInput);
+    if ((productKind === '락커' || (productKind === '이용' && useType === '기간')) && (!durationVal || durationVal <= 0)) {
+      toast.error('기간 상품은 이용 기간을 입력하세요.');
+      return;
+    }
+    if ((productKind === '레슨' || (productKind === '이용' && useType !== '기간')) && (!sessionsVal || sessionsVal <= 0)) {
+      toast.error('횟수 또는 포인트 수량을 입력하세요.');
       return;
     }
 
@@ -456,18 +494,47 @@ export default function ProductDetailPanel({ product, isNew, onSave, onDelete, o
 
     setSaving(true);
 
-    const firstEnabled = weekdayRows.find(row => row.enabled);
+    const enabledRows = weekdayRows.filter(row => row.enabled);
+    const firstEnabled = enabledRows[0];
+    const usageRestrictions: UsageRestrictions | null =
+      enabledRows.length > 0 ||
+      lessonTime !== '선택' ||
+      lessonValidity !== '선택' ||
+      facilityAvailable ||
+      reservationAvailable ||
+      memberPauseEnabled
+        ? {
+            availableDays: enabledRows
+              .map(row => DAY_ROWS.indexOf(row.day))
+              .map(index => (index === 6 ? 0 : index + 1)),
+            availableTimeStart: firstEnabled?.start ?? '',
+            availableTimeEnd: firstEnabled?.end ?? '',
+            weekdayPrice: null,
+            weekendPrice: null,
+            lessonTime: lessonTime !== '선택' ? lessonTime : null,
+            lessonValidity: lessonValidity !== '선택' ? lessonValidity : null,
+            facilityAvailable,
+            reservationAvailable,
+            memberPauseEnabled,
+            facilityUseTime,
+            reservationOpenDate,
+            reservationInterval,
+            pauseCount,
+            pausePeriod,
+          }
+        : null;
+
     const payload: Record<string, unknown> = {
       branchId: getBranchId(),
       name: name.trim(),
       category: CAT_DB_MAP[effectiveCategory] ?? 'PRODUCT',
       price: cashVal,
       cashPrice: cashVal,
-      cardPrice: cashVal,
-      productType: TYPE_MAP[effectiveCategory] ?? 'GENERAL',
-      duration: parseNum(duration),
-      sessions: parseNum(sessions || useAmount),
-      totalCount: parseNum(sessions || useAmount),
+      cardPrice: cardVal,
+      productType: productKind === '락커' ? 'RENTAL' : TYPE_MAP[effectiveCategory] ?? 'GENERAL',
+      duration: durationVal,
+      sessions: sessionsVal,
+      totalCount: sessionsVal,
       description: description.trim() || null,
       isActive,
       kioskVisible,
@@ -475,24 +542,14 @@ export default function ProductDetailPanel({ product, isNew, onSave, onDelete, o
       sportType: effectiveCategory === 'GX' ? gxSubCategory : null,
       classType: classMode,
       deductionType: useType,
+      suspendLimit: memberPauseEnabled ? parseNum(pausePeriod) : null,
       dailyUseLimit: limitEnabled ? parseNum(limitCount) : null,
       holdingEnabled,
       transferEnabled,
       pointAccrual,
       salesChannel,
-      productGroupId: productGroupId ? Number(productGroupId) : inferredProductGroupId,
-      usage_restrictions: weekdayRows.some(row => row.enabled)
-        ? {
-            availableDays: weekdayRows
-              .filter(row => row.enabled)
-              .map(row => DAY_ROWS.indexOf(row.day))
-              .map(index => (index === 6 ? 0 : index + 1)),
-            availableTimeStart: firstEnabled?.start ?? '09:00',
-            availableTimeEnd: firstEnabled?.end ?? '18:00',
-            weekdayPrice: null,
-            weekendPrice: null,
-          }
-        : null,
+      productGroupId: productGroupId ? Number(productGroupId) : null,
+      usage_restrictions: usageRestrictions,
       // 패키지 플래그 + 구성 항목 저장 (description에 JSON 직렬화)
       ...(isPackage && packageItems.length > 0
         ? {
@@ -700,12 +757,13 @@ export default function ProductDetailPanel({ product, isNew, onSave, onDelete, o
                 onChange={e => setProductGroupId(e.target.value)}
                 className={selectClass}
               >
-                <option value="">자동({getProductGroupLabel(productGroups, inferredProductGroupId)})</option>
+                <option value="">상품그룹 선택</option>
                 {productGroups.map(group => (
                   <option key={group.id} value={String(group.id)}>
                     {group.name}
                   </option>
                 ))}
+                {productGroups.length === 0 && <option disabled>등록된 상품그룹 없음</option>}
               </select>
             </div>
 
@@ -720,9 +778,23 @@ export default function ProductDetailPanel({ product, isNew, onSave, onDelete, o
                 <div className="relative min-w-0 flex-1">
                   <input
                     value={cashPrice}
-                    onChange={e => handlePriceChange(e.target.value)}
+                    onChange={e => handlePriceChange(e.target.value, setCashPrice)}
                     className={cn(fieldClass, 'pr-10 text-right tabular-nums')}
                     inputMode="numeric"
+                  />
+                  <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-[#666]">원</span>
+                </div>
+              </div>
+
+              <div className={rowClass}>
+                <RowLabel>카드가</RowLabel>
+                <div className="relative min-w-0 flex-1">
+                  <input
+                    value={cardPrice}
+                    onChange={e => handlePriceChange(e.target.value, setCardPrice)}
+                    className={cn(fieldClass, 'pr-10 text-right tabular-nums')}
+                    inputMode="numeric"
+                    placeholder={cashPrice || '현금가와 동일'}
                   />
                   <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-[#666]">원</span>
                 </div>
@@ -753,6 +825,16 @@ export default function ProductDetailPanel({ product, isNew, onSave, onDelete, o
 
             {productKind === '레슨' && (
               <div className="grid grid-cols-2 gap-1.5">
+                <div className={cn(rowClass, 'min-w-0')}>
+                  <RowLabel>횟수</RowLabel>
+                  <input
+                    value={sessions}
+                    onChange={e => setSessions(e.target.value)}
+                    className={fieldClass}
+                    inputMode="numeric"
+                  />
+                </div>
+
                 <div className={cn(rowClass, 'min-w-0')}>
                   <RowLabel>수업구분</RowLabel>
                   <div className="flex flex-wrap gap-3">
@@ -814,16 +896,17 @@ export default function ProductDetailPanel({ product, isNew, onSave, onDelete, o
                       value={useAmount}
                       onChange={e => {
                         setUseAmount(e.target.value);
-                        setSessions(e.target.value);
+                        setDuration(e.target.value);
                       }}
                       className={fieldClass}
+                      inputMode="numeric"
                     />
                   </div>
                 )}
 
-                {productKind === '이용' && useType === '횟수' && (
+                {productKind === '이용' && useType !== '기간' && (
                   <div className={rowClass}>
-                    <RowLabel>횟수</RowLabel>
+                    <RowLabel>{useType === '포인트' ? '포인트' : '횟수'}</RowLabel>
                     <input
                       value={useAmount}
                       onChange={e => {
@@ -831,6 +914,7 @@ export default function ProductDetailPanel({ product, isNew, onSave, onDelete, o
                         setSessions(e.target.value);
                       }}
                       className={fieldClass}
+                      inputMode="numeric"
                     />
                   </div>
                 )}
