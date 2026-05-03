@@ -85,6 +85,7 @@ export const ROUTE_TO_DOC: Record<string, RouteDocMapping> = {
 
   // ── 수업관리 ──
   '/calendar': { title: '수업 캘린더', category: '수업관리', functional: { file: '수업관리.md', keywords: ['캘린더', '1. 캘린더'] }, screen: { folder: 'D04-수업관리/SCR-C001-수업캘린더' } },
+  '/class-reservations': { title: '예약 목록', category: '수업관리', functional: { file: '수업관리.md', keywords: ['예약 목록', '16. 예약 목록'] }, screen: { folder: 'D04-수업관리/SCR-C016-예약목록' } },
   '/class-schedule': { title: '시간표 등록', category: '수업관리', functional: { file: '수업관리.md', keywords: ['시간표', '2. 시간표'] }, screen: { folder: 'D04-수업관리/SCR-C003-시간표일괄등록' } },
   '/class-templates': { title: '수업 템플릿', category: '수업관리', functional: { file: '수업관리.md', keywords: ['수업 템플릿', '3. 수업 템플릿'] }, screen: { folder: 'D04-수업관리/SCR-C004-그룹수업템플릿' } },
   '/class-stats': { title: '수업 현황', category: '수업관리', functional: { file: '수업관리.md', keywords: ['수업 현황', '4. 수업 현황'] }, screen: { folder: 'D04-수업관리/SCR-C005-그룹수업현황' } },

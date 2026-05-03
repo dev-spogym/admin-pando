@@ -63,6 +63,7 @@ export const ROUTE_PERMISSIONS: Record<string, UserRole[]> = {
 
   // 수업/캘린더
   '/calendar': ['primary', 'owner', 'manager', 'fc'],
+  '/class-reservations': ['primary', 'owner', 'manager', 'fc', 'staff', 'readonly'],
   '/lessons': ['primary', 'owner', 'manager', 'fc'],
   '/lesson-counts': ['primary', 'owner', 'manager', 'fc'],
   '/penalties': ['primary', 'owner', 'manager'],

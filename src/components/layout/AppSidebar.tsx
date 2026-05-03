@@ -78,6 +78,7 @@ const MENU_ITEMS: MenuItem[] = [
     icon: Calendar,
     children: [
       { label: "캘린더", path: "/calendar", viewId: 969 },
+      { label: "예약 목록", path: "/class-reservations" },
       { label: "일정 요청", path: "/schedule-requests" },
       { label: "수업 관리", path: "/lessons" },
       { label: "횟수 관리", path: "/lesson-counts" },
