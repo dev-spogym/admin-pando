@@ -2,7 +2,7 @@
 title: 이용권 상태 전이도
 type: stateDiagram
 scope: Membership
-lastUpdated: 2026-04-20
+lastUpdated: 2026-05-04
 ---
 
 ## 1. 개요
@@ -32,8 +32,8 @@ lastUpdated: 2026-04-20
 
 ```mermaid
 stateDiagram-v2
-    [*] --> SCHEDULED : T-MSP-01 결제 완료 (시작일 미래)
-    [*] --> ACTIVE : T-MSP-02 결제 완료 (시작일 오늘)
+    [*] --> SCHEDULED : T-MSP-01 전액 결제 완료 또는 계약금 즉시 개시 승인 (시작일 미래)
+    [*] --> ACTIVE : T-MSP-02 전액 결제 완료 또는 계약금 즉시 개시 승인 (시작일 오늘)
 
     SCHEDULED --> ACTIVE : T-MSP-03 시작일 도래 [배치 00:00]
     SCHEDULED --> REFUNDED : T-MSP-04 환불 처리 (시작 전)
@@ -76,8 +76,8 @@ stateDiagram-v2
 
 | 이벤트 ID | From | To | 트리거 | 권한 | 부수효과 | TC 후보 |
 |-----------|------|----|--------|------|----------|---------|
-| T-MSP-01 | [신규] | SCHEDULED | 전자계약/POS 결제 완료 (시작일 미래) | STAFF 이상 | 이용권 레코드 생성, 회원 상태 재계산 | TC-MSP-01 |
-| T-MSP-02 | [신규] | ACTIVE | 전자계약/POS 결제 완료 (시작일 오늘) | STAFF 이상 | 이용권 레코드 생성, 즉시 활성화 | TC-MSP-02 |
+| T-MSP-01 | [신규] | SCHEDULED | 전자계약/POS 전액 결제 완료 또는 계약금 즉시 개시 승인 (시작일 미래) | STAFF 이상 | 이용권 레코드 생성, 회원 상태 재계산 | TC-MSP-01 |
+| T-MSP-02 | [신규] | ACTIVE | 전자계약/POS 전액 결제 완료 또는 계약금 즉시 개시 승인 (시작일 오늘) | STAFF 이상 | 이용권 레코드 생성, 즉시 활성화 | TC-MSP-02 |
 | T-MSP-03 | SCHEDULED | ACTIVE | 배치 스케줄러 ( ≤ today) | 시스템 | 활성화 알림 발송, 회원 상태 재계산 | TC-MSP-03 |
 | T-MSP-04 | SCHEDULED | REFUNDED | 관리자 환불 처리 | MANAGER 이상 | 환불 레코드 생성, 결제 취소 연동 | TC-MSP-04 |
 | T-MSP-05 | ACTIVE | HOLDING | 관리자 홀딩 신청 | MANAGER 이상 | /EndAt 기록, 홀딩 알림 발송 | TC-MSP-05 |
@@ -96,7 +96,7 @@ stateDiagram-v2
 | 시나리오 | 조건 | 처리 | 에러 코드 |
 |----------|------|------|-----------|
 | 홀딩 횟수 초과 | 센터 설정 홀딩 제한 초과 | 홀딩 거부, 경고 토스트 | E400201 |
-| 환불 금액 초과 | 환불금 > 결제금 | 환불 거부 | E400301 |
+| 환불 금액 초과 | 환불금 > 환불가능액 | 환불 거부 | E400301 |
 | 양도 대상 미존재 | 대상 회원 미등록 | 양도 거부, 오류 안내 | E400401 |
 | 만료 자동 전환 중복 | 배치 중복 실행 | 멱등 처리 (이미 EXPIRED이면 스킵) | - |
 | 홀딩 자동 해제 실패 | 배치 오류 | 수동 처리 필요, 관리자 알림 | E500102 |
