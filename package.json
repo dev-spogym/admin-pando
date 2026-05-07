@@ -8,7 +8,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "docs:check": "tsx scripts/sync-docs.ts",
+    "docs:check": "node --import tsx scripts/sync-docs.ts && node --import tsx scripts/check-feature-codes.ts",
     "qa:scan": "tsx --tsconfig tsconfig.scripts.json scripts/qa-scan.ts",
     "scenario:run": "tsx --tsconfig tsconfig.scripts.json scripts/run-scenarios.ts",
     "scenario:x01": "tsx --tsconfig tsconfig.scripts.json scripts/scenarios/x01-onboarding.ts",
