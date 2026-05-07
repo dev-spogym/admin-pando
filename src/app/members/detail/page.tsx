@@ -236,6 +236,18 @@ function getRemainClass(days: number) {
   return "text-content font-medium";
 }
 
+function daysFromNow(dateValue: string | null | undefined) {
+  if (!dateValue) return null;
+  const parsed = new Date(dateValue);
+  if (Number.isNaN(parsed.getTime())) return null;
+  return Math.floor((Date.now() - parsed.getTime()) / (1000 * 60 * 60 * 24));
+}
+
+function formatDateLabel(dateValue: string | null | undefined) {
+  if (!dateValue) return "-";
+  return dateValue.slice(0, 10);
+}
+
 // 체성분 SVG 라인 차트
 function BodyLineChart({ records }: { records: BodyRecord[] }) {
   const reversed = [...records].reverse();
@@ -1742,6 +1754,139 @@ function MemberDetail() {
   const memberStatus = member.status || "INACTIVE";
   const statusVariant = statusVariantMap[memberStatus] || "default";
   const statusLabel = statusLabelMap[memberStatus] || memberStatus;
+  const unpaidTotal = sales.reduce((acc, sale) => acc + Number(sale.unpaid || 0), 0);
+  const paidAmount30d = sales.reduce((acc, sale) => {
+    if (!sale.saleDate) return acc;
+    const gap = daysFromNow(sale.saleDate);
+    if (gap === null || gap > 30) return acc;
+    return acc + Number(sale.salePrice || 0);
+  }, 0);
+  const lastAttendanceDate = attendances[0]?.checkInAt ?? member.lastVisitAt ?? null;
+  const daysSinceVisit = daysFromNow(lastAttendanceDate);
+  const activeContracts = contracts.filter((contract) => contract.status === "ACTIVE").length;
+  const expiringSoon = dDay !== null && dDay >= 0 && dDay <= 14;
+  const longAbsent = daysSinceVisit !== null && daysSinceVisit >= 14;
+  const hasAttentionIssue = unpaidTotal > 0 || expiringSoon || memberStatus === "HOLDING" || memberStatus === "SUSPENDED" || longAbsent;
+
+  const operationalAlerts = [
+    expiringSoon
+      ? {
+          key: "expiry",
+          tone: "error",
+          title: "만료 임박",
+          description: `${dDay}일 내 만료 예정입니다. 재등록 전환을 바로 붙이는 게 좋습니다.`,
+        }
+      : null,
+    unpaidTotal > 0
+      ? {
+          key: "unpaid",
+          tone: "warning",
+          title: "미수금 존재",
+          description: `현재 미수 ${formatNumber(unpaidTotal)}원이 남아 있습니다. 결제 링크 또는 수납 안내가 필요합니다.`,
+        }
+      : null,
+    longAbsent
+      ? {
+          key: "absence",
+          tone: "info",
+          title: "장기 미방문",
+          description: `${daysSinceVisit}일째 방문 이력이 없습니다. 이탈 위험 대상으로 후속 연락이 필요합니다.`,
+        }
+      : null,
+    memberStatus === "HOLDING"
+      ? {
+          key: "holding",
+          tone: "info",
+          title: "홀딩 회원",
+          description: "홀딩 종료 예정일과 복귀 예약 여부를 확인해야 합니다.",
+        }
+      : null,
+    memberStatus === "SUSPENDED"
+      ? {
+          key: "suspended",
+          tone: "warning",
+          title: "이용 정지 상태",
+          description: "정지 사유 해소 전까지 대부분의 운영 액션이 제한됩니다.",
+        }
+      : null,
+  ].filter(Boolean) as Array<{ key: string; tone: "error" | "warning" | "info"; title: string; description: string }>;
+
+  const actionQueue = [
+    {
+      key: "message",
+      label: expiringSoon ? "재등록 안내 발송" : longAbsent ? "리텐션 메시지 발송" : "안내 메시지 발송",
+      icon: <MessageSquare size={13} />,
+      onClick: () => moveToPage(980),
+      variant: "primary" as const,
+    },
+    unpaidTotal > 0
+      ? {
+          key: "payment",
+          label: "미수 결제 처리",
+          icon: <CreditCard size={13} />,
+          onClick: () => setActiveTab("payment_detail"),
+          variant: "outline" as const,
+        }
+      : {
+          key: "purchase",
+          label: "추가 상품 제안",
+          icon: <ShoppingBag size={13} />,
+          onClick: () => moveToPage(971, { memberId: memberId ?? "" }),
+          variant: "outline" as const,
+        },
+    memberStatus === "ACTIVE"
+      ? {
+          key: "holding",
+          label: "홀딩 처리",
+          icon: <Clock size={13} />,
+          onClick: () => setIsHoldingModalOpen(true),
+          variant: "ghost" as const,
+        }
+      : memberStatus === "HOLDING"
+        ? {
+            key: "release-holding",
+            label: "홀딩 해제",
+            icon: <CheckCircle2 size={13} />,
+            onClick: async () => {
+              const result = await endHolding(Number(memberId), holdDays || 7);
+              if (result.success) {
+                toast.success(result.message);
+                window.location.reload();
+              } else {
+                toast.error(result.message);
+              }
+            },
+            variant: "ghost" as const,
+          }
+        : {
+            key: "detail",
+            label: "상담이력 확인",
+            icon: <ClipboardList size={13} />,
+            onClick: () => setActiveTab("consultation"),
+            variant: "ghost" as const,
+          },
+  ];
+
+  const recentTimeline = [
+    {
+      key: "visit",
+      label: "마지막 방문",
+      value: formatDateLabel(lastAttendanceDate),
+      meta: daysSinceVisit === null ? "기록 없음" : `${daysSinceVisit}일 전`,
+    },
+    {
+      key: "payment",
+      label: "최근 30일 결제",
+      value: `${formatNumber(paidAmount30d)}원`,
+      meta: paidAmount30d > 0 ? "최근 결제 있음" : "최근 결제 없음",
+    },
+    {
+      key: "contract",
+      label: "활성 계약",
+      value: `${activeContracts}건`,
+      meta: `${contracts.length}건 중 활성`,
+    },
+  ];
 
   return (
     <AppLayout>
@@ -1886,6 +2031,94 @@ function MemberDetail() {
                     탈퇴
                   </Button>
                 )}
+              </div>
+            </div>
+          </div>
+
+          {/* 운영 코크핏 */}
+          <div className="border-x border-line bg-white/92 px-lg py-md shadow-card">
+            <div className="grid gap-md xl:grid-cols-[1.3fr_0.9fr]">
+              <div className="rounded-xl border border-line bg-surface p-md">
+                <div className="mb-sm flex items-center justify-between gap-sm">
+                  <div>
+                    <p className="text-[11px] font-black uppercase tracking-[0.14em] text-content-tertiary">Operation Cockpit</p>
+                    <h2 className="text-[15px] font-bold text-content">지금 바로 처리할 운영 이슈</h2>
+                  </div>
+                  <StatusBadge variant={hasAttentionIssue ? "warning" : "success"} dot>
+                    {hasAttentionIssue ? "조치 필요" : "안정 상태"}
+                  </StatusBadge>
+                </div>
+
+                {operationalAlerts.length > 0 ? (
+                  <div className="space-y-sm">
+                    {operationalAlerts.map((alert) => (
+                      <div
+                        key={alert.key}
+                        className={cn(
+                          "rounded-xl border px-md py-sm",
+                          alert.tone === "error" && "border-state-error/20 bg-red-50",
+                          alert.tone === "warning" && "border-amber-300/40 bg-amber-50",
+                          alert.tone === "info" && "border-sky-300/40 bg-sky-50"
+                        )}
+                      >
+                        <div className="flex items-start gap-sm">
+                          <AlertTriangle
+                            size={15}
+                            className={cn(
+                              "mt-[2px]",
+                              alert.tone === "error" && "text-state-error",
+                              alert.tone === "warning" && "text-amber-600",
+                              alert.tone === "info" && "text-sky-600"
+                            )}
+                          />
+                          <div>
+                            <p className="text-[13px] font-semibold text-content">{alert.title}</p>
+                            <p className="mt-[2px] text-[12px] leading-5 text-content-secondary">{alert.description}</p>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-md py-md text-[12px] text-emerald-700">
+                    즉시 처리할 리스크가 없습니다. 유지 관리 액션만 확인하면 됩니다.
+                  </div>
+                )}
+              </div>
+
+              <div className="grid gap-md">
+                <div className="rounded-xl border border-line bg-surface p-md">
+                  <p className="mb-sm text-[11px] font-black uppercase tracking-[0.14em] text-content-tertiary">Next Actions</p>
+                  <div className="grid gap-sm">
+                    {actionQueue.map((action) => (
+                      <Button
+                        key={action.key}
+                        variant={action.variant}
+                        size="sm"
+                        className="justify-start"
+                        icon={action.icon}
+                        onClick={action.onClick}
+                      >
+                        {action.label}
+                      </Button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="rounded-xl border border-line bg-surface p-md">
+                  <p className="mb-sm text-[11px] font-black uppercase tracking-[0.14em] text-content-tertiary">Recent Signals</p>
+                  <div className="space-y-xs">
+                    {recentTimeline.map((item) => (
+                      <div key={item.key} className="flex items-center justify-between rounded-lg bg-surface-secondary/70 px-sm py-sm">
+                        <div>
+                          <p className="text-[12px] font-semibold text-content">{item.label}</p>
+                          <p className="text-[11px] text-content-tertiary">{item.meta}</p>
+                        </div>
+                        <span className="text-[12px] font-bold text-content">{item.value}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
               </div>
             </div>
           </div>

@@ -64,14 +64,27 @@ export const ROUTE_PERMISSIONS: Record<string, UserRole[]> = {
   // 수업/캘린더
   '/calendar': ['primary', 'owner', 'manager', 'fc'],
   '/class-reservations': ['primary', 'owner', 'manager', 'fc', 'staff', 'readonly'],
+  '/schedule-requests': ['primary', 'owner', 'manager', 'fc'],
   '/lessons': ['primary', 'owner', 'manager', 'fc'],
   '/lesson-counts': ['primary', 'owner', 'manager', 'fc'],
   '/penalties': ['primary', 'owner', 'manager'],
+  '/valid-lessons': ['primary', 'owner', 'manager', 'fc'],
+  '/class-templates': ['primary', 'owner', 'manager', 'fc'],
+  '/class-schedule': ['primary', 'owner', 'manager', 'fc'],
+  '/class-stats': ['primary', 'owner', 'manager', 'fc'],
+  '/instructor-status': ['primary', 'owner', 'manager', 'fc'],
+  '/class-waitlist': ['primary', 'owner', 'manager', 'fc'],
+  '/class-feedback': ['primary', 'owner', 'manager', 'fc'],
+  '/attendance/qr': ['primary', 'owner', 'manager', 'fc'],
+  '/class-recording': ['primary', 'owner', 'manager', 'fc'],
 
   // 매출
   '/sales': ['primary', 'owner', 'manager'],
   '/sales/stats': ['primary', 'owner', 'manager'],
   '/sales/statistics-management': ['primary', 'owner', 'manager'],
+  '/kpi': ['primary', 'owner', 'manager'],
+  '/onboarding': ['primary', 'owner', 'manager'],
+  '/deferred-revenue': ['primary', 'owner', 'manager'],
   '/pos': ['primary', 'owner', 'manager', 'staff'],
   '/pos/payment': ['primary', 'owner', 'manager', 'staff'],
   '/refunds': ['primary', 'owner'],
@@ -81,6 +94,11 @@ export const ROUTE_PERMISSIONS: Record<string, UserRole[]> = {
   '/products': ['primary', 'owner', 'manager', 'staff'],
   '/products/new': ['primary', 'owner'],
   '/products/edit': ['primary', 'owner'],
+  '/products/catalog': ['primary', 'owner', 'manager', 'staff'],
+  '/products/compare': ['primary', 'owner', 'manager', 'staff'],
+  '/products/inventory': ['primary', 'owner', 'manager', 'staff'],
+  '/products/seasonal-price': ['primary', 'owner', 'manager'],
+  '/discount-settings': ['primary', 'owner'],
 
   // 시설
   '/locker': ['primary', 'owner', 'manager', 'staff'],
@@ -88,30 +106,55 @@ export const ROUTE_PERMISSIONS: Record<string, UserRole[]> = {
   '/rfid': ['primary', 'owner', 'staff'],
   '/rooms': ['primary', 'owner', 'manager'],
   '/clothing': ['primary', 'owner', 'manager', 'staff'],
+  '/golf-bays': ['primary', 'owner', 'manager', 'staff'],
+  '/clothing-locker': ['primary', 'owner', 'manager', 'staff'],
+  '/equipment-check': ['primary', 'owner', 'manager', 'staff'],
+  '/consumables': ['primary', 'owner', 'manager', 'staff'],
+  '/cleaning-schedule': ['primary', 'owner', 'manager', 'staff'],
 
   // 급여
   '/payroll': ['primary', 'owner'],
   '/payroll/statements': ['primary', 'owner', 'manager', 'fc', 'staff', 'readonly'], // 본인 명세서
 
   // 메시지
+  '/leads': ['primary', 'owner', 'manager'],
   '/message': ['primary', 'owner', 'manager'],
   '/message/auto-alarm': ['primary', 'owner'],
   '/message/coupon': ['primary', 'owner', 'manager'],
+  '/marketing/campaign': ['primary', 'owner', 'manager'],
+  '/marketing/referral': ['primary', 'owner', 'manager'],
+  '/marketing/sms': ['primary', 'owner', 'manager'],
+  '/marketing/ab-test': ['primary', 'owner', 'manager'],
 
   // 설정
   '/settings': ['primary', 'owner'],
   '/settings/permissions': ['primary', 'owner'],
   '/settings/kiosk': ['primary', 'owner'],
   '/settings/iot': ['primary', 'owner'],
+  '/settings/automation': ['primary', 'owner'],
+  '/settings/attendance': ['primary', 'owner'],
+  '/settings/custom-role': ['primary', 'owner'],
+  '/settings/language': ['primary', 'owner'],
+  '/settings/backup': ['primary', 'owner'],
   '/subscription': ['primary'],
   '/branches': ['primary'],
   '/staff': ['primary', 'owner'],
   '/staff/new': ['primary', 'owner'],
   '/staff/edit': ['primary', 'owner'],
   '/staff/resignation': ['primary', 'owner'],
+  '/staff/attendance': ['primary', 'owner', 'manager'],
+  '/exercise-programs': ['primary', 'owner'],
+  '/kiosk-ops': ['primary', 'owner', 'manager', 'staff'],
+  '/notices': ['primary', 'owner'],
 
   // 멀티테넌트 (슈퍼관리자 전용 — hasPermission에서 isSuperAdmin bypass 처리)
   '/super-dashboard': [],
+  '/reports': [],
+  '/hq/automation-policies': [],
+  '/dashboard/builder': [],
+  '/benchmark': [],
+  '/analytics/forecast': [],
+  '/nps': [],
   '/audit-log': ['primary', 'owner'],
   '/members/transfer': ['primary', 'owner', 'manager'],
   '/branch-report': [],
@@ -143,7 +186,12 @@ export function hasPermission(userRole: string, route: string, _isSuperAdmin?: b
   // 슈퍼관리자는 모든 라우트 접근 가능
   if (_isSuperAdmin) return true;
 
-  const allowedRoles = ROUTE_PERMISSIONS[route];
+  const normalizedRoute = route.split('?')[0];
+  const allowedRoles =
+    ROUTE_PERMISSIONS[normalizedRoute] ??
+    Object.entries(ROUTE_PERMISSIONS)
+      .filter(([registeredRoute]) => registeredRoute !== '/' && normalizedRoute.startsWith(`${registeredRoute}/`))
+      .sort((a, b) => b[0].length - a[0].length)[0]?.[1];
   // 정의되지 않은 라우트는 기본 허용 (login, 404 등)
   if (!allowedRoles) return true;
   const normalized = normalizeRole(userRole);

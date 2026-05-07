@@ -196,6 +196,20 @@ function MemberList() {
   const members = hideExpired ? rawMembers.filter((m) => m.status !== 'EXPIRED') : rawMembers;
   const pagination = membersQuery.data?.data?.pagination;
   const stats = statsQuery.data?.data;
+  const expiringSoonCount = useMemo(() => members.filter((member) => {
+    if (!member.membershipExpiry || member.status !== 'ACTIVE') return false;
+    const diff = Math.ceil((new Date(member.membershipExpiry).getTime() - Date.now()) / 86400000);
+    return diff >= 0 && diff <= 14;
+  }).length, [members]);
+  const longAbsentCount = useMemo(() => members.filter((member) => {
+    if (!member.lastVisitAt || member.status !== 'ACTIVE') return false;
+    const diff = Math.floor((Date.now() - new Date(member.lastVisitAt).getTime()) / 86400000);
+    return diff >= 14;
+  }).length, [members]);
+  const selectedMembers = useMemo(
+    () => Array.from(selectedRows).map((idx) => members[idx]).filter(Boolean),
+    [selectedRows, members]
+  );
 
   const debounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => {
@@ -582,6 +596,66 @@ function MemberList() {
         <StatCard label="만료 예정(D-30)" value={formatNumber(stats?.expiringCount)} icon={<Clock size={20} />} variant="peach" />
         <StatCard label="이번달 만료" value={formatNumber(stats?.expiredThisMonth)} icon={<AlertTriangle size={20} />} variant="default" />
       </StatCardGrid>
+
+      <div className="mb-lg grid gap-md xl:grid-cols-[1.2fr_0.8fr]">
+        <div className="rounded-2xl border border-line bg-surface p-lg shadow-card">
+          <div className="mb-sm flex items-center justify-between gap-sm">
+            <div>
+              <p className="text-[11px] font-black uppercase tracking-[0.14em] text-content-tertiary">Operation Focus</p>
+              <h2 className="text-[16px] font-bold text-content">지금 바로 봐야 할 회원군</h2>
+            </div>
+            <StatusBadge variant={selectedRows.size > 0 ? 'info' : 'secondary'} dot>
+              {selectedRows.size > 0 ? `${selectedRows.size}명 선택 중` : '목록 탐색 중'}
+            </StatusBadge>
+          </div>
+          <div className="grid gap-sm sm:grid-cols-3">
+            <button
+              className="rounded-xl border border-amber-300/50 bg-amber-50 px-md py-md text-left transition-colors hover:bg-amber-100"
+              onClick={() => { setActiveStatusTab('ACTIVE'); setHideExpired(false); setDaysNoVisit(0); }}
+            >
+              <p className="text-[12px] font-semibold text-amber-800">재등록 집중 보기</p>
+              <p className="mt-[2px] text-[22px] font-bold text-content tabular-nums">{formatNumber(expiringSoonCount)}명</p>
+              <p className="mt-[3px] text-[12px] text-content-secondary">14일 내 만료 예정 회원</p>
+            </button>
+            <button
+              className="rounded-xl border border-rose-300/50 bg-rose-50 px-md py-md text-left transition-colors hover:bg-rose-100"
+              onClick={() => { setActiveStatusTab('ACTIVE'); setDaysNoVisit(14); }}
+            >
+              <p className="text-[12px] font-semibold text-rose-800">이탈 위험 보기</p>
+              <p className="mt-[2px] text-[22px] font-bold text-content tabular-nums">{formatNumber(longAbsentCount)}명</p>
+              <p className="mt-[3px] text-[12px] text-content-secondary">14일 이상 미방문 회원</p>
+            </button>
+            <button
+              className="rounded-xl border border-sky-300/50 bg-sky-50 px-md py-md text-left transition-colors hover:bg-sky-100"
+              onClick={() => { setOnlyFavorite(true); setCurrentPage(1); }}
+            >
+              <p className="text-[12px] font-semibold text-sky-800">관심회원 보기</p>
+              <p className="mt-[2px] text-[22px] font-bold text-content tabular-nums">{formatNumber(members.filter((member) => member.isFavorite).length)}명</p>
+              <p className="mt-[3px] text-[12px] text-content-secondary">후속 관리 우선 대상</p>
+            </button>
+          </div>
+        </div>
+
+        <div className="rounded-2xl border border-line bg-surface p-lg shadow-card">
+          <p className="mb-sm text-[11px] font-black uppercase tracking-[0.14em] text-content-tertiary">Action Queue</p>
+          <div className="grid gap-sm">
+            <Button variant="primary" size="sm" icon={<Send size={13} />} className="justify-start" onClick={handleSendMessage}>
+              선택 회원 메시지 발송
+            </Button>
+            <Button variant="outline" size="sm" icon={<Settings size={13} />} className="justify-start" onClick={handleStatusChange}>
+              선택 회원 상태 변경
+            </Button>
+            <Button variant="outline" size="sm" icon={<CheckCircle size={13} />} className="justify-start" onClick={handleBulkAttendance}>
+              선택 회원 수동 출석
+            </Button>
+            <div className="rounded-xl bg-surface-secondary/70 px-md py-sm text-[12px] text-content-secondary">
+              {selectedMembers.length > 0
+                ? `${selectedMembers.slice(0, 3).map((member) => member.name).join(', ')}${selectedMembers.length > 3 ? ` 외 ${selectedMembers.length - 3}명` : ''}`
+                : '회원을 선택하면 바로 액션 큐에서 메시지, 상태변경, 출석 처리를 실행할 수 있습니다.'}
+            </div>
+          </div>
+        </div>
+      </div>
 
       {/* 메인 탭 */}
       <div className="mb-md">

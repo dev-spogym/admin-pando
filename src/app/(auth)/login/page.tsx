@@ -9,6 +9,7 @@ import { useLogin } from '@/api/hooks/useAuth';
 import { getBranches } from '@/api/endpoints';
 import type { Branch } from '@/api/endpoints';
 import { useAuthStore } from '@/stores/authStore';
+import { getDefaultWorkspace } from '@/lib/appNavigation';
 import { toast } from 'sonner';
 import Select from '@/components/ui/Select';
 import Button from '@/components/ui/Button';
@@ -136,9 +137,17 @@ export default function Login() {
 
   const loginMutation = useLogin();
   const authLogin = useAuthStore((s) => s.login);
+  const authUser = useAuthStore((s) => s.user);
+  const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
 
   const isFormValid = id.trim() !== '' && password.trim() !== '';
   const isLoading = loginMutation.isPending;
+
+  useEffect(() => {
+    if (!isAuthenticated || !authUser) return;
+    const workspace = getDefaultWorkspace(authUser.role, authUser.isSuperAdmin);
+    moveToPage(workspace.viewId ?? 966);
+  }, [authUser, isAuthenticated]);
 
   // 저장된 아이디 복원 + 지점 목록 로드 + 잠금 상태 확인
   useEffect(() => {
@@ -231,7 +240,8 @@ export default function Login() {
             accessToken,
           );
 
-          moveToPage(966);
+          const workspace = getDefaultWorkspace(user.role, isSuperAdmin);
+          moveToPage(workspace.viewId ?? 966);
         },
         onError: () => {
           setError('서버 연결에 실패했습니다. 잠시 후 다시 시도해주세요.');
@@ -542,5 +552,4 @@ function CredentialRow({
     </div>
   );
 }
-
 

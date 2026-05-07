@@ -3,9 +3,16 @@ export const dynamic = 'force-dynamic';
 
 import React from 'react';
 import { moveToPage } from '@/internal';
+import { useAuthStore } from '@/stores/authStore';
+import { getDefaultWorkspace } from '@/lib/appNavigation';
 
 // 404 NotFound 페이지 - AppLayout 없이 독립 렌더링
 export default function NotFound() {
+  const authUser = useAuthStore((s) => s.user);
+  const workspace = authUser
+    ? getDefaultWorkspace(authUser.role, authUser.isSuperAdmin)
+    : { label: '로그인', viewId: 990, path: '/login' };
+
   return (
     <div className="min-h-screen bg-surface flex items-center justify-center px-4">
       <div className="text-center max-w-md w-full">
@@ -29,10 +36,10 @@ export default function NotFound() {
         {/* 버튼 영역 */}
         <div className="mt-8 flex flex-col sm:flex-row gap-3 justify-center">
           <button
-            onClick={() => moveToPage(966)}
+            onClick={() => moveToPage(workspace.viewId ?? 966)}
             className="px-6 py-2.5 rounded-lg bg-primary text-white text-sm font-medium hover:opacity-90 transition-opacity"
           >
-            대시보드로 이동
+            {workspace.label}로 이동
           </button>
           <button
             onClick={() => window.history.back()}
