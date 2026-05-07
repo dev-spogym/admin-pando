@@ -59,6 +59,8 @@ qa-test.mjs
 
 # MCP
 .mcp.json
+.gsheets-credentials.json
+.gsheets-token.json
 
 # Next.js
 .next/
