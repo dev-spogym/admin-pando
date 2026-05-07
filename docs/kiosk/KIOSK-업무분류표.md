@@ -11,6 +11,7 @@
 - 출석/키오스크 정책은 `admin-pando`의 통합운영 문서를 기준으로 정리한다.
 - 현재 `kiosk-pando`에 구현된 화면은 비고에 `기존`으로 표시한다.
 - 골프 타석 예약, 주차 등록은 본 문서 기준 `신규` 범위로 본다.
+- `kiosk-pando/plan` 원문에서 사용한 `MBI`, `SET` prefix는 `docs/kiosk` 체계에서 각각 `KINF`, `KSET`으로 정규화한다.
 
 ---
 
