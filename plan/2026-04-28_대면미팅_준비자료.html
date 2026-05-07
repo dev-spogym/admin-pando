@@ -1,0 +1,988 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>2026-04-28 대면미팅 준비자료</title>
+<style>
+  :root {
+    --bg: #f5f7fb;
+    --panel: #ffffff;
+    --line: #d9e2ec;
+    --ink: #172033;
+    --sub: #52607a;
+    --blue: #2356d8;
+    --blue-soft: #e8f0ff;
+    --green: #0f8a5f;
+    --green-soft: #e7f7f1;
+    --amber: #b86a00;
+    --amber-soft: #fff2de;
+    --red: #b42318;
+    --red-soft: #ffe7e5;
+    --shadow: 0 12px 32px rgba(23, 32, 51, 0.08);
+  }
+
+  * {
+    box-sizing: border-box;
+  }
+
+  body {
+    margin: 0;
+    font-family: "Pretendard", -apple-system, "Malgun Gothic", sans-serif;
+    background:
+      radial-gradient(circle at top left, rgba(35, 86, 216, 0.08), transparent 28%),
+      radial-gradient(circle at top right, rgba(15, 138, 95, 0.08), transparent 24%),
+      var(--bg);
+    color: var(--ink);
+    line-height: 1.6;
+  }
+
+  .shell {
+    max-width: 1180px;
+    margin: 0 auto;
+    padding: 32px 20px 56px;
+  }
+
+  .hero {
+    background: linear-gradient(135deg, #0f172a 0%, #172554 100%);
+    color: #fff;
+    border-radius: 24px;
+    padding: 28px;
+    box-shadow: var(--shadow);
+    margin-bottom: 20px;
+  }
+
+  .hero-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 16px;
+    margin-bottom: 18px;
+  }
+
+  .hero h1 {
+    margin: 0 0 8px;
+    font-size: 30px;
+    line-height: 1.25;
+  }
+
+  .hero p {
+    margin: 0;
+    color: rgba(255, 255, 255, 0.82);
+    max-width: 760px;
+  }
+
+  .hero-badges,
+  .meta-row,
+  .actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+
+  .badge,
+  .action-btn {
+    border-radius: 999px;
+    padding: 8px 14px;
+    font-size: 12px;
+    font-weight: 700;
+  }
+
+  .badge {
+    background: rgba(255, 255, 255, 0.12);
+    border: 1px solid rgba(255, 255, 255, 0.16);
+    color: #fff;
+  }
+
+  .meta-row {
+    margin-top: 16px;
+  }
+
+  .meta-chip {
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 14px;
+    padding: 12px 14px;
+    min-width: 180px;
+  }
+
+  .meta-chip .label {
+    display: block;
+    font-size: 11px;
+    color: rgba(255, 255, 255, 0.64);
+    margin-bottom: 2px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+  }
+
+  .meta-chip strong {
+    font-size: 14px;
+    font-weight: 700;
+  }
+
+  .actions {
+    margin-top: 18px;
+  }
+
+  .action-btn {
+    border: none;
+    cursor: pointer;
+    transition: transform 0.18s ease, opacity 0.18s ease;
+  }
+
+  .action-btn:hover {
+    transform: translateY(-1px);
+  }
+
+  .btn-primary {
+    background: #fff;
+    color: #0f172a;
+  }
+
+  .btn-secondary {
+    background: rgba(255, 255, 255, 0.12);
+    color: #fff;
+    border: 1px solid rgba(255, 255, 255, 0.16);
+  }
+
+  .summary-grid,
+  .agenda-grid,
+  .resource-grid,
+  .check-grid,
+  .question-grid {
+    display: grid;
+    gap: 16px;
+  }
+
+  .summary-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    margin-bottom: 20px;
+  }
+
+  .agenda-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    margin-bottom: 20px;
+  }
+
+  .resource-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .check-grid,
+  .question-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .card,
+  .panel {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 20px;
+    box-shadow: var(--shadow);
+  }
+
+  .card {
+    padding: 20px;
+  }
+
+  .panel {
+    padding: 22px;
+    margin-bottom: 20px;
+  }
+
+  .panel h2,
+  .panel h3,
+  .card h3 {
+    margin: 0 0 8px;
+  }
+
+  .panel-intro {
+    margin: 0 0 16px;
+    color: var(--sub);
+    font-size: 14px;
+  }
+
+  .eyebrow {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 12px;
+    font-weight: 800;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    color: var(--blue);
+    margin-bottom: 10px;
+  }
+
+  .eyebrow::before {
+    content: "";
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--blue);
+  }
+
+  .card p,
+  .panel p,
+  .panel li,
+  .card li {
+    margin: 0;
+    color: var(--sub);
+    font-size: 14px;
+  }
+
+  .card strong,
+  .panel strong {
+    color: var(--ink);
+  }
+
+  .tone-blue { background: linear-gradient(180deg, #fff 0%, var(--blue-soft) 100%); }
+  .tone-green { background: linear-gradient(180deg, #fff 0%, var(--green-soft) 100%); }
+  .tone-amber { background: linear-gradient(180deg, #fff 0%, var(--amber-soft) 100%); }
+  .tone-red { background: linear-gradient(180deg, #fff 0%, var(--red-soft) 100%); }
+
+  .big-number {
+    font-size: 32px;
+    line-height: 1;
+    font-weight: 900;
+    color: var(--ink);
+    margin-bottom: 10px;
+  }
+
+  .agenda-item {
+    padding: 18px;
+    border-radius: 18px;
+    border: 1px solid var(--line);
+    background: #fbfcfe;
+  }
+
+  .agenda-item h3 {
+    font-size: 18px;
+    margin-bottom: 8px;
+  }
+
+  .agenda-item ul,
+  .panel ul,
+  .panel ol {
+    margin: 12px 0 0;
+    padding-left: 18px;
+  }
+
+  .agenda-item li,
+  .panel li {
+    margin-bottom: 8px;
+  }
+
+  .timeline {
+    display: grid;
+    gap: 12px;
+  }
+
+  .timeline-step {
+    display: grid;
+    grid-template-columns: 88px 1fr;
+    gap: 14px;
+    align-items: start;
+    padding: 14px;
+    border-radius: 16px;
+    background: #f8fafc;
+    border: 1px solid var(--line);
+  }
+
+  .timeline-step .time {
+    font-size: 13px;
+    font-weight: 800;
+    color: var(--blue);
+  }
+
+  .timeline-step h3 {
+    font-size: 16px;
+    margin-bottom: 4px;
+  }
+
+  .checklist-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 16px;
+  }
+
+  .progress-wrap {
+    min-width: 220px;
+  }
+
+  .progress-label {
+    display: flex;
+    justify-content: space-between;
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--sub);
+    margin-bottom: 6px;
+  }
+
+  .progress-bar {
+    width: 100%;
+    height: 10px;
+    border-radius: 999px;
+    background: #e6edf5;
+    overflow: hidden;
+  }
+
+  .progress-fill {
+    width: 0;
+    height: 100%;
+    background: linear-gradient(90deg, var(--blue) 0%, #4f8cff 100%);
+    transition: width 0.2s ease;
+  }
+
+  .check-item {
+    display: flex;
+    gap: 12px;
+    padding: 14px;
+    border: 1px solid var(--line);
+    border-radius: 16px;
+    background: #fff;
+  }
+
+  .check-item input {
+    margin-top: 4px;
+    width: 18px;
+    height: 18px;
+    accent-color: var(--blue);
+  }
+
+  .check-item strong {
+    display: block;
+    margin-bottom: 4px;
+  }
+
+  .notice {
+    border-radius: 16px;
+    padding: 18px;
+    background: linear-gradient(135deg, #eff6ff 0%, #eefdf7 100%);
+    border: 1px solid #c8d8ff;
+  }
+
+  .notice h3 {
+    margin: 0 0 8px;
+  }
+
+  .question-box {
+    border-radius: 16px;
+    padding: 18px;
+    border: 1px solid var(--line);
+    background: #fcfdff;
+  }
+
+  .question-box h3 {
+    font-size: 17px;
+    margin-bottom: 8px;
+  }
+
+  .resource-card {
+    border-radius: 18px;
+    border: 1px solid var(--line);
+    background: #fbfcff;
+    padding: 18px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .resource-meta {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+
+  .resource-tag {
+    display: inline-block;
+    padding: 4px 10px;
+    border-radius: 999px;
+    background: var(--blue-soft);
+    color: var(--blue);
+    font-size: 11px;
+    font-weight: 800;
+  }
+
+  .resource-card h3 {
+    margin: 0;
+    font-size: 18px;
+  }
+
+  .resource-card p {
+    margin: 0;
+    color: var(--sub);
+    font-size: 14px;
+  }
+
+  .resource-links,
+  .item-links {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .doc-link,
+  .mini-link {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    text-decoration: none;
+    font-weight: 700;
+    transition: transform 0.18s ease, opacity 0.18s ease;
+  }
+
+  .doc-link:hover,
+  .mini-link:hover {
+    transform: translateY(-1px);
+  }
+
+  .doc-link {
+    min-height: 38px;
+    padding: 10px 14px;
+    border-radius: 12px;
+    background: var(--blue);
+    color: #fff;
+    font-size: 13px;
+  }
+
+  .doc-link.secondary {
+    background: #eef2f7;
+    color: var(--ink);
+  }
+
+  .mini-link {
+    min-height: 30px;
+    padding: 6px 10px;
+    border-radius: 10px;
+    background: #eff4ff;
+    color: var(--blue);
+    font-size: 12px;
+  }
+
+  .quote {
+    margin-top: 14px;
+    padding: 16px 18px;
+    border-left: 4px solid var(--blue);
+    background: #f8fbff;
+    border-radius: 0 14px 14px 0;
+    color: var(--ink);
+    font-weight: 700;
+  }
+
+  .footer-note {
+    text-align: center;
+    color: var(--sub);
+    font-size: 12px;
+    margin-top: 12px;
+  }
+
+  @media (max-width: 960px) {
+    .summary-grid,
+    .agenda-grid,
+    .resource-grid,
+    .check-grid,
+    .question-grid {
+      grid-template-columns: 1fr;
+    }
+
+    .hero-top,
+    .checklist-header {
+      flex-direction: column;
+      align-items: flex-start;
+    }
+
+    .progress-wrap {
+      width: 100%;
+      min-width: 0;
+    }
+
+    .timeline-step {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  @media print {
+    body {
+      background: #fff;
+    }
+
+    .shell {
+      max-width: none;
+      padding: 0;
+    }
+
+    .hero,
+    .card,
+    .panel {
+      box-shadow: none;
+    }
+
+    .actions {
+      display: none;
+    }
+  }
+</style>
+</head>
+<body>
+  <div class="shell">
+    <section class="hero">
+      <div class="hero-top">
+        <div>
+          <div class="hero-badges">
+            <span class="badge">Meeting Prep</span>
+            <span class="badge">2026-04-28 Tue</span>
+            <span class="badge">FitGenie CRM</span>
+          </div>
+          <h1>화요일 대면미팅 준비자료</h1>
+          <p>
+            이번 미팅의 목적은 보고서 설명 자체보다, <strong>현재 버전 설명 완결성</strong>,
+            <strong>변경관리 방식</strong>, <strong>외주 개발사의 문서 해석 기준</strong>,
+            <strong>TC/QA 책임 구조</strong>를 선명하게 합의하는 데 있습니다.
+          </p>
+        </div>
+      </div>
+
+      <div class="meta-row">
+        <div class="meta-chip">
+          <span class="label">Primary Goal</span>
+          <strong>현재 버전 기준으로 100%에 가깝게 설명</strong>
+        </div>
+        <div class="meta-chip">
+          <span class="label">Key Risk</span>
+          <strong>화면 변경과 문서 오해로 인한 미스커뮤니케이션</strong>
+        </div>
+        <div class="meta-chip">
+          <span class="label">Required Output</span>
+          <strong>변경관리 + QA/TC 기준 합의</strong>
+        </div>
+      </div>
+
+      <div class="actions">
+        <button class="action-btn btn-primary" onclick="window.print()">프린트</button>
+        <a class="action-btn btn-secondary" href="./meeting-materials-2026-04-28/09_presentation-script.html" target="_blank" rel="noopener">발표 스크립트</a>
+        <button class="action-btn btn-secondary" onclick="resetChecklist()">체크 초기화</button>
+      </div>
+    </section>
+
+    <section class="summary-grid">
+      <article class="card tone-blue">
+        <div class="big-number">01</div>
+        <h3>설명 완결성</h3>
+        <p>완료 범위와 남은 정책 이슈를 분리해서 설명하고, 남은 부분은 <strong>왜 미확정인지</strong>까지 함께 말합니다.</p>
+      </article>
+      <article class="card tone-green">
+        <div class="big-number">02</div>
+        <h3>변경관리</h3>
+        <p>Perplexity 진행으로 화면이 계속 바뀌는 상황을 전제로, <strong>변경 전달 방식</strong>과 <strong>반영 기준 시점</strong>을 정합니다.</p>
+      </article>
+      <article class="card tone-amber">
+        <div class="big-number">03</div>
+        <h3>문서 해석 기준</h3>
+        <p>AI 보조는 가능하지만, 개발사는 먼저 <strong>원문을 직접 읽고 이해</strong>한 뒤 작업해야 한다는 기준을 못 박습니다.</p>
+      </article>
+      <article class="card tone-red">
+        <div class="big-number">04</div>
+        <h3>QA / TC</h3>
+        <p>검수 보고서와 테스트케이스를 기준으로, 나중에 <strong>했다/안 했다</strong> 논쟁이 없도록 책임 구조를 정리합니다.</p>
+      </article>
+    </section>
+
+    <section class="panel">
+      <div class="eyebrow">Linked Materials</div>
+      <h2>실제 준비 자료 패키지</h2>
+      <p class="panel-intro">
+        체크리스트에 필요한 자료를 모두 하위 문서로 만들어 연결했습니다.
+        각 자료는 미팅 전에 개별 검토하거나, 현장에서 바로 열어 보면서 설명할 수 있습니다.
+      </p>
+      <div class="resource-grid">
+        <article class="resource-card">
+          <div class="resource-meta">
+            <span class="resource-tag">체크리스트 1</span>
+            <span>최신본</span>
+          </div>
+          <h3>보고서 최신본</h3>
+          <p>이번 공유 기준 보고서 묶음과 핵심 전달 포인트를 한 페이지로 정리한 문서입니다.</p>
+          <div class="resource-links">
+            <a class="doc-link" href="./meeting-materials-2026-04-28/01_report-latest.html" target="_blank" rel="noopener">자료 열기</a>
+          </div>
+        </article>
+        <article class="resource-card">
+          <div class="resource-meta">
+            <span class="resource-tag">체크리스트 2</span>
+            <span>상태표</span>
+          </div>
+          <h3>완료 / 미완료 / 보류 정리표</h3>
+          <p>현재 버전 기준으로 무엇이 완료됐고, 무엇이 보완 중이며, 무엇이 미팅 합의가 필요한지 표로 정리했습니다.</p>
+          <div class="resource-links">
+            <a class="doc-link" href="./meeting-materials-2026-04-28/02_status-matrix.html" target="_blank" rel="noopener">자료 열기</a>
+          </div>
+        </article>
+        <article class="resource-card">
+          <div class="resource-meta">
+            <span class="resource-tag">체크리스트 3</span>
+            <span>변경표</span>
+          </div>
+          <h3>변경사항 요약표</h3>
+          <p>직전 버전 대비 무엇이 바뀌었는지, 개발 영향과 함께 설명할 수 있도록 정리했습니다.</p>
+          <div class="resource-links">
+            <a class="doc-link" href="./meeting-materials-2026-04-28/03_change-summary.html" target="_blank" rel="noopener">자료 열기</a>
+          </div>
+        </article>
+        <article class="resource-card">
+          <div class="resource-meta">
+            <span class="resource-tag">체크리스트 4</span>
+            <span>예상변경</span>
+          </div>
+          <h3>향후 변경 가능 영역</h3>
+          <p>앞으로 약 3주 동안 추가 변경 가능성이 높은 영역과, 그에 따른 개발 리스크를 정리했습니다.</p>
+          <div class="resource-links">
+            <a class="doc-link" href="./meeting-materials-2026-04-28/04_future-change-areas.html" target="_blank" rel="noopener">자료 열기</a>
+          </div>
+        </article>
+        <article class="resource-card">
+          <div class="resource-meta">
+            <span class="resource-tag">체크리스트 5</span>
+            <span>업무기준</span>
+          </div>
+          <h3>외주 개발사 업무 기준</h3>
+          <p>문서 검토, AI 활용 범위, 질의/응답, 산출물 제출 기준을 미팅용 규칙으로 정리했습니다.</p>
+          <div class="resource-links">
+            <a class="doc-link" href="./meeting-materials-2026-04-28/05_vendor-working-rules.html" target="_blank" rel="noopener">자료 열기</a>
+          </div>
+        </article>
+        <article class="resource-card">
+          <div class="resource-meta">
+            <span class="resource-tag">체크리스트 6</span>
+            <span>TC</span>
+          </div>
+          <h3>핵심 기능 TC 초안</h3>
+          <p>대표 기능 12개를 기준으로 시나리오, 기대 결과, 검수 증빙까지 포함한 초안입니다.</p>
+          <div class="resource-links">
+            <a class="doc-link" href="./meeting-materials-2026-04-28/06_tc-draft.html" target="_blank" rel="noopener">자료 열기</a>
+          </div>
+        </article>
+        <article class="resource-card">
+          <div class="resource-meta">
+            <span class="resource-tag">체크리스트 7</span>
+            <span>QA</span>
+          </div>
+          <h3>QA 방식 제안안</h3>
+          <p>수동 검수, 자동화, AI 활용 범위를 분리하고 검수 보고 체계를 제안한 문서입니다.</p>
+          <div class="resource-links">
+            <a class="doc-link" href="./meeting-materials-2026-04-28/07_qa-proposal.html" target="_blank" rel="noopener">자료 열기</a>
+          </div>
+        </article>
+        <article class="resource-card">
+          <div class="resource-meta">
+            <span class="resource-tag">체크리스트 8</span>
+            <span>질문</span>
+          </div>
+          <h3>미팅 질문 리스트</h3>
+          <p>변경관리, 문서 검토 책임, QA/TC, 일정과 책임 구도까지 바로 확인할 질문을 묶었습니다.</p>
+          <div class="resource-links">
+            <a class="doc-link" href="./meeting-materials-2026-04-28/08_question-list.html" target="_blank" rel="noopener">자료 열기</a>
+          </div>
+        </article>
+        <article class="resource-card">
+          <div class="resource-meta">
+            <span class="resource-tag">보조 자료</span>
+            <span>발표용</span>
+          </div>
+          <h3>발표 스크립트</h3>
+          <p>대표님과 외주 개발사 앞에서 그대로 읽을 수 있는 버전으로, 오프닝부터 마무리 멘트까지 정리했습니다.</p>
+          <div class="resource-links">
+            <a class="doc-link" href="./meeting-materials-2026-04-28/09_presentation-script.html" target="_blank" rel="noopener">자료 열기</a>
+            <a class="doc-link secondary" href="./2026-04-28_대면미팅_발표스크립트.md" target="_blank" rel="noopener">원본 MD</a>
+          </div>
+        </article>
+      </div>
+    </section>
+
+    <section class="panel">
+      <div class="eyebrow">Meeting Agenda</div>
+      <h2>미팅에서 반드시 다뤄야 할 4대 안건</h2>
+      <div class="agenda-grid">
+        <div class="agenda-item">
+          <h3>1. 현재 버전 설명</h3>
+          <ul>
+            <li>완료된 범위는 자신 있게 설명</li>
+            <li>남은 항목은 정책 확정 이슈인지, 작업 미완료인지 분리</li>
+            <li>각 항목의 확정 시점과 개발 영향도까지 설명</li>
+          </ul>
+        </div>
+        <div class="agenda-item">
+          <h3>2. 앞으로 바뀔 화면 관리</h3>
+          <ul>
+            <li>이번 버전에서 바뀐 항목 요약</li>
+            <li>추가 변경 가능성이 높은 영역 명시</li>
+            <li>변경사항은 표 형태로 주기적으로 공유</li>
+          </ul>
+        </div>
+        <div class="agenda-item">
+          <h3>3. 외주 개발사 작업 방식</h3>
+          <ul>
+            <li>기능 리스트 축약본만 보지 않기</li>
+            <li>상세 문서를 최소 1회 이상 직접 읽기</li>
+            <li>이해한 내용을 다시 구조화해서 상호 확인</li>
+          </ul>
+        </div>
+        <div class="agenda-item">
+          <h3>4. TC와 검수 기준</h3>
+          <ul>
+            <li>QA는 AI-only가 아니라 수동 + 자동화 병행</li>
+            <li>주요 기능 기준 TC 초안을 미리 제시</li>
+            <li>개발 완료 판단 기준을 TC와 검수 보고서로 통일</li>
+          </ul>
+        </div>
+      </div>
+      <div class="quote">
+        이번 미팅은 보고서 공유 자리가 아니라, 이후 개발과 검수 방식의 기준선을 합의하는 자리로 가져가야 합니다.
+      </div>
+    </section>
+
+    <section class="panel">
+      <div class="eyebrow">Run Of Show</div>
+      <h2>권장 발표 순서</h2>
+      <div class="timeline">
+        <div class="timeline-step">
+          <div class="time">00:00-01:00</div>
+          <div>
+            <h3>오프닝</h3>
+            <p>이번 미팅 목적이 단순 설명이 아니라, 현재 버전 설명과 이후 변경관리/QA 기준 합의에 있다는 점을 먼저 선포합니다.</p>
+          </div>
+        </div>
+        <div class="timeline-step">
+          <div class="time">01:00-04:00</div>
+          <div>
+            <h3>현재 버전 설명</h3>
+            <p>완료 범위, 미완료 범위, 정책 확정 대기 항목을 분리해서 설명합니다.</p>
+          </div>
+        </div>
+        <div class="timeline-step">
+          <div class="time">04:00-06:00</div>
+          <div>
+            <h3>변경관리 방식</h3>
+            <p>Perplexity가 계속되는 동안 화면이 바뀌는 것을 전제로, 변경 공지 방식과 반영 주기를 제안합니다.</p>
+          </div>
+        </div>
+        <div class="timeline-step">
+          <div class="time">06:00-08:00</div>
+          <div>
+            <h3>문서 해석 / 개발 방식</h3>
+            <p>AI 보조만으로 해석하지 않고 원문 기준으로 읽고, 필요 시 상호 질의/확인을 거쳐야 한다는 기준을 전달합니다.</p>
+          </div>
+        </div>
+        <div class="timeline-step">
+          <div class="time">08:00-10:00</div>
+          <div>
+            <h3>QA / TC 합의</h3>
+            <p>테스트케이스, 검수 보고서, 자동화 범위, 수동 점검 범위를 정리하고 담당자와 제출 시점을 확인합니다.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel">
+      <div class="checklist-header">
+        <div>
+          <div class="eyebrow">Checklist</div>
+          <h2>가져갈 자료 체크리스트</h2>
+        </div>
+        <div class="progress-wrap">
+          <div class="progress-label">
+            <span>준비 진행률</span>
+            <span id="progressText">0 / 8</span>
+          </div>
+          <div class="progress-bar">
+            <div class="progress-fill" id="progressFill"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="check-grid">
+        <div class="check-item">
+          <input type="checkbox" class="prep-check">
+          <div>
+            <strong>보고서 최신본</strong>
+            현재 기준 최종 공유 버전과 배포 시점을 명시한 파일
+            <div class="item-links">
+              <a class="mini-link" href="./meeting-materials-2026-04-28/01_report-latest.html" target="_blank" rel="noopener">자료 열기</a>
+            </div>
+          </div>
+        </div>
+        <div class="check-item">
+          <input type="checkbox" class="prep-check">
+          <div>
+            <strong>완료 / 미완료 / 보류 정리표</strong>
+            남은 항목이 작업 미진인지 정책 이슈인지 구분한 표
+            <div class="item-links">
+              <a class="mini-link" href="./meeting-materials-2026-04-28/02_status-matrix.html" target="_blank" rel="noopener">자료 열기</a>
+            </div>
+          </div>
+        </div>
+        <div class="check-item">
+          <input type="checkbox" class="prep-check">
+          <div>
+            <strong>변경사항 요약표</strong>
+            직전 버전 대비 바뀐 기능, 화면, 정책을 1페이지로 정리
+            <div class="item-links">
+              <a class="mini-link" href="./meeting-materials-2026-04-28/03_change-summary.html" target="_blank" rel="noopener">자료 열기</a>
+            </div>
+          </div>
+        </div>
+        <div class="check-item">
+          <input type="checkbox" class="prep-check">
+          <div>
+            <strong>향후 변경 가능 영역 목록</strong>
+            추가로 바뀔 여지가 높은 부분과 그 이유
+            <div class="item-links">
+              <a class="mini-link" href="./meeting-materials-2026-04-28/04_future-change-areas.html" target="_blank" rel="noopener">자료 열기</a>
+            </div>
+          </div>
+        </div>
+        <div class="check-item">
+          <input type="checkbox" class="prep-check">
+          <div>
+            <strong>외주 개발사 업무 기준 메모</strong>
+            원문 직접 검토, 이해 재확인, AI 보조 활용 범위
+            <div class="item-links">
+              <a class="mini-link" href="./meeting-materials-2026-04-28/05_vendor-working-rules.html" target="_blank" rel="noopener">자료 열기</a>
+            </div>
+          </div>
+        </div>
+        <div class="check-item">
+          <input type="checkbox" class="prep-check">
+          <div>
+            <strong>핵심 기능 TC 초안</strong>
+            주요 기능 10~20개 기준 시나리오와 기대 결과
+            <div class="item-links">
+              <a class="mini-link" href="./meeting-materials-2026-04-28/06_tc-draft.html" target="_blank" rel="noopener">자료 열기</a>
+            </div>
+          </div>
+        </div>
+        <div class="check-item">
+          <input type="checkbox" class="prep-check">
+          <div>
+            <strong>QA 방식 제안안</strong>
+            수동 검수, Playwright 등 자동화, 검수 보고 구조
+            <div class="item-links">
+              <a class="mini-link" href="./meeting-materials-2026-04-28/07_qa-proposal.html" target="_blank" rel="noopener">자료 열기</a>
+            </div>
+          </div>
+        </div>
+        <div class="check-item">
+          <input type="checkbox" class="prep-check">
+          <div>
+            <strong>질문 리스트</strong>
+            담당자, 반영 주기, 검수 제출 시점, 책임 구조 확인용 질문
+            <div class="item-links">
+              <a class="mini-link" href="./meeting-materials-2026-04-28/08_question-list.html" target="_blank" rel="noopener">자료 열기</a>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel">
+      <div class="eyebrow">Ground Rules</div>
+      <h2>외주 개발사에 명확히 전달할 기준</h2>
+      <ul>
+        <li>기획문서는 AI에 던져보는 참고자료가 아니라, 사람이 먼저 읽고 해석해야 하는 기준 문서입니다.</li>
+        <li>기능 리스트 축약본만으로 개발하지 않고, 원문과 상세 문서를 기준으로 해석해야 합니다.</li>
+        <li>해석이 애매한 항목은 자체 추정으로 밀어붙이지 말고, 질의 후 확정된 기준으로 구현해야 합니다.</li>
+        <li>변경사항은 수시로 발생할 수 있으므로, 누가 언제 어떤 방식으로 반영할지 운영 규칙이 필요합니다.</li>
+        <li>개발 완료는 “구현했다고 주장하는 상태”가 아니라, TC 기준 검수 보고서까지 제출된 상태로 봅니다.</li>
+      </ul>
+    </section>
+
+    <section class="panel">
+      <div class="eyebrow">Questions</div>
+      <h2>미팅에서 꼭 받아와야 할 답변</h2>
+      <div class="question-grid">
+        <div class="question-box">
+          <h3>변경 반영 체계</h3>
+          <ul>
+            <li>변경사항 공유 주기는 어떻게 잡을지</li>
+            <li>반영 기준 버전은 누가 고정할지</li>
+            <li>긴급 변경 발생 시 승인 루트는 무엇인지</li>
+          </ul>
+        </div>
+        <div class="question-box">
+          <h3>문서 검토 책임자</h3>
+          <ul>
+            <li>기획문서를 실제로 읽고 승인하는 사람이 누구인지</li>
+            <li>AI 활용은 어디까지이고 최종 판단자는 누구인지</li>
+            <li>오해 발생 시 확인 창구는 누구인지</li>
+          </ul>
+        </div>
+        <div class="question-box">
+          <h3>QA / TC 제출 체계</h3>
+          <ul>
+            <li>TC는 누가 작성하고 언제 제출하는지</li>
+            <li>검수 보고서는 어떤 형식으로 받을지</li>
+            <li>자동화와 수동 검수 비율은 어떻게 가져갈지</li>
+          </ul>
+        </div>
+        <div class="question-box">
+          <h3>일정과 책임</h3>
+          <ul>
+            <li>현재 일정상 병목이 생길 수 있는 부분은 무엇인지</li>
+            <li>누가 어떤 범위를 오너십 있게 가져갈지</li>
+            <li>추후 이슈 발생 시 판단 기준 문서는 무엇인지</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel notice">
+      <div class="eyebrow">One-Line Summary</div>
+      <h3>핵심 결론</h3>
+      <p>
+        화요일 미팅은 “보고서 설명”을 넘어서, <strong>변경관리 방식</strong>,
+        <strong>문서 해석 책임</strong>, <strong>TC/QA 검수 구조</strong>를 선명하게 합의하는 자리로 가져가야 합니다.
+      </p>
+    </section>
+
+    <div class="footer-note">문서 기준일: 2026-04-27 / 미팅일: 2026-04-28</div>
+  </div>
+
+  <script>
+    const checks = Array.from(document.querySelectorAll(".prep-check"));
+    const progressText = document.getElementById("progressText");
+    const progressFill = document.getElementById("progressFill");
+
+    function updateProgress() {
+      const checked = checks.filter((item) => item.checked).length;
+      const total = checks.length;
+      const percent = total === 0 ? 0 : Math.round((checked / total) * 100);
+
+      progressText.textContent = `${checked} / ${total}`;
+      progressFill.style.width = `${percent}%`;
+      localStorage.setItem("meeting-prep-checks", JSON.stringify(checks.map((item) => item.checked)));
+    }
+
+    function loadChecklist() {
+      const saved = JSON.parse(localStorage.getItem("meeting-prep-checks") || "[]");
+      checks.forEach((item, index) => {
+        item.checked = Boolean(saved[index]);
+      });
+      updateProgress();
+    }
+
+    function resetChecklist() {
+      checks.forEach((item) => {
+        item.checked = false;
+      });
+      updateProgress();
+    }
+
+    checks.forEach((item) => item.addEventListener("change", updateProgress));
+    loadChecklist();
+  </script>
+</body>
+</html>

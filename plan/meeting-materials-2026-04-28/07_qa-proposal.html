@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>QA 방식 제안안</title>
+<link rel="stylesheet" href="./_shared.css">
+</head>
+<body>
+  <div class="page-shell">
+    <header class="page-header">
+      <div class="back-links">
+        <a class="back-link" href="../2026-04-28_대면미팅_준비자료.html">메인 자료로</a>
+      </div>
+      <div class="badges">
+        <span class="header-badge">Checklist 7</span>
+        <span class="header-badge">QA Proposal</span>
+      </div>
+      <h1>QA 방식 제안안</h1>
+      <p class="lead">
+        QA를 AI-only로 보지 않고, 문서 검토, 자동화, 수동 검수, 검수 보고 제출까지 연결하는 실무 제안안입니다.
+      </p>
+    </header>
+
+    <section class="section">
+      <div class="kicker">QA Layers</div>
+      <h2>권장 QA 레이어</h2>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>레이어</th>
+              <th>주체</th>
+              <th>목적</th>
+              <th>산출물</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>문서 QA</td>
+              <td>기획 / PM / 개발 리드</td>
+              <td>정책, 권한, 상태, 예외 흐름 이해 정렬</td>
+              <td>질문 리스트, 확정 메모</td>
+            </tr>
+            <tr>
+              <td>자체 QA</td>
+              <td>외주 개발사</td>
+              <td>구현 기능이 TC 초안 기준으로 동작하는지 1차 점검</td>
+              <td>자체 QA 체크리스트</td>
+            </tr>
+            <tr>
+              <td>자동화 QA</td>
+              <td>외주 개발사 + 내부 검토</td>
+              <td>반복 가능한 회귀 케이스 탐지</td>
+              <td>Playwright 실행 로그, 스크린샷</td>
+            </tr>
+            <tr>
+              <td>수동 검수</td>
+              <td>실무 담당자</td>
+              <td>정책성 판단, 권한 분기, 문구, UX 확인</td>
+              <td>검수 의견, 이슈 리스트</td>
+            </tr>
+            <tr>
+              <td>최종 보고</td>
+              <td>외주 개발사</td>
+              <td>완료/미완료/제약사항 공식 제출</td>
+              <td>검수 보고서</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="kicker">AI vs Manual</div>
+      <h2>AI와 수동 검수 역할 분리</h2>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>AI 활용 적합</th>
+              <th>반드시 수동 확인</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>반복 회귀 테스트 초안 작성</td>
+              <td>정책성 판단, 예외 상황 해석</td>
+            </tr>
+            <tr>
+              <td>스크린샷 비교, 기본 흐름 자동화</td>
+              <td>권한별 노출 차이와 실제 업무 흐름 확인</td>
+            </tr>
+            <tr>
+              <td>에러 로그 수집, 체크리스트 누락 탐지</td>
+              <td>문구, 상태명, CTA 우선순위 적합성 점검</td>
+            </tr>
+            <tr>
+              <td>테스트 데이터 준비 보조</td>
+              <td>대표님/고객사 관점 수용성 검토</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="kicker">Severity</div>
+      <h2>이슈 등급 제안</h2>
+      <div class="card-grid">
+        <article class="card">
+          <span class="pill risk">Critical</span>
+          <p>로그인 불가, 결제 불가, 권한 오노출 등 즉시 차단 이슈</p>
+        </article>
+        <article class="card">
+          <span class="pill meeting">Major</span>
+          <p>핵심 플로우는 되지만 정책/상태/권한이 기준과 어긋나는 이슈</p>
+        </article>
+        <article class="card">
+          <span class="pill progress">Minor</span>
+          <p>문구, 정렬, 일부 예외 처리 등 운영 가능하지만 수정 필요한 이슈</p>
+        </article>
+        <article class="card">
+          <span class="pill done">Trivial</span>
+          <p>시각적 다듬기나 후순위 개선 항목</p>
+        </article>
+      </div>
+    </section>
+
+    <section class="section callout">
+      <div class="kicker">Output</div>
+      <h2>최종 제출물 제안</h2>
+      <ul>
+        <li>기능별 TC 시트</li>
+        <li>자체 QA 체크리스트</li>
+        <li>자동화 실행 로그 또는 결과 캡처</li>
+        <li>이슈 리스트와 등급</li>
+        <li>최종 검수 보고서</li>
+      </ul>
+    </section>
+
+    <div class="footer-note">목적: "QA도 AI만으로 한다"는 인상을 차단하고 검수 책임 구조를 명확히 하기 위함</div>
+  </div>
+</body>
+</html>

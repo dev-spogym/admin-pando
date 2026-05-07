@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>미팅 질문 리스트</title>
+<link rel="stylesheet" href="./_shared.css">
+</head>
+<body>
+  <div class="page-shell">
+    <header class="page-header">
+      <div class="back-links">
+        <a class="back-link" href="../2026-04-28_대면미팅_준비자료.html">메인 자료로</a>
+      </div>
+      <div class="badges">
+        <span class="header-badge">Checklist 8</span>
+        <span class="header-badge">Question List</span>
+      </div>
+      <h1>미팅 질문 리스트</h1>
+      <p class="lead">
+        미팅에서 반드시 답을 받아와야 하는 질문을 영역별로 정리했습니다.
+        각 질문은 단순 확인용이 아니라, 이후 일정과 책임 구조를 잠그기 위한 질문입니다.
+      </p>
+    </header>
+
+    <section class="section">
+      <div class="kicker">Questions</div>
+      <h2>핵심 질문 12개</h2>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>구분</th>
+              <th>질문</th>
+              <th>왜 필요한가</th>
+              <th>받아와야 할 답</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>변경관리</td>
+              <td>변경사항은 어떤 주기로 공유하고 누가 정리할 것인가?</td>
+              <td>화면 변경 시 "못 봤다" 이슈 방지</td>
+              <td>공유 주기 + 담당자</td>
+            </tr>
+            <tr>
+              <td>변경관리</td>
+              <td>반영 기준 버전은 언제 고정할 것인가?</td>
+              <td>병렬 개발 시 버전 혼선 방지</td>
+              <td>버전 고정 시점</td>
+            </tr>
+            <tr>
+              <td>변경관리</td>
+              <td>긴급 변경이 생기면 승인 루트는 어떻게 되는가?</td>
+              <td>구두 전달로 인한 오해 방지</td>
+              <td>승인자와 전달 방식</td>
+            </tr>
+            <tr>
+              <td>문서 검토</td>
+              <td>기획문서를 실제로 읽고 해석 승인하는 담당자는 누구인가?</td>
+              <td>해석 책임 공백 방지</td>
+              <td>담당자 이름</td>
+            </tr>
+            <tr>
+              <td>문서 검토</td>
+              <td>AI는 어디까지 활용하고 최종 판단은 누가 하는가?</td>
+              <td>AI-only 작업 방식 차단</td>
+              <td>AI 활용 범위 + 최종 승인자</td>
+            </tr>
+            <tr>
+              <td>문서 검토</td>
+              <td>애매한 항목이 생기면 어떤 채널로 질의할 것인가?</td>
+              <td>추정 구현 방지</td>
+              <td>질의 채널 + 응답 SLA</td>
+            </tr>
+            <tr>
+              <td>QA / TC</td>
+              <td>TC는 누가 작성하고 언제 제출할 것인가?</td>
+              <td>완료 기준 선확정</td>
+              <td>작성 주체 + 제출 시점</td>
+            </tr>
+            <tr>
+              <td>QA / TC</td>
+              <td>검수 보고서는 어떤 형식으로 받을 것인가?</td>
+              <td>검수 흔적 누락 방지</td>
+              <td>포맷 + 포함 항목</td>
+            </tr>
+            <tr>
+              <td>QA / TC</td>
+              <td>자동화와 수동 검수의 비율은 어떻게 가져갈 것인가?</td>
+              <td>AI-only 인상 차단</td>
+              <td>도구 + 수동 확인 범위</td>
+            </tr>
+            <tr>
+              <td>일정</td>
+              <td>현재 일정상 병목이 될 가능성이 높은 부분은 무엇인가?</td>
+              <td>리스크 선제 확인</td>
+              <td>병목 항목 + 대응책</td>
+            </tr>
+            <tr>
+              <td>책임</td>
+              <td>누가 어떤 화면/기능 범위를 오너십 있게 맡는가?</td>
+              <td>책임 분산 방지</td>
+              <td>범위별 담당자</td>
+            </tr>
+            <tr>
+              <td>판단 기준</td>
+              <td>추후 이슈 발생 시 최종 판단 기준 문서는 무엇인가?</td>
+              <td>분쟁 시 기준점 확보</td>
+              <td>우선 문서와 버전</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="section note">
+      <div class="kicker">Usage Tip</div>
+      <h2>질문 순서 추천</h2>
+      <ol>
+        <li>변경관리 3개를 먼저 묻고, 협업 방식의 큰 틀을 잠급니다.</li>
+        <li>문서 검토와 AI 활용 기준을 묻고, 해석 책임자를 명확히 합니다.</li>
+        <li>마지막으로 TC/QA와 일정/책임을 묻고 완료 기준을 고정합니다.</li>
+      </ol>
+    </section>
+
+    <div class="footer-note">목적: 회의가 추상적으로 흐르지 않도록, 반드시 결정해야 할 질문을 구조화하기 위함</div>
+  </div>
+</body>
+</html>

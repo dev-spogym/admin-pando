@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>외주 개발사 업무 기준</title>
+<link rel="stylesheet" href="./_shared.css">
+</head>
+<body>
+  <div class="page-shell">
+    <header class="page-header">
+      <div class="back-links">
+        <a class="back-link" href="../2026-04-28_대면미팅_준비자료.html">메인 자료로</a>
+      </div>
+      <div class="badges">
+        <span class="header-badge">Checklist 5</span>
+        <span class="header-badge">Vendor Working Rules</span>
+      </div>
+      <h1>외주 개발사 업무 기준</h1>
+      <p class="lead">
+        문서 해석, AI 활용, 질의 응답, 변경 반영, 검수 제출까지 외주 개발사에 분명하게 전달해야 할 실무 기준을 정리했습니다.
+      </p>
+    </header>
+
+    <section class="section">
+      <div class="kicker">Ground Rules</div>
+      <h2>핵심 원칙</h2>
+      <div class="card-grid">
+        <article class="card">
+          <h3>원문 직접 검토</h3>
+          <p>기획문서는 AI 보조 이전에 사람이 최소 1회 이상 직접 읽고 해석해야 하는 기준 문서입니다.</p>
+        </article>
+        <article class="card">
+          <h3>질의 후 확정</h3>
+          <p>애매한 항목을 자체 추정으로 밀어붙이지 않고, 질의 후 확정된 기준으로만 구현합니다.</p>
+        </article>
+        <article class="card">
+          <h3>버전 기준 반영</h3>
+          <p>변경사항은 버전 고정 시점과 공유본 기준으로만 반영하고, 구두 전달만으로 작업하지 않습니다.</p>
+        </article>
+        <article class="card">
+          <h3>검수 보고 제출</h3>
+          <p>개발 완료의 기준은 구현 여부가 아니라 TC 기준 검수 보고서 제출까지 포함합니다.</p>
+        </article>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="kicker">Workflow</div>
+      <h2>권장 작업 절차</h2>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>단계</th>
+              <th>외주 개발사 행동</th>
+              <th>필수 증빙</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>1. 문서 수령</td>
+              <td>공유본과 원문 기준 문서를 모두 확인합니다.</td>
+              <td>읽은 문서 목록</td>
+            </tr>
+            <tr>
+              <td>2. 해석 정리</td>
+              <td>기능/화면별 이해 사항과 애매한 항목을 재구성합니다.</td>
+              <td>질문 리스트 또는 해석 메모</td>
+            </tr>
+            <tr>
+              <td>3. 질의 / 확정</td>
+              <td>정책, 권한, 예외 흐름은 구현 전 질의로 잠급니다.</td>
+              <td>확정 회신 또는 기록</td>
+            </tr>
+            <tr>
+              <td>4. 구현 / 자체 QA</td>
+              <td>TC 초안을 기준으로 자체 점검 후 결과를 정리합니다.</td>
+              <td>체크 결과, 캡처, 로그</td>
+            </tr>
+            <tr>
+              <td>5. 검수 보고</td>
+              <td>완료 기능별로 TC, 예외사항, 미반영 항목을 명시합니다.</td>
+              <td>검수 보고서</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="kicker">AI Usage</div>
+      <h2>AI 활용 범위</h2>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>허용</th>
+              <th>금지</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>긴 문서 요약 보조, 테스트 아이디어 생성, 코드 초안 보조</td>
+              <td>원문 미독해 상태에서 기능 해석을 AI에 전적으로 위임하는 행위</td>
+            </tr>
+            <tr>
+              <td>반복 케이스 정리, 자동화 스크립트 초안 생성</td>
+              <td>"AI가 그렇게 해석했다"를 구현 근거로 삼는 행위</td>
+            </tr>
+            <tr>
+              <td>검수 포인트 누락 방지 체크</td>
+              <td>정책, 권한, 예외 흐름을 검증 없이 확정하는 행위</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="section quote">
+      외주 개발사에 전달할 핵심 문장:
+      "AI 활용은 가능하지만, 원문 직접 검토와 질의 책임까지 대체할 수는 없습니다.
+      이후 완료 판단은 구현 주장보다 TC 기준 검수 보고서 제출 여부로 보겠습니다."
+    </section>
+
+    <div class="footer-note">용도: 미팅 현장에서 그대로 읽거나, 외주사 온보딩 기준 문서로 전달</div>
+  </div>
+</body>
+</html>
