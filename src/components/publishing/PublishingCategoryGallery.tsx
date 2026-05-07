@@ -61,8 +61,8 @@ export default function PublishingCategoryGallery({ categorySlug }: PublishingCa
   const category = getPublishingCategory(categorySlug);
   const screens = useMemo(() => getPublishingScreensByCategory(categorySlug), [categorySlug]);
   const counts = useMemo(() => getPublishingCountsByKind(screens), [screens]);
-  const currentScreenParam = searchParams.get("screen") ?? "";
-  const searchParamsValue = searchParams.toString();
+  const currentScreenParam = searchParams?.get("screen") ?? "";
+  const searchParamsValue = searchParams?.toString() ?? "";
 
   const filteredScreens = useMemo(() => {
     return screens.filter((screen) => {

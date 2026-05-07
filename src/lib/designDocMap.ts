@@ -41,6 +41,16 @@ export const ROUTE_TO_DOC: Record<string, RouteDocMapping> = {
     functional: { file: '본사관리.md', keywords: ['로그인', '11. 로그인'] },
     screen: { folder: 'D01-공통/SCR-106-비밀번호재설정' },
   },
+  '/forbidden': {
+    title: '접근 권한 없음',
+    category: '공통',
+    screen: { folder: 'D01-공통/SCR-108-에러페이지' },
+  },
+  '/not-found': {
+    title: '페이지를 찾을 수 없음',
+    category: '공통',
+    screen: { folder: 'D01-공통/SCR-108-에러페이지' },
+  },
   '/profile': {
     title: '프로필 / 계정 설정',
     category: '인증',
@@ -178,6 +188,7 @@ export const ROUTE_TO_DOC: Record<string, RouteDocMapping> = {
   // ── 통합운영 추가 ──
   '/members/health': { title: '회원 건강 연동 요약', category: '통합운영', functional: { file: '통합운영_IOT_헬스.md', keywords: ['건강 연동', '7. 건강 연동'] }, screen: { folder: 'D11-통합운영/SCR-I007-회원건강연동요약' } },
   '/kiosk-ops': { title: '키오스크 운영 현황', category: '통합운영', functional: { file: '통합운영_IOT_헬스.md', keywords: ['키오스크 운영', '키오스크 운영 현황'] }, screen: { folder: 'D11-통합운영/SCR-I008-키오스크운영현황' } },
+  '/diagrams': { title: '다이어그램 브라우저', category: '공통', screen: { folder: 'D01-공통/SCR-107-화면설계서오버레이' } },
 };
 
 /**

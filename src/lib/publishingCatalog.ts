@@ -1,8 +1,10 @@
 import { ROUTE_TO_DOC } from "@/lib/designDocMap";
 
 export type PublishingCategorySlug =
+  | "common"
   | "auth"
   | "hq"
+  | "integration"
   | "member"
   | "sales"
   | "class"
@@ -176,6 +178,12 @@ const PUBLISHING_SCENARIO_SCREENS: PublishingScreen[] = [
 ];
 
 const CATEGORY_META_BY_LABEL: Record<string, PublishingCategoryMeta> = {
+  공통: {
+    slug: "common",
+    label: "공통",
+    description: "오버레이, 에러 페이지, 공통 진입/보조 화면을 묶은 퍼블리싱입니다.",
+    gradient: "from-zinc-500/16 via-slate-400/10 to-white",
+  },
   인증: {
     slug: "auth",
     label: "인증",
@@ -187,6 +195,12 @@ const CATEGORY_META_BY_LABEL: Record<string, PublishingCategoryMeta> = {
     label: "본사관리",
     description: "대시보드, KPI, 리포트, 지점 운영 화면을 묶은 퍼블리싱입니다.",
     gradient: "from-sky-500/20 via-cyan-400/10 to-white",
+  },
+  통합운영: {
+    slug: "integration",
+    label: "통합운영",
+    description: "통합 출석, 키오스크 운영, 건강/IoT 연동 화면을 묶은 퍼블리싱입니다.",
+    gradient: "from-indigo-500/18 via-blue-400/10 to-white",
   },
   회원관리: {
     slug: "member",
@@ -239,8 +253,10 @@ const CATEGORY_META_BY_LABEL: Record<string, PublishingCategoryMeta> = {
 };
 
 const CATEGORY_ORDER: PublishingCategorySlug[] = [
+  "common",
   "auth",
   "hq",
+  "integration",
   "member",
   "sales",
   "class",
