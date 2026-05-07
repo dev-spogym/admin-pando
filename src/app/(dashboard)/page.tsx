@@ -26,6 +26,9 @@ import {
   PauseCircle,
   Hourglass,
   ArrowRight,
+  MessageSquare,
+  ClipboardList,
+  CreditCard,
 } from "lucide-react";
 import { moveToPage } from "@/internal";
 import { cn } from "@/lib/utils";
@@ -146,6 +149,8 @@ const AGE_COLORS: Record<string, string> = {
 export default function Dashboard() {
   const authUser = useAuthStore((s) => s.user);
   const branchName = authUser?.branchName || '센터';
+  const isSuperAdmin = authUser?.isSuperAdmin ?? false;
+  const roleCode = authUser?.role ?? "MANAGER";
 
   const [showBanner, setShowBanner] = useState(true);
   const [lastRefreshed, setLastRefreshed] = useState<Date>(() => new Date());
@@ -634,6 +639,75 @@ export default function Dashboard() {
     return "default";
   }
 
+  const dashboardQuickActions = (() => {
+    if (isSuperAdmin) {
+      return [
+        { label: "슈퍼 대시보드", description: "지점 전체 KPI 이동", icon: <TrendingUp size={16} />, pageId: 1000 },
+        { label: "Today Tasks", description: "지점별 당일 업무 점검", icon: <ClipboardList size={16} />, pageId: undefined, path: "/today-tasks" },
+        { label: "지점 관리", description: "운영 상태가 흔들리는 지점 확인", icon: <Users size={16} />, pageId: 984 },
+        { label: "자동 알림", description: "만료·미수 추적 알림 설정", icon: <MessageSquare size={16} />, pageId: 992 },
+      ];
+    }
+
+    if (["TRAINER", "fc"].includes(roleCode)) {
+      return [
+        { label: "캘린더", description: "오늘 수업과 예약 흐름 확인", icon: <Calendar size={16} />, pageId: 969 },
+        { label: "회원 목록", description: "담당 회원 상태 확인", icon: <Users size={16} />, pageId: 967 },
+        { label: "출석 관리", description: "오늘 방문 회원 점검", icon: <UserCheck size={16} />, pageId: 968 },
+        { label: "Today Tasks", description: "당일 처리할 업무 확인", icon: <ClipboardList size={16} />, pageId: undefined, path: "/today-tasks" },
+      ];
+    }
+
+    if (["STAFF", "RECEPTIONIST", "staff"].includes(roleCode)) {
+      return [
+        { label: "출석 관리", description: "입장 현황과 방문 누락 확인", icon: <UserCheck size={16} />, pageId: 968 },
+        { label: "회원 등록", description: "신규 회원 등록 바로 시작", icon: <Users size={16} />, pageId: 986 },
+        { label: "POS 결제", description: "현장 결제와 미수 회수", icon: <CreditCard size={16} />, pageId: 982 },
+        { label: "Today Tasks", description: "프런트 업무 체크리스트", icon: <ClipboardList size={16} />, pageId: undefined, path: "/today-tasks" },
+      ];
+    }
+
+    return [
+      { label: "회원 목록", description: "이탈·재등록 대상 확인", icon: <Users size={16} />, pageId: 967 },
+      { label: "매출 현황", description: "미수·환불 거래 점검", icon: <DollarSign size={16} />, pageId: 970 },
+      { label: "자동 알림", description: "만료·미수 추적 메시지 관리", icon: <MessageSquare size={16} />, pageId: 992 },
+      { label: "Today Tasks", description: "당일 운영 큐 실행", icon: <ClipboardList size={16} />, pageId: undefined, path: "/today-tasks" },
+    ];
+  })();
+
+  const dashboardFocusQueue = [
+    {
+      label: "만료 임박 회원",
+      value: `${stats.expiringCount}명`,
+      description: expiringMembers[0]
+        ? `가장 가까운 만료: ${expiringMembers[0].name} ${expiringMembers[0].dday}`
+        : "현재 만료 임박 회원이 없습니다.",
+      tone: "amber",
+      action: () => moveToPage(967, { scenario: "expiring" }),
+      cta: "회원 보기",
+    },
+    {
+      label: "미수금 추적",
+      value: `${formatAmount(stats.unpaidTotal)}원`,
+      description: unpaidMembers[0]
+        ? `${unpaidMembers[0].name} ${unpaidMembers[0].amount}원 · ${unpaidMembers[0].overdueDays}일 경과`
+        : "미수금이 없습니다.",
+      tone: "rose",
+      action: () => moveToPage(970),
+      cta: "매출 보기",
+    },
+    {
+      label: "홀딩 관리",
+      value: `${holdingMembers.length}건`,
+      description: holdingMembers[0]
+        ? `${holdingMembers[0].name} · ${holdingMembers[0].remaining}일 남음`
+        : "현재 홀딩 중인 회원이 없습니다.",
+      tone: "sky",
+      action: () => moveToPage(967, { scenario: "holding" }),
+      cta: "회원 보기",
+    },
+  ];
+
   return (
     <AppLayout>
       {/* 공지 배너 */}
@@ -677,6 +751,77 @@ export default function Dashboard() {
           </div>
         }
       />
+
+      <div className="mb-xl grid gap-lg xl:grid-cols-[minmax(0,1.7fr)_minmax(320px,0.95fr)]">
+        <section className="rounded-2xl border border-line bg-surface p-lg shadow-card">
+          <div className="flex items-start justify-between gap-md">
+            <div>
+              <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-content-tertiary">Daily Focus</p>
+              <h2 className="mt-xs text-[20px] font-bold text-content">오늘 집중 업무</h2>
+              <p className="mt-xs text-[13px] leading-relaxed text-content-secondary">
+                운영 사고와 매출 누수를 막기 위해 오늘 먼저 봐야 할 항목을 우선순위대로 정리했습니다.
+              </p>
+            </div>
+            <Button variant="outline" size="sm" onClick={() => window.location.assign("/today-tasks")}>
+              Today Tasks
+            </Button>
+          </div>
+
+          <div className="mt-lg grid gap-md md:grid-cols-3">
+            {dashboardFocusQueue.map((item) => (
+              <button
+                key={item.label}
+                className={cn(
+                  "rounded-2xl border p-md text-left transition-colors",
+                  item.tone === "amber" && "border-amber-200 bg-amber-50 hover:bg-amber-100/80",
+                  item.tone === "rose" && "border-rose-200 bg-rose-50 hover:bg-rose-100/80",
+                  item.tone === "sky" && "border-sky-200 bg-sky-50 hover:bg-sky-100/80"
+                )}
+                onClick={item.action}
+              >
+                <p className="text-[12px] font-semibold text-content">{item.label}</p>
+                <p className="mt-sm text-[24px] font-bold text-content">{item.value}</p>
+                <p className="mt-xs text-[12px] leading-relaxed text-content-secondary">{item.description}</p>
+                <div className="mt-md inline-flex items-center gap-xs text-[12px] font-semibold text-primary">
+                  <span>{item.cta}</span>
+                  <ChevronRight size={14} />
+                </div>
+              </button>
+            ))}
+          </div>
+        </section>
+
+        <aside className="rounded-2xl border border-line bg-surface p-lg shadow-card">
+          <div>
+            <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-content-tertiary">Quick Actions</p>
+            <h2 className="mt-xs text-[18px] font-bold text-content">역할별 바로가기</h2>
+            <p className="mt-xs text-[13px] leading-relaxed text-content-secondary">
+              현재 계정 역할에 맞는 주요 운영 화면만 추려서 바로 실행합니다.
+            </p>
+          </div>
+          <div className="mt-lg space-y-sm">
+            {dashboardQuickActions.map((action) => (
+              <button
+                key={action.label}
+                className="flex w-full items-start gap-sm rounded-2xl border border-line bg-white/80 px-md py-md text-left transition-colors hover:border-primary/30 hover:bg-primary-light/20"
+                onClick={() => {
+                  if (action.pageId) moveToPage(action.pageId);
+                  else if (action.path) window.location.assign(action.path);
+                }}
+              >
+                <div className="mt-[2px] flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl bg-primary-light text-primary">
+                  {action.icon}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="text-[13px] font-semibold text-content">{action.label}</p>
+                  <p className="mt-[2px] text-[12px] leading-relaxed text-content-secondary">{action.description}</p>
+                </div>
+                <ChevronRight size={15} className="mt-[2px] text-content-tertiary" />
+              </button>
+            ))}
+          </div>
+        </aside>
+      </div>
 
       {/* 통계 카드 */}
       <StatCardGrid cols={6} className="mb-xl">

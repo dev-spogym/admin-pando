@@ -337,6 +337,40 @@ export default function PermissionSettings() {
     return current.permissions[type] !== saved.permissions[type];
   };
 
+  const permissionImpactSummary = (() => {
+    const addedAccess: string[] = [];
+    const removedAccess: string[] = [];
+    const writeExpanded: string[] = [];
+
+    permissions.forEach((current) => {
+      const saved = savedPermissions.find((item) => item.id === current.id);
+      if (!saved) return;
+
+      if ((current.permissions.access ?? false) && !(saved.permissions.access ?? false)) {
+        addedAccess.push(current.name);
+      }
+      if (!(current.permissions.access ?? false) && (saved.permissions.access ?? false)) {
+        removedAccess.push(current.name);
+      }
+      const currentWrite = Boolean(current.permissions.create || current.permissions.update || current.permissions.delete);
+      const savedWrite = Boolean(saved.permissions.create || saved.permissions.update || saved.permissions.delete);
+      if (currentWrite && !savedWrite) {
+        writeExpanded.push(current.name);
+      }
+    });
+
+    return {
+      changedMenus: permissions.filter((current) => {
+        const saved = savedPermissions.find((item) => item.id === current.id);
+        return saved ? JSON.stringify(current.permissions) !== JSON.stringify(saved.permissions) : false;
+      }).length,
+      addedAccess,
+      removedAccess,
+      writeExpanded,
+      affectedUsers: employeesByRole[selectedRole.code]?.length ?? 0,
+    };
+  })();
+
   return (
     <AppLayout >
       <div className="flex flex-col gap-md" >
@@ -372,6 +406,79 @@ export default function PermissionSettings() {
               </button>
             </div>
           }/>
+
+        <div className="rounded-2xl border border-line bg-surface p-lg shadow-sm">
+          <div className="flex items-start justify-between gap-md">
+            <div>
+              <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-content-tertiary">Impact Preview</p>
+              <h2 className="mt-xs text-[18px] font-bold text-content">권한 변경 영향도</h2>
+              <p className="mt-xs text-[13px] leading-relaxed text-content-secondary">
+                저장 전에 어떤 메뉴 접근이 열리거나 막히고, 몇 명의 직원이 영향을 받는지 확인합니다.
+              </p>
+            </div>
+            <div className={cn(
+              "rounded-full px-sm py-xs text-[11px] font-semibold",
+              isDirty ? "bg-amber-100 text-amber-700" : "bg-emerald-100 text-emerald-700"
+            )}>
+              {isDirty ? '저장 전 검토 필요' : '저장본과 동일'}
+            </div>
+          </div>
+
+          <div className="mt-md grid gap-md md:grid-cols-4">
+            <div className="rounded-xl border border-line bg-surface-secondary/60 p-md">
+              <p className="text-[11px] text-content-tertiary">변경된 메뉴</p>
+              <p className="mt-xs text-[22px] font-bold text-content">{permissionImpactSummary.changedMenus}</p>
+            </div>
+            <div className="rounded-xl border border-line bg-surface-secondary/60 p-md">
+              <p className="text-[11px] text-content-tertiary">열리는 메뉴</p>
+              <p className="mt-xs text-[22px] font-bold text-emerald-700">{permissionImpactSummary.addedAccess.length}</p>
+            </div>
+            <div className="rounded-xl border border-line bg-surface-secondary/60 p-md">
+              <p className="text-[11px] text-content-tertiary">막히는 메뉴</p>
+              <p className="mt-xs text-[22px] font-bold text-state-error">{permissionImpactSummary.removedAccess.length}</p>
+            </div>
+            <div className="rounded-xl border border-line bg-surface-secondary/60 p-md">
+              <p className="text-[11px] text-content-tertiary">영향 직원</p>
+              <p className="mt-xs text-[22px] font-bold text-content">{permissionImpactSummary.affectedUsers}명</p>
+            </div>
+          </div>
+
+          <div className="mt-md grid gap-md lg:grid-cols-3">
+            <div className="rounded-xl border border-line bg-white/80 p-md">
+              <div className="flex items-center gap-xs">
+                <CheckCircle2 size={15} className="text-emerald-600" />
+                <p className="text-[13px] font-semibold text-content">새로 접근 가능</p>
+              </div>
+              <p className="mt-xs text-[12px] leading-relaxed text-content-secondary">
+                {permissionImpactSummary.addedAccess.length > 0
+                  ? permissionImpactSummary.addedAccess.slice(0, 3).join(', ')
+                  : '새로 열리는 메뉴가 없습니다.'}
+              </p>
+            </div>
+            <div className="rounded-xl border border-line bg-white/80 p-md">
+              <div className="flex items-center gap-xs">
+                <AlertTriangle size={15} className="text-amber-600" />
+                <p className="text-[13px] font-semibold text-content">쓰기 권한 확대</p>
+              </div>
+              <p className="mt-xs text-[12px] leading-relaxed text-content-secondary">
+                {permissionImpactSummary.writeExpanded.length > 0
+                  ? permissionImpactSummary.writeExpanded.slice(0, 3).join(', ')
+                  : '새로 쓰기 권한이 열린 메뉴가 없습니다.'}
+              </p>
+            </div>
+            <div className="rounded-xl border border-line bg-white/80 p-md">
+              <div className="flex items-center gap-xs">
+                <AlertCircle size={15} className="text-state-error" />
+                <p className="text-[13px] font-semibold text-content">접근 차단 예정</p>
+              </div>
+              <p className="mt-xs text-[12px] leading-relaxed text-content-secondary">
+                {permissionImpactSummary.removedAccess.length > 0
+                  ? permissionImpactSummary.removedAccess.slice(0, 3).join(', ')
+                  : '막히는 메뉴가 없습니다.'}
+              </p>
+            </div>
+          </div>
+        </div>
 
         <div className="flex h-[calc(100vh-280px)] gap-lg overflow-hidden" >
           {/* A. 역할 목록 */}

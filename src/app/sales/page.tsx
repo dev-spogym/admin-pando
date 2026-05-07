@@ -9,6 +9,9 @@ import {
   CreditCard,
   Wallet,
   AlertCircle,
+  Repeat,
+  BadgePercent,
+  ChevronRight,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { moveToPage } from '@/internal';
@@ -360,6 +363,26 @@ export default function Sales() {
     );
   }, [filteredData]);
   const netTotal = summary.total - summary.refund;
+  const unpaidRows = useMemo(
+    () => [...filteredData].filter((item) => item.unpaid > 0).sort((a, b) => b.unpaid - a.unpaid),
+    [filteredData]
+  );
+  const refundRows = useMemo(
+    () => [...filteredData].filter((item) => item.status === '환불').sort((a, b) => b.salePrice - a.salePrice),
+    [filteredData]
+  );
+  const retentionRows = useMemo(
+    () => [...filteredData].filter((item) => ['재등록', '휴면복귀'].includes(item.round)).sort((a, b) => b.salePrice - a.salePrice),
+    [filteredData]
+  );
+  const highDiscountRows = useMemo(
+    () => [...filteredData].filter((item) => item.discountPrice >= 50000).sort((a, b) => b.discountPrice - a.discountPrice),
+    [filteredData]
+  );
+  const prioritySalesQueue = useMemo(
+    () => [...unpaidRows.slice(0, 2), ...refundRows.slice(0, 1), ...retentionRows.slice(0, 1)].slice(0, 4),
+    [refundRows, retentionRows, unpaidRows]
+  );
 
   // 테이블 컬럼
   const columns = [
@@ -550,6 +573,179 @@ export default function Sales() {
           className={summary.unpaid > 0 ? 'border-state-error/20' : ''}
         />
       </StatCardGrid>
+
+      <div className="mb-xl grid gap-lg xl:grid-cols-[minmax(0,1.7fr)_minmax(320px,0.95fr)]">
+        <section className="rounded-2xl border border-line bg-surface p-lg shadow-card">
+          <div className="flex items-start justify-between gap-md">
+            <div>
+              <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-content-tertiary">Sales Cockpit</p>
+              <h2 className="mt-xs text-[20px] font-bold text-content">운영 코크핏</h2>
+              <p className="mt-xs text-[13px] leading-relaxed text-content-secondary">
+                미수 추적, 환불 검토, 재등록 성과를 한 화면에서 우선순위대로 확인하고 바로 처리합니다.
+              </p>
+            </div>
+            <Button variant="outline" size="sm" onClick={() => moveToPage(982)}>
+              POS 열기
+            </Button>
+          </div>
+
+          <div className="mt-lg grid gap-md md:grid-cols-2">
+            <button
+              className="rounded-2xl border border-state-error/20 bg-state-error/5 p-md text-left transition-colors hover:bg-state-error/10"
+              onClick={() => setActiveTab('TAB-007')}
+            >
+              <div className="flex items-center justify-between gap-sm">
+                <div className="flex items-center gap-sm">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-state-error/10 text-state-error">
+                    <AlertCircle size={18} />
+                  </div>
+                  <div>
+                    <p className="text-[12px] font-semibold text-content">미수 추적</p>
+                    <p className="text-[11px] text-content-tertiary">당장 회수 필요한 거래</p>
+                  </div>
+                </div>
+                <ChevronRight size={16} className="text-content-tertiary" />
+              </div>
+              <p className="mt-md text-[24px] font-bold text-state-error tabular-nums">{formatKRW(summary.unpaid)}</p>
+              <p className="mt-xs text-[12px] text-content-secondary">{unpaidRows.length}건 미수 거래가 남아 있습니다.</p>
+            </button>
+
+            <button
+              className="rounded-2xl border border-amber-200 bg-amber-50 p-md text-left transition-colors hover:bg-amber-100/80"
+              onClick={() => setActiveTab('TAB-006')}
+            >
+              <div className="flex items-center justify-between gap-sm">
+                <div className="flex items-center gap-sm">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-amber-100 text-amber-700">
+                    <Repeat size={18} />
+                  </div>
+                  <div>
+                    <p className="text-[12px] font-semibold text-content">환불 검토</p>
+                    <p className="text-[11px] text-content-tertiary">금액 영향이 큰 환불 건</p>
+                  </div>
+                </div>
+                <ChevronRight size={16} className="text-content-tertiary" />
+              </div>
+              <p className="mt-md text-[24px] font-bold text-amber-700 tabular-nums">{formatKRW(summary.refund)}</p>
+              <p className="mt-xs text-[12px] text-content-secondary">{refundRows.length}건 환불 내역을 점검해야 합니다.</p>
+            </button>
+
+            <button
+              className="rounded-2xl border border-emerald-200 bg-emerald-50 p-md text-left transition-colors hover:bg-emerald-100/80"
+              onClick={() => {
+                setActiveTab('TAB-001');
+                setRoundFilter('재등록');
+              }}
+            >
+              <div className="flex items-center justify-between gap-sm">
+                <div className="flex items-center gap-sm">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-emerald-100 text-emerald-700">
+                    <Wallet size={18} />
+                  </div>
+                  <div>
+                    <p className="text-[12px] font-semibold text-content">재등록 성과</p>
+                    <p className="text-[11px] text-content-tertiary">잔존 매출 회복 흐름</p>
+                  </div>
+                </div>
+                <ChevronRight size={16} className="text-content-tertiary" />
+              </div>
+              <p className="mt-md text-[24px] font-bold text-emerald-700 tabular-nums">
+                {formatKRW(retentionRows.reduce((acc, item) => acc + item.salePrice, 0))}
+              </p>
+              <p className="mt-xs text-[12px] text-content-secondary">{retentionRows.length}건 재등록·휴면복귀 거래가 잡혀 있습니다.</p>
+            </button>
+
+            <button
+              className="rounded-2xl border border-violet-200 bg-violet-50 p-md text-left transition-colors hover:bg-violet-100/80"
+              onClick={() => {
+                setActiveTab('TAB-001');
+                setRoundFilter('');
+                setFilterValues((prev) => ({ ...prev, status: [] }));
+              }}
+            >
+              <div className="flex items-center justify-between gap-sm">
+                <div className="flex items-center gap-sm">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-violet-100 text-violet-700">
+                    <BadgePercent size={18} />
+                  </div>
+                  <div>
+                    <p className="text-[12px] font-semibold text-content">고할인 거래</p>
+                    <p className="text-[11px] text-content-tertiary">마진 점검 대상</p>
+                  </div>
+                </div>
+                <ChevronRight size={16} className="text-content-tertiary" />
+              </div>
+              <p className="mt-md text-[24px] font-bold text-violet-700 tabular-nums">{highDiscountRows.length}건</p>
+              <p className="mt-xs text-[12px] text-content-secondary">5만원 이상 할인 거래를 따로 확인할 수 있습니다.</p>
+            </button>
+          </div>
+        </section>
+
+        <aside className="rounded-2xl border border-line bg-surface p-lg shadow-card">
+          <div className="flex items-start justify-between gap-md">
+            <div>
+              <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-content-tertiary">Action Queue</p>
+              <h2 className="mt-xs text-[18px] font-bold text-content">처리 큐</h2>
+              <p className="mt-xs text-[13px] leading-relaxed text-content-secondary">
+                미수, 환불, 재등록 거래를 최근순이 아니라 영향도 기준으로 모아 둡니다.
+              </p>
+            </div>
+          </div>
+
+          <div className="mt-lg space-y-sm">
+            {prioritySalesQueue.length === 0 ? (
+              <div className="rounded-2xl border border-dashed border-line px-md py-lg text-center text-[13px] text-content-tertiary">
+                우선 처리할 거래가 없습니다.
+              </div>
+            ) : (
+              prioritySalesQueue.map((item) => (
+                <div key={`${item.id}-${item.status}-${item.round}`} className="rounded-2xl border border-line bg-white/70 p-md">
+                  <div className="flex items-start justify-between gap-sm">
+                    <div>
+                      <p className="text-[13px] font-semibold text-content">{item.buyer}</p>
+                      <p className="mt-[2px] text-[12px] text-content-secondary">{item.productName}</p>
+                    </div>
+                    <StatusBadge variant={item.unpaid > 0 ? 'warning' : item.status === '환불' ? 'error' : 'success'} dot>
+                      {item.unpaid > 0 ? '미수' : item.status}
+                    </StatusBadge>
+                  </div>
+                  <div className="mt-sm flex items-center justify-between gap-sm text-[12px] text-content-secondary">
+                    <span>{item.purchaseDate} · {item.manager || '담당자 미지정'}</span>
+                    <span className="font-semibold tabular-nums text-content">{formatKRW(item.salePrice)}</span>
+                  </div>
+                  <div className="mt-sm flex flex-wrap gap-xs">
+                    {item.unpaid > 0 && (
+                      <span className="rounded-full bg-state-error/10 px-sm py-[3px] text-[11px] font-semibold text-state-error">
+                        미수 {formatKRW(item.unpaid)}
+                      </span>
+                    )}
+                    {item.round && (
+                      <span className="rounded-full bg-surface-secondary px-sm py-[3px] text-[11px] font-semibold text-content-secondary">
+                        {item.round}
+                      </span>
+                    )}
+                  </div>
+                  <div className="mt-md flex gap-xs">
+                    <Button
+                      variant="primary"
+                      size="sm"
+                      onClick={() => {
+                        setSelectedSale(item);
+                        setShowDetailModal(true);
+                      }}
+                    >
+                      거래 보기
+                    </Button>
+                    <Button variant="outline" size="sm" onClick={() => moveToPage(985, { id: item.buyerId })}>
+                      회원 보기
+                    </Button>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        </aside>
+      </div>
 
       {/* 필터 영역 */}
       <div className="space-y-md mb-lg">

@@ -1,6 +1,8 @@
+import { usePathname } from "next/navigation";
 import React, { useState, useEffect, useRef, useCallback } from "react";
-import { Bell, Calendar, Users, Wifi, X } from "lucide-react";
+import { Bell, Calendar, Users, Wifi, X, ArrowUpRight, CreditCard, MessageSquare, Settings } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { moveToPage } from "@/internal";
 import NewsFeedPanel from "@/components/panels/NewsFeedPanel";
 import SchedulePanel from "@/components/panels/SchedulePanel";
 import VisitPanel    from "@/components/panels/VisitPanel";
@@ -66,9 +68,64 @@ function PanelContent({ panelKey, onUnreadCountChange }: PanelContentProps) {
   }
 }
 
+interface ContextShortcut {
+  label: string;
+  description: string;
+  viewId: number;
+}
+
+function getContextShortcuts(pathname: string | null): { title: string; shortcuts: ContextShortcut[] } {
+  if (pathname?.startsWith("/members")) {
+    return {
+      title: "회원 운영 바로가기",
+      shortcuts: [
+        { label: "회원 목록", description: "이탈·재등록 대상 확인", viewId: 967 },
+        { label: "메시지 발송", description: "상담/리마인드 메시지 실행", viewId: 980 },
+        { label: "전자계약", description: "신규 계약과 갱신 바로 진행", viewId: 977 },
+        { label: "출석 관리", description: "수동 체크인과 방문 처리", viewId: 968 },
+      ],
+    };
+  }
+
+  if (pathname?.startsWith("/sales") || pathname?.startsWith("/pos")) {
+    return {
+      title: "매출 처리 바로가기",
+      shortcuts: [
+        { label: "신규 결제", description: "현장 결제 바로 시작", viewId: 982 },
+        { label: "매출 현황", description: "환불·미수 거래 점검", viewId: 970 },
+        { label: "자동 알림", description: "미수·만료 추적 알림 관리", viewId: 992 },
+        { label: "회원 목록", description: "구매 회원 문맥으로 이동", viewId: 967 },
+      ],
+    };
+  }
+
+  if (pathname?.startsWith("/settings") || pathname?.startsWith("/staff")) {
+    return {
+      title: "설정 운영 바로가기",
+      shortcuts: [
+        { label: "센터 설정", description: "운영 정책과 환경 점검", viewId: 975 },
+        { label: "권한 설정", description: "역할별 접근 범위 조정", viewId: 996 },
+        { label: "직원 관리", description: "계정 상태와 담당자 구성 확인", viewId: 974 },
+        { label: "키오스크", description: "현장 장비 설정과 운영 점검", viewId: 994 },
+      ],
+    };
+  }
+
+  return {
+    title: "운영 바로가기",
+    shortcuts: [
+      { label: "대시보드", description: "센터 핵심 KPI 복귀", viewId: 966 },
+      { label: "회원 목록", description: "회원 CRM 중심 화면 이동", viewId: 967 },
+      { label: "매출 현황", description: "거래·미수·환불 흐름 점검", viewId: 970 },
+      { label: "설정", description: "운영 정책과 권한 관리", viewId: 975 },
+    ],
+  };
+}
+
 // ─── 메인 컴포넌트 ────────────────────────────────────────────────────────
 
 const RightQuickPanel = () => {
+  const pathname = usePathname();
   // 현재 열린 패널 (null = 모두 닫힘)
   const [activePanel, setActivePanel] = useState<PanelKey | null>(null);
   // 알림 미읽 건수 (벨 버튼 배지에 표시)
@@ -111,6 +168,8 @@ const RightQuickPanel = () => {
     setUnreadCount(count);
   }, []);
 
+  const contextArea = getContextShortcuts(pathname);
+
   return (
     <div className="relative hidden h-full shrink-0 xl:flex">
       {/* ── 슬라이드 패널 (w-80, 전체 높이) ── */}
@@ -132,6 +191,32 @@ const RightQuickPanel = () => {
             >
               <X size={14} />
             </button>
+            <div className="border-b border-line/80 bg-surface-secondary/70 px-md py-sm">
+              <div className="flex items-center justify-between gap-sm">
+                <div>
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-content-tertiary">Context</p>
+                  <p className="mt-[2px] text-[13px] font-semibold text-content">{contextArea.title}</p>
+                </div>
+                <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-white text-primary shadow-sm">
+                  {pathname?.startsWith("/sales") || pathname?.startsWith("/pos") ? <CreditCard size={15} /> :
+                    pathname?.startsWith("/settings") || pathname?.startsWith("/staff") ? <Settings size={15} /> :
+                    pathname?.startsWith("/members") ? <MessageSquare size={15} /> :
+                    <ArrowUpRight size={15} />}
+                </div>
+              </div>
+              <div className="mt-sm grid grid-cols-2 gap-xs">
+                {contextArea.shortcuts.map((shortcut) => (
+                  <button
+                    key={shortcut.label}
+                    className="rounded-xl border border-line bg-white px-sm py-sm text-left transition-colors hover:border-primary/30 hover:bg-primary-light/30"
+                    onClick={() => moveToPage(shortcut.viewId)}
+                  >
+                    <p className="text-[12px] font-semibold text-content">{shortcut.label}</p>
+                    <p className="mt-[2px] text-[11px] leading-relaxed text-content-tertiary">{shortcut.description}</p>
+                  </button>
+                ))}
+              </div>
+            </div>
             <PanelContent
               panelKey={activePanel}
               onUnreadCountChange={handleUnreadCountChange}

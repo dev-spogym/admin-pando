@@ -12,6 +12,8 @@ import {
   Pencil,
   Plus,
   Trash2,
+  ArrowRight,
+  Sparkles,
 } from "lucide-react";
 import AppLayout from "@/components/layout/AppLayout";
 import PageHeader from "@/components/common/PageHeader";
@@ -122,6 +124,9 @@ export default function TodayTasks() {
   const waitingCount = allTasks.filter((task) => task.status === "대기").length;
   const progressCount = allTasks.filter((task) => task.status === "진행중").length;
   const doneCount = allTasks.filter((task) => task.status === "완료").length;
+  const urgentTasks = tasks.filter((task) => task.priority === "긴급" && task.status !== "완료");
+  const memberLinkedTasks = tasks.filter((task) => Boolean(task.memberName) && task.status !== "완료");
+  const automationCandidateCount = tasks.filter((task) => ["재등록", "출석회복", "매출"].includes(task.category) && task.status === "대기").length;
 
   const resetForm = () => {
     setForm({ ...EMPTY_FORM });
@@ -211,6 +216,76 @@ export default function TodayTasks() {
           activeTab={filter}
           onTabChange={(key) => setFilter(key as StatusFilter)}
         />
+      </div>
+
+      <div className="mt-lg grid gap-md xl:grid-cols-[minmax(0,1.6fr)_minmax(320px,0.95fr)]">
+        <section className="rounded-2xl border border-line bg-surface p-lg">
+          <div className="flex items-start justify-between gap-md">
+            <div>
+              <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-content-tertiary">Focus Queue</p>
+              <h2 className="mt-xs text-[18px] font-bold text-content">오늘 집중 업무</h2>
+              <p className="mt-xs text-[13px] leading-relaxed text-content-secondary">
+                긴급도와 회원 영향도를 기준으로 우선 처리해야 할 업무를 먼저 모았습니다.
+              </p>
+            </div>
+          </div>
+
+          <div className="mt-md grid gap-md md:grid-cols-3">
+            <div className="rounded-2xl border border-rose-200 bg-rose-50 p-md">
+              <p className="text-[12px] font-semibold text-content">긴급 태스크</p>
+              <p className="mt-sm text-[24px] font-bold text-rose-700">{urgentTasks.length}건</p>
+              <p className="mt-xs text-[12px] leading-relaxed text-content-secondary">
+                {urgentTasks[0] ? `${urgentTasks[0].title} 외 ${Math.max(urgentTasks.length - 1, 0)}건` : '현재 긴급 업무가 없습니다.'}
+              </p>
+            </div>
+            <div className="rounded-2xl border border-sky-200 bg-sky-50 p-md">
+              <p className="text-[12px] font-semibold text-content">회원 직접 대응</p>
+              <p className="mt-sm text-[24px] font-bold text-sky-700">{memberLinkedTasks.length}건</p>
+              <p className="mt-xs text-[12px] leading-relaxed text-content-secondary">
+                {memberLinkedTasks[0] ? `${memberLinkedTasks[0].memberName} 관련 업무가 대기 중입니다.` : '회원 직접 대응 업무가 없습니다.'}
+              </p>
+            </div>
+            <div className="rounded-2xl border border-amber-200 bg-amber-50 p-md">
+              <p className="text-[12px] font-semibold text-content">자동화 후보</p>
+              <p className="mt-sm text-[24px] font-bold text-amber-700">{automationCandidateCount}건</p>
+              <p className="mt-xs text-[12px] leading-relaxed text-content-secondary">
+                반복되는 리마인드·재등록 업무는 자동화 정책 후보로 볼 수 있습니다.
+              </p>
+            </div>
+          </div>
+        </section>
+
+        <aside className="rounded-2xl border border-line bg-surface p-lg">
+          <div>
+            <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-content-tertiary">Action Shortcuts</p>
+            <h2 className="mt-xs text-[18px] font-bold text-content">관련 화면 이동</h2>
+            <p className="mt-xs text-[13px] leading-relaxed text-content-secondary">
+              오늘 업무를 처리할 때 가장 자주 여는 운영 화면입니다.
+            </p>
+          </div>
+          <div className="mt-md space-y-sm">
+            {[
+              { label: "회원 목록", desc: "재등록·이탈·상담 대상 확인", onClick: () => window.location.assign("/members") },
+              { label: "매출 현황", desc: "미수·환불 관련 태스크 처리", onClick: () => window.location.assign("/sales") },
+              { label: "자동 알림", desc: "반복 메시지 태스크 자동화", onClick: () => window.location.assign("/message/auto-alarm") },
+              { label: "캘린더", desc: "수업·예약 관련 당일 업무 확인", onClick: () => window.location.assign("/calendar") },
+            ].map((item) => (
+              <button
+                key={item.label}
+                className="flex w-full items-start gap-sm rounded-2xl border border-line bg-white/80 px-md py-md text-left transition-colors hover:border-primary/30 hover:bg-primary-light/20"
+                onClick={item.onClick}
+              >
+                <div className="mt-[2px] flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl bg-primary-light text-primary">
+                  <ArrowRight size={15} />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="text-[13px] font-semibold text-content">{item.label}</p>
+                  <p className="mt-[2px] text-[12px] leading-relaxed text-content-secondary">{item.desc}</p>
+                </div>
+              </button>
+            ))}
+          </div>
+        </aside>
       </div>
 
       {isSuperAdmin && (
@@ -368,7 +443,7 @@ export default function TodayTasks() {
 
       <div className="mt-lg rounded-xl border border-line bg-surface-secondary/50 p-lg">
         <div className="mb-sm flex items-center gap-sm text-primary">
-          <ClipboardList size={16} />
+          <Sparkles size={16} />
           <span className="text-[13px] font-semibold">배정 로직</span>
         </div>
         <p className="text-[12px] leading-6 text-content-secondary">

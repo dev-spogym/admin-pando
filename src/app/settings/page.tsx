@@ -63,6 +63,12 @@ interface ThemeSettings {
   fontSize: 'sm' | 'md' | 'lg';
 }
 
+interface ImpactItem {
+  label: string;
+  description: string;
+  severity: 'info' | 'warning' | 'success';
+}
+
 const EMPTY_CENTER: CenterInfo = {
   name: '',
   description: '',
@@ -162,9 +168,13 @@ export default function Settings() {
   const [showUnsavedWarning, setShowUnsavedWarning] = useState(false);
 
   const [centerInfo, setCenterInfo] = useState<CenterInfo>(EMPTY_CENTER);
+  const [savedCenterInfo, setSavedCenterInfo] = useState<CenterInfo>(EMPTY_CENTER);
   const [notifications, setNotifications] = useState<NotificationSettings>(EMPTY_NOTIFICATIONS);
+  const [savedNotifications, setSavedNotifications] = useState<NotificationSettings>(EMPTY_NOTIFICATIONS);
   const [theme, setTheme] = useState<ThemeSettings>(EMPTY_THEME);
+  const [savedTheme, setSavedTheme] = useState<ThemeSettings>(EMPTY_THEME);
   const [supplies, setSupplies] = useState<SuppliesSettings>(EMPTY_SUPPLIES);
+  const [savedSupplies, setSavedSupplies] = useState<SuppliesSettings>(EMPTY_SUPPLIES);
 
   // Supabase 데이터 로드
   useEffect(() => {
@@ -175,23 +185,35 @@ export default function Settings() {
         supabase.from('settings').select('*').eq('branchId', branchId).single(),
       ]);
 
+      const baseCenter = { ...EMPTY_CENTER };
+
       if (branch) {
-        setCenterInfo(prev => ({
-          ...prev,
-          name: branch.name ?? prev.name,
-          address: branch.address ?? prev.address,
-          phone: branch.phone ?? prev.phone,
-        }));
+        const nextCenter = {
+          ...baseCenter,
+          name: branch.name ?? baseCenter.name,
+          address: branch.address ?? baseCenter.address,
+          phone: branch.phone ?? baseCenter.phone,
+        };
+        setCenterInfo(nextCenter);
+        setSavedCenterInfo(nextCenter);
       }
 
       if (settings) {
-        setCenterInfo(prev => ({
-          ...prev,
-          name: settings.centerName ?? prev.name,
-          openTime: settings.businessHoursOpen ?? prev.openTime,
-          closeTime: settings.businessHoursClose ?? prev.closeTime,
-        }));
-        setNotifications({
+        const mergedCenter = {
+          ...(branch ? {
+            ...baseCenter,
+            name: branch.name ?? baseCenter.name,
+            address: branch.address ?? baseCenter.address,
+            phone: branch.phone ?? baseCenter.phone,
+          } : baseCenter),
+        };
+        const nextCenter = {
+          ...mergedCenter,
+          name: settings.centerName ?? mergedCenter.name,
+          openTime: settings.businessHoursOpen ?? mergedCenter.openTime,
+          closeTime: settings.businessHoursClose ?? mergedCenter.closeTime,
+        };
+        const nextNotifications = {
           pushEntrance: false,
           pushExpiry: settings.autoExpireNotify ?? false,
           pushPayment: false,
@@ -200,17 +222,25 @@ export default function Settings() {
           emailExpiry: settings.autoExpireNotify ?? false,
           smsPayment: settings.smsEnabled ?? false,
           smsExpiry: settings.smsEnabled ?? false,
-        });
-        setTheme(prev => ({
-          ...prev,
-          mode: (settings.theme as ThemeSettings['mode']) ?? prev.mode,
-        }));
+        };
+        const nextTheme = {
+          ...EMPTY_THEME,
+          mode: (settings.theme as ThemeSettings['mode']) ?? EMPTY_THEME.mode,
+        };
+        setCenterInfo(nextCenter);
+        setSavedCenterInfo(nextCenter);
+        setNotifications(nextNotifications);
+        setSavedNotifications(nextNotifications);
+        setTheme(nextTheme);
+        setSavedTheme(nextTheme);
         if (settings.supplies) {
           try {
             const parsed = typeof settings.supplies === 'string'
               ? JSON.parse(settings.supplies)
               : settings.supplies;
-            setSupplies(prev => ({ ...prev, ...parsed }));
+            const nextSupplies = { ...EMPTY_SUPPLIES, ...parsed };
+            setSupplies(nextSupplies);
+            setSavedSupplies(nextSupplies);
           } catch { /* 파싱 실패 시 기본값 유지 */ }
         }
       }
@@ -262,17 +292,90 @@ export default function Settings() {
     setIsSaving(false);
     setSaveSuccess(true);
     setTabDirty(prev => ({ ...prev, [activeTab]: false }));
+    if (activeTab === 'basic') setSavedCenterInfo(centerInfo);
+    if (activeTab === 'notification') setSavedNotifications(notifications);
+    if (activeTab === 'theme') setSavedTheme(theme);
+    if (activeTab === 'supplies') setSavedSupplies(supplies);
     setTimeout(() => setSaveSuccess(false), 3000);
   };
 
   const handleDiscardAndSwitch = () => {
     if (pendingTab) {
+      if (activeTab === 'basic') setCenterInfo(savedCenterInfo);
+      if (activeTab === 'notification') setNotifications(savedNotifications);
+      if (activeTab === 'theme') setTheme(savedTheme);
+      if (activeTab === 'supplies') setSupplies(savedSupplies);
       setTabDirty(prev => ({ ...prev, [activeTab]: false }));
       setActiveTab(pendingTab as TabKey);
       setPendingTab(null);
     }
     setShowUnsavedWarning(false);
   };
+
+  const activeImpactItems = (() => {
+    if (activeTab === 'basic') {
+      const items: ImpactItem[] = [];
+      if (centerInfo.name !== savedCenterInfo.name) {
+        items.push({ label: '센터명 변경', description: '대시보드, 영수증, 회원 안내 영역에 노출되는 센터명이 함께 바뀝니다.', severity: 'info' });
+      }
+      if (centerInfo.phone !== savedCenterInfo.phone || centerInfo.address !== savedCenterInfo.address) {
+        items.push({ label: '연락처/주소 변경', description: '회원 안내 문구와 운영 문서의 기본 연락처 문맥이 갱신됩니다.', severity: 'info' });
+      }
+      if (centerInfo.openTime !== savedCenterInfo.openTime || centerInfo.closeTime !== savedCenterInfo.closeTime || centerInfo.weekendOpenTime !== savedCenterInfo.weekendOpenTime || centerInfo.weekendCloseTime !== savedCenterInfo.weekendCloseTime) {
+        items.push({ label: '운영시간 변경', description: '출석 운영, 안내 문구, 예약 가능 시간 정책 검토가 필요합니다.', severity: 'warning' });
+      }
+      if (centerInfo.sectors.join('|') !== savedCenterInfo.sectors.join('|')) {
+        items.push({ label: '업종 변경', description: '센터 소개, 기획 문맥, 상품/운영 분류 기준에 영향이 생길 수 있습니다.', severity: 'warning' });
+      }
+      return items;
+    }
+
+    if (activeTab === 'notification') {
+      const enabledNow = Object.values(notifications).filter(Boolean).length;
+      const enabledBefore = Object.values(savedNotifications).filter(Boolean).length;
+      const changedKeys = Object.keys(notifications).filter((key) => notifications[key as keyof NotificationSettings] !== savedNotifications[key as keyof NotificationSettings]);
+      return [
+        ...(changedKeys.length > 0 ? [{
+          label: '알림 정책 변경',
+          description: `${changedKeys.length}개 항목이 바뀌며, 현재 활성 알림은 ${enabledNow}개입니다. 기존 ${enabledBefore}개와 차이를 확인하세요.`,
+          severity: 'warning' as const,
+        }] : []),
+        ...((notifications.smsPayment !== savedNotifications.smsPayment || notifications.smsExpiry !== savedNotifications.smsExpiry) ? [{
+          label: 'SMS 발송 영향',
+          description: '자동 발송량과 발송 비용에 직접 영향을 주므로 운영 정책 확인이 필요합니다.',
+          severity: 'warning' as const,
+        }] : []),
+      ];
+    }
+
+    if (activeTab === 'theme') {
+      const items: ImpactItem[] = [];
+      if (theme.mode !== savedTheme.mode) {
+        items.push({ label: '테마 모드 변경', description: '전 직원의 관리자 화면 기본 모드가 달라집니다.', severity: 'info' });
+      }
+      if (theme.primaryColor !== savedTheme.primaryColor || theme.accentColor !== savedTheme.accentColor) {
+        items.push({ label: '브랜드 색상 변경', description: '버튼, 배지, 선택 상태 등 핵심 액션 색상이 함께 바뀝니다.', severity: 'info' });
+      }
+      if (theme.fontSize !== savedTheme.fontSize) {
+        items.push({ label: '글자 크기 변경', description: '운영자 전반의 가독성과 화면 밀도에 영향이 있습니다.', severity: 'info' });
+      }
+      return items;
+    }
+
+    const changedSupplyCount = (Object.keys(supplies) as (keyof SuppliesSettings)[]).filter((key) => {
+      const current = supplies[key];
+      const saved = savedSupplies[key];
+      return current.stock !== saved.stock || current.dailyLimit !== saved.dailyLimit || current.remaining !== saved.remaining;
+    }).length;
+
+    return changedSupplyCount > 0 ? [
+      {
+        label: '물품 재고 변경',
+        description: `${changedSupplyCount}개 품목의 재고 또는 일일 한도가 바뀌며, 현장 지급 기준과 재고 부족 경고에 영향이 있습니다.`,
+        severity: 'warning' as const,
+      },
+    ] : [];
+  })();
 
   // ── 기본정보 탭 ──
   const renderBasic = () => (
@@ -635,6 +738,47 @@ export default function Settings() {
             />
             <div className="flex-1 overflow-y-auto p-xl scrollbar-hide">
               <div className="max-w-[900px] mx-auto">
+                <div className="mb-lg rounded-2xl border border-line bg-surface-secondary/60 p-lg">
+                  <div className="flex items-start justify-between gap-md">
+                    <div>
+                      <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-content-tertiary">Impact Preview</p>
+                      <h2 className="mt-xs text-[18px] font-bold text-content">적용 영향도</h2>
+                      <p className="mt-xs text-[13px] leading-relaxed text-content-secondary">
+                        저장 전에 어떤 운영 흐름과 정책이 같이 바뀌는지 확인합니다.
+                      </p>
+                    </div>
+                    <div className={cn(
+                      "rounded-full px-sm py-xs text-[11px] font-semibold",
+                      isDirty ? "bg-amber-100 text-amber-700" : "bg-emerald-100 text-emerald-700"
+                    )}>
+                      {isDirty ? '변경 검토 필요' : '현재 저장본과 동일'}
+                    </div>
+                  </div>
+                  <div className="mt-md space-y-sm">
+                    {activeImpactItems.length === 0 ? (
+                      <div className="rounded-xl border border-dashed border-line bg-white/70 px-md py-md text-[13px] text-content-tertiary">
+                        현재 탭에서 아직 운영 영향이 발생하는 변경은 없습니다.
+                      </div>
+                    ) : (
+                      activeImpactItems.map((item) => (
+                        <div key={item.label} className="rounded-xl border border-line bg-white/80 px-md py-md">
+                          <div className="flex items-center gap-sm">
+                            <span className={cn(
+                              "rounded-full px-sm py-[3px] text-[11px] font-semibold",
+                              item.severity === 'warning' ? "bg-amber-100 text-amber-700" :
+                              item.severity === 'success' ? "bg-emerald-100 text-emerald-700" :
+                              "bg-sky-100 text-sky-700"
+                            )}>
+                              {item.severity === 'warning' ? '검토' : item.severity === 'success' ? '안정' : '영향'}
+                            </span>
+                            <p className="text-[13px] font-semibold text-content">{item.label}</p>
+                          </div>
+                          <p className="mt-xs text-[12px] leading-relaxed text-content-secondary">{item.description}</p>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </div>
                 {activeTab === 'basic' && renderBasic()}
                 {activeTab === 'notification' && renderNotification()}
                 {activeTab === 'theme' && renderTheme()}
