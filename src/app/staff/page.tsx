@@ -32,6 +32,7 @@ import { supabase } from "@/lib/supabase";
 import { toast } from "sonner";
 import { exportToExcel } from "@/lib/exportExcel";
 import { getBranchScope } from "@/lib/branchScope";
+import { deactivateUsersForStaffRows } from "@/lib/staffAccountSync";
 
 const getBranchId = (): number => {
   return getBranchScope().branchId;
@@ -66,6 +67,7 @@ interface StaffRow {
   branchId: number;
   branchName: string;
   contact: string;
+  email: string;
   joinDate: string;
   status: string;
   memo: string;
@@ -104,7 +106,7 @@ export default function StaffList() {
 
     let query = supabase
       .from("staff")
-      .select("id, name, phone, email, role, position, hireDate, salary, color, isActive, branchId")
+      .select("id, name, phone, email, role, position, hireDate, salary, color, isActive, staffStatus, branchId")
       .order("branchId", { ascending: true })
       .order("name", { ascending: true });
 
@@ -125,8 +127,9 @@ export default function StaffList() {
         branchId: Number(s.branchId ?? scope.branchId),
         branchName: branchNameById.get(Number(s.branchId ?? scope.branchId)) ?? `지점 #${s.branchId ?? scope.branchId}`,
         contact: s.phone ?? "",
+        email: s.email ?? "",
         joinDate: s.hireDate ?? "",
-        status: s.isActive === false ? "resigned" : "active",
+        status: s.staffStatus === "ON_LEAVE" ? "leave" : s.staffStatus === "LOCKED" ? "locked" : s.isActive === false ? "resigned" : "active",
         memo: "",
       }));
       setStaffData(mapped);
@@ -205,10 +208,10 @@ export default function StaffList() {
   const resigned = staffData.filter(s => s.status === "resigned").length;
 
   const statusLabel: Record<string, string> = {
-    active: "재직", leave: "휴직", resigned: "퇴사"
+    active: "재직", leave: "휴직", locked: "잠금", resigned: "퇴사"
   };
   const statusVariant: Record<string, "success" | "warning" | "default"> = {
-    active: "success", leave: "warning", resigned: "default"
+    active: "success", leave: "warning", locked: "warning", resigned: "default"
   };
 
   const columns = [
@@ -332,6 +335,7 @@ export default function StaffList() {
                 options: [
                   { value: "active",   label: "재직" },
                   { value: "leave",    label: "휴직" },
+                  { value: "locked",   label: "잠금" },
                   { value: "resigned", label: "퇴사" },
                 ]
               }
@@ -408,22 +412,27 @@ export default function StaffList() {
           variant="danger"
           confirmationText="퇴사처리"
           onConfirm={async () => {
-            // 선택된 직원 ID 목록으로 isActive: false 업데이트
-            const ids = Array.from(selectedRows)
-              .map(index => currentPageRows[index]?.id)
-              .filter((id): id is number => Number.isFinite(id));
-            if (ids.length === 0) {
+            const rows = Array.from(selectedRows)
+              .map(index => currentPageRows[index])
+              .filter((row): row is StaffRow => Boolean(row?.id));
+            const ids = rows.map(row => row.id);
+            if (rows.length === 0) {
               toast.error("퇴사 처리할 직원을 찾지 못했습니다.");
               return;
             }
             const { error } = await supabase
               .from("staff")
-              .update({ isActive: false })
+              .update({ isActive: false, staffStatus: "RESIGNED" })
               .in("id", ids);
             if (error) {
               toast.error("퇴사 처리에 실패했습니다.");
               return;
             }
+            await deactivateUsersForStaffRows(rows.map((row) => ({
+              name: row.name,
+              email: row.email,
+              branchId: row.branchId,
+            })));
             toast.success(`${ids.length}명의 퇴사 처리가 완료되었습니다.`);
             setIsRetireDialogOpen(false);
             setSelectedRows(new Set());

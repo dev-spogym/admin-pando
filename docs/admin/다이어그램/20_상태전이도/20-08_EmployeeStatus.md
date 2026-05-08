@@ -31,7 +31,7 @@ lastUpdated: 2026-04-20
 
 ```mermaid
 stateDiagram-v2
-    [*] --> ACTIVE : T-EMP-01 직원 등록 (계정 생성)
+    [*] --> ACTIVE : T-EMP-01 직원 등록 + 로그인 계정 생성
 
     ACTIVE --> ON_LEAVE : T-EMP-02 휴직 신청 승인
     ACTIVE --> RESIGNING : T-EMP-03 퇴직 의사 표명
@@ -54,6 +54,7 @@ stateDiagram-v2
         로그인 가능
         수업/급여 배정 가능
         RBAC 역할 유지
+        직원 1명 = 로그인 계정 1개
     end note
 
     note right of RESIGNING
@@ -76,7 +77,7 @@ stateDiagram-v2
 
 | 이벤트 ID | From | To | 트리거 | 권한 | 부수효과 | TC 후보 |
 |-----------|------|----|--------|------|----------|---------|
-| T-EMP-01 | [신규] | ACTIVE | 관리자 직원 등록 | MANAGER 이상 | 계정 생성, RBAC 역할 배정, 입사일 기록 | TC-EMP-01 |
+| T-EMP-01 | [신규] | ACTIVE | 관리자 직원 등록 | MANAGER 이상 | 직원 row 생성, 로그인 계정 생성, RBAC 역할 배정, 입사일 기록 | TC-EMP-01 |
 | T-EMP-02 | ACTIVE | ON_LEAVE | 관리자 휴직 승인 | MANAGER 이상 | / 기록, 휴직 알림 | TC-EMP-02 |
 | T-EMP-03 | ACTIVE | RESIGNING | 관리자 퇴직 진행 등록 | OWNER 이상 | SettlementRecord 생성, 퇴직 예정일 기록 | TC-EMP-03 |
 | T-EMP-04 | ACTIVE | RESIGNED | 관리자 즉시 퇴사 처리 | OWNER 이상 | 기록, 계정 비활성화, 정산 생성 | TC-EMP-04 |

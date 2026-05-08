@@ -4,10 +4,20 @@
 import { supabase } from '../../lib/supabase';
 import type { ApiResponse, PaginatedResponse, PaginationParams } from '../types';
 import { createAuditLog, AUDIT_ACTIONS } from './auditLog';
+import { deactivateUsersForStaffRows, findLinkedUser, mapStaffFormRoleToUserRole } from '@/lib/staffAccountSync';
 
 const getBranchId = (): number => { if (typeof window === "undefined") return 1;
   const stored = localStorage.getItem('branchId');
   return stored ? Number(stored) : 1;
+};
+
+const STAFF_DB_ROLE_TO_FORM_ROLE: Record<string, 'owner' | 'manager' | 'fc' | 'trainer' | 'staff'> = {
+  센터장: 'owner',
+  매니저: 'manager',
+  FC: 'fc',
+  트레이너: 'trainer',
+  스태프: 'staff',
+  프론트: 'staff',
 };
 
 /** 직원 상태 */
@@ -179,12 +189,23 @@ export const updateStaff = async (id: number, data: Partial<StaffRequest>): Prom
 /** 직원 삭제 (비활성화 + 퇴사 처리) */
 export const deleteStaff = async (id: number): Promise<ApiResponse<null>> => {
   try {
+    const existing = await getStaffById(id);
+    if (!existing.success) throw new Error(existing.message ?? '직원 정보를 찾을 수 없습니다.');
+
     const { error } = await supabase
       .from('staff')
       .update({ isActive: false, staffStatus: 'RESIGNED' })
       .eq('id', id);
 
     if (error) throw error;
+
+    await deactivateUsersForStaffRows([
+      {
+        name: existing.data.name,
+        email: existing.data.email ?? null,
+        branchId: existing.data.branchId,
+      },
+    ]);
 
     createAuditLog({ action: AUDIT_ACTIONS.DELETE, targetType: 'staff', targetId: id });
     return { success: true, data: null, message: '직원이 삭제되었습니다.' };
@@ -235,6 +256,9 @@ export const confirmResignation = async (
   staffId: number
 ): Promise<ApiResponse<Staff>> => {
   try {
+    const existing = await getStaffById(staffId);
+    if (!existing.success) throw new Error(existing.message ?? '직원 정보를 찾을 수 없습니다.');
+
     const { data: updated, error } = await supabase
       .from('staff')
       .update({
@@ -247,6 +271,14 @@ export const confirmResignation = async (
       .single();
 
     if (error) throw error;
+
+    await deactivateUsersForStaffRows([
+      {
+        name: existing.data.name,
+        email: existing.data.email ?? null,
+        branchId: existing.data.branchId,
+      },
+    ]);
 
     return {
       success: true,
@@ -272,6 +304,9 @@ export const startStaffLeave = async (
   data: StaffLeaveRequest
 ): Promise<ApiResponse<Staff>> => {
   try {
+    const existing = await getStaffById(staffId);
+    if (!existing.success) throw new Error(existing.message ?? '직원 정보를 찾을 수 없습니다.');
+
     const { data: updated, error } = await supabase
       .from('staff')
       .update({
@@ -286,6 +321,14 @@ export const startStaffLeave = async (
       .single();
 
     if (error) throw error;
+
+    await deactivateUsersForStaffRows([
+      {
+        name: existing.data.name,
+        email: existing.data.email ?? null,
+        branchId: existing.data.branchId,
+      },
+    ]);
 
     return {
       success: true,
@@ -303,6 +346,9 @@ export const endStaffLeave = async (
   staffId: number
 ): Promise<ApiResponse<Staff>> => {
   try {
+    const existing = await getStaffById(staffId);
+    if (!existing.success) throw new Error(existing.message ?? '직원 정보를 찾을 수 없습니다.');
+
     const { data: updated, error } = await supabase
       .from('staff')
       .update({
@@ -315,6 +361,24 @@ export const endStaffLeave = async (
       .single();
 
     if (error) throw error;
+
+    const linkedUser = await findLinkedUser({
+      name: existing.data.name,
+      email: existing.data.email ?? null,
+      branchId: existing.data.branchId,
+    });
+
+    if (linkedUser) {
+      await supabase
+        .from('users')
+        .update({
+          isActive: true,
+          lockedUntil: null,
+          role: mapStaffFormRoleToUserRole(STAFF_DB_ROLE_TO_FORM_ROLE[existing.data.role] ?? 'staff'),
+          updatedAt: new Date().toISOString(),
+        })
+        .eq('id', linkedUser.id);
+    }
 
     return {
       success: true,
@@ -339,6 +403,9 @@ export const changeStaffRole = async (
   data: ChangeRoleRequest
 ): Promise<ApiResponse<Staff>> => {
   try {
+    const existing = await getStaffById(staffId);
+    if (!existing.success) throw new Error(existing.message ?? '직원 정보를 찾을 수 없습니다.');
+
     const updatePayload: Record<string, string> = { role: data.newRole };
     if (data.newPosition !== undefined) {
       updatePayload.position = data.newPosition;
@@ -352,6 +419,22 @@ export const changeStaffRole = async (
       .single();
 
     if (error) throw error;
+
+    const linkedUser = await findLinkedUser({
+      name: existing.data.name,
+      email: existing.data.email ?? null,
+      branchId: existing.data.branchId,
+    });
+
+    if (linkedUser) {
+      await supabase
+        .from('users')
+        .update({
+          role: mapStaffFormRoleToUserRole(STAFF_DB_ROLE_TO_FORM_ROLE[data.newRole] ?? 'staff'),
+          updatedAt: new Date().toISOString(),
+        })
+        .eq('id', linkedUser.id);
+    }
 
     return {
       success: true,

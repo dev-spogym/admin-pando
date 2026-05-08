@@ -29,10 +29,11 @@ import {
   getStaff,
   getStaffById,
   getStaffMembers,
-  reassignMembers,
-  scheduleResignation,
-  type Staff,
-} from '@/api/endpoints/staff';
+    reassignMembers,
+    confirmResignation,
+    scheduleResignation,
+    type Staff,
+  } from '@/api/endpoints/staff';
 
 // ── 타입 ──────────────────────────────────────────────────────────────────────
 
@@ -264,19 +265,21 @@ function StaffResignation() {
         }
       }
 
-      // 2. 퇴사 예정 등록
-      const resignRes = await scheduleResignation(selectedStaffId, {
-        resignScheduledAt: new Date(resignDate).toISOString(),
-        resignReason: resignReason || undefined,
-      });
+      const isImmediateResignation = resignDate <= new Date().toISOString().split('T')[0];
+      const resignRes = isImmediateResignation
+        ? await confirmResignation(selectedStaffId)
+        : await scheduleResignation(selectedStaffId, {
+            resignScheduledAt: new Date(resignDate).toISOString(),
+            resignReason: resignReason || undefined,
+          });
 
       if (!resignRes.success) {
-        toast.error('퇴사 예정 등록 실패: ' + resignRes.message);
+        toast.error((isImmediateResignation ? '퇴사 처리 실패: ' : '퇴사 예정 등록 실패: ') + resignRes.message);
         setIsSubmitting(false);
         return;
       }
 
-      toast.success('퇴사 예정이 등록되었습니다.');
+      toast.success(isImmediateResignation ? '퇴사 처리와 계정 비활성화가 완료되었습니다.' : '퇴사 예정이 등록되었습니다.');
       moveToPage(974);
     } catch {
       toast.error('처리 중 오류가 발생했습니다.');
@@ -390,6 +393,9 @@ function StaffResignation() {
                   placeholder="퇴사 사유를 입력하세요 (개인 사정, 계약 만료 등)"
                   rows={3}
                 />
+                <p className="text-[11px] text-content-secondary">
+                  오늘 날짜로 처리하면 직원 상태와 로그인 계정이 즉시 비활성화됩니다.
+                </p>
               </div>
             </div>
 

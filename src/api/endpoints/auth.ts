@@ -65,6 +65,13 @@ const fetchUserProfile = async (username: string) => {
   };
 };
 
+function isUserLocked(user: { isActive?: boolean | null; lockedUntil?: string | Date | null }) {
+  if (user?.isActive === false) return true;
+  if (!user?.lockedUntil) return false;
+  const lockedUntil = new Date(user.lockedUntil);
+  return !Number.isNaN(lockedUntil.getTime()) && lockedUntil.getTime() > Date.now();
+}
+
 /** 로그인 */
 export const login = async (data: LoginRequest): Promise<ApiResponse<LoginResponse>> => {
   // 1단계: Supabase Auth로 로그인 시도 (email = username@spogym.local)
@@ -85,6 +92,14 @@ export const login = async (data: LoginRequest): Promise<ApiResponse<LoginRespon
           success: false,
           data: null as unknown as LoginResponse,
           message: '사용자 프로필을 찾을 수 없습니다.',
+        };
+      }
+
+      if (isUserLocked(profile)) {
+        return {
+          success: false,
+          data: null as unknown as LoginResponse,
+          message: '계정이 잠겼거나 비활성화되었습니다. 관리자에게 문의하세요.',
         };
       }
 
@@ -130,6 +145,13 @@ export const login = async (data: LoginRequest): Promise<ApiResponse<LoginRespon
     }
 
     const user = rows[0];
+    if (isUserLocked(user)) {
+      return {
+        success: false,
+        data: null as unknown as LoginResponse,
+        message: '계정이 잠겼거나 비활성화되었습니다. 관리자에게 문의하세요.',
+      };
+    }
     // fallback 기간에는 mock 토큰 사용
     const accessToken = `mock-access-token-${user.id}`;
     const refreshToken = `mock-refresh-token-${user.id}`;
@@ -221,7 +243,13 @@ export const changePassword = async (data: ChangePasswordRequest): Promise<ApiRe
     // 비밀번호 업데이트
     const { error: updateError } = await supabase
       .from('users')
-      .update({ password: data.newPassword })
+      .update({
+        password: data.newPassword,
+        forcePasswordChange: false,
+        passwordChangedAt: new Date().toISOString(),
+        lockedUntil: null,
+        loginFailCount: 0,
+      })
       .eq('id', userRows[0].id);
 
     if (updateError) {

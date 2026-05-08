@@ -26,6 +26,12 @@ export const optionalEmailSchema = z
   .optional()
   .default('');
 
+/** 이메일 (필수) */
+export const requiredEmailSchema = z
+  .string()
+  .min(1, '이메일을 입력하세요')
+  .email('올바른 이메일을 입력하세요');
+
 /** 과거 날짜 (선택) */
 export const optionalPastDateSchema = z
   .string()
@@ -101,10 +107,20 @@ export const memberStep1Schema = memberFormSchema.pick({
 export const staffFormSchema = z.object({
   name: z.string().min(1, '이름을 입력하세요').max(20, '20자 이내로 입력하세요'),
   role: z.string().min(1, '역할을 선택하세요'),
+  position: z.string().min(1, '직책을 입력하세요').max(30, '30자 이내로 입력하세요'),
   contact: phoneSchema,
   joinDate: z.string().min(1, '입사일을 입력하세요'),
-  email: optionalEmailSchema,
+  email: requiredEmailSchema,
+  username: z
+    .string()
+    .min(4, '로그인 ID는 4자 이상이어야 합니다')
+    .max(30, '로그인 ID는 30자 이하여야 합니다')
+    .regex(/^[a-zA-Z0-9._-]+$/, '로그인 ID는 영문, 숫자, 점, 밑줄, 하이픈만 사용할 수 있습니다'),
   memo: memoSchema,
+  salary: z.string().optional().default(''),
+  accountStatus: z.enum(['ACTIVE', 'LOCKED'], { error: '계정 상태를 선택하세요' }),
+  temporaryPassword: z.string().optional().default(''),
+  forcePasswordChange: z.boolean().optional().default(true),
 });
 
 export type StaffFormData = z.infer<typeof staffFormSchema>;

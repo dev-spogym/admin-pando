@@ -1,12 +1,23 @@
 'use client';
 export const dynamic = 'force-dynamic';
 
-import { getBranchId } from '@/lib/getBranchId';
-import React, { useState, useEffect } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Save, User, Phone, Mail, Calendar, FileText, Check, ShieldCheck } from "lucide-react";
+import {
+  Save,
+  User,
+  Phone,
+  Mail,
+  Calendar,
+  FileText,
+  Check,
+  ShieldCheck,
+  KeyRound,
+  BadgeCheck,
+  Lock,
+} from "lucide-react";
 import { toast } from "sonner";
 import AppLayout from "@/components/layout/AppLayout";
 import PageHeader from "@/components/common/PageHeader";
@@ -16,40 +27,111 @@ import { cn } from "@/lib/utils";
 import { moveToPage } from "@/internal";
 import { supabase } from "@/lib/supabase";
 import { staffFormSchema, formatPhone } from "@/lib/validations";
+import {
+  findLinkedUser,
+  generateTemporaryPassword,
+  mapStaffFormRoleToUserRole,
+  upsertStaffUserAccount,
+  type StaffAccountStatus,
+  type StaffFormRole,
+} from "@/lib/staffAccountSync";
 
-// 폼 내부에서 사용하는 타입 - optional 필드를 string으로 확정
 type StaffFormData = {
   name: string;
-  role: string;
+  role: StaffFormRole;
+  position: string;
   contact: string;
   joinDate: string;
   email: string;
+  username: string;
   memo: string;
   salary: string;
+  accountStatus: Exclude<StaffAccountStatus, "RESIGNED">;
+  temporaryPassword: string;
+  forcePasswordChange: boolean;
 };
 
-// 역할별 권한 미리보기
-const ROLE_PERMISSIONS: Record<string, { label: string; desc: string; perms: string[] }> = {
-  owner:   { label: "센터장",   desc: "지점 내 전체 데이터 접근 및 관리",         perms: ["회원 전체 관리", "직원 관리", "급여 확정", "매출 통계", "설정 변경"] },
-  manager: { label: "매니저",   desc: "운영 전반 관리 및 주요 기능 접근",         perms: ["회원 관리", "스케줄 관리", "매출 통계 조회", "직원 조회"] },
-  fc:      { label: "FC",       desc: "상담·결제 및 매출 통계 접근",             perms: ["회원 상담", "결제 처리", "매출 통계 조회"] },
-  trainer: { label: "트레이너", desc: "담당 회원 관리 및 수업 스케줄 관리",       perms: ["담당 회원 조회", "수업 스케줄 관리", "출석 체크"] },
-  staff:   { label: "스태프",   desc: "기본 회원 조회 및 출석 확인",             perms: ["회원 조회", "출석 확인"] },
+type ExistingStaffRecord = {
+  id: number;
+  name: string;
+  phone: string | null;
+  email: string | null;
+  role: string;
+  position: string | null;
+  hireDate: string | null;
+  salary: number | null;
+  branchId: number | null;
 };
 
-// DB role 한글 → 폼 영문 키 매핑
-const ROLE_DB_TO_KEY: Record<string, string> = {
-  센터장: "owner", 매니저: "manager", FC: "fc", 트레이너: "trainer", 스태프: "staff",
+const ROLE_PERMISSIONS: Record<StaffFormRole, { label: string; desc: string; perms: string[] }> = {
+  owner: {
+    label: "센터장",
+    desc: "지점 운영, 직원, 매출, 설정 전반을 통합 관리합니다.",
+    perms: ["회원 전체 관리", "직원/권한 관리", "매출·환불 관리", "센터 설정"],
+  },
+  manager: {
+    label: "매니저",
+    desc: "운영 전반을 수행하지만 민감 설정과 최고 권한은 제외됩니다.",
+    perms: ["회원 관리", "수업·스케줄 관리", "매출 통계 조회", "직원 조회"],
+  },
+  fc: {
+    label: "FC",
+    desc: "상담, 재등록, 결제 중심으로 CRM을 사용합니다.",
+    perms: ["회원 상담", "결제 처리", "예약 확인", "담당 회원 관리"],
+  },
+  trainer: {
+    label: "트레이너",
+    desc: "담당 회원과 수업 스케줄 중심의 업무를 수행합니다.",
+    perms: ["담당 회원 조회", "수업 스케줄 관리", "출석 확인", "수업 메모"],
+  },
+  staff: {
+    label: "스태프",
+    desc: "현장 접수, 출석, 기본 운영 업무를 처리합니다.",
+    perms: ["회원 조회", "출석 확인", "현장 안내", "기본 POS 보조"],
+  },
 };
+
+const ROLE_DB_TO_KEY: Record<string, StaffFormRole> = {
+  센터장: "owner",
+  매니저: "manager",
+  FC: "fc",
+  트레이너: "trainer",
+  스태프: "staff",
+  프론트: "staff",
+};
+
+const ROLE_KEY_TO_DB: Record<StaffFormRole, string> = {
+  owner: "센터장",
+  manager: "매니저",
+  fc: "FC",
+  trainer: "트레이너",
+  staff: "스태프",
+};
+
+const DEFAULT_POSITION_BY_ROLE: Record<StaffFormRole, string> = {
+  owner: "센터장",
+  manager: "운영 매니저",
+  fc: "FC",
+  trainer: "트레이너",
+  staff: "운영 스태프",
+};
+
+function inferAccountStatus(user: { isActive: boolean; lockedUntil: string | null } | null): "ACTIVE" | "LOCKED" {
+  if (!user) return "ACTIVE";
+  const lockedUntil = user.lockedUntil ? new Date(user.lockedUntil) : null;
+  if (lockedUntil && lockedUntil.getTime() > Date.now()) return "LOCKED";
+  return user.isActive ? "ACTIVE" : "LOCKED";
+}
 
 function StaffForm() {
-  // URL 쿼리 파라미터로 수정 모드 감지
   const searchParams = useSearchParams();
   const editId = searchParams?.get("id") ?? null;
-  const isEditMode = !!editId;
+  const isEditMode = Boolean(editId);
 
   const [showCancelDialog, setShowCancelDialog] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [existingStaff, setExistingStaff] = useState<ExistingStaffRecord | null>(null);
+  const [linkedUserId, setLinkedUserId] = useState<number | null>(null);
 
   const {
     register,
@@ -65,84 +147,191 @@ function StaffForm() {
     defaultValues: {
       name: "",
       role: "trainer",
+      position: DEFAULT_POSITION_BY_ROLE.trainer,
       contact: "",
       joinDate: new Date().toISOString().split("T")[0],
       email: "",
+      username: "",
       memo: "",
+      salary: "",
+      accountStatus: "ACTIVE",
+      temporaryPassword: generateTemporaryPassword(),
+      forcePasswordChange: true,
     },
     mode: "onBlur",
   });
 
   const watchedRole = watch("role");
+  const watchedStatus = watch("accountStatus");
+  const watchedForcePasswordChange = watch("forcePasswordChange");
+  const roleInfo = ROLE_PERMISSIONS[watchedRole] || ROLE_PERMISSIONS.staff;
+  const securitySummary = useMemo(
+    () => [
+      `${roleInfo.label} 권한 템플릿 연결`,
+      `로그인 계정 상태: ${watchedStatus === "LOCKED" ? "잠금" : "활성"}`,
+      watchedForcePasswordChange ? "첫 로그인 후 비밀번호 변경 강제" : "최초 비밀번호 유지",
+    ],
+    [roleInfo.label, watchedForcePasswordChange, watchedStatus]
+  );
 
-  // 수정 모드: 기존 직원 데이터 로드
+  useEffect(() => {
+    const currentPosition = watch("position");
+    if (!currentPosition || currentPosition === DEFAULT_POSITION_BY_ROLE[watchedRole]) {
+      setValue("position", DEFAULT_POSITION_BY_ROLE[watchedRole], { shouldValidate: true });
+    }
+  }, [setValue, watch, watchedRole]);
+
+  useEffect(() => {
+    if (isEditMode) return;
+    setValue("temporaryPassword", generateTemporaryPassword(), { shouldValidate: true });
+  }, [isEditMode, setValue]);
+
   useEffect(() => {
     if (!editId) return;
+
     const fetchStaff = async () => {
       const { data, error } = await supabase
         .from("staff")
         .select("*")
         .eq("id", editId)
         .single();
+
       if (error || !data) {
         toast.error("직원 정보를 불러오지 못했습니다.");
         return;
       }
+
+      const staff = data as ExistingStaffRecord;
+      setExistingStaff(staff);
+
+      const branchId = Number(staff.branchId ?? 1);
+      const linkedUser = await findLinkedUser({
+        name: staff.name,
+        email: staff.email ?? null,
+        branchId,
+      });
+
+      setLinkedUserId(linkedUser?.id ?? null);
+
       reset({
-        name: data.name ?? "",
-        role: ROLE_DB_TO_KEY[data.role] ?? data.role ?? "staff",
-        contact: data.phone ?? "",
-        joinDate: data.hireDate ? data.hireDate.slice(0, 10) : new Date().toISOString().split("T")[0],
-        email: data.email ?? "",
+        name: staff.name ?? "",
+        role: ROLE_DB_TO_KEY[staff.role] ?? "staff",
+        position: staff.position ?? DEFAULT_POSITION_BY_ROLE.staff,
+        contact: staff.phone ?? "",
+        joinDate: staff.hireDate ? staff.hireDate.slice(0, 10) : new Date().toISOString().split("T")[0],
+        email: staff.email ?? "",
+        username: linkedUser?.username ?? "",
         memo: "",
+        salary: staff.salary ? String(staff.salary) : "",
+        accountStatus: inferAccountStatus(linkedUser),
+        temporaryPassword: "",
+        forcePasswordChange: linkedUser?.forcePasswordChange ?? false,
       });
     };
-    fetchStaff();
+
+    void fetchStaff();
   }, [editId, reset]);
 
   const onSubmit = async (formData: StaffFormData) => {
+    if (!isEditMode && !formData.temporaryPassword.trim()) {
+      toast.error("신규 직원 계정의 임시 비밀번호를 입력하세요.");
+      return;
+    }
+
     setIsSaving(true);
-    const branchId = getBranchId();
-    // 폼 영문 키 → DB 한글 역할명 매핑
-    const ROLE_MAP: Record<string, string> = {
-      owner: "센터장", manager: "매니저", fc: "FC", trainer: "트레이너", staff: "스태프",
-    };
-    const staffData = {
-      name: formData.name,
+    const branchId = Number(localStorage.getItem("branchId") ?? "1") || 1;
+    const normalizedRole = ROLE_KEY_TO_DB[formData.role] || formData.role;
+
+    const staffPayload = {
+      name: formData.name.trim(),
       phone: formData.contact,
-      email: formData.email || null,
-      role: ROLE_MAP[formData.role] || formData.role,
+      email: formData.email.trim(),
+      role: normalizedRole,
+      position: formData.position.trim(),
       hireDate: formData.joinDate ? new Date(formData.joinDate).toISOString() : null,
       salary: formData.salary ? Number(formData.salary) : null,
       branchId,
+      isActive: true,
+      staffStatus: formData.accountStatus === "LOCKED" ? "LOCKED" : "ACTIVE",
     };
 
-    if (isEditMode) {
-      // 수정 모드: 기존 레코드 업데이트
-      const { error } = await supabase
-        .from("staff")
-        .update(staffData)
-        .eq("id", editId);
-      setIsSaving(false);
-      if (error) { toast.error("수정 실패: " + error.message); return; }
-      toast.success("직원 정보가 수정되었습니다.");
-    } else {
-      // 등록 모드: 새 레코드 삽입
-      const { error } = await supabase.from("staff").insert(staffData);
-      setIsSaving(false);
-      if (error) { toast.error("저장 실패: " + error.message); return; }
-      toast.success("직원이 성공적으로 등록되었습니다.");
-    }
-    moveToPage(974);
-  };
+    let savedStaffId: number | null = null;
 
-  const roleInfo = ROLE_PERMISSIONS[watchedRole] || ROLE_PERMISSIONS.staff;
+    try {
+      if (isEditMode) {
+        const { data: updatedStaff, error: updateError } = await supabase
+          .from("staff")
+          .update(staffPayload)
+          .eq("id", editId)
+          .select("id")
+          .single();
+
+        if (updateError) throw updateError;
+        savedStaffId = Number(updatedStaff?.id ?? editId);
+      } else {
+        const { data: insertedStaff, error: insertError } = await supabase
+          .from("staff")
+          .insert(staffPayload)
+          .select("id")
+          .single();
+
+        if (insertError) throw insertError;
+        savedStaffId = Number(insertedStaff?.id);
+      }
+
+      const accountResult = await upsertStaffUserAccount({
+        existingUserId: linkedUserId,
+        username: formData.username,
+        password: formData.temporaryPassword || undefined,
+        name: formData.name.trim(),
+        email: formData.email.trim(),
+        role: formData.role,
+        branchId,
+        accountStatus: formData.accountStatus,
+        forcePasswordChange: formData.forcePasswordChange,
+      });
+
+      const roleForPermission = mapStaffFormRoleToUserRole(formData.role);
+      const successMessage = isEditMode
+        ? "직원 정보와 로그인 계정이 함께 수정되었습니다."
+        : "직원 등록과 로그인 계정 생성이 완료되었습니다.";
+
+      toast.success(successMessage, {
+        description: `${accountResult.user.username} · ${roleForPermission} · ${formData.accountStatus === "LOCKED" ? "잠금" : "활성"}`,
+      });
+
+      if (!accountResult.authSynced) {
+        toast.warning(
+          "Supabase Auth 사용자 동기화는 건너뛰었습니다. SUPABASE_SERVICE_ROLE_KEY 설정을 확인하세요."
+        );
+      }
+
+      if (!isEditMode && formData.forcePasswordChange) {
+        toast.info("첫 로그인 후 비밀번호 변경이 강제됩니다.");
+      }
+
+      moveToPage(974);
+    } catch (error) {
+      if (!isEditMode && savedStaffId) {
+        await supabase.from("staff").delete().eq("id", savedStaffId);
+      }
+
+      const message = error instanceof Error ? error.message : "직원 저장 중 오류가 발생했습니다.";
+      toast.error(message);
+    } finally {
+      setIsSaving(false);
+    }
+  };
 
   return (
     <AppLayout>
       <PageHeader
         title={isEditMode ? "직원 정보 수정" : "직원 등록"}
-        description={isEditMode ? "직원의 정보를 수정하고 저장합니다." : "새로운 직원 정보를 입력하고 역할을 설정합니다."}
+        description={
+          isEditMode
+            ? "직원 정보, 로그인 계정, 권한 연결 상태를 함께 수정합니다."
+            : "직원 등록과 동시에 로그인 계정을 생성하고 권한 템플릿을 연결합니다."
+        }
         actions={
           <div className="flex gap-sm">
             <button
@@ -157,16 +346,14 @@ function StaffForm() {
               disabled={isSaving}
             >
               <Save size={16} />
-              {isSaving ? "저장 중..." : isEditMode ? "수정 저장" : "저장하기"}
+              {isSaving ? "저장 중..." : isEditMode ? "수정 저장" : "직원 등록"}
             </button>
           </div>
         }
       />
 
-      <div className="space-y-lg pb-xxl max-w-[860px]">
-        {/* 기본 정보 */}
-        <FormSection title="기본 정보" description="직원의 이름, 역할, 연락처를 입력합니다.">
-          {/* 이름 */}
+      <div className="space-y-lg pb-xxl max-w-[960px]">
+        <FormSection title="기본 정보" description="직원의 인사 정보와 운영 역할을 입력합니다.">
           <div className="space-y-xs">
             <label className="text-Label font-semibold text-content-secondary">
               이름 <span className="text-state-error">*</span>
@@ -187,7 +374,6 @@ function StaffForm() {
             {errors.name && <p role="alert" className="text-Label text-state-error">{errors.name.message}</p>}
           </div>
 
-          {/* 역할 선택 */}
           <div className="space-y-xs">
             <label className="text-Label font-semibold text-content-secondary">
               역할 <span className="text-state-error">*</span>
@@ -201,7 +387,6 @@ function StaffForm() {
                 errors.role ? "border-state-error" : "border-line"
               )}
             >
-              <option value="">역할 선택</option>
               <option value="owner">센터장</option>
               <option value="manager">매니저</option>
               <option value="fc">FC</option>
@@ -209,27 +394,40 @@ function StaffForm() {
               <option value="staff">스태프</option>
             </select>
             {errors.role && <p role="alert" className="text-Label text-state-error">{errors.role.message}</p>}
-            {/* 역할 권한 미리보기 */}
-            {watchedRole && (
-              <div className="mt-sm p-md bg-primary-light border border-primary/20 rounded-input">
-                <div className="flex items-center gap-xs mb-xs">
-                  <ShieldCheck size={14} className="text-primary" />
-                  <span className="text-Label font-semibold text-primary">{roleInfo.label} 권한</span>
-                </div>
-                <p className="text-Label text-content-secondary mb-sm">{roleInfo.desc}</p>
-                <div className="flex flex-wrap gap-xs">
-                  {roleInfo.perms.map(p => (
-                    <span key={p} className="flex items-center gap-[3px] text-[11px] text-primary bg-white border border-primary/20 px-xs py-[2px] rounded-full">
-                      <Check size={10} />
-                      {p}
-                    </span>
-                  ))}
-                </div>
+            <div className="mt-sm p-md bg-primary-light border border-primary/20 rounded-input">
+              <div className="flex items-center gap-xs mb-xs">
+                <ShieldCheck size={14} className="text-primary" />
+                <span className="text-Label font-semibold text-primary">{roleInfo.label} 권한</span>
               </div>
-            )}
+              <p className="text-Label text-content-secondary mb-sm">{roleInfo.desc}</p>
+              <div className="flex flex-wrap gap-xs">
+                {roleInfo.perms.map((permission) => (
+                  <span key={permission} className="flex items-center gap-[3px] text-[11px] text-primary bg-white border border-primary/20 px-xs py-[2px] rounded-full">
+                    <Check size={10} />
+                    {permission}
+                  </span>
+                ))}
+              </div>
+            </div>
           </div>
 
-          {/* 연락처 */}
+          <div className="space-y-xs">
+            <label className="text-Label font-semibold text-content-secondary">
+              직책 <span className="text-state-error">*</span>
+            </label>
+            <input
+              {...register("position")}
+              placeholder="운영 매니저"
+              aria-required="true"
+              aria-invalid={!!errors.position}
+              className={cn(
+                "w-full px-md py-md bg-surface-secondary border rounded-input text-Body-2 outline-none focus:ring-2 focus:ring-primary transition-all",
+                errors.position ? "border-state-error focus:ring-state-error/30" : "border-line"
+              )}
+            />
+            {errors.position && <p role="alert" className="text-Label text-state-error">{errors.position.message}</p>}
+          </div>
+
           <div className="space-y-xs">
             <label className="text-Label font-semibold text-content-secondary">
               연락처 <span className="text-state-error">*</span>
@@ -241,9 +439,9 @@ function StaffForm() {
                 onChange={(e) => {
                   const formatted = formatPhone(e.target.value);
                   setValue("contact", formatted);
-                  trigger("contact");
+                  void trigger("contact");
                 }}
-                onBlur={() => trigger("contact")}
+                onBlur={() => void trigger("contact")}
                 placeholder="010-0000-0000"
                 maxLength={13}
                 aria-required="true"
@@ -257,7 +455,6 @@ function StaffForm() {
             {errors.contact && <p role="alert" className="text-Label text-state-error">{errors.contact.message}</p>}
           </div>
 
-          {/* 입사일 */}
           <div className="space-y-xs">
             <label className="text-Label font-semibold text-content-secondary">
               입사일 <span className="text-state-error">*</span>
@@ -278,7 +475,6 @@ function StaffForm() {
             {errors.joinDate && <p role="alert" className="text-Label text-state-error">{errors.joinDate.message}</p>}
           </div>
 
-          {/* 기본급 */}
           <div className="space-y-xs">
             <label className="text-Label font-semibold text-content-secondary">기본급</label>
             <input
@@ -290,17 +486,38 @@ function StaffForm() {
           </div>
         </FormSection>
 
-        {/* 추가 정보 (선택) */}
-        <FormSection title="추가 정보" description="이메일과 메모는 선택 항목입니다.">
-          {/* 이메일 */}
+        <FormSection title="로그인 계정" description="직원 등록과 동시에 로그인 계정을 1:1로 발급합니다.">
           <div className="space-y-xs">
-            <label className="text-Label font-semibold text-content-secondary">이메일</label>
+            <label className="text-Label font-semibold text-content-secondary">
+              로그인 ID <span className="text-state-error">*</span>
+            </label>
+            <div className="relative">
+              <KeyRound className="absolute left-md top-1/2 -translate-y-1/2 text-content-secondary" size={16} />
+              <input
+                {...register("username")}
+                placeholder="manager.gangnam"
+                aria-required="true"
+                aria-invalid={!!errors.username}
+                className={cn(
+                  "w-full pl-[40px] pr-md py-md bg-surface-secondary border rounded-input text-Body-2 outline-none focus:ring-2 focus:ring-primary transition-all",
+                  errors.username ? "border-state-error focus:ring-state-error/30" : "border-line"
+                )}
+              />
+            </div>
+            <p className="text-[11px] text-content-secondary">영문, 숫자, 점, 밑줄, 하이픈만 사용할 수 있습니다.</p>
+            {errors.username && <p role="alert" className="text-Label text-state-error">{errors.username.message}</p>}
+          </div>
+
+          <div className="space-y-xs">
+            <label className="text-Label font-semibold text-content-secondary">
+              이메일 <span className="text-state-error">*</span>
+            </label>
             <div className="relative">
               <Mail className="absolute left-md top-1/2 -translate-y-1/2 text-content-secondary" size={16} />
               <input
                 {...register("email")}
                 type="email"
-                placeholder="example@center.com"
+                placeholder="manager@center.com"
                 aria-invalid={!!errors.email}
                 className={cn(
                   "w-full pl-[40px] pr-md py-md bg-surface-secondary border rounded-input text-Body-2 outline-none focus:ring-2 focus:ring-primary transition-all",
@@ -311,7 +528,76 @@ function StaffForm() {
             {errors.email && <p role="alert" className="text-Label text-state-error">{errors.email.message}</p>}
           </div>
 
-          {/* 메모 */}
+          <div className="space-y-xs">
+            <label className="text-Label font-semibold text-content-secondary">
+              {isEditMode ? "임시 비밀번호 재발급" : "임시 비밀번호"} {!isEditMode && <span className="text-state-error">*</span>}
+            </label>
+            <div className="relative">
+              <Lock className="absolute left-md top-1/2 -translate-y-1/2 text-content-secondary" size={16} />
+              <input
+                {...register("temporaryPassword")}
+                type="text"
+                placeholder={isEditMode ? "비워두면 기존 비밀번호 유지" : "임시 비밀번호 자동 생성"}
+                className="w-full pl-[40px] pr-md py-md bg-surface-secondary border border-line rounded-input text-Body-2 outline-none focus:ring-2 focus:ring-primary transition-all"
+              />
+            </div>
+            <div className="flex items-center justify-between text-[11px] text-content-secondary">
+              <span>{isEditMode ? "재발급 시 직원의 기존 비밀번호가 교체됩니다." : "저장 후 직원에게 전달할 첫 로그인용 비밀번호입니다."}</span>
+              <button
+                type="button"
+                className="text-primary font-medium"
+                onClick={() => setValue("temporaryPassword", generateTemporaryPassword(), { shouldValidate: true })}
+              >
+                새 비밀번호 생성
+              </button>
+            </div>
+          </div>
+
+          <div className="space-y-xs">
+            <label className="text-Label font-semibold text-content-secondary">
+              계정 상태 <span className="text-state-error">*</span>
+            </label>
+            <select
+              {...register("accountStatus")}
+              className="w-full px-md py-md bg-surface-secondary border border-line rounded-input text-Body-2 outline-none focus:ring-2 focus:ring-primary transition-all"
+            >
+              <option value="ACTIVE">활성</option>
+              <option value="LOCKED">잠금</option>
+            </select>
+            <p className="text-[11px] text-content-secondary">잠금 상태는 저장 즉시 로그인 차단으로 반영됩니다.</p>
+          </div>
+
+          <div className="rounded-input border border-line bg-surface-secondary p-md">
+            <label className="flex items-start gap-sm cursor-pointer">
+              <input type="checkbox" className="mt-[2px]" {...register("forcePasswordChange")} />
+              <div className="space-y-[2px]">
+                <span className="text-Label font-semibold text-content">첫 로그인 후 비밀번호 변경 강제</span>
+                <p className="text-[11px] text-content-secondary">
+                  임시 비밀번호 유출 위험을 줄이기 위해 신규 계정은 기본적으로 첫 로그인 후 비밀번호를 다시 설정하게 합니다.
+                </p>
+              </div>
+            </label>
+          </div>
+
+          <div className="rounded-card border border-primary/20 bg-primary-light/50 p-md">
+            <div className="flex items-center gap-xs mb-xs">
+              <BadgeCheck size={14} className="text-primary" />
+              <span className="text-Label font-semibold text-primary">보안/접근 요약</span>
+            </div>
+            <div className="flex flex-wrap gap-xs">
+              {securitySummary.map((item) => (
+                <span key={item} className="rounded-full border border-primary/20 bg-white px-sm py-[3px] text-[11px] text-primary">
+                  {item}
+                </span>
+              ))}
+            </div>
+            <p className="mt-sm text-[11px] text-content-secondary">
+              권한 상세는 <span className="font-medium text-content">설정 &gt; 권한 설정</span>에서 템플릿별로 조정하고, 직원 등록 화면에서는 해당 템플릿을 사용할 직원 계정만 발급합니다.
+            </p>
+          </div>
+        </FormSection>
+
+        <FormSection title="추가 정보" description="운영 메모를 남길 수 있습니다.">
           <div className="space-y-xs">
             <label className="text-Label font-semibold text-content-secondary">메모</label>
             <div className="relative">
@@ -325,6 +611,12 @@ function StaffForm() {
             </div>
             {errors.memo && <p className="text-Label text-state-error">{errors.memo.message}</p>}
           </div>
+
+          {existingStaff && (
+            <div className="rounded-input border border-line bg-surface-secondary p-md text-[11px] text-content-secondary">
+              기존 직원 데이터: {existingStaff.name} · 지점 {existingStaff.branchId ?? "-"} · 기존 연결 계정 {linkedUserId ? "존재" : "미확인"}
+            </div>
+          )}
         </FormSection>
       </div>
 
@@ -335,7 +627,10 @@ function StaffForm() {
         confirmLabel="네, 취소합니다"
         cancelLabel="계속 작성하기"
         variant="danger"
-        onConfirm={() => { setShowCancelDialog(false); moveToPage(974); }}
+        onConfirm={() => {
+          setShowCancelDialog(false);
+          moveToPage(974);
+        }}
         onCancel={() => setShowCancelDialog(false)}
       />
     </AppLayout>
