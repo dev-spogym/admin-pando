@@ -5,6 +5,7 @@ import React, { useState } from 'react';
 import AppLayout from '@/components/layout/AppLayout';
 import PageHeader from '@/components/common/PageHeader';
 import { HardDrive, Download, Upload, RefreshCw, CheckCircle, Clock, AlertTriangle } from 'lucide-react';
+import { toast } from 'sonner';
 
 const backups = [
   { id: 1, name: '자동 백업 — 2026-04-27 03:00', size: '2.8GB', type: '자동', status: '완료', date: '2026-04-27 03:00' },
@@ -19,11 +20,34 @@ export default function BackupPage() {
   const [autoBackup, setAutoBackup] = useState(true);
   const [frequency, setFrequency] = useState('매일');
   const [retentionDays, setRetentionDays] = useState(30);
+  const [selectedBackupName, setSelectedBackupName] = useState('');
+
+  const handleBackupNow = () => {
+    toast.success('수동 백업을 시작했습니다. 완료 후 목록에 반영됩니다.');
+  };
+
+  const handleSaveBackupSettings = () => {
+    toast.success(`백업 설정을 저장했습니다. 자동 백업: ${autoBackup ? '사용' : '중지'}, 주기: ${frequency}, 보관: ${retentionDays}일`);
+  };
+
+  const handleDownloadBackup = (name: string) => {
+    toast.info(`${name} 백업 파일 다운로드를 준비 중입니다.`);
+  };
+
+  const handleOpenRestore = (name: string) => {
+    setSelectedBackupName(name);
+    setShowRestore(true);
+  };
+
+  const handleConfirmRestore = () => {
+    toast.warning(`${selectedBackupName} 기준 복원 시뮬레이션을 시작했습니다.`);
+    setShowRestore(false);
+  };
 
   return (
     <AppLayout>
       <PageHeader title="데이터 백업 / 복원" description="데이터를 안전하게 보호하고 필요 시 복원합니다" actions={
-        <button className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700">
+        <button onClick={handleBackupNow} className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700">
           <HardDrive className="w-4 h-4" /> 지금 백업
         </button>
       } />
@@ -78,7 +102,7 @@ export default function BackupPage() {
                   <span className="text-sm text-gray-500">일</span>
                 </div>
               </div>
-              <button className="w-full py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg">설정 저장</button>
+              <button onClick={handleSaveBackupSettings} className="w-full py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg">설정 저장</button>
             </div>
           </div>
 
@@ -110,10 +134,10 @@ export default function BackupPage() {
                   </div>
                 </div>
                 <div className="flex gap-2">
-                  <button className="flex items-center gap-1 text-xs text-gray-500 hover:text-blue-600 px-2.5 py-1.5 rounded-lg hover:bg-blue-50">
+                  <button onClick={() => handleDownloadBackup(b.name)} className="flex items-center gap-1 text-xs text-gray-500 hover:text-blue-600 px-2.5 py-1.5 rounded-lg hover:bg-blue-50">
                     <Download className="w-3.5 h-3.5" /> 다운로드
                   </button>
-                  <button onClick={() => setShowRestore(true)} className="flex items-center gap-1 text-xs text-gray-500 hover:text-amber-600 px-2.5 py-1.5 rounded-lg hover:bg-amber-50">
+                  <button onClick={() => handleOpenRestore(b.name)} className="flex items-center gap-1 text-xs text-gray-500 hover:text-amber-600 px-2.5 py-1.5 rounded-lg hover:bg-amber-50">
                     <RefreshCw className="w-3.5 h-3.5" /> 복원
                   </button>
                 </div>
@@ -130,10 +154,12 @@ export default function BackupPage() {
               <div className="p-3 bg-amber-100 rounded-xl"><AlertTriangle className="w-5 h-5 text-amber-600" /></div>
               <h2 className="text-base font-bold text-gray-900">데이터 복원</h2>
             </div>
-            <p className="text-sm text-gray-600">선택한 백업 시점으로 복원하면 이후 데이터가 모두 삭제됩니다. 복원을 진행하시겠습니까?</p>
+            <p className="text-sm text-gray-600">
+              {selectedBackupName || '선택한 백업'} 시점으로 복원하면 이후 데이터가 모두 삭제됩니다. 복원을 진행하시겠습니까?
+            </p>
             <div className="flex gap-3 pt-2">
               <button onClick={() => setShowRestore(false)} className="flex-1 py-2.5 border border-gray-300 text-gray-700 text-sm font-medium rounded-lg">취소</button>
-              <button onClick={() => setShowRestore(false)} className="flex-1 py-2.5 bg-amber-600 hover:bg-amber-700 text-white text-sm font-medium rounded-lg">복원 진행</button>
+              <button onClick={handleConfirmRestore} className="flex-1 py-2.5 bg-amber-600 hover:bg-amber-700 text-white text-sm font-medium rounded-lg">복원 진행</button>
             </div>
           </div>
         </div>

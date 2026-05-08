@@ -5,6 +5,7 @@ import React, { useState } from 'react';
 import AppLayout from '@/components/layout/AppLayout';
 import PageHeader from '@/components/common/PageHeader';
 import { Clock, Save, ToggleLeft, ToggleRight } from 'lucide-react';
+import { toast } from 'sonner';
 
 export default function AttendanceSettingsPage() {
   const [settings, setSettings] = useState({
@@ -35,10 +36,14 @@ export default function AttendanceSettingsPage() {
     </button>
   );
 
+  const handleSave = () => {
+    toast.success('출석 관리 설정을 저장했습니다.');
+  };
+
   return (
     <AppLayout>
       <PageHeader title="출석 관리 설정" description="출석 체크 방식, 기준 시간, 알림 조건을 설정합니다" actions={
-        <button className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700">
+        <button onClick={handleSave} className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700">
           <Save className="w-4 h-4" /> 저장
         </button>
       } />

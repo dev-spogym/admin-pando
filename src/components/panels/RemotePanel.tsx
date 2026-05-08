@@ -60,7 +60,7 @@ const RemotePanel = () => {
   const offlineCount = devices.filter((d) => d.status === "offline").length;
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex h-full min-h-0 flex-col">
       {/* 패널 헤더 */}
       <div className="flex items-center justify-between px-md py-sm border-b border-line shrink-0">
         <div className="flex items-center gap-sm">
@@ -90,7 +90,7 @@ const RemotePanel = () => {
       </div>
 
       {/* 기기 목록 */}
-      <div className="flex-1 overflow-y-auto px-md pb-md">
+      <div className="min-h-0 flex-1 overflow-y-auto px-md pb-md">
         <div className="space-y-sm">
           {devices.map((device) => {
             const isOnline    = device.status === "online";

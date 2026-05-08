@@ -2,7 +2,7 @@
 export const dynamic = 'force-dynamic';
 
 import { getBranchId } from '@/lib/getBranchId';
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   Save,
   Info,
@@ -28,7 +28,9 @@ import { cn } from '@/lib/utils';
 import { moveToPage } from '@/internal';
 import Textarea from '@/components/ui/Textarea';
 import Button from '@/components/ui/Button';
+import Modal from '@/components/ui/Modal';
 import { supabase } from '@/lib/supabase';
+import { toast } from 'sonner';
 
 type TabKey = 'basic' | 'notification' | 'theme' | 'supplies';
 
@@ -136,6 +138,14 @@ const TABS = [
   { key: 'supplies', label: '물품 관리', icon: Package },
 ];
 
+const ADDRESS_CANDIDATES = [
+  '서울특별시 강남구 테헤란로 152 피트지니 타워',
+  '서울특별시 송파구 올림픽로 300 피트지니 센터',
+  '경기도 성남시 분당구 판교역로 235 판교 웰니스 빌딩',
+  '부산광역시 해운대구 센텀중앙로 97 센텀 스포츠몰',
+  '대구광역시 수성구 동대구로 95 메디핏 스퀘어',
+];
+
 function ToggleSwitch({ checked, onChange }: { checked: boolean; onChange: () => void }) {
   return (
     <button
@@ -155,6 +165,7 @@ function ToggleSwitch({ checked, onChange }: { checked: boolean; onChange: () =>
 
 export default function Settings() {
   const branchId = getBranchId();
+  const logoInputRef = useRef<HTMLInputElement>(null);
 
   const [activeTab, setActiveTab] = useState<TabKey>('basic');
   const [isSaving, setIsSaving] = useState(false);
@@ -175,6 +186,9 @@ export default function Settings() {
   const [savedTheme, setSavedTheme] = useState<ThemeSettings>(EMPTY_THEME);
   const [supplies, setSupplies] = useState<SuppliesSettings>(EMPTY_SUPPLIES);
   const [savedSupplies, setSavedSupplies] = useState<SuppliesSettings>(EMPTY_SUPPLIES);
+  const [logoPreview, setLogoPreview] = useState<string | null>(null);
+  const [isAddressModalOpen, setIsAddressModalOpen] = useState(false);
+  const [addressKeyword, setAddressKeyword] = useState('');
 
   // Supabase 데이터 로드
   useEffect(() => {
@@ -312,6 +326,36 @@ export default function Settings() {
     setShowUnsavedWarning(false);
   };
 
+  const filteredAddressCandidates = ADDRESS_CANDIDATES.filter((candidate) =>
+    candidate.toLowerCase().includes(addressKeyword.trim().toLowerCase())
+  );
+
+  const handleLogoUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    if (!file.type.startsWith('image/')) {
+      toast.error('이미지 파일만 업로드할 수 있습니다.');
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      setLogoPreview(typeof reader.result === 'string' ? reader.result : null);
+      markDirty();
+      toast.success('센터 로고 프리뷰가 적용되었습니다.');
+    };
+    reader.readAsDataURL(file);
+    event.target.value = '';
+  };
+
+  const handleSelectAddress = (address: string) => {
+    setCenterInfo((prev) => ({ ...prev, address }));
+    markDirty();
+    setIsAddressModalOpen(false);
+    setAddressKeyword('');
+    toast.success('센터 주소가 반영되었습니다.');
+  };
+
   const activeImpactItems = (() => {
     if (activeTab === 'basic') {
       const items: ImpactItem[] = [];
@@ -384,10 +428,29 @@ export default function Settings() {
         <div className="col-span-2 flex items-start gap-lg mb-md">
           <div className="relative group">
             <div className="w-[120px] h-[120px] bg-surface-secondary rounded-xl border border-dashed border-line flex flex-col items-center justify-center gap-xs overflow-hidden">
-              <ImageIcon className="text-content-secondary" size={28} />
-              <span className="text-Label text-content-secondary">센터 로고</span>
+              {logoPreview ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={logoPreview} alt="센터 로고 프리뷰" className="h-full w-full object-cover" />
+              ) : (
+                <>
+                  <ImageIcon className="text-content-secondary" size={28} />
+                  <span className="text-Label text-content-secondary">센터 로고</span>
+                </>
+              )}
             </div>
-            <Button variant="ghost" icon={<Plus size={22} />} className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center text-white transition-opacity rounded-xl" />
+            <input
+              ref={logoInputRef}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={handleLogoUpload}
+            />
+            <Button
+              variant="ghost"
+              icon={<Plus size={22} />}
+              className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center text-white transition-opacity rounded-xl"
+              onClick={() => logoInputRef.current?.click()}
+            />
           </div>
           <div className="flex-1 grid grid-cols-2 gap-md">
             <div className="space-y-xs">
@@ -438,7 +501,7 @@ export default function Settings() {
               readOnly
               value={centerInfo.address}
             />
-            <Button variant="outline">주소검색</Button>
+            <Button variant="outline" onClick={() => setIsAddressModalOpen(true)}>주소검색</Button>
           </div>
         </div>
 
@@ -832,6 +895,58 @@ export default function Settings() {
           </div>
         </div>
       )}
+
+      <Modal
+        isOpen={isAddressModalOpen}
+        onClose={() => {
+          setIsAddressModalOpen(false);
+          setAddressKeyword('');
+        }}
+        title="주소 검색"
+        size="lg"
+        footer={
+          <div className="flex justify-end gap-sm">
+            <Button variant="outline" onClick={() => {
+              setIsAddressModalOpen(false);
+              setAddressKeyword('');
+            }}>
+              닫기
+            </Button>
+          </div>
+        }
+      >
+        <div className="space-y-md">
+          <div className="rounded-2xl border border-line bg-surface-secondary/60 p-md">
+            <label className="text-Label text-content-secondary">도로명 또는 건물명을 입력하세요</label>
+            <input
+              className="mt-sm w-full rounded-input border border-line bg-white p-md outline-none transition-all focus:ring-1 focus:ring-accent"
+              type="text"
+              placeholder="예: 테헤란로 152"
+              value={addressKeyword}
+              onChange={(event) => setAddressKeyword(event.target.value)}
+            />
+          </div>
+          <div className="space-y-sm">
+            {filteredAddressCandidates.length === 0 ? (
+              <div className="rounded-xl border border-dashed border-line bg-surface-secondary/40 px-md py-lg text-center text-sm text-content-secondary">
+                검색 결과가 없습니다. 다른 키워드를 입력해 주세요.
+              </div>
+            ) : (
+              filteredAddressCandidates.map((candidate) => (
+                <button
+                  key={candidate}
+                  type="button"
+                  onClick={() => handleSelectAddress(candidate)}
+                  className="w-full rounded-2xl border border-line bg-white px-md py-md text-left transition-colors hover:border-accent/40 hover:bg-accent-light/40"
+                >
+                  <p className="text-sm font-semibold text-content">주소 선택</p>
+                  <p className="mt-xs text-sm text-content-secondary">{candidate}</p>
+                </button>
+              ))
+            )}
+          </div>
+        </div>
+      </Modal>
     </AppLayout>
   );
 }

@@ -83,7 +83,7 @@ const NewsFeedPanel = ({ onUnreadCountChange }: NewsFeedPanelProps) => {
   const unreadCount = items.filter((i) => !i.isRead).length;
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex h-full min-h-0 flex-col">
       {/* 패널 헤더 */}
       <div className="flex items-center justify-between px-md py-sm border-b border-line shrink-0">
         <div className="flex items-center gap-sm">
@@ -119,7 +119,7 @@ const NewsFeedPanel = ({ onUnreadCountChange }: NewsFeedPanelProps) => {
       </div>
 
       {/* 타임라인 목록 */}
-      <div className="flex-1 overflow-y-auto">
+      <div className="min-h-0 flex-1 overflow-y-auto">
         {loading ? (
           // 로딩 스켈레톤
           <div className="p-md space-y-sm">

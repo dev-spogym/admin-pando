@@ -5,6 +5,7 @@ import React, { useState } from 'react';
 import AppLayout from '@/components/layout/AppLayout';
 import PageHeader from '@/components/common/PageHeader';
 import { Globe, Check, Save } from 'lucide-react';
+import { toast } from 'sonner';
 
 const languages = [
   { code: 'ko', name: '한국어', flag: '🇰🇷', default: true },
@@ -22,10 +23,15 @@ export default function LanguageSettingsPage() {
   const [dateFormat, setDateFormat] = useState('YYYY-MM-DD');
   const [currency, setCurrency] = useState('KRW (₩)');
 
+  const handleSave = () => {
+    const language = languages.find((item) => item.code === selected)?.name ?? selected;
+    toast.success(`${language}, ${timezone}, ${currency} 기준으로 저장했습니다.`);
+  };
+
   return (
     <AppLayout>
       <PageHeader title="다국어 설정" description="시스템 언어, 시간대, 날짜 형식, 통화 단위를 설정합니다" actions={
-        <button className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700">
+        <button onClick={handleSave} className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700">
           <Save className="w-4 h-4" /> 저장
         </button>
       } />

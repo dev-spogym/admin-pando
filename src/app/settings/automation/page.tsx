@@ -5,6 +5,7 @@ import React, { useState } from 'react';
 import AppLayout from '@/components/layout/AppLayout';
 import PageHeader from '@/components/common/PageHeader';
 import { Bell, CheckCircle2, RotateCcw, Send, ToggleLeft, ToggleRight } from 'lucide-react';
+import { toast } from 'sonner';
 
 const scopes = ['회원권 만료', '락커 만료', '미수금 독촉', '휴면 회원'] as const;
 
@@ -19,6 +20,20 @@ export default function SettingsAutomationPage() {
   const [activeScope, setActiveScope] = useState<(typeof scopes)[number]>('회원권 만료');
   const [steps, setSteps] = useState(policySteps);
 
+  const handleTestSend = () => {
+    const enabledSteps = steps.filter((step) => step.enabled).length;
+    toast.success(`${activeScope} 정책 기준으로 ${enabledSteps}개 스텝 테스트 발송을 예약했습니다.`);
+  };
+
+  const handleSave = () => {
+    toast.success(`${activeScope} 정책의 지점 적용 설정을 저장했습니다.`);
+  };
+
+  const handleRestoreDefaults = () => {
+    setSteps(policySteps);
+    toast.success('본사 기본값으로 복원했습니다.');
+  };
+
   return (
     <AppLayout>
       <PageHeader
@@ -26,10 +41,10 @@ export default function SettingsAutomationPage() {
         description="본사에서 배포한 자동화 정책 세트를 지점 운영 범위 안에서 선택·적용합니다"
         actions={
           <div className="flex gap-2">
-            <button className="flex items-center gap-2 rounded-lg border border-gray-200 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50">
+            <button onClick={handleTestSend} className="flex items-center gap-2 rounded-lg border border-gray-200 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50">
               <Send className="h-4 w-4" /> 테스트 발송
             </button>
-            <button className="flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700">
+            <button onClick={handleSave} className="flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700">
               <CheckCircle2 className="h-4 w-4" /> 적용 저장
             </button>
           </div>
@@ -80,7 +95,7 @@ export default function SettingsAutomationPage() {
               <h2 className="text-sm font-semibold text-gray-900">{activeScope} 정책</h2>
               <p className="mt-1 text-xs text-gray-500">지점은 본사가 허용한 선택 스텝만 끄거나 켤 수 있습니다.</p>
             </div>
-            <button className="flex items-center gap-2 rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50">
+            <button onClick={handleRestoreDefaults} className="flex items-center gap-2 rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50">
               <RotateCcw className="h-4 w-4" /> 본사 기본값 복원
             </button>
           </div>

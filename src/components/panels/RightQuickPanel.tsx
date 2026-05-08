@@ -125,6 +125,7 @@ function getContextShortcuts(pathname: string | null): { title: string; shortcut
 // ─── 메인 컴포넌트 ────────────────────────────────────────────────────────
 
 const RightQuickPanel = () => {
+  const HEADER_HEIGHT = 72;
   const pathname = usePathname();
   // 현재 열린 패널 (null = 모두 닫힘)
   const [activePanel, setActivePanel] = useState<PanelKey | null>(null);
@@ -171,18 +172,19 @@ const RightQuickPanel = () => {
   const contextArea = getContextShortcuts(pathname);
 
   return (
-    <div className="relative hidden h-full shrink-0 xl:flex">
+    <div className="relative hidden h-full w-14 shrink-0 xl:block">
       {/* ── 슬라이드 패널 (w-80, 전체 높이) ── */}
       <div
         ref={panelRef}
         className={cn(
-          "absolute right-full top-0 h-full w-80 border-l border-line/80 bg-white/88 shadow-card-deep backdrop-blur-xl",
+          "absolute bottom-0 right-full w-80 overflow-hidden border-l border-line/80 bg-white/88 shadow-card-deep backdrop-blur-xl",
           "transition-transform duration-200 ease-in-out z-30",
           activePanel ? "translate-x-0" : "translate-x-full pointer-events-none opacity-0"
         )}
+        style={{ top: HEADER_HEIGHT }}
       >
         {activePanel && (
-          <div className="flex flex-col h-full">
+          <div className="flex h-full min-h-0 flex-col">
             {/* 패널 닫기 버튼 (모바일 접근성용 - 헤더 내에서도 닫기 가능) */}
             <button
               className="absolute top-[10px] right-[10px] z-10 flex h-6 w-6 items-center justify-center rounded-md text-content-tertiary hover:bg-surface-tertiary hover:text-content transition-colors"
@@ -217,10 +219,12 @@ const RightQuickPanel = () => {
                 ))}
               </div>
             </div>
-            <PanelContent
-              panelKey={activePanel}
-              onUnreadCountChange={handleUnreadCountChange}
-            />
+            <div className="min-h-0 flex-1">
+              <PanelContent
+                panelKey={activePanel}
+                onUnreadCountChange={handleUnreadCountChange}
+              />
+            </div>
           </div>
         )}
       </div>
@@ -228,7 +232,8 @@ const RightQuickPanel = () => {
       {/* ── 세로 버튼 바 (항상 표시) ── */}
       <div
         ref={barRef}
-        className="flex h-full w-14 shrink-0 flex-col items-center gap-[6px] border-l border-line/80 bg-white/72 py-sm backdrop-blur-xl"
+        className="absolute bottom-0 right-0 flex w-14 flex-col items-center gap-[6px] border-l border-line/80 bg-white/72 py-sm backdrop-blur-xl"
+        style={{ top: HEADER_HEIGHT }}
       >
         {QUICK_BUTTONS.map((btn) => {
           const isActive = activePanel === btn.key;

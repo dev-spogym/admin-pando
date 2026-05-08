@@ -202,7 +202,7 @@ const SchedulePanel = () => {
   };
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex h-full min-h-0 flex-col">
       {/* 패널 헤더 */}
       <div className="flex items-center justify-between px-md py-sm border-b border-line shrink-0">
         <div className="flex items-center gap-sm">
@@ -234,7 +234,7 @@ const SchedulePanel = () => {
       </div>
 
       {/* 수업 일정 목록 */}
-      <div className="flex-1 overflow-y-auto">
+      <div className="min-h-0 flex-1 overflow-y-auto">
         {loading ? (
           <div className="p-md space-y-sm">
             {[1, 2, 3].map((i) => (

@@ -1,5 +1,6 @@
 import React from "react";
 import { Loader2 } from "lucide-react";
+import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
 export interface ButtonProps
@@ -44,15 +45,35 @@ export default function Button({
   disabled,
   children,
   className,
+  onClick,
+  type,
   ...props
 }: ButtonProps) {
   const isDisabled = disabled || loading;
+  const hasExplicitAction = typeof onClick === "function" || type === "submit";
+
+  const handleClick = (event: React.MouseEvent<HTMLButtonElement>) => {
+    if (onClick) {
+      onClick(event);
+      return;
+    }
+    if (type === "submit" || isDisabled) return;
+
+    event.preventDefault();
+    event.stopPropagation();
+
+    const label = typeof children === "string" ? children.trim() : "";
+    toast.info(label ? `${label} 기능은 준비 중입니다.` : "준비 중인 기능입니다.");
+  };
 
   return (
     <button
+      type={type ?? "button"}
       disabled={isDisabled}
       aria-disabled={isDisabled}
       aria-busy={loading}
+      onClick={handleClick}
+      data-pending-action={hasExplicitAction ? undefined : "true"}
       className={cn(
         "inline-flex items-center justify-center font-semibold transition-all duration-150 outline-none select-none whitespace-nowrap",
         VARIANT_CLASSES[variant],
