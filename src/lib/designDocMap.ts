@@ -1,20 +1,20 @@
 // 화면설계서 라우트별 문서 매핑
 // 두 소스를 병합해 Cmd+/ 오버레이에서 탭으로 노출:
-//   - functional: docs/기능명세서/<file>.md 의 섹션 (현행 자동생성 대상)
-//   - screen:     docs/화면설계서/<folder>/ 스캔 (마스터 + 상태별 파일)
+//   - functional: docs/admin/기능명세서/**/00-기본기능.md 또는 레거시 요약 파일
+//   - screen:     docs/admin/화면설계서/<folder>/ 스캔 (마스터 + 상태별 파일)
 //
 // 실제 콘텐츠 로딩은 `src/app/api/design-doc/route.ts` 가 수행합니다.
 // 이 파일은 타입 + 라우트→소스 매핑 + 폴백용 보조 역할만 합니다.
 
 export interface FunctionalSource {
-  /** docs/기능명세서/ 하위 파일명 (예: '회원관리.md') */
+  /** 레거시 docs/admin/기능명세서/ 하위 파일명 (예: '회원관리.md') */
   file: string;
   /** 해당 파일 내 섹션을 찾기 위한 키워드 배열 */
   keywords: string[];
 }
 
 export interface ScreenSource {
-  /** docs/화면설계서/ 하위 상대 경로 (예: 'D01-공통/SCR-100-로그인') */
+  /** docs/admin/화면설계서/ 하위 상대 경로 (예: 'D01-공통/SCR-100-로그인') */
   folder: string;
 }
 
@@ -65,7 +65,7 @@ export const ROUTE_TO_DOC: Record<string, RouteDocMapping> = {
   '/audit-log': { title: '히스토리 로그', category: '본사관리', functional: { file: '본사관리.md', keywords: ['히스토리 로그', '8. 히스토리 로그'] } },
   '/today-tasks': { title: 'Today Tasks', category: '본사관리', functional: { file: '본사관리.md', keywords: ['Today Tasks', '9. Today Tasks'] } },
   '/reports': { title: '자동 리포트', category: '본사관리', functional: { file: '본사관리.md', keywords: ['리포트', '10. 리포트'] } },
-  '/hq/automation-policies': { title: '자동화 정책 라이브러리', category: '본사관리', functional: { file: '본사관리.md', keywords: ['자동화 정책', '자동화 정책 라이브러리'] }, screen: { folder: 'D10-본사관리/SCR-100-자동화정책라이브러리' } },
+  '/hq/automation-policies': { title: '자동화 정책 라이브러리', category: '본사관리', functional: { file: '본사관리.md', keywords: ['자동화 정책', '자동화 정책 라이브러리'] }, screen: { folder: 'D10-본사관리/SCR-H1001-자동화정책라이브러리' } },
 
   // ── 회원관리 ──
   '/members': { title: '회원 목록', category: '회원관리', functional: { file: '회원관리.md', keywords: ['회원 목록', '1. 회원 목록'] }, screen: { folder: 'D02-회원관리/SCR-M001-회원목록' } },
@@ -180,10 +180,10 @@ export const ROUTE_TO_DOC: Record<string, RouteDocMapping> = {
   '/settings/backup': { title: '데이터 백업 / 복원', category: '설정관리', functional: { file: '설정관리.md', keywords: ['데이터 백업', '10. 데이터 백업'] }, screen: { folder: 'D09-설정관리/SCR-089-데이터백업복원' } },
 
   // ── 본사관리 추가 ──
-  '/dashboard/builder': { title: '커스텀 대시보드 빌더', category: '본사관리', functional: { file: '본사관리.md', keywords: ['커스텀 대시보드', '12. 커스텀 대시보드'] }, screen: { folder: 'D10-본사관리/SCR-101-커스텀대시보드빌더' } },
-  '/benchmark': { title: '벤치마크 비교', category: '본사관리', functional: { file: '본사관리.md', keywords: ['벤치마크', '13. 벤치마크'] }, screen: { folder: 'D10-본사관리/SCR-102-벤치마크비교' } },
-  '/analytics/forecast': { title: '예측 분석', category: '본사관리', functional: { file: '본사관리.md', keywords: ['예측 분석', '14. 예측 분석'] }, screen: { folder: 'D10-본사관리/SCR-103-예측분석' } },
-  '/nps': { title: 'NPS 설문', category: '본사관리', functional: { file: '본사관리.md', keywords: ['NPS', '15. NPS'] }, screen: { folder: 'D10-본사관리/SCR-104-NPS설문' } },
+  '/dashboard/builder': { title: '커스텀 대시보드 빌더', category: '본사관리', functional: { file: '본사관리.md', keywords: ['커스텀 대시보드', '12. 커스텀 대시보드'] }, screen: { folder: 'D10-본사관리/SCR-H1002-커스텀대시보드빌더' } },
+  '/benchmark': { title: '벤치마크 비교', category: '본사관리', functional: { file: '본사관리.md', keywords: ['벤치마크', '13. 벤치마크'] }, screen: { folder: 'D10-본사관리/SCR-H1003-벤치마크비교' } },
+  '/analytics/forecast': { title: '예측 분석', category: '본사관리', functional: { file: '본사관리.md', keywords: ['예측 분석', '14. 예측 분석'] }, screen: { folder: 'D10-본사관리/SCR-H1004-예측분석' } },
+  '/nps': { title: 'NPS 설문', category: '본사관리', functional: { file: '본사관리.md', keywords: ['NPS', '15. NPS'] }, screen: { folder: 'D10-본사관리/SCR-H1005-NPS설문' } },
 
   // ── 통합운영 추가 ──
   '/members/health': { title: '회원 건강 연동 요약', category: '통합운영', functional: { file: '통합운영_IOT_헬스.md', keywords: ['건강 연동', '7. 건강 연동'] }, screen: { folder: 'D11-통합운영/SCR-I007-회원건강연동요약' } },

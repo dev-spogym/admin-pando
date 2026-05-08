@@ -44,9 +44,9 @@ lastUpdated: 2026-04-20
 
 ```mermaid
 stateDiagram-v2
-    [*] --> unregistered : 회원 등록 (이용권 미구매)
-    [*] --> scheduled : 회원 등록 + 이용권 구매 (시작일 미래)
-    [*] --> ACTIVE : 회원 등록 + 이용권 구매 (시작일 오늘)
+    AUTO_FIX_1[*] --> unregistered : 회원 등록 (이용권 미구매)
+    AUTO_FIX_2[*] --> scheduled : 회원 등록 + 이용권 구매 (시작일 미래)
+    AUTO_FIX_3[*] --> ACTIVE : 회원 등록 + 이용권 구매 (시작일 오늘)
 
     unregistered --> scheduled : T-MEM-01 이용권 구매 (시작일 미래)
     unregistered --> ACTIVE : T-MEM-02 이용권 구매 (시작일 오늘)
@@ -80,8 +80,8 @@ stateDiagram-v2
 
     INACTIVE --> ACTIVE : T-MEM-22 관리자 활성 복원
 
-    TRANSFERRED --> [*] : 이관 완료 (이력 보존)
-    WITHDRAWN --> [*] : 탈퇴 후 30일 개인정보 마스킹
+    TRANSFERRED --> AUTO_1[*] : 이관 완료 (이력 보존)
+    WITHDRAWN --> AUTO_2[*] : 탈퇴 후 30일 개인정보 마스킹
 
     note right of WITHDRAWN
          기록

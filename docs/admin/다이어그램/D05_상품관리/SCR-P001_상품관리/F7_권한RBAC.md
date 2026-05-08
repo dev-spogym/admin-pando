@@ -25,11 +25,11 @@ flowchart LR
     RoleCheck --> FRONT[프론트/front]
     RoleCheck --> READONLY[읽기전용/readonly]
 
-    PRIMARY --> P_FULL[전체 접근\n상품 등록/수정/삭제\n전지점 배포 가능\]
-    OWNER --> O_FULL[전체 접근\n상품 등록/수정/삭제\]
-    MGR --> M_FULL[전체 접근\n상품 등록/수정/삭제\]
-    TRAINER --> T_READ[조회만 가능\\n+상품 등록 버튼 숨김\n전지점 배포 버튼 숨김\n패널 저장/삭제 버튼 숨김]
-    FRONT --> F_READ[조회만 가능\\n+상품 등록 버튼 숨김]
+    PRIMARY --> P_FULL[전체 접근\n상품 등록/수정/삭제\n전지점 배포 가능]
+    OWNER --> O_FULL[전체 접근\n상품 등록/수정/삭제]
+    MGR --> M_FULL[전체 접근\n상품 등록/수정/삭제]
+    TRAINER --> T_READ[조회만 가능<br/>+상품 등록 버튼 숨김\n전지점 배포 버튼 숨김\n패널 저장/삭제 버튼 숨김]
+    FRONT --> F_READ[조회만 가능<br/>+상품 등록 버튼 숨김]
     READONLY --> R_BLOCK[접근 차단\n권한없음 토스트]
 
     classDef screen fill:#E3F2FD,stroke:#1976D2,color:#0D47A1

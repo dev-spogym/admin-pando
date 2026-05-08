@@ -32,8 +32,8 @@ lastUpdated: 2026-05-04
 
 ```mermaid
 stateDiagram-v2
-    [*] --> SCHEDULED : T-MSP-01 전액 결제 완료 또는 계약금 즉시 개시 승인 (시작일 미래)
-    [*] --> ACTIVE : T-MSP-02 전액 결제 완료 또는 계약금 즉시 개시 승인 (시작일 오늘)
+    AUTO_FIX_1[*] --> SCHEDULED : T-MSP-01 전액 결제 완료 또는 계약금 즉시 개시 승인 (시작일 미래)
+    AUTO_FIX_2[*] --> ACTIVE : T-MSP-02 전액 결제 완료 또는 계약금 즉시 개시 승인 (시작일 오늘)
 
     SCHEDULED --> ACTIVE : T-MSP-03 시작일 도래 [배치 00:00]
     SCHEDULED --> REFUNDED : T-MSP-04 환불 처리 (시작 전)
@@ -48,9 +48,9 @@ stateDiagram-v2
     HOLDING --> EXPIRED : T-MSP-11 홀딩 중 만료일 도래
     HOLDING --> REFUNDED : T-MSP-12 홀딩 중 환불
 
-    EXPIRED --> [*] : 이용권 만료 기록 보존
-    TRANSFERRED --> [*] : 양도 이력 보존
-    REFUNDED --> [*] : 환불 이력 보존
+    EXPIRED --> AUTO_1[*] : 이용권 만료 기록 보존
+    TRANSFERRED --> AUTO_2[*] : 양도 이력 보존
+    REFUNDED --> AUTO_3[*] : 환불 이력 보존
 
     note right of HOLDING
         , 기록

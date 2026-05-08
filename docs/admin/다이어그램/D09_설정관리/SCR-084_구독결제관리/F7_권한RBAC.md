@@ -21,8 +21,8 @@ flowchart LR
     P & O --> ViewPlan[현재 플랜 조회]
     P & O --> ViewUsage[사용량 조회]
     P & O --> ViewHistory[결제 이력 조회]
-    P & O --> ChangePlan[플랜 변경\-084-001]
-    P & O --> CancelSub[구독 해지\-084-002]
+    P & O --> ChangePlan[플랜 변경-084-001]
+    P & O --> CancelSub[구독 해지-084-002]
     P & O --> DownloadInvoice[인보이스 다운로드]
 
     classDef screen fill:#E3F2FD,stroke:#1976D2,color:#0D47A1

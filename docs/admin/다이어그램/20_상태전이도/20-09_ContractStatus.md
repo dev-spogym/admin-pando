@@ -32,7 +32,7 @@ lastUpdated: 2026-04-20
 
 ```mermaid
 stateDiagram-v2
-    [*] --> DRAFT : T-CTR-01 전자계약 위저드 시작
+    AUTO_FIX_1[*] --> DRAFT : T-CTR-01 전자계약 위저드 시작
 
     DRAFT --> SENT : T-CTR-02 계약서 발송
     DRAFT --> CANCELED : T-CTR-03 위저드 중도 취소
@@ -47,8 +47,8 @@ stateDiagram-v2
 
     COMPLETED --> EXPIRED : T-CTR-10 계약 기간 종료 [배치 00:00]
 
-    EXPIRED --> [*] : 계약 만료 기록 보존
-    CANCELED --> [*] : 취소 기록 보존
+    EXPIRED --> AUTO_1[*] : 계약 만료 기록 보존
+    CANCELED --> AUTO_2[*] : 취소 기록 보존
 
     note right of DRAFT
         5단계 위저드 진행 중

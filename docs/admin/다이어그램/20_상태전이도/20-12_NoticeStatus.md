@@ -30,7 +30,7 @@ lastUpdated: 2026-04-20
 
 ```mermaid
 stateDiagram-v2
-    [*] --> DRAFT : T-NTC-01 공지사항 작성 시작
+    AUTO_FIX_1[*] --> DRAFT : T-NTC-01 공지사항 작성 시작
 
     DRAFT --> PUBLISHED : T-NTC-02 즉시 발행
     DRAFT --> PUBLISHED : T-NTC-03 예약 발행 시간 도래 [배치]
@@ -43,7 +43,7 @@ stateDiagram-v2
     ARCHIVED --> PUBLISHED : T-NTC-08 보관 → 재발행
     ARCHIVED --> DELETED : T-NTC-09 보관 공지 삭제
 
-    DELETED --> [*] : 삭제 이력 보존 (소프트 삭제)
+    DELETED --> AUTO_1[*] : 삭제 이력 보존 (소프트 삭제)
 
     note right of DRAFT
         임시저장 지원

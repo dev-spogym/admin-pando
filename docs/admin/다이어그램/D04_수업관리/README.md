@@ -1,7 +1,7 @@
 # D04_수업관리 — 도메인 인덱스
 
 > **도메인**: 수업관리 (Class Management)
-> **화면설계서**: `docs/화면설계서/수업관리`
+> **화면설계서**: `docs/admin/화면설계서/D04-수업관리`
 > ****: 2026-04-20
 
 ---
@@ -55,7 +55,7 @@
 
 | 상태 | label | 연결 |
 |------|-------|------|
-| scheduled | 예정 | `docs/다이어그램/20_상태전이도/20-05_LessonStatus` |
+| scheduled | 예정 | `docs/admin/다이어그램/20_상태전이도/20-05_LessonStatus.md` |
 | in_progress | 진행중 | - |
 | completed | 완료 | 서명(DLG-C006) 연결 |
 | no_show | 노쇼 | 자동페널티(A05) 연결 |

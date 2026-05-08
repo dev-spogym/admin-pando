@@ -33,7 +33,7 @@ lastUpdated: 2026-04-22
 
 ```mermaid
 stateDiagram-v2
-    [*] --> WAITING : T-WL-01 대기 등록
+    AUTO_FIX_1[*] --> WAITING : T-WL-01 대기 등록
 
     WAITING --> PROMOTED : T-WL-02 취소/타석 추가로 자리 발생
     WAITING --> CANCELED : T-WL-03 회원 대기 취소
@@ -42,10 +42,10 @@ stateDiagram-v2
     PROMOTED --> CONFIRMED : T-WL-05 예약 확정 반영
     PROMOTED --> SKIPPED : T-WL-06 이용권 검증 실패
 
-    CANCELED --> [*]
-    SKIPPED --> [*]
-    EXPIRED --> [*]
-    CONFIRMED --> [*]
+    CANCELED --> AUTO_1[*]
+    SKIPPED --> AUTO_2[*]
+    EXPIRED --> AUTO_3[*]
+    CONFIRMED --> AUTO_4[*]
 
     note right of WAITING
         MA-124에서 순번 조회

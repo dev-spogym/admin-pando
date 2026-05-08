@@ -31,7 +31,7 @@ lastUpdated: 2026-04-20
 
 ```mermaid
 stateDiagram-v2
-    [*] --> ACTIVE : T-EMP-01 직원 등록 + 로그인 계정 생성
+    AUTO_FIX_1[*] --> ACTIVE : T-EMP-01 직원 등록 + 로그인 계정 생성
 
     ACTIVE --> ON_LEAVE : T-EMP-02 휴직 신청 승인
     ACTIVE --> RESIGNING : T-EMP-03 퇴직 의사 표명
@@ -47,8 +47,8 @@ stateDiagram-v2
 
     RESIGNED --> ACTIVE : T-EMP-11 재입사 처리 (연결)
 
-    WITHDRAWN --> [*] : 계정 비활성화 기록 보존
-    RESIGNED --> [*] : 퇴사 이력 보존
+    WITHDRAWN --> AUTO_1[*] : 계정 비활성화 기록 보존
+    RESIGNED --> AUTO_2[*] : 퇴사 이력 보존
 
     note right of ACTIVE
         로그인 가능

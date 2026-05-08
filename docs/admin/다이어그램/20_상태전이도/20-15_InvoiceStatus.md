@@ -31,7 +31,7 @@ lastUpdated: 2026-04-20
 
 ```mermaid
 stateDiagram-v2
-    [*] --> DRAFT : T-INV-01 세금계산서 작성 시작
+    AUTO_FIX_1[*] --> DRAFT : T-INV-01 세금계산서 작성 시작
 
     DRAFT --> ISSUED : T-INV-02 세금계산서 발행
     DRAFT --> CANCELED : T-INV-03 초안 취소
@@ -45,8 +45,8 @@ stateDiagram-v2
 
     ACCEPTED --> CANCELED : T-INV-09 수락 후 취소 (수정 역발행)
 
-    CANCELED --> [*] : 취소 이력 보존
-    ACCEPTED --> [*] : 수락 완료 이력 보존
+    CANCELED --> AUTO_1[*] : 취소 이력 보존
+    ACCEPTED --> AUTO_2[*] : 수락 완료 이력 보존
 
     note right of ISSUED
         세금계산서 번호 자동 부여

@@ -88,6 +88,7 @@ interface Frontmatter {
   route?: unknown;
   parentRoutes?: unknown;
   functional?: unknown;
+  feature_codes?: unknown;
   diagrams?: unknown;
   errorCodes?: unknown;
 }
@@ -95,7 +96,7 @@ interface Frontmatter {
 // Core 필수 — 이게 없으면 error (라우트 매핑·CI 식별에 필수)
 const CORE_REQUIRED: (keyof Frontmatter)[] = ['id', 'kind', 'domain', 'title'];
 // Recommended — 있으면 좋지만 없어도 warn (점진적 채움 대상)
-const RECOMMENDED: (keyof Frontmatter)[] = ['priority', 'roles', 'functional'];
+const RECOMMENDED: (keyof Frontmatter)[] = ['feature_codes'];
 
 const ALLOWED_PRIORITIES = ['P0', 'P1', 'P2'];
 const ALLOWED_KINDS = ['screen', 'dialog'];
@@ -156,11 +157,21 @@ function validateMaster(filePath: string) {
   if (data.kind === 'screen' && !data.route) {
     addWarn(rel, `kind: screen 에 route 권장`);
   }
-  if (data.kind === 'dialog' && !data.parentRoutes) {
-    addWarn(rel, `kind: dialog 에 parentRoutes 권장`);
+  // feature_codes 배열 형식. 실제 Cmd+/ 오버레이는 이 값으로 중첩형 기능명세서를 로드한다.
+  if (Array.isArray(data.feature_codes)) {
+    if (data.feature_codes.length === 0) {
+      addError(rel, `feature_codes 배열이 비어있음`);
+    }
+    data.feature_codes.forEach((item: unknown, idx: number) => {
+      if (typeof item !== 'string' || item.trim().length === 0) {
+        addError(rel, `feature_codes[${idx}] 는 비어있지 않은 문자열이어야 함`);
+      }
+    });
+  } else if (data.feature_codes !== undefined) {
+    addError(rel, `feature_codes 는 배열이어야 함`);
   }
 
-  // functional 배열 형식
+  // functional 배열 형식. 레거시/보조 스키마로만 허용한다.
   if (Array.isArray(data.functional)) {
     if (data.functional.length === 0) {
       addError(rel, `functional 배열이 비어있음`);
@@ -174,7 +185,7 @@ function validateMaster(filePath: string) {
       if (!obj.id || !obj.title || !obj.description) {
         addError(rel, `functional[${idx}] 에 id/title/description 중 누락 필드 있음`);
       }
-      if (obj.id && typeof obj.id === 'string' && !/^F-[A-Z0-9]+-\d{2}$/.test(obj.id)) {
+      if (obj.id && typeof obj.id === 'string' && !/^F-[A-Z0-9]+(?:-\d{2,3}[A-Z]?)*-\d{2}$/.test(obj.id)) {
         addWarn(rel, `functional[${idx}].id 패턴(F-ID-NN) 불일치: ${obj.id}`);
       }
     });

@@ -30,6 +30,8 @@ scripts/*
 !scripts/bootstrap-frontmatter.ts
 !scripts/enrich-frontmatter.ts
 !scripts/enrich-functional.ts
+!scripts/check-doc-drift.ts
+!scripts/check-feature-codes.ts
 !scripts/check-route-doc-coverage.ts
 !scripts/scenarios/
 !scripts/scenarios/**

@@ -30,15 +30,15 @@ lastUpdated: 2026-04-20
 
 ```mermaid
 stateDiagram-v2
-    [*] --> ACTIVE : T-PNL-01 페널티 부과 (노쇼/규정 위반)
+    AUTO_FIX_1[*] --> ACTIVE : T-PNL-01 페널티 부과 (노쇼/규정 위반)
 
     ACTIVE --> RESOLVED : T-PNL-02 페널티 조건 충족 (출석/결제 등)
     ACTIVE --> WAIVED : T-PNL-03 관리자 페널티 면제
     ACTIVE --> EXPIRED : T-PNL-04 유효기간 경과 [배치 00:00]
 
-    RESOLVED --> [*] : 해결 이력 보존
-    WAIVED --> [*] : 면제 이력 보존
-    EXPIRED --> [*] : 만료 이력 보존
+    RESOLVED --> AUTO_1[*] : 해결 이력 보존
+    WAIVED --> AUTO_2[*] : 면제 이력 보존
+    EXPIRED --> AUTO_3[*] : 만료 이력 보존
 
     note right of ACTIVE
         페널티 유형 기록 (노쇼/지각 취소/규정 위반)

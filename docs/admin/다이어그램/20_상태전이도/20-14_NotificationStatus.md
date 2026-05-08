@@ -30,7 +30,7 @@ lastUpdated: 2026-04-20
 
 ```mermaid
 stateDiagram-v2
-    [*] --> UNREAD : T-NTF-01 알림 발송 완료
+    AUTO_FIX_1[*] --> UNREAD : T-NTF-01 알림 발송 완료
 
     UNREAD --> READ : T-NTF-02 사용자 알림 클릭/확인
     UNREAD --> READ : T-NTF-03 전체 읽음 처리
@@ -44,7 +44,7 @@ stateDiagram-v2
     ARCHIVED --> READ : T-NTF-09 보관 → 읽음 복원
     ARCHIVED --> DELETED : T-NTF-10 보관 알림 삭제
 
-    DELETED --> [*] : 삭제 이력 보존 (소프트 삭제)
+    DELETED --> AUTO_1[*] : 삭제 이력 보존 (소프트 삭제)
 
     note right of UNREAD
         배지 카운트 증가

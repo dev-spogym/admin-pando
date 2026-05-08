@@ -33,7 +33,7 @@ lastUpdated: 2026-04-20
 
 ```mermaid
 stateDiagram-v2
-    [*] --> NEW : T-LED-01 리드 유입 (수동 등록 / 인입 채널 연동)
+    AUTO_FIX_1[*] --> NEW : T-LED-01 리드 유입 (수동 등록 / 인입 채널 연동)
 
     NEW --> CONTACTED : T-LED-02 첫 연락 완료
     NEW --> LOST : T-LED-03 연락 불가 / 즉시 이탈
@@ -56,8 +56,8 @@ stateDiagram-v2
     HOLD --> CONTACTED : T-LED-16 보류 → 재연락
     HOLD --> LOST : T-LED-17 장기 보류 이탈
 
-    CONVERTED --> [*] : 회원 등록 완료 (Member 레코드 생성)
-    LOST --> [*] : 이탈 기록 보존
+    CONVERTED --> AUTO_1[*] : 회원 등록 완료 (Member 레코드 생성)
+    LOST --> AUTO_2[*] : 이탈 기록 보존
 
     note right of NEW
         유입 채널 기록: SNS/홈페이지/지인소개/전화 등

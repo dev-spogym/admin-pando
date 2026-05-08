@@ -32,7 +32,7 @@ lastUpdated: 2026-04-20
 
 ```mermaid
 stateDiagram-v2
-    [*] --> PENDING : T-RSV-01 예약 요청
+    AUTO_FIX_1[*] --> PENDING : T-RSV-01 예약 요청
 
     PENDING --> CONFIRMED : T-RSV-02 관리자 예약 확정
     PENDING --> WAITLIST : T-RSV-03 정원 초과 → 대기열 배정
@@ -46,9 +46,9 @@ stateDiagram-v2
     WAITLIST --> CANCELED : T-RSV-09 대기열 취소
 
     NO_SHOW --> CONFIRMED : T-RSV-10 노쇼 취소 후 재예약
-    CANCELED --> [*] : 취소 이력 보존
-    COMPLETED --> [*] : 완료 이력 보존
-    NO_SHOW --> [*] : 노쇼 이력 보존
+    CANCELED --> AUTO_1[*] : 취소 이력 보존
+    COMPLETED --> AUTO_2[*] : 완료 이력 보존
+    NO_SHOW --> AUTO_3[*] : 노쇼 이력 보존
 
     note right of WAITLIST
         대기 순번 부여

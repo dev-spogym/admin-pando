@@ -32,7 +32,7 @@ lastUpdated: 2026-04-20
 
 ```mermaid
 stateDiagram-v2
-    [*] --> AVAILABLE : T-LCK-01 락커 등록
+    AUTO_FIX_1[*] --> AVAILABLE : T-LCK-01 락커 등록
 
     AVAILABLE --> RESERVED : T-LCK-02 락커 배정 예약 (시작일 미래)
     AVAILABLE --> OCCUPIED : T-LCK-03 락커 즉시 배정
@@ -51,7 +51,7 @@ stateDiagram-v2
     MAINTENANCE --> AVAILABLE : T-LCK-12 수리 완료
     MAINTENANCE --> RETIRED : T-LCK-13 폐기 처리
 
-    RETIRED --> [*] : 폐기 이력 보존
+    RETIRED --> AUTO_1[*] : 폐기 이력 보존
 
     note right of OCCUPIED
          레코드 생성

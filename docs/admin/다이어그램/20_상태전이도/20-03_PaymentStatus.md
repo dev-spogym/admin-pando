@@ -34,7 +34,7 @@ lastUpdated: 2026-05-04
 
 ```mermaid
 stateDiagram-v2
-    [*] --> PENDING : T-PAY-01 결제 요청 (POS/전자계약/링크결제 제출)
+    AUTO_FIX_1[*] --> PENDING : T-PAY-01 결제 요청 (POS/전자계약/링크결제 제출)
 
     PENDING --> APPROVED : T-PAY-02 PG/단말기 결제 성공
     PENDING --> APPROVED : T-PAY-03 수기/현금 결제 확인
@@ -54,10 +54,10 @@ stateDiagram-v2
     INSTALLMENT --> REFUNDED : T-PAY-14 할부 중 전액 환불
 
     FAILED --> PENDING : T-PAY-15 재결제 시도
-    FAILED --> [*] : 결제 실패 기록 보존
+    FAILED --> AUTO_1[*] : 결제 실패 기록 보존
 
-    CANCELED --> [*] : 취소 기록 보존
-    REFUNDED --> [*] : 환불 완료 기록 보존
+    CANCELED --> AUTO_2[*] : 취소 기록 보존
+    REFUNDED --> AUTO_3[*] : 환불 완료 기록 보존
 
     note right of PENDING
         결제 요청 후 PG 응답 대기

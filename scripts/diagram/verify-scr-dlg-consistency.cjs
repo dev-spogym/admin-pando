@@ -9,9 +9,10 @@
 const fs = require('fs');
 const path = require('path');
 
-const SPEC_DIR = path.resolve(__dirname, '../../docs/화면설계서');
+const SPEC_DIR = path.resolve(__dirname, '../../docs/admin/화면설계서');
 const DIAG_DIR = path.resolve(__dirname, '../../docs/admin/다이어그램');
 const OUT = path.join(DIAG_DIR, '99_TC_매핑/SCR_DLG_일관성리포트.md');
+const WRITE_REPORT = process.argv.includes('--write');
 
 function walk(dir, list = []) {
   for (const f of fs.readdirSync(dir)) {
@@ -68,9 +69,13 @@ function main() {
     ...dlgOrphan.sort().map(x => `- ${x}`),
   ].join('\n');
 
-  fs.writeFileSync(OUT, report);
   console.log(`✅ 일관성 검증 완료. 미커버 SCR ${scrOrphan.length}, DLG ${dlgOrphan.length}`);
-  console.log(`📄 리포트: ${OUT}`);
+
+  if (WRITE_REPORT) {
+    fs.mkdirSync(path.dirname(OUT), { recursive: true });
+    fs.writeFileSync(OUT, report);
+    console.log(`📄 리포트: ${OUT}`);
+  }
 }
 
 main();

@@ -32,7 +32,7 @@ lastUpdated: 2026-04-20
 
 ```mermaid
 stateDiagram-v2
-    [*] --> SCHEDULED : T-LSN-01 수업 등록/예약
+    AUTO_FIX_1[*] --> SCHEDULED : T-LSN-01 수업 등록/예약
 
     SCHEDULED --> CHECKED_IN : T-LSN-02 회원 출석 체크인
     SCHEDULED --> NO_SHOW : T-LSN-03 수업 시간 경과 + 미출석 처리
@@ -47,9 +47,9 @@ stateDiagram-v2
     NO_SHOW --> SCHEDULED : T-LSN-09 노쇼 → 재예약
     NO_SHOW --> CANCELED : T-LSN-10 노쇼 확정 취소
 
-    COMPLETED --> [*] : 수업 이력 보존, 잔여횟수 차감
-    CANCELED --> [*] : 취소 이력 보존
-    NO_SHOW --> [*] : 노쇼 이력 보존
+    COMPLETED --> AUTO_1[*] : 수업 이력 보존, 잔여횟수 차감
+    CANCELED --> AUTO_2[*] : 취소 이력 보존
+    NO_SHOW --> AUTO_3[*] : 노쇼 이력 보존
 
     note right of SCHEDULED
         트레이너/회원 배정 확인

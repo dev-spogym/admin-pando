@@ -33,7 +33,7 @@ lastUpdated: 2026-05-04
 
 ```mermaid
 stateDiagram-v2
-    [*] --> DRAFT : T-LINK-01 링크 초안 생성
+    AUTO_FIX_1[*] --> DRAFT : T-LINK-01 링크 초안 생성
 
     DRAFT --> SENT : T-LINK-02 발송
     DRAFT --> CANCELED : T-LINK-03 초안 폐기
@@ -48,9 +48,9 @@ stateDiagram-v2
     OPENED --> EXPIRED : T-LINK-10 열람 후 만료 또는 직원 강제 만료
     OPENED --> CANCELED : T-LINK-11 직원 취소
 
-    PAID --> [*] : 사용 완료 기록 보존
-    EXPIRED --> [*] : 만료 기록 보존
-    CANCELED --> [*] : 취소 기록 보존
+    PAID --> AUTO_1[*] : 사용 완료 기록 보존
+    EXPIRED --> AUTO_2[*] : 만료 기록 보존
+    CANCELED --> AUTO_3[*] : 취소 기록 보존
 ```
 
 ---

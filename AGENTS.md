@@ -15,13 +15,13 @@
 
 ## 2. 문서 구조와 진실 소스 (중요)
 
-세 개의 docs 디렉토리가 있고 **역할이 다릅니다**. 혼동하면 drift 발생.
+관리자 기획은 `docs/admin/` 아래 세 개의 디렉토리가 정본입니다. `docs/client`, `docs/kiosk`, `docs/백업`은 별도 앱/백업 영역이므로 관리자 정합성 기준에 섞지 않습니다.
 
 | 디렉토리 | 역할 | 편집 여부 |
 |----------|------|-----------|
-| **`docs/화면설계서/`** | **정본.** 화면/다이얼로그 단위 상세 스펙 (마스터 + 상태별 델타) | ✅ **여기만 수기 편집** |
-| `docs/기능명세서/` | 도메인별 기능 개요. Cmd+/ 오버레이 데이터 | ⚠️ **자동 생성 예정** (현 과도기: 수기 OK) |
-| `docs/다이어그램/` | Mermaid 플로우/시퀀스. 다이어그램 라우터에서 시각화 | ✅ 수기 편집 OK, 단 마스터의 `diagrams` 배열에 등록 필수 |
+| **`docs/admin/화면설계서/`** | **정본.** 화면/다이얼로그 단위 상세 스펙 (마스터 + 상태별 델타) | ✅ **여기만 수기 편집** |
+| `docs/admin/기능명세서/` | 기능 코드별 상세 기능 문서. Cmd+/ 오버레이 데이터 | ⚠️ **자동 생성 예정** (현 과도기: 수기 OK) |
+| `docs/admin/다이어그램/` | Mermaid 플로우/시퀀스. 다이어그램 라우터에서 시각화 | ✅ 수기 편집 OK, 단 마스터의 `diagrams` 배열에 등록 필수 |
 
 ### 2.1 왜 이렇게?
 - 같은 기획을 세 곳에 수기로 적으면 반드시 싱크가 깨집니다.
@@ -33,14 +33,14 @@
 ```
 기획 변경
   ↓
-docs/화면설계서/{도메인}/{화면}/00-기본화면.md  (frontmatter + 본문 수정)
+docs/admin/화면설계서/{도메인}/{화면}/00-기본화면.md  (frontmatter + 본문 수정)
   ↓                                          ↓
 상태 변경 시                             새 플로우 시
-01-기본.md 수정                          docs/다이어그램/ 추가
+01-기본.md 수정                          docs/admin/다이어그램/ 추가
   ↓                                          ↓ (등록)
 [CI] sync-docs.ts                       frontmatter.diagrams 에 경로 추가
   ↓
-docs/기능명세서/*.md  자동 재생성
+docs/admin/기능명세서/**/00-기본기능.md  자동 재생성
   ↓
 Cmd+/ 오버레이에 즉시 반영
 ```
@@ -51,7 +51,7 @@ Cmd+/ 오버레이에 즉시 반영
 
 ### 3.1 폴더 구조
 ```
-docs/화면설계서/
+docs/admin/화면설계서/
 └── {D0X-도메인}/               # 예: D02-회원관리
     ├── {SCR|DLG}-{ID}-{이름}/   # 예: SCR-201-회원목록, DLG-M011_상담등록
     │   ├── 00-기본화면.md       # 마스터 (YAML frontmatter 필수)
@@ -62,7 +62,7 @@ docs/화면설계서/
 ```
 
 ### 3.2 Frontmatter 스키마
-**`docs/화면설계서/_FRONTMATTER_SCHEMA.md` 를 먼저 읽으세요.**
+**`docs/admin/화면설계서/_FRONTMATTER_SCHEMA.md` 를 먼저 읽으세요.**
 
 `00-기본화면.md` 최상단에 YAML frontmatter 필수:
 ```yaml
@@ -74,12 +74,9 @@ title: 로그인
 route: /login              # SCR만 (DLG는 parentRoutes)
 priority: P0
 roles: [all]
-functional:
-  - id: F-100-01
-    title: 이메일 로그인
-    description: ...
+feature_codes: [MFN-SCR-100]
 diagrams:
-  - docs/다이어그램/...
+  - docs/admin/다이어그램/...
 ---
 ```
 
@@ -92,8 +89,8 @@ diagrams:
 
 ## 4. 기능명세서 규칙 (과도기)
 
-- **현재**: 도메인당 1 파일 (`docs/기능명세서/회원관리.md` 등). 수기 편집 허용.
-- **목표 (곧)**: 화면설계서 frontmatter로부터 `scripts/sync-docs.ts` 로 자동 생성. 수기 편집 금지.
+- **현재**: 기능 코드별 1 폴더 (`docs/admin/기능명세서/{도메인}/{기능코드-이름}/00-기본기능.md`). 수기 편집 허용.
+- **목표 (곧)**: 화면설계서 `feature_codes`와 기능명세서 frontmatter로부터 `scripts/sync-docs.ts` 로 자동 검증/생성. 수기 편집 금지.
 - 전환 완료 시 각 파일 상단에 `<!-- AUTO-GENERATED — DO NOT EDIT -->` 마커 추가.
 
 ⚠️ 과도기에도 화면설계서와 내용이 충돌하면 **화면설계서가 우선**.
@@ -102,7 +99,7 @@ diagrams:
 
 ## 5. 다이어그램 규칙
 
-- Mermaid `.md` 파일. `docs/다이어그램/{D0X_도메인}/{SCR|DLG-ID}/{F1~F9|M1~M3}_*.md` 구조.
+- Mermaid `.md` 파일. `docs/admin/다이어그램/{D0X_도메인}/{SCR|DLG-ID}/{F1~F9|M1~M3}_*.md` 구조.
 - F1~F9 = SCR용 플로우 (진입/메인/버튼/상태/에러 등), M1~M3 = DLG용 (생명주기/필드검증/결과분기).
 - 신규/변경 시 반드시 해당 화면의 `00-기본화면.md` frontmatter `diagrams:` 배열에 경로 추가.
 - **CI가 경로 존재 여부 검증** — 없는 파일을 참조하면 빌드 실패.
@@ -115,7 +112,7 @@ diagrams:
 
 - 트리거: `src/components/layout/AppLayout.tsx`
 - 매핑: `src/lib/designDocMap.ts` + `src/app/api/design-doc/route.ts`
-- **소스**: 화면설계서 마스터 frontmatter + 기능명세서
+- **소스**: 화면설계서 마스터 frontmatter + `feature_codes`로 연결된 기능명세서
 - 자동 인덱싱: 화면설계서 마스터의 `frontmatter.route` 값이 있으면 별도 매핑 없이 자동으로 Cmd+/에 등록됨.
 
 ### 6.1 노출 정책 — **기획 관점만 보이게**
@@ -178,8 +175,8 @@ bun run scripts/sync-docs.ts --write  # 기능명세서 재생성 (main 브랜�
 
 ## 9. 관련 문서
 
-- `docs/화면설계서/_FRONTMATTER_SCHEMA.md` — frontmatter 엄격 스펙
-- `docs/화면설계서/README.md` — 화면설계서 개요·총계·포맷 가이드
-- `docs/에러코드정의서.md` — 전역 에러코드 목록
-- `docs/KPI_정의서.md` — KPI 체계
-- `docs/시스템_모듈_정의서.md` — 시스템 모듈 6종 구조
+- `docs/admin/화면설계서/_FRONTMATTER_SCHEMA.md` — frontmatter 엄격 스펙
+- `docs/admin/화면설계서/README.md` — 화면설계서 개요·총계·포맷 가이드
+- `docs/admin/운영용_기획문서/` — 관리자 운영 기준 보조 문서
+- `plan/KPI_정의서.md` — KPI 체계
+- `plan/시스템_모듈_정의서.md` — 시스템 모듈 6종 구조

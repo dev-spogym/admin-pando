@@ -31,7 +31,7 @@ lastUpdated: 2026-05-04
 
 ```mermaid
 stateDiagram-v2
-    [*] --> REQUESTED : T-RFD-01 환불 요청 등록
+    AUTO_FIX_1[*] --> REQUESTED : T-RFD-01 환불 요청 등록
 
     REQUESTED --> APPROVED : T-RFD-02 관리자 환불 승인
     REQUESTED --> REJECTED : T-RFD-03 관리자 환불 거절
@@ -44,8 +44,8 @@ stateDiagram-v2
 
     REJECTED --> REQUESTED : T-RFD-08 거절 후 재요청
 
-    COMPLETED --> [*] : 환불 완료 기록 보존
-    REJECTED --> [*] : 거절 기록 보존
+    COMPLETED --> AUTO_1[*] : 환불 완료 기록 보존
+    REJECTED --> AUTO_2[*] : 거절 기록 보존
 
     note right of REQUESTED
         환불 사유 필수 입력

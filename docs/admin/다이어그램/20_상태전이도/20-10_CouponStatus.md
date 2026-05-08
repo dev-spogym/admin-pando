@@ -31,7 +31,7 @@ lastUpdated: 2026-04-20
 
 ```mermaid
 stateDiagram-v2
-    [*] --> ISSUED : T-CPN-01 쿠폰 발행
+    AUTO_FIX_1[*] --> ISSUED : T-CPN-01 쿠폰 발행
 
     ISSUED --> DISTRIBUTED : T-CPN-02 회원에게 쿠폰 배포
     ISSUED --> EXPIRED : T-CPN-03 만료일 경과 (미배포)
@@ -41,9 +41,9 @@ stateDiagram-v2
     DISTRIBUTED --> EXPIRED : T-CPN-06 만료일 경과 (미사용)
     DISTRIBUTED --> REVOKED : T-CPN-07 배포 쿠폰 강제 회수
 
-    USED --> [*] : 사용 이력 보존
-    EXPIRED --> [*] : 만료 이력 보존
-    REVOKED --> [*] : 회수 이력 보존
+    USED --> AUTO_1[*] : 사용 이력 보존
+    EXPIRED --> AUTO_2[*] : 만료 이력 보존
+    REVOKED --> AUTO_3[*] : 회수 이력 보존
 
     note right of ISSUED
         쿠폰 코드 자동 생성

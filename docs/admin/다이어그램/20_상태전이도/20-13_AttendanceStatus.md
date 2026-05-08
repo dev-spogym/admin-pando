@@ -31,9 +31,9 @@ lastUpdated: 2026-04-20
 
 ```mermaid
 stateDiagram-v2
-    [*] --> CHECKED_IN : T-ATD-01 정시 출근 체크인
-    [*] --> LATE : T-ATD-02 지각 출근 체크인 (출근시간 초과)
-    [*] --> ABSENT : T-ATD-03 무출근 확정 [배치 일 마감]
+    AUTO_FIX_1[*] --> CHECKED_IN : T-ATD-01 정시 출근 체크인
+    AUTO_FIX_2[*] --> LATE : T-ATD-02 지각 출근 체크인 (출근시간 초과)
+    AUTO_FIX_3[*] --> ABSENT : T-ATD-03 무출근 확정 [배치 일 마감]
 
     CHECKED_IN --> BREAK : T-ATD-04 휴게 시작
     CHECKED_IN --> CHECKED_OUT : T-ATD-05 정상 퇴근
@@ -47,8 +47,8 @@ stateDiagram-v2
 
     ABSENT --> CHECKED_IN : T-ATD-11 결근 → 수동 출근 정정 (관리자)
 
-    CHECKED_OUT --> [*] : 근태 기록 확정 보존
-    ABSENT --> [*] : 결근 기록 보존
+    CHECKED_OUT --> AUTO_1[*] : 근태 기록 확정 보존
+    ABSENT --> AUTO_2[*] : 결근 기록 보존
 
     note right of CHECKED_IN
          기록
