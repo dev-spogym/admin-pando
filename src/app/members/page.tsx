@@ -49,6 +49,13 @@ const MAIN_TABS = [
   { key: 'pass', label: '이용권 목록' },
 ];
 
+const SAVED_VIEW_TABS = [
+  { key: 'consultation-history', label: '상담내역' },
+  { key: 'consultation-scheduled', label: '상담예약' },
+  { key: 'renewal-target', label: '재등록대상' },
+  { key: 'legacy-customers', label: '(구)고객관리' },
+] as const;
+
 const STATUS_TABS = [
   { key: 'all', label: '전체' },
   { key: 'ACTIVE', label: '활성' },
@@ -149,6 +156,9 @@ function MemberList() {
   const [hideExpired, setHideExpired] = useState(false);
   // 관심회원만 보기
   const [onlyFavorite, setOnlyFavorite] = useState(false);
+  const [activeSavedView, setActiveSavedView] = useState<(typeof SAVED_VIEW_TABS)[number]['key']>('consultation-history');
+  const [detailPanelEnabled, setDetailPanelEnabled] = useState(true);
+  const [selectedPanelMemberId, setSelectedPanelMemberId] = useState<number | null>(null);
   // 미방문 N일 필터 (0 = 전체)
   const [daysNoVisit, setDaysNoVisit] = useState<number>(0);
   // 회원구분 필터
@@ -173,6 +183,17 @@ function MemberList() {
 
     setOnlyFavorite(scenario === 'favorites');
   }, [scenario, searchParams]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const stored = localStorage.getItem('members_detail_panel_enabled');
+    if (stored !== null) setDetailPanelEnabled(stored === 'true');
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    localStorage.setItem('members_detail_panel_enabled', String(detailPanelEnabled));
+  }, [detailPanelEnabled]);
 
   // API 훅 (필터/정렬 파라미터 모두 전달)
   const membersQuery = useMembers({
@@ -206,9 +227,45 @@ function MemberList() {
     const diff = Math.floor((Date.now() - new Date(member.lastVisitAt).getTime()) / 86400000);
     return diff >= 14;
   }).length, [members]);
+
+  const savedViewMembers = useMemo(() => {
+    switch (activeSavedView) {
+      case 'consultation-scheduled':
+        return members.filter((member) => member.isFavorite || getMemberSegment(member).label === '관심 필요');
+      case 'renewal-target':
+        return members.filter((member) => {
+          if (member.status === 'EXPIRED') return true;
+          if (member.status !== 'ACTIVE' || !member.membershipExpiry) return false;
+          const diff = Math.ceil((new Date(member.membershipExpiry).getTime() - Date.now()) / 86400000);
+          return diff >= 0 && diff <= 30;
+        });
+      case 'legacy-customers':
+        return members.filter((member) => ['EXPIRED', 'INACTIVE', 'HOLDING'].includes(member.status));
+      case 'consultation-history':
+      default:
+        return members;
+    }
+  }, [activeSavedView, members]);
+
+  const productTableRows = useMemo(() => {
+    const sorted = [...members].sort((a, b) => (a.membershipType ?? '').localeCompare(b.membershipType ?? ''));
+    return selectedProductName === 'all' ? sorted : sorted.filter((member) => member.membershipType === selectedProductName);
+  }, [members, selectedProductName]);
+
+  const currentTableRows = useMemo(() => {
+    if (activeMainTab === 'product') return productTableRows;
+    if (activeMainTab === 'pass') return members;
+    return savedViewMembers;
+  }, [activeMainTab, members, productTableRows, savedViewMembers]);
+
   const selectedMembers = useMemo(
-    () => Array.from(selectedRows).map((idx) => members[idx]).filter(Boolean),
-    [selectedRows, members]
+    () => Array.from(selectedRows).map((idx) => currentTableRows[idx]).filter(Boolean),
+    [selectedRows, currentTableRows]
+  );
+
+  const selectedPanelMember = useMemo(
+    () => members.find((member) => member.id === selectedPanelMemberId) ?? null,
+    [members, selectedPanelMemberId]
   );
 
   const debounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -217,6 +274,17 @@ function MemberList() {
     debounceTimer.current = setTimeout(() => { setDebouncedSearch(searchValue); setCurrentPage(1); }, 300);
     return () => { if (debounceTimer.current) clearTimeout(debounceTimer.current); };
   }, [searchValue]);
+
+  useEffect(() => {
+    setSelectedRows(new Set());
+  }, [activeMainTab, activeSavedView, selectedProductName]);
+
+  useEffect(() => {
+    if (!selectedPanelMemberId) return;
+    if (!members.some((member) => member.id === selectedPanelMemberId)) {
+      setSelectedPanelMemberId(null);
+    }
+  }, [members, selectedPanelMemberId]);
 
   // 관심회원 토글 핸들러
   const handleFavoriteToggle = useCallback(async (row: Member) => {
@@ -229,6 +297,15 @@ function MemberList() {
       toast.error(res.message ?? '관심회원 변경 실패');
     }
   }, [membersQuery]);
+
+  const handleMemberRowSelect = useCallback((member: Member) => {
+    if (detailPanelEnabled) {
+      setSelectedPanelMemberId(member.id);
+      return;
+    }
+
+    moveToPage(985, { id: member.id });
+  }, [detailPanelEnabled]);
 
   // 회원 전체 탭 컬럼
   const columns = useMemo(() => [
@@ -264,7 +341,7 @@ function MemberList() {
     {
       key: 'name', header: '회원명', width: 110, sortable: true,
       render: (value: unknown, row: Member) => (
-        <Button variant="ghost" size="sm" onClick={() => moveToPage(985, { id: row.id })}>{String(value)}</Button>
+        <Button variant="ghost" size="sm" onClick={(e) => { e.stopPropagation(); moveToPage(985, { id: row.id }); }}>{String(value)}</Button>
       ),
     },
     {
@@ -301,7 +378,7 @@ function MemberList() {
       width: 80,
       align: 'center' as const,
       render: (_: unknown, row: Member) => (
-        <Button variant="outline" size="sm" onClick={() => moveToPage(1002, { memberId: row.id })}>
+        <Button variant="outline" size="sm" onClick={(e) => { e.stopPropagation(); moveToPage(1002, { memberId: row.id }); }}>
           이관
         </Button>
       ),
@@ -313,7 +390,7 @@ function MemberList() {
     {
       key: 'name', header: '회원명', width: 110,
       render: (value: unknown, row: Member) => (
-        <Button variant="ghost" size="sm" onClick={() => moveToPage(985, { id: row.id })}>{String(value)}</Button>
+        <Button variant="ghost" size="sm" onClick={(e) => { e.stopPropagation(); moveToPage(985, { id: row.id }); }}>{String(value)}</Button>
       ),
     },
     {
@@ -376,7 +453,7 @@ function MemberList() {
     {
       key: 'name', header: '회원명', width: 110,
       render: (value: unknown, row: Member) => (
-        <Button variant="ghost" size="sm" onClick={() => moveToPage(985, { id: row.id })}>{String(value)}</Button>
+        <Button variant="ghost" size="sm" onClick={(e) => { e.stopPropagation(); moveToPage(985, { id: row.id }); }}>{String(value)}</Button>
       ),
     },
     {
@@ -466,7 +543,7 @@ function MemberList() {
 
   /** 모달 확인: 실제 DB 업데이트 */
   const handleStatusConfirm = useCallback(async () => {
-    const ids = Array.from(selectedRows).map(idx => members[idx]?.id).filter(Boolean);
+    const ids = selectedMembers.map((member) => member.id);
     setShowStatusModal(false);
     if (isPreview) {
       toast.success(`프리뷰에서 ${ids.length}명의 상태 변경이 시뮬레이션되었습니다.`);
@@ -488,7 +565,7 @@ function MemberList() {
       membersQuery.refetch();
       statsQuery.refetch();
     }
-  }, [selectedRows, members, pendingStatusValue, membersQuery, statsQuery, isPreview]);
+  }, [selectedMembers, pendingStatusValue, membersQuery, statsQuery, isPreview]);
 
   /** ESC 키로 모달 닫기 */
   useEffect(() => {
@@ -501,7 +578,6 @@ function MemberList() {
   /** 일괄 액션: 메시지 발송 페이지로 이동 (선택 회원 ID 전달) */
   const handleSendMessage = () => {
     if (selectedRows.size === 0) { toast.warning('회원을 먼저 선택해주세요.'); return; }
-    const selectedMembers = Array.from(selectedRows).map(idx => members[idx]).filter(Boolean);
     const ids = selectedMembers.map(m => m.id).join(',');
     sessionStorage.setItem('messageRecipients', JSON.stringify({ ids, names: selectedMembers.map(m => m.name) }));
     moveToPage(980);
@@ -510,13 +586,12 @@ function MemberList() {
   /** 일괄 액션: 출석 처리 */
   const handleBulkAttendance = async () => {
     if (selectedRows.size === 0) { toast.warning('회원을 먼저 선택해주세요.'); return; }
-    const ids = Array.from(selectedRows).map(idx => members[idx]).filter(Boolean);
     if (isPreview) {
-      toast.success(`프리뷰에서 ${ids.length}명의 출석 처리가 시뮬레이션되었습니다.`);
+      toast.success(`프리뷰에서 ${selectedMembers.length}명의 출석 처리가 시뮬레이션되었습니다.`);
       setSelectedRows(new Set());
       return;
     }
-    const records = ids.map(m => ({
+    const records = selectedMembers.map(m => ({
       memberId: m.id,
       memberName: m.name,
       checkInAt: new Date().toISOString(),
@@ -528,7 +603,7 @@ function MemberList() {
     if (error) {
       toast.error('출석 처리에 실패했습니다.');
     } else {
-      toast.success(`${ids.length}명의 출석이 처리되었습니다.`);
+      toast.success(`${selectedMembers.length}명의 출석이 처리되었습니다.`);
       setSelectedRows(new Set());
     }
   };
@@ -536,12 +611,12 @@ function MemberList() {
   /** 일괄 액션: 관심회원 일괄 등록 */
   const handleToggleVip = useCallback(async () => {
     if (selectedRows.size === 0) { toast.warning('회원을 먼저 선택해주세요.'); return; }
-    const ids = Array.from(selectedRows).map(idx => members[idx]?.id).filter(Boolean);
+    const ids = selectedMembers.map((member) => member.id);
     await Promise.all(ids.map(id => toggleFavorite(id, true)));
     toast.success(`${ids.length}명을 관심회원으로 등록했습니다.`);
     setSelectedRows(new Set());
     membersQuery.refetch();
-  }, [selectedRows, members, membersQuery]);
+  }, [selectedRows, selectedMembers, membersQuery]);
 
   /** 일괄 액션 분기 */
   const handleAction = (type: string) => {
@@ -555,8 +630,7 @@ function MemberList() {
           toast.warning('지점 이관은 회원 1명만 선택해서 진행해주세요.');
           return;
         }
-        const selectedIndex = Array.from(selectedRows)[0];
-        const member = members[selectedIndex];
+        const member = selectedMembers[0];
         if (!member) {
           toast.error('선택한 회원 정보를 찾지 못했습니다.');
           return;
@@ -703,10 +777,7 @@ function MemberList() {
           <div className="bg-surface rounded-xl border border-line overflow-hidden">
             <DataTable
               columns={productColumns}
-              data={(() => {
-                const sorted = [...members].sort((a, b) => (a.membershipType ?? '').localeCompare(b.membershipType ?? ''));
-                return selectedProductName === 'all' ? sorted : sorted.filter(m => m.membershipType === selectedProductName);
-              })()}
+              data={productTableRows}
               selectable
               selectedRows={selectedRows}
               onSelectRows={setSelectedRows}
@@ -726,7 +797,7 @@ function MemberList() {
         <div className="bg-surface rounded-xl border border-line overflow-hidden">
           <DataTable
             columns={passColumns}
-            data={members}
+            data={currentTableRows}
             selectable
             selectedRows={selectedRows}
             onSelectRows={setSelectedRows}
@@ -741,7 +812,59 @@ function MemberList() {
       )}
 
       {/* 회원 전체 탭 */}
-      {activeMainTab === 'members' && <div className="bg-surface rounded-xl border border-line overflow-hidden">
+      {activeMainTab === 'members' && <div className="space-y-md">
+        <div className="flex flex-col gap-sm rounded-2xl border border-line bg-surface px-lg py-md shadow-card lg:flex-row lg:items-center lg:justify-between">
+          <div className="flex flex-wrap items-center gap-sm">
+            {SAVED_VIEW_TABS.map((tab) => {
+              const count = tab.key === 'consultation-history'
+                ? members.length
+                : tab.key === 'consultation-scheduled'
+                ? members.filter((member) => member.isFavorite || getMemberSegment(member).label === '관심 필요').length
+                : tab.key === 'renewal-target'
+                ? members.filter((member) => {
+                    if (member.status === 'EXPIRED') return true;
+                    if (member.status !== 'ACTIVE' || !member.membershipExpiry) return false;
+                    const diff = Math.ceil((new Date(member.membershipExpiry).getTime() - Date.now()) / 86400000);
+                    return diff >= 0 && diff <= 30;
+                  }).length
+                : members.filter((member) => ['EXPIRED', 'INACTIVE', 'HOLDING'].includes(member.status)).length;
+
+              return (
+                <button
+                  key={tab.key}
+                  className={cn(
+                    'flex items-center gap-[6px] rounded-full px-md py-[7px] text-[12px] font-semibold transition-colors',
+                    activeSavedView === tab.key
+                      ? 'bg-primary text-white'
+                      : 'bg-surface-secondary text-content-secondary hover:text-content'
+                  )}
+                  onClick={() => setActiveSavedView(tab.key)}
+                >
+                  {tab.label}
+                  <span className={cn(
+                    'rounded-full px-[6px] py-px text-[10px] font-bold tabular-nums',
+                    activeSavedView === tab.key ? 'bg-white/20 text-white' : 'bg-white text-content-secondary'
+                  )}>
+                    {count}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+
+          <label className="flex items-center gap-sm self-start rounded-full bg-surface-secondary px-md py-[7px] text-[12px] font-medium text-content-secondary lg:self-auto">
+            <input
+              type="checkbox"
+              className="h-4 w-4 rounded accent-primary"
+              checked={detailPanelEnabled}
+              onChange={(e) => setDetailPanelEnabled(e.target.checked)}
+            />
+            출석시 상세 팝업
+          </label>
+        </div>
+
+        <div className={cn('grid gap-md', detailPanelEnabled && selectedPanelMember ? 'xl:grid-cols-[minmax(0,1fr)_340px]' : 'grid-cols-1')}>
+          <div className="bg-surface rounded-xl border border-line overflow-hidden">
         {/* 상태 필터 탭 */}
         <div className="px-lg pt-md border-b border-line">
           <div className="relative">
@@ -902,7 +1025,7 @@ function MemberList() {
         {/* 테이블 */}
         <DataTable
           columns={columns}
-          data={members}
+          data={currentTableRows}
           selectable
           selectedRows={selectedRows}
           onSelectRows={setSelectedRows}
@@ -912,7 +1035,71 @@ function MemberList() {
           onPageChange={setCurrentPage}
           onPageSizeChange={(s) => { setPageSize(s); setCurrentPage(1); }}
           emptyMessage={membersQuery.isLoading ? "불러오는 중..." : debouncedSearch ? "검색 결과가 없습니다." : "등록된 회원이 없습니다."}
+          onRowClick={handleMemberRowSelect}
         />
+          </div>
+
+          {detailPanelEnabled && selectedPanelMember && (
+            <aside className="rounded-2xl border border-line bg-surface p-lg shadow-card">
+              <div className="flex items-start justify-between gap-sm">
+                <div>
+                  <p className="text-[11px] font-black uppercase tracking-[0.14em] text-content-tertiary">Quick Member View</p>
+                  <h3 className="mt-[2px] text-[18px] font-bold text-content">{selectedPanelMember.name}</h3>
+                  <div className="mt-xs flex items-center gap-xs">
+                    <StatusBadge label={STATUS_LABEL[selectedPanelMember.status] ?? selectedPanelMember.status} variant={STATUS_VARIANT[selectedPanelMember.status] ?? 'default'} dot />
+                    <span className={`inline-block rounded px-2 py-0.5 text-[11px] font-medium ${getMemberSegment(selectedPanelMember).color}`}>
+                      {getMemberSegment(selectedPanelMember).label}
+                    </span>
+                  </div>
+                </div>
+                <button
+                  className="text-[12px] font-medium text-content-secondary hover:text-content"
+                  onClick={() => setSelectedPanelMemberId(null)}
+                >
+                  닫기
+                </button>
+              </div>
+
+              <div className="mt-md space-y-sm rounded-2xl bg-surface-secondary p-md text-[13px]">
+                <div className="flex items-center justify-between gap-sm">
+                  <span className="text-content-secondary">연락처</span>
+                  <span className="font-semibold text-content">{selectedPanelMember.phone}</span>
+                </div>
+                <div className="flex items-center justify-between gap-sm">
+                  <span className="text-content-secondary">소속 지점</span>
+                  <span className="font-semibold text-content">{selectedPanelMember.branchName ?? `지점 #${selectedPanelMember.branchId}`}</span>
+                </div>
+                <div className="flex items-center justify-between gap-sm">
+                  <span className="text-content-secondary">최근 방문</span>
+                  <span className="font-semibold text-content">{selectedPanelMember.lastVisitAt ? selectedPanelMember.lastVisitAt.slice(0, 10) : '-'}</span>
+                </div>
+                <div className="flex items-center justify-between gap-sm">
+                  <span className="text-content-secondary">이용권</span>
+                  <span className="font-semibold text-content">{selectedPanelMember.membershipType || '-'}</span>
+                </div>
+                <div className="flex items-center justify-between gap-sm">
+                  <span className="text-content-secondary">만료일</span>
+                  <span className="font-semibold text-content">{selectedPanelMember.membershipExpiry ? selectedPanelMember.membershipExpiry.slice(0, 10) : '-'}</span>
+                </div>
+              </div>
+
+              <div className="mt-md grid gap-sm">
+                <Button variant="primary" size="sm" onClick={() => moveToPage(985, { id: selectedPanelMember.id })}>
+                  상세 보기
+                </Button>
+                <Button variant="outline" size="sm" onClick={() => moveToPage(971, { memberId: selectedPanelMember.id })}>
+                  상품구매
+                </Button>
+                <Button variant="outline" size="sm" onClick={() => moveToPage(980)}>
+                  메시지
+                </Button>
+                <Button variant="ghost" size="sm" onClick={() => moveToPage(1002, { memberId: selectedPanelMember.id })}>
+                  지점이관
+                </Button>
+              </div>
+            </aside>
+          )}
+        </div>
       </div>}
       {/* 상태 변경 모달 */}
       <Modal

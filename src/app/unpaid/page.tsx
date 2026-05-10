@@ -13,6 +13,7 @@ import {
   Pencil,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { moveToPage } from '@/internal';
 
 import PageHeader from "@/components/common/PageHeader";
 import StatCard from "@/components/common/StatCard";
@@ -130,7 +131,7 @@ export default function UnpaidManagement() {
     setIsLoading(true);
     const { data, error } = await supabase
       .from('sales')
-      .select('id, memberId, memberName, productName, amount, unpaid, saleDate, status, createdAt, branchId')
+      .select('id, memberId, memberName, productName, amount, unpaid, saleDate, status, createdAt, branchId, memo')
       .eq('branchId', getBranchId())
       .gt('unpaid', 0)
       .order('createdAt', { ascending: false });
@@ -155,7 +156,7 @@ export default function UnpaidManagement() {
         amount: Number(row.unpaid) || Number(row.amount) || 0,
         dueDate: (row.saleDate as string)?.slice(0, 10) ?? '',
         status: statusMapped,
-        memo: '',
+        memo: String(row.memo ?? ''),
         createdAt: (row.createdAt as string)?.slice(0, 10) ?? '',
       };
     });
@@ -244,7 +245,17 @@ export default function UnpaidManagement() {
   };
 
   // 메모 저장 (sales 테이블에 memo 컬럼이 없어 로컬 상태에만 반영)
-  const handleSaveMemo = () => {
+  const handleSaveMemo = async () => {
+    const { error } = await supabase
+      .from('sales')
+      .update({ memo: memoModal.memo })
+      .eq('id', memoModal.id);
+
+    if (error) {
+      toast.error('메모 저장에 실패했습니다.');
+      return;
+    }
+
     setUnpaidData(prev =>
       prev.map(item => item.id === memoModal.id ? { ...item, memo: memoModal.memo } : item)
     );
@@ -279,7 +290,17 @@ export default function UnpaidManagement() {
   // 테이블 컬럼
   const columns = [
     { key: 'no', header: 'No', width: 60, align: 'center' as const },
-    { key: 'memberName', header: '회원명', width: 120 },
+    {
+      key: 'memberName', header: '회원명', width: 120,
+      render: (val: string, row: UnpaidItem) => (
+        <button
+          className="text-primary hover:underline font-medium transition-colors"
+          onClick={() => moveToPage(985, { id: row.memberId })}
+        >
+          {val}
+        </button>
+      ),
+    },
     { key: 'productName', header: '상품명', width: 200 },
     {
       key: 'amount', header: '미수금액', width: 130, align: 'right' as const,
@@ -397,7 +418,7 @@ export default function UnpaidManagement() {
           data={filteredData}
           loading={isLoading}
           pagination={{ page: 1, pageSize: 20, total: filteredData.length }}
-          emptyMessage="미수금 내역이 없습니다."
+          emptyMessage={debouncedSearch ? "검색 결과가 없습니다." : "미수금 내역이 없습니다."}
         />
       </div>
 

@@ -1,7 +1,7 @@
 'use client';
 export const dynamic = 'force-dynamic';
 
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useMemo, useRef } from "react";
 import { useSearchParams } from "next/navigation";
 import {
   User,
@@ -397,7 +397,7 @@ function MemberForm() {
                 toast.success("신규 회원이 등록되었습니다.", {
                   action: {
                     label: "바로 결제",
-                    onClick: () => moveToPage(972, { memberId: newId }),
+                    onClick: () => moveToPage(971, { memberId: newId }),
                   },
                   duration: 5000,
                 });
@@ -518,6 +518,39 @@ function MemberForm() {
     (isEditMode || phoneChecked);
 
   const step2CanSave = !errors.email && !errors.notes && notesLength <= 500 && !phoneDuplicate;
+
+  const step1Guidance = useMemo(() => {
+    if (step1CanNext) return "필수 정보 확인이 끝났습니다. 다음 단계로 이동할 수 있습니다.";
+    if (!watchedValues.name) return "이름을 입력해주세요.";
+    if (errors.name?.message) return String(errors.name.message);
+    if (!watchedValues.gender) return "성별을 선택해주세요.";
+    if (!watchedValues.phone) return "연락처를 입력해주세요.";
+    if (errors.phone?.message) return String(errors.phone.message);
+    if (!watchedValues.memberType) return "회원구분을 선택해주세요.";
+    if (!isEditMode && !phoneChecked) return "다음 단계로 가기 전에 연락처 중복확인이 필요합니다.";
+    if (phoneDuplicate) return "중복된 연락처는 등록할 수 없습니다.";
+    return "필수 항목을 다시 확인해주세요.";
+  }, [
+    errors.name?.message,
+    errors.phone?.message,
+    isEditMode,
+    phoneChecked,
+    phoneDuplicate,
+    step1CanNext,
+    watchedValues.gender,
+    watchedValues.memberType,
+    watchedValues.name,
+    watchedValues.phone,
+  ]);
+
+  const step2Guidance = useMemo(() => {
+    if (step2CanSave) return isEditMode ? "수정 내용을 저장할 수 있습니다." : "등록 정보를 저장할 수 있습니다.";
+    if (phoneDuplicate) return "중복된 연락처는 저장할 수 없습니다.";
+    if (errors.email?.message) return String(errors.email.message);
+    if (errors.notes?.message) return String(errors.notes.message);
+    if (notesLength > 500) return "메모는 500자 이하로 입력해주세요.";
+    return "저장 전 입력값을 다시 확인해주세요.";
+  }, [errors.email?.message, errors.notes?.message, isEditMode, notesLength, phoneDuplicate, step2CanSave]);
 
   // 글자수 카운터 색상
   const notesColor = notesLength > 450
@@ -984,42 +1017,53 @@ function MemberForm() {
             )}
           </div>
 
-          <div className="flex gap-sm">
-            {currentStep === "step1" ? (
-              /* UI-036 다음 버튼: 필수값 채워야 활성 */
-              <button
-                className={cn(
-                  "flex items-center gap-xs px-xl py-md rounded-button text-white font-semibold text-[13px] transition-all shadow-md",
-                  step1CanNext
-                    ? "bg-content hover:bg-black active:scale-95"
-                    : "bg-surface-tertiary text-content-tertiary cursor-not-allowed"
-                )}
-                onClick={handleNext}
-                disabled={!step1CanNext}
-              >
-                다음 단계
-                <ArrowRight size={18} />
-              </button>
-            ) : (
-              /* UI-036 저장 버튼 */
-              <button
-                className={cn(
-                  "flex items-center gap-xs px-xl py-md rounded-button text-white font-semibold text-[13px] transition-all shadow-md",
-                  isSubmitting || !step2CanSave
-                    ? "bg-surface-tertiary text-content-tertiary cursor-not-allowed"
-                    : "bg-state-success hover:opacity-90 active:scale-95"
-                )}
-                onClick={handleSave}
-                disabled={isSubmitting || !step2CanSave}
-              >
-                {isSubmitting ? (
-                  <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                ) : (
-                  <Save size={18} />
-                )}
-                {isEditMode ? "정보 수정 완료" : "회원 등록 완료"}
-              </button>
-            )}
+          <div className="flex flex-col items-end gap-xs">
+            <p
+              className={cn(
+                "text-[12px]",
+                currentStep === "step1"
+                  ? step1CanNext ? "text-state-success" : "text-content-secondary"
+                  : step2CanSave ? "text-state-success" : "text-content-secondary"
+              )}
+            >
+              {currentStep === "step1" ? step1Guidance : step2Guidance}
+            </p>
+
+            <div className="flex gap-sm">
+              {currentStep === "step1" ? (
+                <button
+                  className={cn(
+                    "flex items-center gap-xs px-xl py-md rounded-button text-white font-semibold text-[13px] transition-all shadow-md",
+                    step1CanNext
+                      ? "bg-content hover:bg-black active:scale-95"
+                      : "bg-surface-tertiary text-content-tertiary cursor-not-allowed"
+                  )}
+                  onClick={handleNext}
+                  disabled={!step1CanNext}
+                >
+                  다음 단계
+                  <ArrowRight size={18} />
+                </button>
+              ) : (
+                <button
+                  className={cn(
+                    "flex items-center gap-xs px-xl py-md rounded-button text-white font-semibold text-[13px] transition-all shadow-md",
+                    isSubmitting || !step2CanSave
+                      ? "bg-surface-tertiary text-content-tertiary cursor-not-allowed"
+                      : "bg-state-success hover:opacity-90 active:scale-95"
+                  )}
+                  onClick={handleSave}
+                  disabled={isSubmitting || !step2CanSave}
+                >
+                  {isSubmitting ? (
+                    <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                  ) : (
+                    <Save size={18} />
+                  )}
+                  {isEditMode ? "정보 수정 완료" : "회원 등록 완료"}
+                </button>
+              )}
+            </div>
           </div>
         </div>
       </div>

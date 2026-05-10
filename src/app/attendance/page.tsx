@@ -26,6 +26,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { moveToPage } from "@/internal";
+import { isPreviewMode } from "@/lib/preview";
 
 import AppLayout from "@/components/layout/AppLayout";
 import SimulatorPanel from "@/components/demo/SimulatorPanel";
@@ -87,7 +88,7 @@ interface AttendanceRecord {
   time: string;
   memberName: string;
   attendanceType: "일반" | "PT" | "GX" | "수동";
-  checkInMethod: "키오스크" | "앱";
+  checkInMethod: "키오스크" | "앱" | "수동";
   isOtherBranch: boolean;
   sourceBranchId?: number | null;
   status: "성공" | "실패";
@@ -351,6 +352,7 @@ const MonthlyView = ({ data, year, month, todayDay }: { data: Record<number, num
 };
 
 export default function Attendance() {
+  const isPreview = isPreviewMode();
   const [records, setRecords] = useState<AttendanceRecord[]>([]);
   const [members, setMembers] = useState<MemberOption[]>([]);
   const [loading, setLoading] = useState(true);
@@ -359,6 +361,7 @@ export default function Attendance() {
   const [isRealtimeEnabled, setIsRealtimeEnabled] = useState(true);
   const [popups, setPopups] = useState<Array<{ id: number; name: string; status: string; pass: string }>>([]);
   const [isManualModalOpen, setIsManualModalOpen] = useState(false);
+  const [showOperatorLab, setShowOperatorLab] = useState(false);
 
   // 검색/필터 상태 (BUG-09: SearchFilter 실제 필터링 연결)
   const [searchValue, setSearchValue] = useState("");
@@ -507,7 +510,7 @@ export default function Attendance() {
 
   const handleManualSubmit = async (data: { memberId: number; memberName: string; type: string; time: string }) => {
     // DB에 출석 기록 저장
-    const { error } = await supabase.from('attendance').insert({
+    const insertPayload = {
       memberId: data.memberId,
       memberName: data.memberName,
       checkInAt: `${selectedDate}T${data.time}:00`,
@@ -515,7 +518,12 @@ export default function Attendance() {
       checkInMethod: 'MANUAL',
       isOtherBranch: false,
       branchId,
-    });
+    };
+    const { data: insertedAttendance, error } = await supabase
+      .from('attendance')
+      .insert(insertPayload)
+      .select('id, memberId, memberName, checkInAt, checkOutAt, type, checkInMethod')
+      .single();
 
     if (error) {
       toast.error('출석 등록에 실패했습니다.');
@@ -531,11 +539,14 @@ export default function Attendance() {
       }
     }
 
+    const insertedTime = insertedAttendance?.checkInAt?.split("T")[1]?.substring(0, 5) ?? data.time;
     const newRecord: AttendanceRecord = {
-      id: Date.now(), date: selectedDate, time: data.time,
+      id: insertedAttendance?.id ?? Date.now(),
+      date: selectedDate,
+      time: insertedTime,
       memberName: data.memberName,
       attendanceType: data.type as "일반" | "PT" | "GX" | "수동",
-      checkInMethod: "키오스크",
+      checkInMethod: "수동",
       isOtherBranch: false, status: "성공",
       memberId: data.memberId, tel: "-", presence: "재실",
     };
@@ -857,14 +868,16 @@ export default function Attendance() {
                 수동 출석
               </button>
 
-              {/* 데모 팝업 트리거 */}
-              <button
-                className="p-[7px] bg-surface-secondary border border-line rounded-lg text-content-secondary hover:text-primary transition-colors"
-                onClick={addMockPopup}
-                title="팝업 테스트"
-              >
-                <ArrowRight size={18} />
-              </button>
+              {isPreview && (
+                <button
+                  className="flex items-center gap-xs rounded-lg border border-dashed border-line bg-surface-secondary px-md py-[6px] text-[12px] font-semibold text-content-secondary transition-colors hover:text-primary"
+                  onClick={addMockPopup}
+                  title="프리뷰 팝업 테스트"
+                >
+                  <ArrowRight size={14} />
+                  데모 팝업
+                </button>
+              )}
             </div>
           }
         />
@@ -930,6 +943,7 @@ export default function Attendance() {
                   options: [
                     { value: "키오스크", label: "키오스크" },
                     { value: "앱",       label: "앱" },
+                    { value: "수동",     label: "수동" },
                   ]
                 },
               ]}
@@ -1013,88 +1027,110 @@ export default function Attendance() {
         </div>
       </div>
 
-      {/* ── 동선 분석 (구역별 트래킹) ─────────────────────────────── */}
-      <div className="mt-lg">
-        <div className="bg-surface rounded-xl border border-line shadow-card overflow-hidden">
-          <div className="px-lg py-md border-b border-line flex items-center justify-between">
-            <div>
-              <h3 className="text-[14px] font-bold text-content">구역별 이용 현황</h3>
-              <p className="text-[11px] text-content-tertiary mt-xs">시간대별 구역 이용 밀도를 파악하여 운영 효율을 높입니다</p>
-            </div>
-            <StatusBadge variant="info">실시간</StatusBadge>
+      <div className="mt-lg rounded-xl border border-line bg-surface shadow-card overflow-hidden">
+        <button
+          className="flex w-full items-center justify-between gap-md px-lg py-md text-left transition-colors hover:bg-surface-secondary/70"
+          onClick={() => setShowOperatorLab((prev) => !prev)}
+          type="button"
+        >
+          <div>
+            <h3 className="text-[14px] font-bold text-content">운영 실험 도구</h3>
+            <p className="mt-xs text-[11px] text-content-tertiary">
+              시뮬레이터와 구역별 분석은 필요할 때만 펼쳐서 확인합니다.
+            </p>
           </div>
-          <div className="p-lg">
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-md">
-              {[
-                { zone: '웨이트 구역', current: Math.floor(Math.random() * 20) + 5, capacity: 30, color: 'bg-blue-500' },
-                { zone: '유산소 구역', current: Math.floor(Math.random() * 15) + 3, capacity: 20, color: 'bg-green-500' },
-                { zone: 'GX룸', current: Math.floor(Math.random() * 10), capacity: 15, color: 'bg-purple-500' },
-                { zone: '탈의실', current: Math.floor(Math.random() * 8) + 2, capacity: 25, color: 'bg-orange-500' },
-              ].map(zone => {
-                const usage = Math.round((zone.current / zone.capacity) * 100);
-                return (
-                  <div key={zone.zone} className="p-md bg-surface-secondary rounded-xl border border-line">
-                    <div className="flex items-center justify-between mb-sm">
-                      <span className="text-[13px] font-semibold text-content">{zone.zone}</span>
-                      <span className={cn(
-                        "text-[11px] font-bold px-xs py-[2px] rounded-full",
-                        usage > 80 ? "bg-red-100 text-red-700" :
-                        usage > 50 ? "bg-yellow-100 text-yellow-700" :
-                        "bg-green-100 text-green-700"
-                      )}>
-                        {usage}%
-                      </span>
-                    </div>
-                    <div className="w-full h-2 bg-line rounded-full overflow-hidden">
-                      <div
-                        className={cn("h-full rounded-full transition-all", zone.color)}
-                        style={{ width: `${Math.min(usage, 100)}%` }}
-                      />
-                    </div>
-                    <div className="flex items-center justify-between mt-xs">
-                      <span className="text-[11px] text-content-tertiary">현재 {zone.current}명</span>
-                      <span className="text-[11px] text-content-tertiary">정원 {zone.capacity}명</span>
-                    </div>
+          <StatusBadge variant={showOperatorLab ? "info" : "default"}>
+            {showOperatorLab ? "펼침" : "접힘"}
+          </StatusBadge>
+        </button>
+
+        {showOperatorLab && (
+          <div className="border-t border-line p-lg">
+            <div className="bg-surface rounded-xl border border-line shadow-card overflow-hidden">
+              <div className="px-lg py-md border-b border-line flex items-center justify-between">
+                <div>
+                  <h3 className="text-[14px] font-bold text-content">구역별 이용 현황</h3>
+                  <p className="text-[11px] text-content-tertiary mt-xs">시간대별 구역 이용 밀도를 파악하여 운영 효율을 높입니다</p>
+                </div>
+                <StatusBadge variant="info">실시간</StatusBadge>
+              </div>
+              <div className="p-lg">
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-md">
+                  {[
+                    { zone: '웨이트 구역', current: Math.floor(Math.random() * 20) + 5, capacity: 30, color: 'bg-blue-500' },
+                    { zone: '유산소 구역', current: Math.floor(Math.random() * 15) + 3, capacity: 20, color: 'bg-green-500' },
+                    { zone: 'GX룸', current: Math.floor(Math.random() * 10), capacity: 15, color: 'bg-purple-500' },
+                    { zone: '탈의실', current: Math.floor(Math.random() * 8) + 2, capacity: 25, color: 'bg-orange-500' },
+                  ].map(zone => {
+                    const usage = Math.round((zone.current / zone.capacity) * 100);
+                    return (
+                      <div key={zone.zone} className="p-md bg-surface-secondary rounded-xl border border-line">
+                        <div className="flex items-center justify-between mb-sm">
+                          <span className="text-[13px] font-semibold text-content">{zone.zone}</span>
+                          <span className={cn(
+                            "text-[11px] font-bold px-xs py-[2px] rounded-full",
+                            usage > 80 ? "bg-red-100 text-red-700" :
+                            usage > 50 ? "bg-yellow-100 text-yellow-700" :
+                            "bg-green-100 text-green-700"
+                          )}>
+                            {usage}%
+                          </span>
+                        </div>
+                        <div className="w-full h-2 bg-line rounded-full overflow-hidden">
+                          <div
+                            className={cn("h-full rounded-full transition-all", zone.color)}
+                            style={{ width: `${Math.min(usage, 100)}%` }}
+                          />
+                        </div>
+                        <div className="flex items-center justify-between mt-xs">
+                          <span className="text-[11px] text-content-tertiary">현재 {zone.current}명</span>
+                          <span className="text-[11px] text-content-tertiary">정원 {zone.capacity}명</span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                <div className="mt-lg">
+                  <p className="text-[12px] font-semibold text-content-secondary mb-sm">시간대별 방문 밀도</p>
+                  <div className="flex gap-[3px]">
+                    {Array.from({ length: 18 }, (_, i) => {
+                      const hour = i + 6;
+                      const density = hour >= 7 && hour <= 9 ? 0.8 :
+                                      hour >= 11 && hour <= 13 ? 0.6 :
+                                      hour >= 17 && hour <= 20 ? 0.9 :
+                                      hour >= 21 ? 0.4 : 0.2 + Math.random() * 0.3;
+                      return (
+                        <div key={hour} className="flex flex-col items-center flex-1">
+                          <div
+                            className="w-full rounded-sm"
+                            style={{
+                              height: '32px',
+                              backgroundColor: `rgba(59, 130, 246, ${density})`,
+                            }}
+                            title={`${hour}:00 — 밀도 ${Math.round(density * 100)}%`}
+                          />
+                          {hour % 3 === 0 && (
+                            <span className="text-[9px] text-content-tertiary mt-[2px]">{hour}</span>
+                          )}
+                        </div>
+                      );
+                    })}
                   </div>
-                );
-              })}
+                  <div className="flex items-center gap-md mt-sm text-[10px] text-content-tertiary">
+                    <span className="flex items-center gap-xs"><span className="w-3 h-3 rounded-sm" style={{ backgroundColor: 'rgba(59, 130, 246, 0.2)' }} /> 한산</span>
+                    <span className="flex items-center gap-xs"><span className="w-3 h-3 rounded-sm" style={{ backgroundColor: 'rgba(59, 130, 246, 0.6)' }} /> 보통</span>
+                    <span className="flex items-center gap-xs"><span className="w-3 h-3 rounded-sm" style={{ backgroundColor: 'rgba(59, 130, 246, 0.9)' }} /> 혼잡</span>
+                  </div>
+                </div>
+              </div>
             </div>
 
-            {/* 시간대별 히트맵 미니 차트 */}
             <div className="mt-lg">
-              <p className="text-[12px] font-semibold text-content-secondary mb-sm">시간대별 방문 밀도</p>
-              <div className="flex gap-[3px]">
-                {Array.from({ length: 18 }, (_, i) => {
-                  const hour = i + 6; // 06:00 ~ 23:00
-                  const density = hour >= 7 && hour <= 9 ? 0.8 :
-                                  hour >= 11 && hour <= 13 ? 0.6 :
-                                  hour >= 17 && hour <= 20 ? 0.9 :
-                                  hour >= 21 ? 0.4 : 0.2 + Math.random() * 0.3;
-                  return (
-                    <div key={hour} className="flex flex-col items-center flex-1">
-                      <div
-                        className="w-full rounded-sm"
-                        style={{
-                          height: '32px',
-                          backgroundColor: `rgba(59, 130, 246, ${density})`,
-                        }}
-                        title={`${hour}:00 — 밀도 ${Math.round(density * 100)}%`}
-                      />
-                      {hour % 3 === 0 && (
-                        <span className="text-[9px] text-content-tertiary mt-[2px]">{hour}</span>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-              <div className="flex items-center gap-md mt-sm text-[10px] text-content-tertiary">
-                <span className="flex items-center gap-xs"><span className="w-3 h-3 rounded-sm" style={{ backgroundColor: 'rgba(59, 130, 246, 0.2)' }} /> 한산</span>
-                <span className="flex items-center gap-xs"><span className="w-3 h-3 rounded-sm" style={{ backgroundColor: 'rgba(59, 130, 246, 0.6)' }} /> 보통</span>
-                <span className="flex items-center gap-xs"><span className="w-3 h-3 rounded-sm" style={{ backgroundColor: 'rgba(59, 130, 246, 0.9)' }} /> 혼잡</span>
-              </div>
+              <SimulatorPanel />
             </div>
           </div>
-        </div>
+        )}
       </div>
 
       <ManualAttendanceModal
@@ -1103,7 +1139,6 @@ export default function Attendance() {
         onSubmit={handleManualSubmit}
         members={members}
       />
-      <SimulatorPanel />
     </AppLayout>
   );
 }

@@ -56,6 +56,7 @@ import { supabase } from "@/lib/supabase";
 import Select from "@/components/ui/Select";
 import Textarea from "@/components/ui/Textarea";
 import Button from "@/components/ui/Button";
+import Modal from "@/components/ui/Modal";
 import { readBranchJson, writeBranchJson } from "@/lib/branchStorage";
 import { getMemberGrade } from "@/lib/memberGrade";
 
@@ -84,6 +85,7 @@ import {
   getMemberLessonRecords,
   type MemberLessonRecord,
 } from "@/api/endpoints/memberLessonRecords";
+import { createAuditLog, AUDIT_ACTIONS } from "@/api/endpoints/auditLog";
 import { getPreviewScenario, isPreviewMode } from "@/lib/preview";
 import { getPreviewMemberDetail } from "@/mocks/memberPreview";
 
@@ -246,6 +248,14 @@ function daysFromNow(dateValue: string | null | undefined) {
 function formatDateLabel(dateValue: string | null | undefined) {
   if (!dateValue) return "-";
   return dateValue.slice(0, 10);
+}
+
+function getCurrentDateInputValue() {
+  return new Date().toISOString().slice(0, 10);
+}
+
+function getCurrentTimeInputValue() {
+  return new Date().toTimeString().slice(0, 5);
 }
 
 // 체성분 SVG 라인 차트
@@ -422,7 +432,7 @@ function TabInfo({ member }: { member: Member }) {
       <div className="grid grid-cols-1 md:grid-cols-3 gap-md">
         <StatCard
           label="최근 방문일"
-          value={member.registeredAt ? member.registeredAt.slice(0, 10) : "-"}
+          value={member.lastVisitAt ? member.lastVisitAt.slice(0, 10) : "-"}
           icon={<Clock />}
         />
         <StatCard label="회원권 종류" value={member.membershipType || "-"} icon={<Users />} variant="peach" />
@@ -1508,6 +1518,11 @@ function MemberDetail() {
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [isFavorite, setIsFavorite] = useState(false);
   const [isHoldingModalOpen, setIsHoldingModalOpen] = useState(false);
+  const [isManualAttendanceModalOpen, setIsManualAttendanceModalOpen] = useState(false);
+  const [manualAttendanceDate, setManualAttendanceDate] = useState(getCurrentDateInputValue);
+  const [manualAttendanceTime, setManualAttendanceTime] = useState(getCurrentTimeInputValue);
+  const [manualAttendanceReason, setManualAttendanceReason] = useState('');
+  const [isManualAttendanceSubmitting, setIsManualAttendanceSubmitting] = useState(false);
   const [isWithdrawModalOpen, setIsWithdrawModalOpen] = useState(false);
   const [withdrawReason, setWithdrawReason] = useState('');
   const canTransfer = hasFeature(authUser?.role ?? '', 'memberTransfer', authUser?.isSuperAdmin);
@@ -1546,6 +1561,94 @@ function MemberDetail() {
     setIsFavorite(!isFavorite);
     toast.success(isFavorite ? '즐겨찾기가 해제되었습니다.' : '즐겨찾기에 추가되었습니다.');
   };
+
+  const openManualAttendanceModal = () => {
+    setManualAttendanceDate(getCurrentDateInputValue());
+    setManualAttendanceTime(getCurrentTimeInputValue());
+    setManualAttendanceReason('');
+    setIsManualAttendanceModalOpen(true);
+  };
+
+  const closeManualAttendanceModal = () => {
+    if (isManualAttendanceSubmitting) return;
+    setIsManualAttendanceModalOpen(false);
+  };
+
+  const handleManualAttendanceSubmit = async () => {
+    if (!member || isManualAttendanceSubmitting) return;
+
+    const checkInAt = `${manualAttendanceDate}T${manualAttendanceTime}:00`;
+    setIsManualAttendanceSubmitting(true);
+
+    try {
+      if (isPreview) {
+        setAttendances((prev) => [
+          {
+            id: Date.now(),
+            branchId: member.branchId,
+            checkInAt,
+            checkOutAt: null,
+          },
+          ...prev,
+        ]);
+        setMember((prev) => (prev ? { ...prev, lastVisitAt: checkInAt } : prev));
+        toast.success('프리뷰에서 수동 출석이 기록되었습니다.');
+        setIsManualAttendanceModalOpen(false);
+        return;
+      }
+
+      const branchId = Number(
+        typeof window !== 'undefined' ? localStorage.getItem('branchId') : member.branchId ?? '1'
+      );
+
+      const { error } = await supabase.from('attendance').insert({
+        branchId,
+        memberId: member.id,
+        memberName: member.name,
+        checkInAt,
+        type: 'MANUAL',
+        checkInMethod: 'MANUAL',
+      });
+
+      if (error) {
+        toast.error(`출석 기록 실패: ${error.message}`);
+        return;
+      }
+
+      await supabase
+        .from('members')
+        .update({ lastVisitAt: checkInAt })
+        .eq('id', member.id);
+
+      await createAuditLog({
+        action: AUDIT_ACTIONS.CREATE,
+        targetType: 'attendance',
+        targetId: member.id,
+        detail: {
+          source: 'member-detail-manual-attendance',
+          memberId: member.id,
+          memberName: member.name,
+          checkInAt,
+          reason: manualAttendanceReason || null,
+        },
+      });
+
+      const { data } = await supabase
+        .from('attendance')
+        .select('*')
+        .eq('memberId', member.id)
+        .order('checkInAt', { ascending: false })
+        .limit(20);
+
+      if (data) setAttendances(data as AttendanceRecord[]);
+      setMember((prev) => (prev ? { ...prev, lastVisitAt: checkInAt } : prev));
+      toast.success('출석이 기록되었습니다.');
+      setIsManualAttendanceModalOpen(false);
+    } finally {
+      setIsManualAttendanceSubmitting(false);
+    }
+  };
+
   const [holdDays, setHoldDays] = useState(7);
   const [holdReason, setHoldReason] = useState('');
 
@@ -1985,28 +2088,7 @@ function MemberDetail() {
                   size="sm"
                   className="bg-state-success text-white hover:opacity-90"
                   icon={<CheckCircle2 size={13} />}
-                  onClick={async () => {
-                    const { error } = await supabase.from('attendance').insert({
-                      branchId: Number(typeof window !== 'undefined' ? localStorage.getItem('branchId') : '1'),
-                      memberId: member.id,
-                      memberName: member.name,
-                      checkInAt: new Date().toISOString(),
-                      type: 'MANUAL',
-                      checkInMethod: 'MANUAL',
-                    });
-                    if (error) {
-                      toast.error(`출석 기록 실패: ${error.message}`);
-                      return;
-                    }
-                    toast.success('출석이 기록되었습니다.');
-                    const { data } = await supabase
-                      .from('attendance')
-                      .select('*')
-                      .eq('memberId', member.id)
-                      .order('checkInAt', { ascending: false })
-                      .limit(20);
-                    if (data) setAttendances(data as AttendanceRecord[]);
-                  }}
+                  onClick={openManualAttendanceModal}
                 >
                   수동출석
                 </Button>
@@ -2329,6 +2411,74 @@ function MemberDetail() {
           </div>
         </div>
       )}
+
+      <Modal
+        isOpen={isManualAttendanceModalOpen}
+        onClose={closeManualAttendanceModal}
+        title="수동 출석 처리"
+        size="md"
+        footer={
+          <div className="flex items-center justify-end gap-sm">
+            <Button variant="ghost" onClick={closeManualAttendanceModal} disabled={isManualAttendanceSubmitting}>
+              취소
+            </Button>
+            <Button
+              variant="primary"
+              onClick={handleManualAttendanceSubmit}
+              loading={isManualAttendanceSubmitting}
+              disabled={!manualAttendanceDate || !manualAttendanceTime || isManualAttendanceSubmitting}
+            >
+              처리
+            </Button>
+          </div>
+        }
+      >
+        <div className="space-y-md">
+          <div className="rounded-2xl border border-line bg-surface-secondary px-md py-sm">
+            <div className="text-[12px] text-content-secondary">처리 대상 회원</div>
+            <div className="mt-[2px] text-[14px] font-semibold text-content">
+              {member?.name} #{member?.id}
+            </div>
+            <div className="mt-[2px] text-[12px] text-content-secondary">
+              현재 이용권: {member?.membershipType || '-'}
+            </div>
+          </div>
+
+          <div className="grid gap-md md:grid-cols-2">
+            <div className="space-y-xs">
+              <label className="text-[13px] font-semibold text-content-secondary">
+                출석 날짜 <span className="text-state-error">*</span>
+              </label>
+              <input
+                type="date"
+                value={manualAttendanceDate}
+                onChange={(e) => setManualAttendanceDate(e.target.value)}
+                className="w-full rounded-2xl border border-line px-md py-sm text-[13px] text-content outline-none transition-all focus:border-primary focus:ring-2 focus:ring-primary/10"
+              />
+            </div>
+            <div className="space-y-xs">
+              <label className="text-[13px] font-semibold text-content-secondary">
+                출석 시간 <span className="text-state-error">*</span>
+              </label>
+              <input
+                type="time"
+                value={manualAttendanceTime}
+                onChange={(e) => setManualAttendanceTime(e.target.value)}
+                className="w-full rounded-2xl border border-line px-md py-sm text-[13px] text-content outline-none transition-all focus:border-primary focus:ring-2 focus:ring-primary/10"
+              />
+            </div>
+          </div>
+
+          <Textarea
+            label="처리 사유"
+            rows={3}
+            value={manualAttendanceReason}
+            onChange={(e) => setManualAttendanceReason(e.target.value)}
+            placeholder="예: 키오스크 오류, 회원 요청, 현장 수기 처리"
+            hint="사유는 히스토리 로그 detail에 함께 기록됩니다."
+          />
+        </div>
+      </Modal>
 
       {/* 탈퇴 모달 */}
       {isWithdrawModalOpen && (

@@ -9,6 +9,7 @@ import {
   DollarSign,
   Hash,
   BarChart2,
+  X,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -39,6 +40,10 @@ type RefundItem = {
   approvalNo: string;
   penaltyAmount: number;
   status: string;
+  refundType: string;
+  processedBy: string;
+  processedAt: string;
+  memo: string;
 };
 
 type RefundResponsibilityRow = {
@@ -108,6 +113,10 @@ const buildFallbackRefunds = (salesRows: Record<string, unknown>[]): RefundItem[
       approvalNo: (row.approvalNo as string) ?? '',
       penaltyAmount: Number(row.penaltyAmount) || 0,
       status: refundedSales.length > 0 ? '완료' : idx % 3 === 0 ? '처리중' : '완료',
+      refundType: (row.paymentType as string) ?? '전체환불',
+      processedBy: (row.refundProcessedBy as string) ?? (row.staffName as string) ?? '미기록',
+      processedAt: (row.refundProcessedAt as string)?.slice(0, 16).replace('T', ' ') ?? saleDate,
+      memo: (row.memo as string) ?? '',
     };
   });
 };
@@ -116,6 +125,7 @@ export default function RefundManagement() {
   const [refundData, setRefundData] = useState<RefundItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [penaltyTotal, setPenaltyTotal] = useState(0);
+  const [selectedRefund, setSelectedRefund] = useState<RefundItem | null>(null);
 
   // 날짜 필터 (이번달 기본)
   const today = new Date();
@@ -129,7 +139,7 @@ export default function RefundManagement() {
     setIsLoading(true);
     let query = supabase
       .from('sales')
-      .select('id, memberId, memberName, productName, amount, saleDate, paymentMethod, staffName, originalSaleId, approvalNo, penaltyAmount, status, branchId')
+      .select('id, memberId, memberName, productName, amount, saleDate, paymentMethod, paymentType, staffName, originalSaleId, approvalNo, penaltyAmount, status, branchId, refundReason, refundProcessedBy, refundProcessedAt, memo')
       .eq('branchId', getBranchId())
       .eq('status', 'REFUNDED')
       .order('saleDate', { ascending: false });
@@ -157,18 +167,26 @@ export default function RefundManagement() {
         productName: (row.productName as string) ?? '',
         amount: Number(row.amount) || 0,
         method: METHOD_KO[(row.paymentMethod as string) ?? ''] ?? (row.paymentMethod as string) ?? '',
-        reason: '',
+        reason: String(row.refundReason ?? row.memo ?? '').trim() || '사유 미기록',
         staffName: staffName || '귀속 대기',
         assignmentStatus: staffName ? 'assigned' as const : 'pending' as const,
         originalSaleId: row.originalSaleId == null ? null : Number(row.originalSaleId),
         approvalNo: String(row.approvalNo ?? ''),
         penaltyAmount: Number(row.penaltyAmount) || 0,
         status: '완료',
+        refundType: String(row.paymentType ?? '전체환불'),
+        processedBy: String(row.refundProcessedBy ?? row.staffName ?? '미기록'),
+        processedAt: String(row.refundProcessedAt ?? row.saleDate ?? '').slice(0, 16).replace('T', ' '),
+        memo: String(row.memo ?? ''),
       };
     });
 
     setRefundData(mapped);
     setPenaltyTotal(mapped.reduce((sum, item) => sum + item.penaltyAmount, 0));
+    setSelectedRefund((prev) => {
+      if (!prev) return null;
+      return mapped.find((item) => item.id === prev.id) ?? null;
+    });
   }, [dateStart, dateEnd]);
 
   useEffect(() => {
@@ -317,13 +335,13 @@ export default function RefundManagement() {
       {/* 통계 카드 */}
       <StatCardGrid cols={4} className="mb-xl">
         <StatCard
-          label="이번달 환불 총액"
+          label="조회 기간 환불 총액"
           value={formatKRW(stats.totalAmount)}
           variant="peach"
           icon={<DollarSign />}
         />
         <StatCard
-          label="환불 건수"
+          label="조회 기간 환불 건수"
           value={`${stats.totalCount}건`}
           description={`원매출 연결 ${stats.originalLinkedCount}건 / 담당자 귀속 ${stats.assignedCount}건`}
           icon={<Hash />}
@@ -431,14 +449,85 @@ export default function RefundManagement() {
 
       {/* 테이블 */}
       <div className="bg-surface rounded-xl border border-line shadow-card overflow-hidden">
+        <div className="border-b border-line px-lg py-sm text-[12px] text-content-secondary">
+          환불 행을 클릭하면 상세 이력을 확인할 수 있습니다.
+        </div>
         <DataTable
           columns={columns}
           data={refundData}
           loading={isLoading}
           pagination={{ page: 1, pageSize: 20, total: refundData.length }}
           emptyMessage="환불 내역이 없습니다."
+          onRowClick={(row) => setSelectedRefund(row)}
         />
       </div>
+
+      {selectedRefund && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 p-md backdrop-blur-sm"
+          role="dialog"
+          aria-modal="true"
+          onClick={() => setSelectedRefund(null)}
+        >
+          <div
+            className="w-full max-w-2xl overflow-hidden rounded-[28px] border border-line/70 bg-white/95 shadow-2xl"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="flex items-start justify-between border-b border-line px-xl py-lg">
+              <div>
+                <h2 className="text-[20px] font-bold text-content">환불 상세</h2>
+                <p className="mt-[4px] text-[13px] text-content-secondary">
+                  환불번호 #{selectedRefund.id} · {selectedRefund.memberName}
+                </p>
+              </div>
+              <button
+                type="button"
+                aria-label="닫기"
+                className="rounded-full p-xs text-content-tertiary transition-colors hover:bg-surface-secondary hover:text-content"
+                onClick={() => setSelectedRefund(null)}
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="grid gap-md px-xl py-lg md:grid-cols-2">
+              {[
+                { label: '회원명', value: selectedRefund.memberName },
+                { label: '상품명', value: selectedRefund.productName },
+                { label: '환불일', value: selectedRefund.refundDate || '-' },
+                { label: '처리 일시', value: selectedRefund.processedAt || '-' },
+                { label: '환불 금액', value: formatKRW(selectedRefund.amount) },
+                { label: '위약금', value: selectedRefund.penaltyAmount ? formatKRW(selectedRefund.penaltyAmount) : '-' },
+                { label: '환불 수단', value: selectedRefund.method || '-' },
+                { label: '환불 구분', value: selectedRefund.refundType || '-' },
+                { label: '처리자', value: selectedRefund.processedBy || '-' },
+                { label: '원판매 담당자', value: selectedRefund.staffName || '-' },
+                { label: '원매출 ID', value: selectedRefund.originalSaleId != null ? String(selectedRefund.originalSaleId) : '-' },
+                { label: '승인번호', value: selectedRefund.approvalNo || '-' },
+                { label: '귀속 상태', value: selectedRefund.assignmentStatus === 'assigned' ? '완료' : '대기' },
+                { label: '처리 상태', value: selectedRefund.status || '-' },
+              ].map((item) => (
+                <div key={item.label} className="rounded-2xl border border-line/70 bg-surface px-lg py-md">
+                  <p className="text-[11px] font-black uppercase tracking-[0.12em] text-content-tertiary">{item.label}</p>
+                  <p className="mt-[6px] text-[15px] font-semibold text-content">{item.value}</p>
+                </div>
+              ))}
+            </div>
+
+            <div className="border-t border-line px-xl py-lg">
+              <div className="rounded-2xl border border-line/70 bg-surface px-lg py-md">
+                <p className="text-[11px] font-black uppercase tracking-[0.12em] text-content-tertiary">환불 사유</p>
+                <p className="mt-[6px] whitespace-pre-wrap text-[14px] leading-6 text-content">
+                  {selectedRefund.reason || '사유 미기록'}
+                </p>
+                {selectedRefund.memo && selectedRefund.memo !== selectedRefund.reason && (
+                  <p className="mt-sm text-[12px] text-content-secondary">메모: {selectedRefund.memo}</p>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </AppLayout>
   );
 }

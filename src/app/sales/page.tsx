@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { moveToPage } from '@/internal';
+import { buildPreviewAwarePath } from '@/lib/preview';
 
 import PageHeader from "@/components/common/PageHeader";
 import StatCard from "@/components/common/StatCard";
@@ -32,6 +33,7 @@ import { formatKRW, formatNumber } from '@/lib/format';
 
 type SaleItem = {
   id: number;
+  productId: number;
   no: number;
   purchaseDate: string;
   type: string;
@@ -154,11 +156,18 @@ export default function Sales() {
   useEffect(() => {
     const fetchSales = async () => {
       setIsLoading(true);
-      const { data, error } = await supabase
-        .from('sales')
-        .select('id, memberId, memberName, productId, productName, saleDate, type, round, quantity, originalPrice, salePrice, discountPrice, amount, paymentMethod, paymentType, cash, card, mileageUsed, cardCompany, cardNumber, approvalNo, status, unpaid, staffId, staffName, memo, branchId')
-        .eq('branchId', getBranchId())
-        .order('saleDate', { ascending: false });
+      const branchId = getBranchId();
+      const [{ data, error }, { data: products }] = await Promise.all([
+        supabase
+          .from('sales')
+          .select('id, memberId, memberName, productId, productName, saleDate, type, round, quantity, originalPrice, salePrice, discountPrice, amount, paymentMethod, paymentType, cash, card, mileageUsed, cardCompany, cardNumber, approvalNo, status, unpaid, staffId, staffName, memo, branchId')
+          .eq('branchId', branchId)
+          .order('saleDate', { ascending: false }),
+        supabase
+          .from('products')
+          .select('id, name')
+          .eq('branchId', branchId),
+      ]);
       setIsLoading(false);
       if (error) {
         console.error("매출 데이터 로드 실패:", error);
@@ -166,6 +175,9 @@ export default function Sales() {
         return;
       }
       if (data) {
+        const productIdByName = new Map(
+          (products ?? []).map((product: Record<string, unknown>) => [String(product.name ?? ''), Number(product.id)])
+        );
         setSalesData(
           data.map((row: Record<string, unknown>, idx: number) => {
             const statusEn = (row.status as string) ?? '';
@@ -173,14 +185,17 @@ export default function Sales() {
             const cardAmt = Number(row.card) || 0;
             const cashAmt = Number(row.cash) || 0;
             const mileageAmt = Number(row.mileageUsed) || 0;
+            const productName = (row.productName as string) ?? '';
+            const resolvedProductId = Number(row.productId) || productIdByName.get(productName) || 0;
             // paymentTool: 결제수단 한글 레이블 (복합결제 고려)
             const payTool = PAYMENT_KO[payMethodEn] ?? payMethodEn;
             return {
               id: row.id as number,
+              productId: resolvedProductId,
               no: data.length - idx,
               purchaseDate: (row.saleDate as string)?.slice(0, 10) ?? '',
               type: (row.type as string) ?? '',
-              productName: (row.productName as string) ?? '',
+              productName,
               manager: (row.staffName as string) ?? '',
               buyer: (row.memberName as string) ?? '',
               buyerId: (row.memberId as number) ?? 0,
@@ -393,10 +408,15 @@ export default function Sales() {
     { key: 'type', header: '유형', width: 80, align: 'center' as const,
       render: (val: string) => <StatusBadge variant="secondary">{val}</StatusBadge> },
     { key: 'productName', header: '상품명', width: 200,
-      render: (val: string) => (
+      render: (val: string, row: SaleItem) => (
         <button
           className="text-content-secondary hover:text-primary hover:underline font-medium text-left transition-colors"
-          onClick={() => moveToPage(971)}
+          onClick={() => {
+            const target = row.productId
+              ? buildPreviewAwarePath('/products/detail', { id: row.productId })
+              : buildPreviewAwarePath('/products');
+            window.location.assign(target);
+          }}
         >{val}</button>
       )
     },

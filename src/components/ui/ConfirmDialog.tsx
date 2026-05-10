@@ -46,7 +46,11 @@ export default function ConfirmDialog({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-content/50 backdrop-blur-sm p-md" >
-      <div className="w-full max-w-sm rounded-modal bg-surface p-xl shadow-card animate-in fade-in zoom-in duration-200" >
+      <div
+        className="w-full max-w-sm rounded-modal bg-surface p-xl shadow-card animate-in fade-in zoom-in duration-200"
+        role="dialog"
+        aria-modal="true"
+      >
         <h3 className="text-Section-Title text-content" >{title}</h3>
         
         {description && (

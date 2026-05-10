@@ -735,15 +735,17 @@ export default function Dashboard() {
         description={`${branchName}의 실시간 센터 운영 현황입니다.`}
         actions={
           <div className="flex items-center gap-sm">
-            <div className="flex items-center gap-[6px] rounded-lg border border-line bg-surface px-md py-[6px]">
+            <div className="flex items-center gap-sm rounded-lg border border-line bg-surface px-md py-[6px]">
               <span className="text-[12px] text-content-tertiary">갱신: {formatTime(lastRefreshed)}</span>
-              <button
-                className={cn("text-content-tertiary hover:text-primary transition-colors", isRefreshing && "animate-spin text-primary")}
+              <Button
+                variant="ghost"
+                size="sm"
+                icon={<RefreshCw size={13} className={cn(isRefreshing && "animate-spin")} />}
                 onClick={handleRefresh}
                 disabled={isRefreshing}
               >
-                <RefreshCw size={13} />
-              </button>
+                새로고침
+              </Button>
             </div>
             <Button variant="primary" size="sm" onClick={() => moveToPage(986)}>
               회원 신규 등록
@@ -1108,8 +1110,8 @@ export default function Dashboard() {
                     },
                     {
                       key: "action", header: "", align: "right",
-                      render: () => (
-                        <Button variant="ghost" size="sm" onClick={() => moveToPage(971)}>결제</Button>
+                      render: (_val, row) => (
+                        <Button variant="ghost" size="sm" onClick={() => moveToPage(971, { memberId: String(row.id) })}>결제</Button>
                       ),
                     },
                   ]}

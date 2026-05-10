@@ -1,8 +1,10 @@
 'use client';
 import React, { useCallback, useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { Search, RefreshCcw, AlertTriangle, CheckCircle } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '@/lib/supabase';
+import ConfirmDialog from '@/components/ui/ConfirmDialog';
 
 interface Payment {
   id: number;
@@ -39,6 +41,7 @@ const getBranchId = () => {
 const approvalNo = () => `RF${Date.now().toString().slice(-6)}${Math.floor(Math.random() * 9000) + 1000}`;
 
 export default function CancelRefundPage() {
+  const router = useRouter();
   const [query, setQuery] = useState('');
   const [payments, setPayments] = useState<Payment[]>([]);
   const [loading, setLoading] = useState(false);
@@ -47,6 +50,8 @@ export default function CancelRefundPage() {
   const [partialAmount, setPartialAmount] = useState('');
   const [reason, setReason] = useState(cancelReasons[0]);
   const [result, setResult] = useState<ResultStatus>(null);
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const fetchPayments = useCallback(async () => {
     setLoading(true);
@@ -91,14 +96,41 @@ export default function CancelRefundPage() {
     (p) => p.memberName.includes(query) || String(p.id).includes(query) || p.product.includes(query)
   );
 
-  async function handleSubmit() {
-    if (!selected) return;
-    const refundAmount = action === 'cancel' ? selected.amount : Number(partialAmount);
+  const resetFlow = useCallback(() => {
+    setResult(null);
+    setSelected(null);
+    setPartialAmount('');
+    setReason(cancelReasons[0]);
+    setAction('cancel');
+    setConfirmOpen(false);
+    setIsSubmitting(false);
+  }, []);
+
+  const refundAmount = selected
+    ? action === 'cancel'
+      ? selected.amount
+      : Number(partialAmount)
+    : 0;
+
+  const validateRefundAmount = () => {
+    if (!selected) return false;
     if (!refundAmount || refundAmount <= 0 || refundAmount > selected.amount) {
       toast.error('환불 금액을 확인해 주세요.');
-      return;
+      return false;
     }
+    return true;
+  };
 
+  const handleOpenConfirm = () => {
+    if (!validateRefundAmount()) return;
+    setConfirmOpen(true);
+  };
+
+  async function handleSubmit() {
+    if (!selected) return;
+    if (!validateRefundAmount()) return;
+
+    setIsSubmitting(true);
     const { error } = await supabase.from('sales').insert({
       memberId: selected.memberId,
       memberName: selected.memberName,
@@ -137,18 +169,15 @@ export default function CancelRefundPage() {
     });
 
     if (error) {
+      setIsSubmitting(false);
       toast.error(`환불 처리 실패: ${error.message}`);
       return;
     }
 
+    setConfirmOpen(false);
     setResult('success');
+    setIsSubmitting(false);
     toast.success('환불 처리가 완료되었습니다.');
-    setTimeout(() => {
-      setResult(null);
-      setSelected(null);
-      setPartialAmount('');
-      setReason(cancelReasons[0]);
-    }, 2000);
     fetchPayments();
   }
 
@@ -171,7 +200,7 @@ export default function CancelRefundPage() {
           <input
             type="text"
             value={query}
-            onChange={(e) => { setQuery(e.target.value); setSelected(null); setResult(null); }}
+            onChange={(e) => { setQuery(e.target.value); setSelected(null); setResult(null); setConfirmOpen(false); }}
             placeholder="회원명, 결제번호, 상품명으로 검색"
             className="w-full pl-9 pr-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
@@ -204,7 +233,14 @@ export default function CancelRefundPage() {
                     <td className="px-4 py-3 text-center text-gray-500">{METHOD_KO[p.method] ?? p.method}</td>
                     <td className="px-4 py-3 text-center">
                       <button
-                        onClick={() => { setSelected(p); setResult(null); }}
+                        onClick={() => {
+                          setSelected(p);
+                          setResult(null);
+                          setConfirmOpen(false);
+                          setAction('cancel');
+                          setPartialAmount('');
+                          setReason(cancelReasons[0]);
+                        }}
                         className={`px-3 py-1 text-xs rounded-lg font-medium transition-colors ${
                           selected?.id === p.id
                             ? 'bg-blue-600 text-white'
@@ -228,12 +264,53 @@ export default function CancelRefundPage() {
           <h2 className="text-base font-semibold text-gray-800">2. 취소 / 환불 처리</h2>
 
           {/* 선택된 결제 요약 */}
-          <div className="bg-gray-50 rounded-lg p-4 flex items-center justify-between text-sm">
-            <div>
-              <span className="font-medium text-gray-900">{selected.memberName}</span>
-              <span className="text-gray-500 ml-2">{selected.product}</span>
+          <div className="bg-gray-50 rounded-lg p-4 text-sm">
+            <div className="flex items-center justify-between">
+              <div>
+                <span className="font-medium text-gray-900">{selected.memberName}</span>
+                <span className="text-gray-500 ml-2">{selected.product}</span>
+              </div>
+              <span className="font-bold text-gray-900">{selected.amount.toLocaleString()}원</span>
             </div>
-            <span className="font-bold text-gray-900">{selected.amount.toLocaleString()}원</span>
+            <div className="mt-3 grid gap-2 text-xs text-gray-600 md:grid-cols-4">
+              <div>
+                <p className="font-medium text-gray-500">결제번호</p>
+                <p className="mt-1 font-mono text-gray-800">SALE-{selected.id}</p>
+              </div>
+              <div>
+                <p className="font-medium text-gray-500">결제일</p>
+                <p className="mt-1 text-gray-800">{selected.paidAt}</p>
+              </div>
+              <div>
+                <p className="font-medium text-gray-500">결제수단</p>
+                <p className="mt-1 text-gray-800">{METHOD_KO[selected.method] ?? selected.method}</p>
+              </div>
+              <div>
+                <p className="font-medium text-gray-500">담당자</p>
+                <p className="mt-1 text-gray-800">{selected.staffName || '-'}</p>
+              </div>
+            </div>
+          </div>
+
+          <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm">
+            <p className="font-medium text-amber-900">환불 계산 요약</p>
+            <div className="mt-3 grid gap-2 text-xs text-amber-900 md:grid-cols-3">
+              <div className="rounded-md bg-white/70 px-3 py-2">
+                <p className="text-amber-700">원결제금액</p>
+                <p className="mt-1 font-semibold">{selected.amount.toLocaleString()}원</p>
+              </div>
+              <div className="rounded-md bg-white/70 px-3 py-2">
+                <p className="text-amber-700">이번 환불 가능액</p>
+                <p className="mt-1 font-semibold">{selected.amount.toLocaleString()}원</p>
+              </div>
+              <div className="rounded-md bg-white/70 px-3 py-2">
+                <p className="text-amber-700">최종 환불액</p>
+                <p className="mt-1 font-semibold">{refundAmount ? refundAmount.toLocaleString() : selected.amount.toLocaleString()}원</p>
+              </div>
+            </div>
+            <p className="mt-2 text-xs text-amber-800">
+              현재 퍼블리싱에서는 기사용 차감금, 위약금, 기환불 누계의 상세 계산식은 제공되지 않습니다.
+            </p>
           </div>
 
           {/* 처리 유형 선택 */}
@@ -300,11 +377,11 @@ export default function CancelRefundPage() {
               취소
             </button>
             <button
-              onClick={handleSubmit}
+              onClick={handleOpenConfirm}
               disabled={action === 'partial' && (!partialAmount || Number(partialAmount) > selected.amount)}
               className="flex-1 py-2.5 bg-red-600 text-white rounded-lg text-sm font-medium hover:bg-red-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
             >
-              {action === 'cancel' ? '전체 취소 처리' : '부분 환불 처리'}
+              {action === 'cancel' ? '처리 확인' : '부분 환불 확인'}
             </button>
           </div>
         </div>
@@ -312,14 +389,71 @@ export default function CancelRefundPage() {
 
       {/* 처리 결과 */}
       {result === 'success' && (
-        <div className="bg-green-50 border border-green-200 rounded-xl p-5 flex items-center gap-3">
-          <CheckCircle className="w-6 h-6 text-green-600 flex-shrink-0" />
-          <div>
-            <p className="text-sm font-semibold text-green-800">처리가 완료되었습니다.</p>
-            <p className="text-xs text-green-600 mt-0.5">환불 금액은 결제 수단에 따라 영업일 기준 1~5일 내 처리됩니다.</p>
+        <div className="bg-green-50 border border-green-200 rounded-xl p-5">
+          <div className="flex items-center gap-3">
+            <CheckCircle className="w-6 h-6 text-green-600 flex-shrink-0" />
+            <div>
+              <p className="text-sm font-semibold text-green-800">처리가 완료되었습니다.</p>
+              <p className="text-xs text-green-600 mt-0.5">환불 금액은 결제 수단에 따라 영업일 기준 1~5일 내 처리됩니다.</p>
+            </div>
+          </div>
+          <div className="mt-4 flex flex-col gap-2 sm:flex-row">
+            <button
+              onClick={() => router.push('/refunds')}
+              className="flex-1 rounded-lg bg-green-600 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-green-700"
+            >
+              환불 관리로 이동
+            </button>
+            <button
+              onClick={resetFlow}
+              className="flex-1 rounded-lg border border-green-200 bg-white px-4 py-2.5 text-sm font-medium text-green-700 transition-colors hover:bg-green-50"
+            >
+              계속 처리
+            </button>
           </div>
         </div>
       )}
+
+      <ConfirmDialog
+        open={confirmOpen}
+        title="환불 처리 확인"
+        description="아래 내용을 확인한 뒤 처리 완료를 누르세요."
+        confirmLabel={isSubmitting ? '처리 중...' : '처리 완료'}
+        cancelLabel="이전으로"
+        variant="danger"
+        onCancel={() => {
+          if (isSubmitting) return;
+          setConfirmOpen(false);
+        }}
+        onConfirm={handleSubmit}
+      >
+        {selected && (
+          <div className="space-y-3 text-sm text-gray-700">
+            <div className="rounded-lg bg-gray-50 p-3">
+              <p className="font-semibold text-gray-900">{selected.memberName}</p>
+              <p className="mt-1 text-gray-600">{selected.product}</p>
+            </div>
+            <div className="grid grid-cols-2 gap-2 text-xs">
+              <div className="rounded-lg border border-gray-100 p-3">
+                <p className="text-gray-500">처리 유형</p>
+                <p className="mt-1 font-semibold text-gray-900">{action === 'cancel' ? '전체 취소' : '부분 환불'}</p>
+              </div>
+              <div className="rounded-lg border border-gray-100 p-3">
+                <p className="text-gray-500">환불 금액</p>
+                <p className="mt-1 font-semibold text-gray-900">{refundAmount.toLocaleString()}원</p>
+              </div>
+              <div className="rounded-lg border border-gray-100 p-3">
+                <p className="text-gray-500">환불 수단</p>
+                <p className="mt-1 font-semibold text-gray-900">{METHOD_KO[selected.method] ?? selected.method}</p>
+              </div>
+              <div className="rounded-lg border border-gray-100 p-3">
+                <p className="text-gray-500">취소 사유</p>
+                <p className="mt-1 font-semibold text-gray-900">{reason}</p>
+              </div>
+            </div>
+          </div>
+        )}
+      </ConfirmDialog>
     </div>
   );
 }

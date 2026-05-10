@@ -3,6 +3,7 @@ export const dynamic = 'force-dynamic';
 
 ﻿import React, { useState, useEffect } from 'react';
 import { Eye, EyeOff, Lock, User, Loader2, Check, X, KeyRound, Copy } from 'lucide-react';
+import { useRouter } from 'next/navigation';
 import { moveToPage } from '@/internal';
 import { cn } from '@/lib/utils';
 import { useLogin } from '@/api/hooks/useAuth';
@@ -103,6 +104,7 @@ function clearFailCount() {
 }
 
 export default function Login() {
+  const router = useRouter();
   const [id, setId] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -348,7 +350,7 @@ export default function Login() {
             <button
               className="text-[13px] text-content-secondary hover:text-primary transition-colors font-medium"
               type="button"
-              onClick={() => toast.info('비밀번호 찾기는 관리자에게 문의해주세요.')}
+              onClick={() => router.push('/reset-password')}
             >
               비밀번호 찾기
             </button>
@@ -552,4 +554,3 @@ function CredentialRow({
     </div>
   );
 }
-

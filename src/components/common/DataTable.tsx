@@ -237,6 +237,7 @@ export default function DataTable<T extends Record<string, any>>({
                         className="w-3.5 h-3.5 rounded border-line text-primary focus:ring-0 cursor-pointer accent-primary"
                         type="checkbox"
                         checked={selectedRows.has(idx)}
+                        onClick={(e) => e.stopPropagation()}
                         onChange={() => toggleSelectRow(idx)}
                       />
                     </td>

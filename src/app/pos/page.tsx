@@ -2,6 +2,7 @@
 export const dynamic = 'force-dynamic';
 
 import React, { useState, useMemo, useEffect, useRef } from 'react';
+import { useSearchParams } from 'next/navigation';
 import {
   Plus,
   Trash2,
@@ -156,6 +157,8 @@ interface Member {
 
 // --- 메인 컴포넌트 ---
 export default function SalesPos() {
+  const searchParams = useSearchParams();
+  const preselectedMemberId = searchParams?.get('memberId');
   const [activeTab, setActiveTab] = useState('이용권');
   const [searchQuery, setSearchQuery] = useState('');
   const [cart, setCart] = useState<CartItem[]>([]);
@@ -196,6 +199,32 @@ export default function SalesPos() {
     };
     fetchProducts();
   }, []);
+
+  useEffect(() => {
+    if (!preselectedMemberId) return;
+
+    const fetchBuyer = async () => {
+      const { data, error } = await supabase
+        .from('members')
+        .select('id, name, phone')
+        .eq('id', preselectedMemberId)
+        .single();
+
+      if (error || !data) return;
+
+      const buyerFromQuery = {
+        id: data.id as number,
+        name: data.name as string,
+        phone: data.phone as string,
+      };
+
+      setBuyer(buyerFromQuery);
+      setBuyerQuery(`${buyerFromQuery.name} (${buyerFromQuery.phone})`);
+      setBuyerResults([]);
+    };
+
+    fetchBuyer();
+  }, [preselectedMemberId]);
 
   // 상품 필터링
   const filteredProducts = useMemo(() => {
