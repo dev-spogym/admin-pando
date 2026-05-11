@@ -1,19 +1,30 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { User, Camera, Lock, LogOut, Save, Loader2, Shield } from 'lucide-react';
 import { useAuthStore } from '@/stores/authStore';
 import { useRouter } from 'next/navigation';
 
 export default function ProfilePage() {
-  const user = useAuthStore(s => s.user);
+  const authUser = useAuthStore(s => s.user);
   const router = useRouter();
+  const [mounted, setMounted] = useState(false);
+  const user = mounted ? authUser : null;
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [form, setForm] = useState({
-    name: user?.name ?? '관리자',
+    name: '관리자',
     phone: '',
   });
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  useEffect(() => {
+    if (!mounted || !authUser?.name) return;
+    setForm((current) => ({ ...current, name: authUser.name }));
+  }, [authUser?.name, mounted]);
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();

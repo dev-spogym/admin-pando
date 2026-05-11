@@ -380,7 +380,8 @@ const AppHeader = ({
         <div className="relative">
           {/* 돋보기 아이콘 (클릭 시 검색 실행) */}
           <button
-            className="absolute left-[12px] top-1/2 -translate-y-1/2 text-content-tertiary hover:text-content transition-colors"
+            aria-label="회원 검색 실행"
+            className="absolute left-[12px] top-1/2 z-10 -translate-y-1/2 text-content-tertiary hover:text-content transition-colors"
             onClick={handleSearchSubmit}
             tabIndex={-1}
           >

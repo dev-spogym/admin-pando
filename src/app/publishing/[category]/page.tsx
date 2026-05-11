@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import { notFound } from "next/navigation";
 import PublishingCategoryGallery from "@/components/publishing/PublishingCategoryGallery";
 import { getPublishingCategory } from "@/lib/publishingCatalog";
@@ -15,5 +16,9 @@ export default async function PublishingCategoryPage({ params }: PublishingCateg
     notFound();
   }
 
-  return <PublishingCategoryGallery categorySlug={category} />;
+  return (
+    <Suspense>
+      <PublishingCategoryGallery categorySlug={category} />
+    </Suspense>
+  );
 }

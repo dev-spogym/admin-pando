@@ -412,10 +412,11 @@ function MemberList() {
       render: (v: unknown) => <span className="tabular-nums">{v ? String(v).slice(0, 10) : '-'}</span>,
     },
     {
-      key: 'membershipExpiry', header: 'D-Day', width: 80, align: 'center' as const,
-      render: (v: unknown) => {
-        if (!v) return <span className="text-content-secondary">-</span>;
-        const diff = Math.ceil((new Date(String(v)).getTime() - Date.now()) / 86400000);
+      key: 'membershipDDay', header: 'D-Day', width: 80, align: 'center' as const,
+      render: (_: unknown, row: Member) => {
+        const expiry = row.membershipExpiry;
+        if (!expiry) return <span className="text-content-secondary">-</span>;
+        const diff = Math.ceil((new Date(String(expiry)).getTime() - Date.now()) / 86400000);
         if (diff < 0) return <span className="text-state-error text-[12px] font-semibold">만료</span>;
         if (diff === 0) return <span className="text-state-warning text-[12px] font-semibold">D-Day</span>;
         return <span className={cn('text-[12px] font-semibold tabular-nums', diff <= 7 ? 'text-state-warning' : 'text-content')}>{`D-${diff}`}</span>;

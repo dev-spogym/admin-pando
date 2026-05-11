@@ -156,7 +156,7 @@ interface Member {
 }
 
 // --- 메인 컴포넌트 ---
-export default function SalesPos() {
+function SalesPos() {
   const searchParams = useSearchParams();
   const preselectedMemberId = searchParams?.get('memberId');
   const [activeTab, setActiveTab] = useState('이용권');
@@ -592,5 +592,13 @@ export default function SalesPos() {
         </div>
       )}
     </AppLayout>
+  );
+}
+
+export default function SalesPosPage() {
+  return (
+    <React.Suspense>
+      <SalesPos />
+    </React.Suspense>
   );
 }

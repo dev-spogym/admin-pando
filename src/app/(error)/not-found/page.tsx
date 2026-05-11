@@ -1,7 +1,7 @@
 'use client';
 export const dynamic = 'force-dynamic';
 
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { moveToPage } from '@/internal';
 import { useAuthStore } from '@/stores/authStore';
 import { getDefaultWorkspace } from '@/lib/appNavigation';
@@ -9,9 +9,15 @@ import { getDefaultWorkspace } from '@/lib/appNavigation';
 // 404 NotFound 페이지 - AppLayout 없이 독립 렌더링
 export default function NotFound() {
   const authUser = useAuthStore((s) => s.user);
-  const workspace = authUser
-    ? getDefaultWorkspace(authUser.role, authUser.isSuperAdmin)
+  const [mounted, setMounted] = useState(false);
+  const mountedUser = mounted ? authUser : null;
+  const workspace = mountedUser
+    ? getDefaultWorkspace(mountedUser.role, mountedUser.isSuperAdmin)
     : { label: '로그인', viewId: 990, path: '/login' };
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   return (
     <div className="min-h-screen bg-surface flex items-center justify-center px-4">
