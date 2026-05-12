@@ -150,7 +150,7 @@ export default function Sales() {
     CARD: '카드',
     CASH: '현금',
     TRANSFER: '계좌이체',
-    MILEAGE: '마일리지',
+    MILEAGE: '포인트',
   };
 
   useEffect(() => {
@@ -436,7 +436,7 @@ export default function Sales() {
       render: (v: number) => <span className="tabular-nums">{formatNumber(v)}</span> },
     { key: 'card', header: '카드', width: 90, align: 'right' as const,
       render: (v: number) => <span className="tabular-nums">{formatNumber(v)}</span> },
-    { key: 'mileage', header: '마일리지', width: 90, align: 'right' as const,
+    { key: 'mileage', header: '포인트', width: 90, align: 'right' as const,
       render: (v: number) => <span className="tabular-nums">{formatNumber(v)}</span> },
     { key: 'unpaid', header: '미수금', width: 90, align: 'right' as const,
       render: (v: number) => (
@@ -543,7 +543,7 @@ export default function Sales() {
       { key: 'paymentTool', header: '결제수단' },
       { key: 'cash', header: '현금' },
       { key: 'card', header: '카드' },
-      { key: 'mileage', header: '마일리지' },
+      { key: 'mileage', header: '포인트' },
       { key: 'unpaid', header: '미수금' },
       { key: 'cardCompany', header: '카드사' },
       { key: 'cardNumber', header: '카드번호' },
@@ -881,7 +881,7 @@ export default function Sales() {
             <p className="text-[18px] font-bold text-content tabular-nums">{formatKRW(summary.card)}</p>
           </div>
           <div>
-            <p className="text-[11px] text-content-tertiary mb-xs">마일리지 합계</p>
+            <p className="text-[11px] text-content-tertiary mb-xs">포인트 합계</p>
             <p className="text-[18px] font-bold text-content tabular-nums">{formatKRW(summary.mileage)}</p>
           </div>
         </div>
@@ -1005,7 +1005,7 @@ export default function Sales() {
                   <p className="text-[13px] tabular-nums text-content">{formatKRW(selectedSale.cash)}</p>
                 </div>
                 <div>
-                  <p className="text-[11px] text-content-tertiary mb-xs">마일리지</p>
+                  <p className="text-[11px] text-content-tertiary mb-xs">포인트</p>
                   <p className="text-[13px] tabular-nums text-content">{formatKRW(selectedSale.mileage)}</p>
                 </div>
                 <div>

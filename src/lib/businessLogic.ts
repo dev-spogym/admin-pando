@@ -4,7 +4,7 @@
  * - 출석 시 잔여횟수 차감
  * - 홀딩 잔여일수 계산/연장
  * - 결제 후 이용권 시작/종료일 자동 설정
- * - 마일리지 자동 적립/차감
+ * - 포인트 자동 적립/차감
  * - 락커 만료 자동 처리
  * - 쿠폰 만료 자동 처리
  * - 중복 결제/등록 방지
@@ -217,8 +217,8 @@ export const getNetSalesStats = async (params?: {
   };
 };
 
-// ─── 7. 마일리지 적립/차감 ──────────────────────────────────
-/** 결제 완료 시 마일리지 자동 적립 (결제금액의 1%) */
+// ─── 7. 포인트 적립/차감 ──────────────────────────────────
+/** 결제 완료 시 포인트 자동 적립 (결제금액의 1%) */
 export const accruePoints = async (
   memberId: number,
   paymentAmount: number,
@@ -248,7 +248,7 @@ export const accruePoints = async (
   return { success: true, accrued, newBalance };
 };
 
-/** 마일리지 차감 (마일리지 결제 시) */
+/** 포인트 차감 (포인트 사용 시) */
 export const deductPoints = async (
   memberId: number,
   amount: number
@@ -265,7 +265,7 @@ export const deductPoints = async (
 
   const current = Number(member.mileage) || 0;
   if (current < amount) {
-    return { success: false, message: `마일리지 부족 (보유: ${current}, 필요: ${amount})` };
+    return { success: false, message: `포인트 부족 (보유: ${current}, 필요: ${amount})` };
   }
 
   const newBalance = current - amount;
@@ -274,7 +274,7 @@ export const deductPoints = async (
     .update({ mileage: newBalance, updatedAt: new Date().toISOString() })
     .eq('id', memberId);
 
-  if (error) return { success: false, message: '마일리지 차감 실패' };
+  if (error) return { success: false, message: '포인트 차감 실패' };
   return { success: true, newBalance };
 };
 

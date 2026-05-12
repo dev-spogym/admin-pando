@@ -33,6 +33,7 @@ scripts/*
 !scripts/check-doc-drift.ts
 !scripts/check-feature-codes.ts
 !scripts/check-route-doc-coverage.ts
+!scripts/export-publishing-client-package.ts
 !scripts/scenarios/
 !scripts/scenarios/**
 !scripts/run-scenarios.ts

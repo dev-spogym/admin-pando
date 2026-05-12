@@ -35,6 +35,8 @@ interface Product {
   category: string;
   cashPrice: number;
   cardPrice: number;
+  durationDays: number | null;
+  sessions: number | null;
   period: string;
   count: string;
   productType: string | null;
@@ -153,6 +155,7 @@ interface Member {
   id: number;
   name: string;
   phone: string;
+  mileage?: number;
 }
 
 // --- 메인 컴포넌트 ---
@@ -188,6 +191,8 @@ function SalesPos() {
             // DB의 cashPrice/cardPrice를 우선 사용, 없으면 price로 폴백
             cashPrice: Number(p.cashPrice ?? p.price ?? 0),
             cardPrice: Number(p.cardPrice ?? p.price ?? 0),
+            durationDays: p.duration === null || p.duration === undefined ? null : Number(p.duration),
+            sessions: p.sessions === null || p.sessions === undefined ? null : Number(p.sessions),
             period: p.duration ? String(p.duration) : '-',
             count: p.sessions ? String(p.sessions) : '-',
             productType: (p.productType as string) ?? null,
@@ -206,7 +211,7 @@ function SalesPos() {
     const fetchBuyer = async () => {
       const { data, error } = await supabase
         .from('members')
-        .select('id, name, phone')
+        .select('id, name, phone, mileage')
         .eq('id', preselectedMemberId)
         .single();
 
@@ -216,6 +221,7 @@ function SalesPos() {
         id: data.id as number,
         name: data.name as string,
         phone: data.phone as string,
+        mileage: Number(data.mileage ?? 0),
       };
 
       setBuyer(buyerFromQuery);
@@ -294,7 +300,7 @@ function SalesPos() {
     if (!query.trim()) { setBuyerResults([]); return; }
     const { data, error } = await supabase
       .from('members')
-      .select('id, name, phone')
+      .select('id, name, phone, mileage')
       .eq('branchId', getBranchId())
       .or(`name.ilike.%${query}%,phone.ilike.%${query}%`)
       .limit(10);
@@ -303,6 +309,7 @@ function SalesPos() {
         id: m.id as number,
         name: m.name as string,
         phone: m.phone as string,
+        mileage: Number(m.mileage ?? 0),
       })));
     }
   };
@@ -523,6 +530,9 @@ function SalesPos() {
                     category: item.category,
                     price: item.priceType === 'cash' ? item.cashPrice : item.cardPrice,
                     quantity: item.quantity,
+                    durationDays: item.durationDays,
+                    sessions: item.sessions,
+                    productType: item.productType,
                   }));
                   sessionStorage.setItem('posCart', JSON.stringify(cartData));
                   if (buyer) {

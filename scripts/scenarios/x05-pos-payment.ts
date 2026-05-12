@@ -1,4 +1,7 @@
 // X05 — POS 결제 → 이용권 개시
+import fs from 'node:fs'
+import os from 'node:os'
+import path from 'node:path'
 import {
   setupBrowser, login, makeStepRunner, calcResult, printResult,
   BASE_URL, STEP_TIMEOUT,
@@ -6,6 +9,18 @@ import {
 
 const ID = 'X05'
 const NAME = 'POS 결제→이용권개시'
+
+const getReceiptFixturePath = () => {
+  const receiptPath = path.join(os.tmpdir(), 'fitgenie-x05-receipt.png')
+  if (!fs.existsSync(receiptPath)) {
+    const onePixelPng = Buffer.from(
+      'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/p9sAAAAASUVORK5CYII=',
+      'base64',
+    )
+    fs.writeFileSync(receiptPath, onePixelPng)
+  }
+  return receiptPath
+}
 
 async function run() {
   const { browser, page } = await setupBrowser()
@@ -69,9 +84,16 @@ async function run() {
       await page.waitForTimeout(700)
     })
 
-    // Step 4: 결제 수단 선택 (카드) 및 결제
-    await step(4, '결제 수단 선택 및 결제 완료', async () => {
-      // 카드 선택
+    // Step 4: 현장 영수증 첨부 후 결제 완료 등록
+    await step(4, '영수증 첨부 및 결제 완료 등록', async () => {
+      const payBtn = page
+        .locator('button:has-text("결제하기")')
+        .first()
+      await payBtn.waitFor({ state: 'visible', timeout: STEP_TIMEOUT })
+      await payBtn.click()
+      await page.waitForURL(`${BASE_URL}/pos/payment`, { timeout: STEP_TIMEOUT })
+      await page.waitForTimeout(1000)
+
       const cardOption = page
         .locator('button:has-text("카드"), input[value="CARD"], label:has-text("카드"), button:has-text("신용카드")')
         .first()
@@ -80,22 +102,22 @@ async function run() {
         await page.waitForTimeout(500)
       }
 
-      // 결제 버튼
-      const payBtn = page
-        .locator('button:has-text("결제"), button:has-text("결제하기"), button:has-text("완료"), button:has-text("처리")')
-        .first()
-      await payBtn.waitFor({ state: 'visible', timeout: STEP_TIMEOUT })
-      await payBtn.click()
-      await page.waitForTimeout(2000)
+      await page.locator('input[type="file"]').first().setInputFiles(getReceiptFixturePath())
+      await page.waitForTimeout(500)
 
-      // 확인 모달이 있으면 처리
-      const confirmBtn = page
-        .locator('button:has-text("확인"), button:has-text("완료"), button:has-text("결제 완료")')
+      const registerBtn = page
+        .locator('button:has-text("결제 완료 등록")')
         .first()
-      if (await confirmBtn.isVisible().catch(() => false)) {
-        await confirmBtn.click()
-        await page.waitForTimeout(1500)
-      }
+      await registerBtn.waitFor({ state: 'visible', timeout: STEP_TIMEOUT })
+      await registerBtn.click()
+      await page.waitForTimeout(700)
+
+      const confirmBtn = page
+        .locator('button:has-text("결제 완료 등록")')
+        .last()
+      await confirmBtn.waitFor({ state: 'visible', timeout: STEP_TIMEOUT })
+      await confirmBtn.click()
+      await page.waitForTimeout(2000)
     })
 
     // Step 5: /sales 에서 결제 내역 확인

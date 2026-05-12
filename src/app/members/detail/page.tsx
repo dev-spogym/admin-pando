@@ -1505,7 +1505,8 @@ function MemberDetail() {
   const scenario = getPreviewScenario(searchParams, "active");
   const router = useRouter();
   const activeTab = searchParams?.get("tab") || "info";
-  const memberId = searchParams?.get("id") ?? null;
+  const requestedMemberId = searchParams?.get("id") ?? null;
+  const memberId = requestedMemberId ?? (isPreview ? "1001" : null);
   const setActiveTab = (tab: string) => {
     const params = new URLSearchParams();
     if (memberId) params.set("id", memberId);
@@ -2001,8 +2002,8 @@ function MemberDetail() {
           <span className="text-content font-medium">{member.name} 회원 상세</span>
         </nav>
 
-        {/* 고정 영역: 컴팩트 프로필 + 탭 네비게이션 */}
-        <div className="sticky top-0 z-10 bg-surface-secondary -mx-lg px-lg -mt-lg pt-lg pb-0">
+        {/* 상단 요약 영역: 큰 운영 코크핏은 sticky 처리하지 않아 탭 콘텐츠 높이를 확보한다. */}
+        <div className="bg-surface-secondary -mx-lg px-lg -mt-lg pt-lg pb-0">
 
           {/* 만료 알림 배너 (sticky 위에 표시) */}
           {dDay !== null && dDay <= 7 && dDay >= 0 && (
@@ -2119,7 +2120,7 @@ function MemberDetail() {
 
           {/* 운영 코크핏 */}
           <div className="border-x border-line bg-white/92 px-lg py-md shadow-card">
-            <div className="grid gap-md xl:grid-cols-[1.3fr_0.9fr]">
+            <div className="grid items-start gap-md xl:grid-cols-[1.2fr_0.8fr_0.9fr]">
               <div className="rounded-xl border border-line bg-surface p-md">
                 <div className="mb-sm flex items-center justify-between gap-sm">
                   <div>
@@ -2168,38 +2169,36 @@ function MemberDetail() {
                 )}
               </div>
 
-              <div className="grid gap-md">
-                <div className="rounded-xl border border-line bg-surface p-md">
-                  <p className="mb-sm text-[11px] font-black uppercase tracking-[0.14em] text-content-tertiary">Next Actions</p>
-                  <div className="grid gap-sm">
-                    {actionQueue.map((action) => (
-                      <Button
-                        key={action.key}
-                        variant={action.variant}
-                        size="sm"
-                        className="justify-start"
-                        icon={action.icon}
-                        onClick={action.onClick}
-                      >
-                        {action.label}
-                      </Button>
-                    ))}
-                  </div>
+              <div className="rounded-xl border border-line bg-surface p-md">
+                <p className="mb-sm text-[11px] font-black uppercase tracking-[0.14em] text-content-tertiary">Next Actions</p>
+                <div className="grid gap-sm">
+                  {actionQueue.map((action) => (
+                    <Button
+                      key={action.key}
+                      variant={action.variant}
+                      size="sm"
+                      className="justify-start"
+                      icon={action.icon}
+                      onClick={action.onClick}
+                    >
+                      {action.label}
+                    </Button>
+                  ))}
                 </div>
+              </div>
 
-                <div className="rounded-xl border border-line bg-surface p-md">
-                  <p className="mb-sm text-[11px] font-black uppercase tracking-[0.14em] text-content-tertiary">Recent Signals</p>
-                  <div className="space-y-xs">
-                    {recentTimeline.map((item) => (
-                      <div key={item.key} className="flex items-center justify-between rounded-lg bg-surface-secondary/70 px-sm py-sm">
-                        <div>
-                          <p className="text-[12px] font-semibold text-content">{item.label}</p>
-                          <p className="text-[11px] text-content-tertiary">{item.meta}</p>
-                        </div>
-                        <span className="text-[12px] font-bold text-content">{item.value}</span>
+              <div className="rounded-xl border border-line bg-surface p-md">
+                <p className="mb-sm text-[11px] font-black uppercase tracking-[0.14em] text-content-tertiary">Recent Signals</p>
+                <div className="space-y-xs">
+                  {recentTimeline.map((item) => (
+                    <div key={item.key} className="flex items-center justify-between rounded-lg bg-surface-secondary/70 px-sm py-sm">
+                      <div>
+                        <p className="text-[12px] font-semibold text-content">{item.label}</p>
+                        <p className="text-[11px] text-content-tertiary">{item.meta}</p>
                       </div>
-                    ))}
-                  </div>
+                      <span className="text-[12px] font-bold text-content">{item.value}</span>
+                    </div>
+                  ))}
                 </div>
               </div>
             </div>

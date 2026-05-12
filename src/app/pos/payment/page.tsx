@@ -8,12 +8,13 @@ import {
   X,
   CreditCard,
   Banknote,
-  Wallet,
-  ArrowRightLeft,
   CheckCircle2,
   Printer,
   ChevronRight,
   RotateCcw,
+  Upload,
+  Link2,
+  FileText,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
@@ -23,7 +24,8 @@ import StatusBadge from "@/components/common/StatusBadge";
 import ConfirmDialog from "@/components/ui/ConfirmDialog";
 import { moveToPage } from '@/internal';
 import { supabase } from '@/lib/supabase';
-import { checkDuplicatePayment, deductPoints, accruePoints } from '@/lib/businessLogic';
+import { checkDuplicatePayment, deductPoints, accruePoints, updateMembershipPeriod } from '@/lib/businessLogic';
+import { uploadFile } from '@/lib/uploadFile';
 import { formatKRW, formatNumber } from '@/lib/format';
 
 const getBranchId = (): number => {
@@ -32,13 +34,25 @@ const getBranchId = (): number => {
   return stored ? Number(stored) : 1;
 };
 
-type PaymentMethod = 'card' | 'cash' | 'mileage' | 'mixed';
+const toDateTimeLocalValue = (date = new Date()) => {
+  const local = new Date(date.getTime() - date.getTimezoneOffset() * 60_000);
+  return local.toISOString().slice(0, 16);
+};
 
-interface MixedAmount {
-  card: number;
-  cash: number;
-  mileage: number;
-}
+const getCurrentStaffName = (): string | null => {
+  if (typeof window === 'undefined') return null;
+  try {
+    const raw = localStorage.getItem('auth_user');
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as { name?: string; staffName?: string; username?: string };
+    return parsed.name ?? parsed.staffName ?? parsed.username ?? null;
+  } catch {
+    return null;
+  }
+};
+
+type CollectionMode = 'receipt' | 'link';
+type PaymentMethod = 'card' | 'cash';
 
 interface CartItem {
   id: number;
@@ -46,6 +60,9 @@ interface CartItem {
   category: string;
   price: number;
   quantity: number;
+  durationDays?: number | null;
+  sessions?: number | null;
+  productType?: string | null;
 }
 
 interface Member {
@@ -56,43 +73,69 @@ interface Member {
 }
 
 export default function PosPayment() {
-  // 장바구니 (sessionStorage에서 복원)
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
-
-  useEffect(() => {
-    const stored = sessionStorage.getItem('posCart');
-    if (stored) {
-      try {
-        const parsed = JSON.parse(stored) as CartItem[];
-        setCartItems(parsed);
-        sessionStorage.removeItem('posCart');
-      } catch {
-        // 파싱 실패 시 무시
-      }
-    }
-  }, []);
-
-  // 회원 검색
   const [memberSearch, setMemberSearch] = useState('');
   const [selectedMember, setSelectedMember] = useState<Member | null>(null);
   const [memberResults, setMemberResults] = useState<Member[]>([]);
 
-  // 결제수단
+  const [collectionMode, setCollectionMode] = useState<CollectionMode>('receipt');
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('card');
+  const [paymentAmount, setPaymentAmount] = useState(0);
+  const [pointAmount, setPointAmount] = useState(0);
+  const [paidAt, setPaidAt] = useState(toDateTimeLocalValue());
+  const [receiptFile, setReceiptFile] = useState<File | null>(null);
+  const [receiptUrl, setReceiptUrl] = useState<string | null>(null);
+  const [fcMemo, setFcMemo] = useState('');
 
-  // 복합결제 금액 분배
-  const [mixedAmount, setMixedAmount] = useState<MixedAmount>({ card: 0, cash: 0, mileage: 0 });
-
-  // 확인 모달 / 완료 상태
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [isComplete, setIsComplete] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [linkSent, setLinkSent] = useState(false);
 
-  // 중복 결제 경고 다이얼로그
   const [showDupConfirm, setShowDupConfirm] = useState(false);
   const [dupMessage, setDupMessage] = useState('');
 
-  // 회원 검색 (supabase)
+  useEffect(() => {
+    const storedCart = sessionStorage.getItem('posCart');
+    if (storedCart) {
+      try {
+        setCartItems(JSON.parse(storedCart) as CartItem[]);
+        sessionStorage.removeItem('posCart');
+      } catch {
+        // 세션 장바구니 복원 실패는 빈 장바구니로 처리한다.
+      }
+    }
+
+    const storedBuyer = sessionStorage.getItem('posBuyer');
+    if (storedBuyer) {
+      try {
+        const buyer = JSON.parse(storedBuyer) as Partial<Member>;
+        if (buyer.id && buyer.name && buyer.phone) {
+          setSelectedMember({
+            id: Number(buyer.id),
+            name: String(buyer.name),
+            phone: String(buyer.phone),
+            mileage: Number(buyer.mileage ?? 0),
+          });
+          setMemberSearch(String(buyer.name));
+        }
+        sessionStorage.removeItem('posBuyer');
+      } catch {
+        // 구매자 복원 실패는 회원 미선택으로 처리한다.
+      }
+    }
+  }, []);
+
+  const subtotal = cartItems.reduce((sum, item) => sum + item.price * item.quantity, 0);
+  const totalPaymentAmount = paymentAmount + pointAmount;
+  const amountDiff = subtotal - totalPaymentAmount;
+  const maxDurationDays = Math.max(0, ...cartItems.map(item => Number(item.durationDays ?? 0)));
+
+  useEffect(() => {
+    setPaymentAmount(subtotal);
+    setPointAmount(0);
+  }, [subtotal]);
+
   const handleMemberSearch = async (query: string) => {
     setMemberSearch(query);
     if (!query.trim()) {
@@ -111,128 +154,226 @@ export default function PosPayment() {
           id: m.id as number,
           name: m.name as string,
           phone: m.phone as string,
-          mileage: (m.mileage as number) ?? 0,
+          mileage: Number(m.mileage ?? 0),
         }))
       );
     }
   };
 
-  // 금액 계산
-  const subtotal = cartItems.reduce((sum, item) => sum + item.price * item.quantity, 0);
+  const validationMessages = useMemo(() => {
+    const messages: string[] = [];
+    if (cartItems.length === 0) messages.push('장바구니에 상품을 담아주세요.');
+    if (!selectedMember) messages.push('회원/이용권 등록을 위해 회원을 선택해주세요.');
 
-  // 결제 검증
-  const isValid = useMemo(() => {
-    if (cartItems.length === 0) return false;
-    if (paymentMethod === 'mileage') {
-      if (!selectedMember) return false;
-      if (selectedMember.mileage < subtotal) return false;
+    if (collectionMode === 'link') {
+      return messages;
     }
-    if (paymentMethod === 'mixed') {
-      const total = mixedAmount.card + mixedAmount.cash + mixedAmount.mileage;
-      if (total !== subtotal) return false;
-      if (mixedAmount.mileage > 0 && !selectedMember) return false;
+
+    if (!receiptFile) messages.push('영수증 파일을 첨부해주세요.');
+    if (!paidAt) messages.push('결제일시를 입력해주세요.');
+    if (paymentAmount < 0 || pointAmount < 0) messages.push('결제가격과 포인트 사용액은 0원 이상이어야 합니다.');
+    if (totalPaymentAmount !== subtotal) messages.push('결제가격 + 포인트 사용액이 장바구니 합계와 일치해야 합니다.');
+    if (pointAmount > 0 && !selectedMember) messages.push('포인트 사용은 회원 선택이 필요합니다.');
+    if (selectedMember && pointAmount > selectedMember.mileage) messages.push('보유 포인트가 부족합니다.');
+    return messages;
+  }, [cartItems.length, collectionMode, paidAt, paymentAmount, pointAmount, receiptFile, selectedMember, subtotal, totalPaymentAmount]);
+
+  const isValid = validationMessages.length === 0;
+
+  const uploadReceipt = async () => {
+    if (!receiptFile) return null;
+    const safeName = receiptFile.name.replace(/[^\w.-]/g, '_');
+    const path = `payment-receipts/${getBranchId()}/${Date.now()}_${safeName}`;
+    const result = await uploadFile('files', path, receiptFile);
+    if ('error' in result) {
+      toast.error(`영수증 업로드에 실패했습니다: ${result.error}`);
+      return null;
     }
+    return result.url;
+  };
+
+  const registerContractAndMembership = async () => {
+    if (!selectedMember) return false;
+
+    const paidDate = new Date(paidAt);
+    const startDate = Number.isNaN(paidDate.getTime()) ? new Date() : paidDate;
+    const endDate = maxDurationDays > 0
+      ? new Date(startDate.getTime() + maxDurationDays * 24 * 60 * 60 * 1000)
+      : null;
+    const productName = cartItems.map(i => i.name).join(', ');
+
+    const { error: contractError } = await supabase.from('contracts').insert({
+      branchId: getBranchId(),
+      memberId: selectedMember.id,
+      memberName: selectedMember.name,
+      productName: productName || null,
+      amount: subtotal,
+      startDate: startDate.toISOString(),
+      endDate: endDate ? endDate.toISOString() : null,
+      status: 'ACTIVE',
+      createdAt: new Date().toISOString(),
+    });
+
+    if (contractError) {
+      toast.error('결제는 저장됐지만 이용권 등록에 실패했습니다. 관리자 확인이 필요합니다.');
+      return false;
+    }
+
+    if (endDate) {
+      const result = await updateMembershipPeriod(
+        selectedMember.id,
+        startDate.toISOString(),
+        endDate.toISOString(),
+        productName || undefined,
+      );
+      if (!result.success) {
+        toast.error(result.message);
+        return false;
+      }
+    }
+
     return true;
-  }, [cartItems, paymentMethod, selectedMember, mixedAmount, subtotal]);
+  };
 
-  // 중복 결제 확인 후 실제 결제 처리
-  const executePayment = async () => {
-    if (isProcessing) return;
+  const executeReceiptRegistration = async () => {
+    if (isProcessing || !selectedMember || !isValid) return;
     setIsProcessing(true);
 
     try {
-      // 결제수단 → DB enum 매핑 (CARD, CASH, TRANSFER, MILEAGE)
-      const paymentMethodMap: Record<PaymentMethod, string> = {
-        card: 'CARD',
-        cash: 'CASH',
-        mileage: 'MILEAGE',
-        mixed: 'CARD', // 복합결제는 CARD로 저장 (memo에 상세 기록)
-      };
+      const uploadedReceiptUrl = await uploadReceipt();
+      if (!uploadedReceiptUrl) return;
 
-      // 복합결제 메모 생성
-      const mixedMemo =
-        paymentMethod === 'mixed'
-          ? `복합결제 - 카드: ${formatNumber(mixedAmount.card)}원, 현금: ${formatNumber(mixedAmount.cash)}원, 마일리지: ${formatNumber(mixedAmount.mileage)}P`
-          : null;
-
-      // 마일리지 결제 시 차감
-      if (selectedMember && (paymentMethod === 'mileage' || (paymentMethod === 'mixed' && mixedAmount.mileage > 0))) {
-        const mileageToDeduct = paymentMethod === 'mileage' ? subtotal : mixedAmount.mileage;
-        const deductResult = await deductPoints(selectedMember.id, mileageToDeduct);
+      if (pointAmount > 0) {
+        const deductResult = await deductPoints(selectedMember.id, pointAmount);
         if (!deductResult.success) {
-          toast.error(deductResult.message ?? '마일리지 차감에 실패했습니다.');
+          toast.error(deductResult.message ?? '포인트 차감에 실패했습니다.');
           return;
         }
       }
 
+      const staffName = getCurrentStaffName();
+      const paymentMethodLabel = paymentMethod === 'card' ? '카드' : '현금';
+      const productName = cartItems.map(i => i.name).join(', ');
+      const receiptMemo = [
+        '[현장 영수증 첨부 등록]',
+        `결제수단: ${paymentMethodLabel}`,
+        `결제가격: ${formatNumber(paymentAmount)}원`,
+        `포인트 사용액: ${formatNumber(pointAmount)}P`,
+        `결제일시: ${new Date(paidAt).toISOString()}`,
+        `영수증: ${receiptFile?.name ?? '-'} (${uploadedReceiptUrl})`,
+        staffName ? `FC: ${staffName}` : null,
+        fcMemo.trim() ? `FC 메모: ${fcMemo.trim()}` : null,
+      ].filter(Boolean).join('\n');
+
       const { error } = await supabase.from('sales').insert({
         branchId: getBranchId(),
-        memberId: selectedMember?.id ?? null,
-        memberName: selectedMember?.name ?? '비회원',
-        type: 'POS',
-        productName: cartItems.map(i => i.name).join(', '),
+        memberId: selectedMember.id,
+        memberName: selectedMember.name,
+        productId: cartItems.length === 1 ? cartItems[0].id : null,
+        productName,
+        type: cartItems.length === 1 ? cartItems[0].category : 'POS',
+        quantity: cartItems.reduce((sum, item) => sum + item.quantity, 0),
         amount: subtotal,
         salePrice: subtotal,
         originalPrice: subtotal,
-        paymentMethod: paymentMethodMap[paymentMethod],
-        card: paymentMethod === 'card' ? subtotal : (paymentMethod === 'mixed' ? mixedAmount.card : 0),
-        cash: paymentMethod === 'cash' ? subtotal : (paymentMethod === 'mixed' ? mixedAmount.cash : 0),
-        saleDate: new Date().toISOString(),
+        discountPrice: 0,
+        paymentMethod: paymentMethod === 'card' ? 'CARD' : 'CASH',
+        paymentType: '영수증 첨부 등록',
+        card: paymentMethod === 'card' ? paymentAmount : 0,
+        cash: paymentMethod === 'cash' ? paymentAmount : 0,
+        mileageUsed: pointAmount,
+        saleDate: new Date(paidAt).toISOString(),
         status: 'COMPLETED',
-        memo: mixedMemo,
+        unpaid: 0,
+        durationMonths: maxDurationDays > 0 ? Math.ceil(maxDurationDays / 30) : null,
+        receiptIssued: true,
+        staffName,
+        memo: receiptMemo,
       });
 
       if (error) {
-        toast.error('결제 저장에 실패했습니다.');
+        toast.error('결제 등록 저장에 실패했습니다.');
         return;
       }
 
-      // 마일리지 자동 적립 (마일리지 결제 제외, 결제금액의 1%)
-      if (selectedMember && paymentMethod !== 'mileage') {
-        const pointResult = await accruePoints(selectedMember.id, subtotal);
+      const contractRegistered = await registerContractAndMembership();
+      if (!contractRegistered) return;
+
+      if (paymentAmount > 0) {
+        const pointResult = await accruePoints(selectedMember.id, paymentAmount);
         if (pointResult.success && pointResult.accrued > 0) {
-          toast.info(`${pointResult.accrued}P 마일리지가 적립되었습니다.`);
+          toast.info(`${pointResult.accrued}P 포인트가 적립되었습니다.`);
         }
       }
 
+      setReceiptUrl(uploadedReceiptUrl);
       setShowConfirmModal(false);
       setIsComplete(true);
+      toast.success('결제완료와 회원/이용권 등록이 완료되었습니다.');
     } finally {
       setIsProcessing(false);
     }
   };
 
   const handlePaymentConfirm = async () => {
-    // 중복 결제 확인
-    if (selectedMember) {
-      const dupCheck = await checkDuplicatePayment(selectedMember.id, subtotal);
-      if (dupCheck.isDuplicate) {
-        setDupMessage(dupCheck.message ?? '최근에 동일한 결제가 있습니다.');
-        setShowDupConfirm(true);
-        return;
-      }
+    if (!selectedMember) return;
+    const dupCheck = await checkDuplicatePayment(selectedMember.id, subtotal);
+    if (dupCheck.isDuplicate) {
+      setDupMessage(dupCheck.message ?? '최근에 동일한 결제가 있습니다.');
+      setShowDupConfirm(true);
+      return;
     }
-    await executePayment();
+    await executeReceiptRegistration();
+  };
+
+  const handlePaymentLinkSend = async () => {
+    if (isProcessing || !isValid || !selectedMember) return;
+    setIsProcessing(true);
+    try {
+      setLinkSent(true);
+      toast.success(`${selectedMember.name}님에게 결제링크 발송 준비가 완료되었습니다.`);
+    } finally {
+      setIsProcessing(false);
+    }
   };
 
   const handleReset = () => {
+    setCartItems([]);
     setSelectedMember(null);
     setMemberSearch('');
+    setCollectionMode('receipt');
     setPaymentMethod('card');
-    setMixedAmount({ card: 0, cash: 0, mileage: 0 });
+    setPaymentAmount(0);
+    setPointAmount(0);
+    setPaidAt(toDateTimeLocalValue());
+    setReceiptFile(null);
+    setReceiptUrl(null);
+    setFcMemo('');
     setIsComplete(false);
     setShowConfirmModal(false);
+    setLinkSent(false);
   };
 
-  // 복합결제 금액 자동 분배 (카드에 나머지 할당)
-  const handleMixedChange = (field: keyof MixedAmount, val: number) => {
-    setMixedAmount(prev => ({ ...prev, [field]: Math.max(0, val) }));
+  const handleReceiptFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0] ?? null;
+    if (!file) {
+      setReceiptFile(null);
+      return;
+    }
+    const allowed = file.type.startsWith('image/') || file.type === 'application/pdf';
+    if (!allowed) {
+      toast.error('영수증 파일은 이미지 또는 PDF만 첨부할 수 있습니다.');
+      event.target.value = '';
+      return;
+    }
+    if (file.size > 10 * 1024 * 1024) {
+      toast.error('영수증 파일은 10MB 이하만 첨부할 수 있습니다.');
+      event.target.value = '';
+      return;
+    }
+    setReceiptFile(file);
   };
 
-  const mixedTotal = mixedAmount.card + mixedAmount.cash + mixedAmount.mileage;
-  const mixedDiff = subtotal - mixedTotal;
-
-  // --- 결제 완료 화면 ---
   if (isComplete) {
     return (
       <AppLayout>
@@ -240,17 +381,19 @@ export default function PosPayment() {
           <div className="w-20 h-20 bg-accent-light rounded-full flex items-center justify-center text-accent mb-xl">
             <CheckCircle2 size={44} strokeWidth={1.5} />
           </div>
-          <h2 className="text-[24px] font-bold text-content mb-sm">결제가 완료되었습니다</h2>
+          <h2 className="text-[24px] font-bold text-content mb-sm">결제 등록이 완료되었습니다</h2>
           <p className="text-[14px] text-content-secondary mb-xl text-center leading-relaxed">
-            {selectedMember ? `${selectedMember.name} 회원님의 ` : ''}결제가 정상적으로 처리되었습니다.
+            {selectedMember ? `${selectedMember.name} 회원님의 ` : ''}결제완료와 회원/이용권 등록이 함께 반영되었습니다.
           </p>
 
-          {/* 영수증 미리보기 (인쇄용) */}
           <div className="print:block hidden w-full max-w-sm mx-auto mb-4 text-left text-[12px] font-mono border border-gray-300 p-4 rounded">
-            <p className="text-center font-bold text-[14px] mb-2">영수증</p>
+            <p className="text-center font-bold text-[14px] mb-2">현장 결제 등록 영수증</p>
             <hr className="mb-2" />
             {selectedMember && <p>회원: {selectedMember.name}</p>}
-            <p>결제수단: {{ card: '카드', cash: '현금', mileage: '마일리지', mixed: '복합결제' }[paymentMethod]}</p>
+            <p>결제수단: {{ card: '카드', cash: '현금' }[paymentMethod]}</p>
+            <p>결제가격: {paymentAmount.toLocaleString()}원</p>
+            <p>포인트 사용: {pointAmount.toLocaleString()}P</p>
+            <p>결제일시: {paidAt}</p>
             <hr className="my-2" />
             {cartItems.map(item => (
               <div key={item.id} className="flex justify-between">
@@ -271,14 +414,14 @@ export default function PosPayment() {
               className="flex flex-col items-center justify-center p-lg rounded-xl border border-line bg-surface hover:bg-surface-tertiary transition-all gap-sm"
             >
               <Printer className="text-primary" size={28} strokeWidth={1.5} />
-              <span className="text-[13px] font-semibold text-content-secondary">영수증 출력</span>
+              <span className="text-[13px] font-semibold text-content-secondary">등록 내역 출력</span>
             </button>
             <button
-              onClick={() => toast.info('문자 영수증을 발송합니다.')}
+              onClick={() => receiptUrl ? window.open(receiptUrl, '_blank', 'noopener,noreferrer') : toast.info('첨부된 영수증이 없습니다.')}
               className="flex flex-col items-center justify-center p-lg rounded-xl border border-line bg-surface hover:bg-surface-tertiary transition-all gap-sm"
             >
-              <ChevronRight className="text-accent" size={28} strokeWidth={1.5} />
-              <span className="text-[13px] font-semibold text-content-secondary">문자 발송</span>
+              <FileText className="text-accent" size={28} strokeWidth={1.5} />
+              <span className="text-[13px] font-semibold text-content-secondary">영수증 파일 보기</span>
             </button>
           </div>
 
@@ -305,7 +448,7 @@ export default function PosPayment() {
     <AppLayout>
       <PageHeader
         title="결제 처리"
-        description="상품 내역을 확인하고 결제수단을 선택하여 결제를 완료합니다."
+        description="외부 POS/현금 수납 완료 후 영수증을 첨부해 결제와 회원/이용권 등록을 완료합니다."
         actions={
           <button
             onClick={handleReset}
@@ -318,10 +461,7 @@ export default function PosPayment() {
       />
 
       <div className="flex flex-col lg:flex-row gap-lg">
-        {/* 좌측: 상품 요약 + 회원 검색 */}
         <div className="flex-1 space-y-lg">
-
-          {/* UI-049 결제 요약 */}
           <div className="bg-surface rounded-xl border border-line shadow-card overflow-hidden">
             <div className="px-lg py-md border-b border-line bg-surface-secondary/40">
               <h3 className="text-[14px] font-bold text-content flex items-center gap-sm">
@@ -330,7 +470,7 @@ export default function PosPayment() {
               </h3>
             </div>
             <div className="divide-y divide-line">
-              {cartItems.map(item => (
+              {cartItems.length > 0 ? cartItems.map(item => (
                 <div key={item.id} className="flex items-center justify-between px-lg py-md">
                   <div className="flex items-center gap-md">
                     <StatusBadge variant="secondary">{item.category}</StatusBadge>
@@ -343,20 +483,23 @@ export default function PosPayment() {
                     </span>
                   </div>
                 </div>
-              ))}
+              )) : (
+                <div className="px-lg py-xl text-center text-[13px] text-content-tertiary">
+                  장바구니가 비어 있습니다.
+                </div>
+              )}
             </div>
             <div className="px-lg py-md bg-surface-secondary/30 border-t border-line flex justify-between items-center">
-              <span className="text-[13px] text-content-secondary font-medium">총 결제 금액</span>
+              <span className="text-[13px] text-content-secondary font-medium">장바구니 최종 합계</span>
               <span className="text-[22px] font-bold text-primary tabular-nums">
                 {formatKRW(subtotal)}
               </span>
             </div>
           </div>
 
-          {/* UI-051 회원 검색 */}
           <div className="bg-surface rounded-xl border border-line shadow-card p-lg">
             <h3 className="text-[14px] font-bold text-content mb-md">
-              회원 검색 <span className="text-[12px] font-normal text-content-tertiary ml-xs">(마일리지 사용 시 필수)</span>
+              회원 검색 <span className="text-[12px] font-normal text-state-error ml-xs">필수</span>
             </h3>
 
             {selectedMember ? (
@@ -369,7 +512,7 @@ export default function PosPayment() {
                     <p className="font-bold text-content text-[14px]">{selectedMember.name}</p>
                     <p className="text-[12px] text-content-secondary">{selectedMember.phone}</p>
                     <p className="text-[12px] text-accent font-semibold">
-                      마일리지: {formatNumber(selectedMember.mileage)} P
+                      보유 포인트: {formatNumber(selectedMember.mileage)} P
                     </p>
                   </div>
                 </div>
@@ -395,7 +538,7 @@ export default function PosPayment() {
                     {memberResults.map(m => (
                       <button
                         key={m.id}
-                        onClick={() => { setSelectedMember(m); setMemberSearch(m.name); }}
+                        onClick={() => { setSelectedMember(m); setMemberSearch(m.name); setMemberResults([]); }}
                         className="w-full flex items-center justify-between px-lg py-md hover:bg-surface-secondary transition-colors border-b border-line last:border-0"
                       >
                         <div className="text-left">
@@ -403,7 +546,7 @@ export default function PosPayment() {
                           <p className="text-[12px] text-content-tertiary">{m.phone}</p>
                         </div>
                         <div className="text-right">
-                          <p className="text-[11px] text-content-tertiary">보유 마일리지</p>
+                          <p className="text-[11px] text-content-tertiary">보유 포인트</p>
                           <p className="text-[13px] font-bold text-accent tabular-nums">{formatNumber(m.mileage)} P</p>
                         </div>
                       </button>
@@ -415,28 +558,20 @@ export default function PosPayment() {
           </div>
         </div>
 
-        {/* 우측: 결제수단 선택 + 결제 버튼 */}
-        <div className="w-full lg:w-[380px] space-y-lg">
-
-          {/* UI-050 결제수단 선택 */}
+        <div className="w-full lg:w-[420px] space-y-lg">
           <div className="bg-surface rounded-xl border border-line shadow-card p-lg">
-            <h3 className="text-[14px] font-bold text-content mb-md">결제수단 선택</h3>
-
+            <h3 className="text-[14px] font-bold text-content mb-md">수납 방식</h3>
             <div className="grid grid-cols-2 gap-md">
-              {(
-                [
-                  { key: 'card', label: '카드', icon: <CreditCard size={22} strokeWidth={1.5} /> },
-                  { key: 'cash', label: '현금', icon: <Banknote size={22} strokeWidth={1.5} /> },
-                  { key: 'mileage', label: '마일리지', icon: <Wallet size={22} strokeWidth={1.5} /> },
-                  { key: 'mixed', label: '복합결제', icon: <ArrowRightLeft size={22} strokeWidth={1.5} /> },
-                ] as { key: PaymentMethod; label: string; icon: React.ReactNode }[]
-              ).map(opt => (
+              {([
+                { key: 'receipt', label: '영수증 등록', icon: <Upload size={22} strokeWidth={1.5} /> },
+                { key: 'link', label: '결제링크 발송', icon: <Link2 size={22} strokeWidth={1.5} /> },
+              ] as { key: CollectionMode; label: string; icon: React.ReactNode }[]).map(opt => (
                 <button
                   key={opt.key}
-                  onClick={() => setPaymentMethod(opt.key)}
+                  onClick={() => setCollectionMode(opt.key)}
                   className={cn(
                     'flex flex-col items-center justify-center gap-sm py-lg rounded-xl border-2 transition-all font-semibold text-[13px]',
-                    paymentMethod === opt.key
+                    collectionMode === opt.key
                       ? 'border-primary bg-primary-light text-primary shadow-sm'
                       : 'border-line bg-surface text-content-secondary hover:border-primary/40 hover:bg-surface-secondary'
                   )}
@@ -446,105 +581,185 @@ export default function PosPayment() {
                 </button>
               ))}
             </div>
-
-            {/* 복합결제 금액 분배 */}
-            {paymentMethod === 'mixed' && (
-              <div className="mt-lg space-y-md p-md bg-surface-secondary rounded-xl border border-line">
-                <p className="text-[12px] font-semibold text-content-secondary">결제수단별 금액 입력</p>
-                {(
-                  [
-                    { key: 'card', label: '카드', icon: <CreditCard size={14} /> },
-                    { key: 'cash', label: '현금', icon: <Banknote size={14} /> },
-                    { key: 'mileage', label: '마일리지', icon: <Wallet size={14} />, disabled: !selectedMember },
-                  ] as { key: keyof MixedAmount; label: string; icon: React.ReactNode; disabled?: boolean }[]
-                ).map(field => (
-                  <div key={field.key} className="flex items-center gap-sm">
-                    <div className="flex items-center gap-xs text-content-tertiary w-[70px] text-[12px]">
-                      {field.icon}
-                      {field.label}
-                    </div>
-                    <input
-                      type="number"
-                      min={0}
-                      disabled={field.disabled}
-                      value={mixedAmount[field.key] || ''}
-                      onChange={e => handleMixedChange(field.key, Number(e.target.value))}
-                      placeholder="0"
-                      className="flex-1 px-sm py-xs border border-line rounded-button text-[13px] text-right tabular-nums bg-surface focus:border-primary focus:outline-none disabled:opacity-40 disabled:cursor-not-allowed"
-                    />
-                    <span className="text-[12px] text-content-tertiary">원</span>
-                  </div>
-                ))}
-                <div className={cn(
-                  'flex justify-between items-center pt-sm border-t border-line text-[12px] font-semibold',
-                  mixedDiff === 0 ? 'text-state-success' : 'text-state-error'
-                )}>
-                  <span>합계 {formatNumber(mixedTotal)}원</span>
-                  <span>{mixedDiff === 0 ? '금액 일치' : `${formatNumber(Math.abs(mixedDiff))}원 ${mixedDiff > 0 ? '부족' : '초과'}`}</span>
-                </div>
-              </div>
-            )}
-
-            {/* 마일리지 결제 안내 */}
-            {paymentMethod === 'mileage' && (
-              <div className="mt-md p-md bg-surface-secondary rounded-xl border border-line">
-                {selectedMember ? (
-                  <div className="space-y-xs">
-                    <div className="flex justify-between text-[13px]">
-                      <span className="text-content-secondary">보유 마일리지</span>
-                      <span className="font-bold text-accent tabular-nums">{formatNumber(selectedMember.mileage)} P</span>
-                    </div>
-                    <div className="flex justify-between text-[13px]">
-                      <span className="text-content-secondary">결제 금액</span>
-                      <span className="font-bold text-content tabular-nums">{formatKRW(subtotal)}</span>
-                    </div>
-                    {selectedMember.mileage < subtotal && (
-                      <p className="text-[12px] text-state-error font-semibold mt-xs">
-                        마일리지가 부족합니다. (부족: {formatNumber(subtotal - selectedMember.mileage)}P)
-                      </p>
-                    )}
-                  </div>
-                ) : (
-                  <p className="text-[13px] text-content-tertiary">마일리지 결제는 회원 검색 후 이용 가능합니다.</p>
-                )}
-              </div>
-            )}
           </div>
 
-          {/* UI-052 결제 확인 버튼 */}
+          {collectionMode === 'receipt' ? (
+            <div className="bg-surface rounded-xl border border-line shadow-card p-lg space-y-lg">
+              <div>
+                <h3 className="text-[14px] font-bold text-content mb-md">현장 결제 등록 정보</h3>
+                <div className="grid grid-cols-2 gap-md">
+                  {([
+                    { key: 'card', label: '카드', icon: <CreditCard size={22} strokeWidth={1.5} /> },
+                    { key: 'cash', label: '현금', icon: <Banknote size={22} strokeWidth={1.5} /> },
+                  ] as { key: PaymentMethod; label: string; icon: React.ReactNode }[]).map(opt => (
+                    <button
+                      key={opt.key}
+                      onClick={() => setPaymentMethod(opt.key)}
+                      className={cn(
+                        'flex flex-col items-center justify-center gap-sm py-md rounded-xl border-2 transition-all font-semibold text-[13px]',
+                        paymentMethod === opt.key
+                          ? 'border-primary bg-primary-light text-primary shadow-sm'
+                          : 'border-line bg-surface text-content-secondary hover:border-primary/40 hover:bg-surface-secondary'
+                      )}
+                    >
+                      {opt.icon}
+                      {opt.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="space-y-md">
+                <label className="block">
+                  <span className="block text-[12px] font-semibold text-content-secondary mb-xs">결제가격</span>
+                  <input
+                    type="number"
+                    min={0}
+                    value={paymentAmount || ''}
+                    onChange={e => setPaymentAmount(Math.max(0, Number(e.target.value)))}
+                    className="w-full px-md py-sm border border-line rounded-button text-[14px] text-right tabular-nums bg-surface focus:border-primary focus:outline-none"
+                    placeholder="0"
+                  />
+                </label>
+
+                <label className="block">
+                  <span className="block text-[12px] font-semibold text-content-secondary mb-xs">포인트 사용액</span>
+                  <input
+                    type="number"
+                    min={0}
+                    disabled={!selectedMember}
+                    value={pointAmount || ''}
+                    onChange={e => setPointAmount(Math.max(0, Number(e.target.value)))}
+                    className="w-full px-md py-sm border border-line rounded-button text-[14px] text-right tabular-nums bg-surface focus:border-primary focus:outline-none disabled:opacity-40 disabled:cursor-not-allowed"
+                    placeholder="0"
+                  />
+                </label>
+
+                <label className="block">
+                  <span className="block text-[12px] font-semibold text-content-secondary mb-xs">결제일시</span>
+                  <input
+                    type="datetime-local"
+                    value={paidAt}
+                    onChange={e => setPaidAt(e.target.value)}
+                    className="w-full px-md py-sm border border-line rounded-button text-[14px] bg-surface focus:border-primary focus:outline-none"
+                  />
+                </label>
+
+                <label className="block">
+                  <span className="block text-[12px] font-semibold text-content-secondary mb-xs">영수증 파일</span>
+                  <div className="relative">
+                    <input
+                      type="file"
+                      accept="image/*,.pdf"
+                      onChange={handleReceiptFileChange}
+                      className="absolute inset-0 opacity-0 cursor-pointer"
+                    />
+                    <div className={cn(
+                      'flex items-center gap-sm rounded-xl border-2 border-dashed p-md transition-colors',
+                      receiptFile ? 'border-accent bg-accent-light/40' : 'border-line bg-surface-secondary hover:border-primary/50'
+                    )}>
+                      <FileText size={18} className={receiptFile ? 'text-accent' : 'text-content-tertiary'} />
+                      <div className="min-w-0">
+                        <p className="truncate text-[13px] font-semibold text-content">
+                          {receiptFile ? receiptFile.name : '이미지 또는 PDF 첨부'}
+                        </p>
+                        <p className="text-[11px] text-content-tertiary">최대 10MB</p>
+                      </div>
+                    </div>
+                  </div>
+                </label>
+
+                <label className="block">
+                  <span className="block text-[12px] font-semibold text-content-secondary mb-xs">FC 메모</span>
+                  <textarea
+                    value={fcMemo}
+                    onChange={e => setFcMemo(e.target.value)}
+                    rows={3}
+                    className="w-full px-md py-sm border border-line rounded-button text-[13px] bg-surface focus:border-primary focus:outline-none resize-none"
+                    placeholder="수납 특이사항, 영수증 확인 메모"
+                  />
+                </label>
+              </div>
+
+              <div className={cn(
+                'rounded-xl border p-md text-[12px] font-semibold',
+                amountDiff === 0 ? 'border-state-success/30 bg-state-success/10 text-state-success' : 'border-state-error/30 bg-state-error/10 text-state-error'
+              )}>
+                <div className="flex justify-between">
+                  <span>입력 합계</span>
+                  <span>{formatKRW(totalPaymentAmount)}</span>
+                </div>
+                <div className="flex justify-between mt-xs">
+                  <span>장바구니 합계</span>
+                  <span>{formatKRW(subtotal)}</span>
+                </div>
+                <div className="flex justify-between mt-xs pt-xs border-t border-current/20">
+                  <span>검증</span>
+                  <span>{amountDiff === 0 ? '금액 일치' : `${formatNumber(Math.abs(amountDiff))}원 ${amountDiff > 0 ? '부족' : '초과'}`}</span>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="bg-surface rounded-xl border border-line shadow-card p-lg space-y-md">
+              <h3 className="text-[14px] font-bold text-content">결제링크 발송</h3>
+              <div className="rounded-xl border border-line bg-surface-secondary p-md space-y-xs">
+                <div className="flex justify-between text-[13px]">
+                  <span className="text-content-secondary">발송 대상</span>
+                  <span className="font-semibold text-content">{selectedMember ? `${selectedMember.name} (${selectedMember.phone})` : '회원 미선택'}</span>
+                </div>
+                <div className="flex justify-between text-[13px]">
+                  <span className="text-content-secondary">고정 금액</span>
+                  <span className="font-bold text-primary">{formatKRW(subtotal)}</span>
+                </div>
+              </div>
+              {linkSent && (
+                <div className="rounded-xl border border-state-success/30 bg-state-success/10 p-md text-[12px] font-semibold text-state-success">
+                  결제링크 발송 준비 완료
+                </div>
+              )}
+            </div>
+          )}
+
           <div className="bg-surface rounded-xl border border-line shadow-card p-lg space-y-md">
             <div className="flex justify-between items-center">
-              <span className="text-[13px] text-content-secondary">최종 결제 금액</span>
+              <span className="text-[13px] text-content-secondary">최종 합계</span>
               <span className="text-[24px] font-bold text-primary tabular-nums">
                 {formatKRW(subtotal)}
               </span>
             </div>
 
+            {validationMessages.length > 0 && (
+              <div className="rounded-xl border border-state-error/20 bg-state-error/5 p-md space-y-xs">
+                {validationMessages.slice(0, 3).map(message => (
+                  <p key={message} className="text-[12px] font-medium text-state-error">{message}</p>
+                ))}
+              </div>
+            )}
+
             <button
-              disabled={!isValid}
-              onClick={() => setShowConfirmModal(true)}
+              disabled={!isValid || isProcessing}
+              onClick={() => collectionMode === 'link' ? void handlePaymentLinkSend() : setShowConfirmModal(true)}
               className={cn(
                 'w-full py-md rounded-button text-[15px] font-bold transition-all flex items-center justify-center gap-sm shadow-md',
-                isValid
+                isValid && !isProcessing
                   ? 'bg-primary text-surface hover:bg-primary-dark active:scale-[0.98] shadow-primary/20'
                   : 'bg-surface-tertiary text-content-tertiary cursor-not-allowed'
               )}
             >
-              <CreditCard size={18} />
-              결제 확인
+              {collectionMode === 'link' ? <Link2 size={18} /> : <Upload size={18} />}
+              {collectionMode === 'link' ? '결제링크 발송' : '결제 완료 등록'}
             </button>
 
             <button
-              onClick={() => moveToPage(982)}
+              onClick={() => moveToPage(971)}
               className="w-full py-sm rounded-button border border-line text-[13px] text-content-secondary font-medium hover:bg-surface-secondary transition-colors"
             >
-              이전으로 돌아가기
+              POS 판매로 돌아가기
             </button>
           </div>
         </div>
       </div>
 
-      {/* 중복 결제 경고 다이얼로그 */}
       <ConfirmDialog
         open={showDupConfirm}
         title="중복 결제 경고"
@@ -554,24 +769,22 @@ export default function PosPayment() {
         variant="danger"
         onConfirm={() => {
           setShowDupConfirm(false);
-          void executePayment();
+          void executeReceiptRegistration();
         }}
         onCancel={() => setShowDupConfirm(false)}
       />
 
-      {/* UI-052 결제 확인 모달 */}
       {showConfirmModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-md">
           <div className="w-full max-w-md bg-surface rounded-xl shadow-lg overflow-hidden animate-in fade-in zoom-in duration-200">
             <div className="px-xl py-lg border-b border-line flex items-center justify-between">
-              <h3 className="text-[16px] font-bold text-content">결제 확인</h3>
+              <h3 className="text-[16px] font-bold text-content">결제 등록 확인</h3>
               <button onClick={() => setShowConfirmModal(false)} className="text-content-tertiary hover:text-content transition-colors">
                 <X size={20} />
               </button>
             </div>
 
             <div className="p-xl space-y-md">
-              {/* 요약 */}
               <div className="bg-surface-secondary rounded-xl p-md space-y-sm">
                 {cartItems.map(item => (
                   <div key={item.id} className="flex justify-between text-[13px]">
@@ -580,21 +793,27 @@ export default function PosPayment() {
                   </div>
                 ))}
                 <div className="pt-sm border-t border-line flex justify-between">
-                  <span className="text-[14px] font-bold text-content">합계</span>
+                  <span className="text-[14px] font-bold text-content">장바구니 합계</span>
                   <span className="text-[16px] font-bold text-primary tabular-nums">{formatKRW(subtotal)}</span>
                 </div>
               </div>
 
-              <div className="flex justify-between text-[13px]">
-                <span className="text-content-secondary">결제수단</span>
-                <span className="font-semibold text-content">
-                  {{ card: '카드', cash: '현금', mileage: '마일리지', mixed: '복합결제' }[paymentMethod]}
-                </span>
-              </div>
-              {selectedMember && (
-                <div className="flex justify-between text-[13px]">
-                  <span className="text-content-secondary">회원</span>
-                  <span className="font-semibold text-content">{selectedMember.name}</span>
+              {[
+                ['회원', selectedMember?.name ?? '-'],
+                ['결제수단', { card: '카드', cash: '현금' }[paymentMethod]],
+                ['결제가격', formatKRW(paymentAmount)],
+                ['포인트 사용액', `${formatNumber(pointAmount)}P`],
+                ['결제일시', paidAt ? paidAt.replace('T', ' ') : '-'],
+                ['영수증 파일', receiptFile?.name ?? '-'],
+              ].map(([label, value]) => (
+                <div key={label} className="flex justify-between gap-md text-[13px]">
+                  <span className="text-content-secondary">{label}</span>
+                  <span className="font-semibold text-content text-right break-all">{value}</span>
+                </div>
+              ))}
+              {fcMemo.trim() && (
+                <div className="rounded-xl bg-surface-secondary p-md text-[12px] text-content-secondary whitespace-pre-wrap">
+                  {fcMemo.trim()}
                 </div>
               )}
             </div>
@@ -611,7 +830,7 @@ export default function PosPayment() {
                 disabled={isProcessing}
                 className="flex-[2] py-sm rounded-button bg-primary text-surface text-[14px] font-bold hover:bg-primary-dark transition-colors shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                {isProcessing ? "처리 중..." : "결제 완료"}
+                {isProcessing ? "등록 중..." : "결제 완료 등록"}
               </button>
             </div>
           </div>

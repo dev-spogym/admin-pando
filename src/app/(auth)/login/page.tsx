@@ -11,6 +11,7 @@ import { getBranches } from '@/api/endpoints';
 import type { Branch } from '@/api/endpoints';
 import { useAuthStore } from '@/stores/authStore';
 import { getDefaultWorkspace } from '@/lib/appNavigation';
+import { isPreviewMode } from '@/lib/preview';
 import { toast } from 'sonner';
 import Select from '@/components/ui/Select';
 import Button from '@/components/ui/Button';
@@ -105,6 +106,7 @@ function clearFailCount() {
 
 export default function Login() {
   const router = useRouter();
+  const [isPreview, setIsPreview] = useState<boolean | null>(null);
   const [id, setId] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -146,10 +148,15 @@ export default function Login() {
   const isLoading = loginMutation.isPending;
 
   useEffect(() => {
+    setIsPreview(isPreviewMode());
+  }, []);
+
+  useEffect(() => {
+    if (isPreview !== false) return;
     if (!isAuthenticated || !authUser) return;
     const workspace = getDefaultWorkspace(authUser.role, authUser.isSuperAdmin);
     moveToPage(workspace.viewId ?? 966);
-  }, [authUser, isAuthenticated]);
+  }, [authUser, isAuthenticated, isPreview]);
 
   // 저장된 아이디 복원 + 지점 목록 로드 + 잠금 상태 확인
   useEffect(() => {

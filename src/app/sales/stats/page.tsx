@@ -53,7 +53,7 @@ const PAYMENT_KO: Record<string, string> = {
   CARD: '카드',
   CASH: '현금',
   TRANSFER: '계좌이체',
-  MILEAGE: '마일리지',
+  MILEAGE: '포인트',
 };
 
 const deriveSaleType = (type: string | null | undefined, productName: string | null | undefined) => {
