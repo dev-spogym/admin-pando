@@ -11,7 +11,17 @@ const DOC_ROOT = path.join(ROOT, 'docs', 'admin', '화면설계서');
 const warnings: string[] = [];
 const errors: string[] = [];
 
-const APP_ROUTE_EXCLUDES = new Set(['/forbidden', '/not-found', '/publishing', '/publishing-guide', '/publishing/[category]', '/diagrams', '/error']);
+const APP_ROUTE_EXCLUDES = new Set([
+  '/forbidden',
+  '/not-found',
+  '/publishing',
+  '/publishing-guide',
+  '/publishing/[category]',
+  '/client-preview',
+  '/client-preview/[category]',
+  '/diagrams',
+  '/error',
+]);
 const DOC_ROUTE_OPTIONAL = new Set(['/forbidden', '/not-found', '/diagrams']);
 const DOC_ROUTE_ALIASES: Record<string, string[]> = {
   '/error': ['/forbidden', '/not-found'],

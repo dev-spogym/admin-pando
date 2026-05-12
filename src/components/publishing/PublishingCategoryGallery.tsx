@@ -13,12 +13,12 @@ import {
   Search,
   SquarePen,
 } from "lucide-react";
-import AppLayout from "@/components/layout/AppLayout";
 import PageHeader from "@/components/common/PageHeader";
 import StatCard from "@/components/common/StatCard";
 import StatCardGrid from "@/components/common/StatCardGrid";
 import Card from "@/components/ui/Card";
 import { StatusBadge } from "@/components/common/StatusBadge";
+import PublishingSurface from "@/components/publishing/PublishingSurface";
 import { cn } from "@/lib/utils";
 import {
   PUBLISHING_CATEGORIES,
@@ -44,6 +44,8 @@ type FilterKind = "all" | PublishingScreenKind;
 
 interface PublishingCategoryGalleryProps {
   categorySlug: string;
+  basePath?: string;
+  publicView?: boolean;
 }
 
 function getScreenIcon(kind: PublishingScreenKind) {
@@ -52,7 +54,11 @@ function getScreenIcon(kind: PublishingScreenKind) {
   return <LayoutList />;
 }
 
-export default function PublishingCategoryGallery({ categorySlug }: PublishingCategoryGalleryProps) {
+export default function PublishingCategoryGallery({
+  categorySlug,
+  basePath = "/publishing",
+  publicView = false,
+}: PublishingCategoryGalleryProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [searchValue, setSearchValue] = useState("");
@@ -63,6 +69,7 @@ export default function PublishingCategoryGallery({ categorySlug }: PublishingCa
   const counts = useMemo(() => getPublishingCountsByKind(screens), [screens]);
   const currentScreenParam = searchParams?.get("screen") ?? "";
   const searchParamsValue = searchParams?.toString() ?? "";
+  const categoryPath = category ? `${basePath}/${category.slug}` : basePath;
 
   const filteredScreens = useMemo(() => {
     return screens.filter((screen) => {
@@ -92,18 +99,18 @@ export default function PublishingCategoryGallery({ categorySlug }: PublishingCa
 
     const nextParams = new URLSearchParams(searchParamsValue);
     nextParams.set("screen", activeScreen.route);
-    router.replace(`/publishing/${category.slug}?${nextParams.toString()}`, { scroll: false });
-  }, [activeScreen, category, currentScreenParam, router, searchParamsValue]);
+    router.replace(`${categoryPath}?${nextParams.toString()}`, { scroll: false });
+  }, [activeScreen, category, categoryPath, currentScreenParam, router, searchParamsValue]);
 
   if (!category) {
     return (
-      <AppLayout>
+      <PublishingSurface publicView={publicView}>
         <PageHeader
           title="퍼블리싱 카테고리를 찾을 수 없습니다"
           description="존재하지 않는 카테고리입니다. 퍼블리싱 개요로 돌아가서 다시 선택해주세요."
           actions={
             <Link
-              href="/publishing"
+              href={basePath}
               className="inline-flex h-10 items-center justify-center gap-xs rounded-2xl bg-gradient-to-r from-primary to-[#ff907f] px-md text-[13px] font-semibold text-white shadow-sm transition-all hover:-translate-y-[1px] hover:shadow-float"
             >
               개요로 이동
@@ -111,36 +118,41 @@ export default function PublishingCategoryGallery({ categorySlug }: PublishingCa
             </Link>
           }
         />
-      </AppLayout>
+      </PublishingSurface>
     );
   }
 
   return (
-    <AppLayout>
+    <PublishingSurface publicView={publicView}>
       <PageHeader
         breadcrumb={
-          <Link href="/publishing" className="inline-flex items-center gap-xs text-content-tertiary transition-colors hover:text-content">
+          <Link href={basePath} className="inline-flex items-center gap-xs text-content-tertiary transition-colors hover:text-content">
             <ArrowLeft size={14} />
-            퍼블리싱 개요
+            {publicView ? "갤러리 개요" : "퍼블리싱 개요"}
           </Link>
         }
-        title={`${category.label} Publishing Folder`}
-        description="실제 운영 라우트를 그대로 iframe으로 묶은 화면입니다. 개발자는 좌측에서 페이지를 고르고, 우측에서 실제 렌더 결과를 바로 확인할 수 있습니다."
+        title={`${category.label} 화면 갤러리`}
+        description={publicView
+          ? "로그인 없는 클라이언트 검토용 화면입니다. 좌측에서 화면을 선택하면 우측에 preview 모드 결과가 표시됩니다."
+          : "실제 운영 라우트를 그대로 iframe으로 묶은 화면입니다. 개발자는 좌측에서 페이지를 고르고, 우측에서 실제 렌더 결과를 바로 확인할 수 있습니다."
+        }
         actions={
           <>
-            <Link
-              href="/publishing-guide"
-              className="inline-flex h-10 items-center justify-center rounded-2xl border border-line/80 bg-white/72 px-md text-[13px] font-semibold text-content shadow-[inset_0_1px_0_rgba(255,255,255,0.7)] transition-colors hover:border-primary/35 hover:bg-white"
-            >
-              공통 가이드
-            </Link>
+            {!publicView && (
+              <Link
+                href="/publishing-guide"
+                className="inline-flex h-10 items-center justify-center rounded-2xl border border-line/80 bg-white/72 px-md text-[13px] font-semibold text-content shadow-[inset_0_1px_0_rgba(255,255,255,0.7)] transition-colors hover:border-primary/35 hover:bg-white"
+              >
+                공통 가이드
+              </Link>
+            )}
             {activeScreen && (
               <Link
-                href={activeScreen.route}
+                href={publicView ? activeScreen.previewUrl : activeScreen.route}
                 target="_blank"
                 className="inline-flex h-10 items-center justify-center gap-xs rounded-2xl bg-gradient-to-r from-primary to-[#ff907f] px-md text-[13px] font-semibold text-white shadow-sm transition-all hover:-translate-y-[1px] hover:shadow-float"
               >
-                실제 화면 열기
+                {publicView ? "새 탭에서 보기" : "실제 화면 열기"}
                 <ExternalLink size={15} />
               </Link>
             )}
@@ -159,7 +171,7 @@ export default function PublishingCategoryGallery({ categorySlug }: PublishingCa
         {PUBLISHING_CATEGORIES.map((item) => (
           <Link
             key={item.slug}
-            href={`/publishing/${item.slug}`}
+            href={`${basePath}/${item.slug}`}
             className={cn(
               "inline-flex items-center gap-2 rounded-full border px-3 py-2 text-[12px] font-semibold transition-colors",
               item.slug === category.slug
@@ -242,7 +254,7 @@ export default function PublishingCategoryGallery({ categorySlug }: PublishingCa
                         onClick={() => {
                           const nextParams = new URLSearchParams(searchParamsValue);
                           nextParams.set("screen", screen.route);
-                          router.replace(`/publishing/${category.slug}?${nextParams.toString()}`, { scroll: false });
+                          router.replace(`${categoryPath}?${nextParams.toString()}`, { scroll: false });
                         }}
                       >
                         <div className="mb-sm flex items-start justify-between gap-sm">
@@ -301,16 +313,18 @@ export default function PublishingCategoryGallery({ categorySlug }: PublishingCa
                         target="_blank"
                         className="inline-flex h-10 items-center justify-center rounded-2xl border border-line/80 bg-white/72 px-md text-[13px] font-semibold text-content shadow-[inset_0_1px_0_rgba(255,255,255,0.7)] transition-colors hover:border-primary/35 hover:bg-white"
                       >
-                        preview=1 열기
+                        {publicView ? "새 탭에서 보기" : "preview=1 열기"}
                       </Link>
-                      <Link
-                        href={activeScreen.route}
-                        target="_blank"
-                        className="inline-flex h-10 items-center justify-center gap-xs rounded-2xl bg-gradient-to-r from-primary to-[#ff907f] px-md text-[13px] font-semibold text-white shadow-sm transition-all hover:-translate-y-[1px] hover:shadow-float"
-                      >
-                        실제 라우트 열기
-                        <ExternalLink size={15} />
-                      </Link>
+                      {!publicView && (
+                        <Link
+                          href={activeScreen.route}
+                          target="_blank"
+                          className="inline-flex h-10 items-center justify-center gap-xs rounded-2xl bg-gradient-to-r from-primary to-[#ff907f] px-md text-[13px] font-semibold text-white shadow-sm transition-all hover:-translate-y-[1px] hover:shadow-float"
+                        >
+                          실제 라우트 열기
+                          <ExternalLink size={15} />
+                        </Link>
+                      )}
                     </div>
                   </div>
                 )}
@@ -339,19 +353,21 @@ export default function PublishingCategoryGallery({ categorySlug }: PublishingCa
               </Card>
 
               <Card padding="lg">
-                <div className="grid gap-md lg:grid-cols-2">
+                <div className={cn("grid gap-md", publicView ? "lg:grid-cols-1" : "lg:grid-cols-2")}>
                   <div className="app-panel-muted rounded-[20px] p-lg">
-                    <p className="mb-xs text-[12px] font-black uppercase tracking-[0.14em] text-content-tertiary">Publishing Note</p>
+                    <p className="mb-xs text-[12px] font-black uppercase tracking-[0.14em] text-content-tertiary">{publicView ? "검토 메모" : "Publishing Note"}</p>
                     <p className="text-[13px] leading-6 text-content-secondary">
                       {activeScreen.summary}
                     </p>
                   </div>
-                  <div className="app-panel-muted rounded-[20px] p-lg">
-                    <p className="mb-xs text-[12px] font-black uppercase tracking-[0.14em] text-content-tertiary">Connected Spec</p>
-                    <p className="text-[13px] leading-6 text-content-secondary">
-                      기능명세 기준 파일: <span className="font-semibold text-content">{activeScreen.functionalFile ?? "연결 정보 없음"}</span>
-                    </p>
-                  </div>
+                  {!publicView && (
+                    <div className="app-panel-muted rounded-[20px] p-lg">
+                      <p className="mb-xs text-[12px] font-black uppercase tracking-[0.14em] text-content-tertiary">Connected Spec</p>
+                      <p className="text-[13px] leading-6 text-content-secondary">
+                        기능명세 기준 파일: <span className="font-semibold text-content">{activeScreen.functionalFile ?? "연결 정보 없음"}</span>
+                      </p>
+                    </div>
+                  )}
                 </div>
               </Card>
             </>
@@ -362,6 +378,6 @@ export default function PublishingCategoryGallery({ categorySlug }: PublishingCa
           )}
         </div>
       </div>
-    </AppLayout>
+    </PublishingSurface>
   );
 }
