@@ -9,6 +9,7 @@ import StatCardGrid from "@/components/common/StatCardGrid";
 import StatusBadge from "@/components/common/StatusBadge";
 import DataTable from "@/components/common/DataTable";
 import Button from "@/components/ui/Button";
+import AttendanceVerificationBoard from "@/components/attendance/AttendanceVerificationBoard";
 import { formatNumber } from "@/lib/format";
 import {
   Users,
@@ -831,6 +832,8 @@ export default function Dashboard() {
           <StatCard key={idx} {...stat} loading={isLoading} onClick={() => moveToPage(stat.pageId)} />
         ))}
       </StatCardGrid>
+
+      <AttendanceVerificationBoard className="mb-xl" maxCards={10} />
 
       {/* 운영 현황 차트 */}
       <div className="mb-xl">

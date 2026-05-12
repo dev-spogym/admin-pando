@@ -34,6 +34,7 @@ import Modal from "@/components/ui/Modal";
 import PageHeader from "@/components/common/PageHeader";
 import StatCard from "@/components/common/StatCard";
 import StatCardGrid from "@/components/common/StatCardGrid";
+import AttendanceVerificationBoard from "@/components/attendance/AttendanceVerificationBoard";
 import { formatCount } from "@/lib/format";
 import DataTable from "@/components/common/DataTable";
 import StatusBadge from "@/components/common/StatusBadge";
@@ -454,7 +455,6 @@ export default function Attendance() {
         },
         (payload: any) => {
           const memberName = payload.new?.memberName ?? '회원';
-          toast.info(`${memberName}님이 입장했습니다.`);
           // 새 레코드를 목록에 즉시 반영
           const checkInAt: string = payload.new?.checkInAt ?? '';
           const datePart = checkInAt.split('T')[0] ?? '';
@@ -904,6 +904,8 @@ export default function Attendance() {
               {/* #12 현재 재실 인원 */}
               <StatCard label="현재 재실" value={`${currentPresence}명`} variant="mint" icon={<Building2 />} description="현재 센터 내 인원" />
             </StatCardGrid>
+
+            <AttendanceVerificationBoard maxCards={10} compact />
 
             {/* 출석 유형 범례 */}
             <div className="bg-surface rounded-xl border border-line px-lg py-sm shadow-xs">
