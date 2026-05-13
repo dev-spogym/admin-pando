@@ -7,7 +7,7 @@
 ## 전체 커버리지
 - 화면: 118
 - 다이얼로그: 159
-- 시나리오 시퀀스: 34
+- 시나리오 시퀀스: 35
 - 자동화 크론: 12
 - 에러 예외: 20
 - 키오스크 연동 문서: 7
@@ -25,7 +25,11 @@
 - `19_d09_settings_tc.md`: D09 설정관리 전체 화면/다이얼로그 TC
 - `20_d10_hq_tc.md`: D10 본사관리 전체 화면/다이얼로그 TC
 - `21_d11_operations_tc.md`: D11 통합운영 전체 화면/다이얼로그 TC
-- `90_scenario_sequence_tc.md`: X01~X34 시나리오 시퀀스 기반 플로우 TC
+- `22_client_acceptance_tc.md`: 클라이언트 추가 체크리스트 인수검수 TC
+- `24_full_expanded_tc.md`: 기본 TC를 5배 상세 실행 기준으로 확장한 10k+ TC 요약
+- `25_full_massive_tc.md`: 기본 TC를 90배 수준으로 확장한 20만+ TC 요약
+- `26_split_sheet_delivery.md`: Google Sheets 분리 탭 납품 기준과 재생성 명령
+- `90_scenario_sequence_tc.md`: X01~X35 시나리오 시퀀스 기반 플로우 TC
 - `91_automation_cron_tc.md`: A01~A12 자동화/배치 TC
 - `92_error_exception_tc.md`: E01~E20 예외/복구 TC
 - `93_kiosk_integration_tc.md`: Admin-Kiosk 연동 TC

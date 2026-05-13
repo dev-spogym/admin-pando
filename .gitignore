@@ -27,6 +27,12 @@ scripts/*
 !scripts/diagram/
 !scripts/diagram/**
 !scripts/sync-docs.ts
+!scripts/generate-expanded-tc.mjs
+!scripts/upload_massive_tc_to_gsheet.py
+!scripts/build_split_tc_exports.py
+!scripts/upload_split_tc_tabs.py
+!scripts/build_compact_tc_exports.py
+!scripts/upload_compact_tc_tabs.py
 !scripts/bootstrap-frontmatter.ts
 !scripts/enrich-frontmatter.ts
 !scripts/enrich-functional.ts
@@ -60,6 +66,7 @@ output/
 qa-screenshots/
 qa-test.cjs
 qa-test.mjs
+docs/admin/testcases/admin-docs-tc/_generated/
 
 # MCP
 .mcp.json
