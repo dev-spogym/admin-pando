@@ -13,7 +13,12 @@ flowchart LR
         A8[SCR-I008 키오스크운영현황]
         L50[SCR-050 락커관리]
         L52[SCR-052 밴드카드관리]
+        C02[SCR-C002 수업관리]
+        C16[SCR-C016 예약목록]
         G54[SCR-054 골프타석관리]
+        P01[SCR-P001 상품관리]
+        S02[SCR-S002 POS판매]
+        S03[SCR-S003 결제처리]
         D63[SCR-063 직원근태]
         S81[SCR-081 권한설정]
         DB[(admin DB)]
@@ -43,7 +48,12 @@ flowchart LR
     L50 -.락커 풀.-> K201
     L52 -.카드/밴드 매핑.-> K1XX
     L52 -.밴드 재고.-> K2XX
+    C02 -.일반 수업 마스터.-> K3XX
+    C16 -.일반 예약 원장.-> K3XX
     G54 -.타석 상태.-> K5XX
+    G54 -.골프 예약 요약.-> K3XX
+    P01 -.상품 마스터.-> K7XX
+    S02 -.장바구니/가격 기준.-> K7XX
     D63 -.직원 근태 정책.-> K1XX
     S81 -.PIN 정책.-> K4XX
 
@@ -52,7 +62,7 @@ flowchart LR
     K201 -.락커 배정.-> L50
     K2XX -.전달 결과.-> DB
     K5XX -.예약 이벤트.-> G54
-    K7XX -.결제 이벤트.-> DB
+    K7XX -.결제 이벤트.-> S03
     K4XX -.기기 상태/감사 로그.-> A8
     K1XX -.직원 출퇴근.-> D63
 ```
@@ -102,6 +112,22 @@ sequenceDiagram
     admin-->>admin: SCR-054 즉시 반영 + 회원앱 알림 트리거
 ```
 
+## 4-1. 시퀀스 — 일반 수업 예약 조회
+
+```mermaid
+sequenceDiagram
+    participant kiosk
+    participant admin
+    participant SCR_C002 as SCR-C002 수업관리
+    participant SCR_C016 as SCR-C016 예약목록
+
+    kiosk->>admin: KIO-303 예약 조회 (memberId)
+    admin->>SCR_C016: 회원별 예약 행 조회
+    admin->>SCR_C002: 수업명/강사/장소/일시 결합
+    admin-->>kiosk: 일반 수업 예약 목록
+    Note over kiosk: 일반 수업은 조회만 제공, 생성/변경 없음
+```
+
 ## 5. 시퀀스 — 관리자 패널 보고
 
 ```mermaid
@@ -140,3 +166,5 @@ sequenceDiagram
 - admin/화면설계서/D06-시설관리/SCR-050-락커관리/키오스크-연동.md
 - admin/화면설계서/D06-시설관리/SCR-052-밴드카드관리/키오스크-연동.md
 - admin/화면설계서/D06-시설관리/SCR-054-골프타석관리/키오스크-연동.md
+- admin/화면설계서/D04-수업관리/SCR-C002-수업관리/키오스크-연동.md
+- admin/화면설계서/D04-수업관리/SCR-C016-예약목록/키오스크-연동.md
