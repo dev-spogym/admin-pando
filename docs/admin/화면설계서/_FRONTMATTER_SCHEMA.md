@@ -1,4 +1,4 @@
-# 관리자 화면설계서 Frontmatter 스키마
+# FitGenie 관리자 화면설계서 Frontmatter 스키마
 
 ## 적용 범위
 
