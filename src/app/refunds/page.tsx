@@ -72,8 +72,16 @@ const getBranchId = (): number => {
 const statusVariant = (status: string) => {
   if (status === '완료') return 'success' as const;
   if (status === '거절') return 'error' as const;
-  if (status === '처리중') return 'warning' as const;
+  if (status === '처리중' || status === '승인대기' || status === '요청') return 'warning' as const;
   return 'default' as const;
+};
+
+const refundStatusLabel = (status: unknown) => {
+  const value = String(status ?? '').toUpperCase();
+  if (value === 'REFUNDED') return '완료';
+  if (value === 'REFUND_PENDING') return '승인대기';
+  if (value === 'REFUND_REQUESTED') return '요청';
+  return String(status ?? '처리중');
 };
 
 // 결제수단 한글 매핑
@@ -141,7 +149,7 @@ export default function RefundManagement() {
       .from('sales')
       .select('id, memberId, memberName, productName, amount, saleDate, paymentMethod, paymentType, staffName, originalSaleId, approvalNo, penaltyAmount, status, branchId, refundReason, refundProcessedBy, refundProcessedAt, memo')
       .eq('branchId', getBranchId())
-      .eq('status', 'REFUNDED')
+      .in('status', ['REFUNDED', 'REFUND_PENDING', 'REFUND_REQUESTED'])
       .order('saleDate', { ascending: false });
 
     if (dateStart) query = query.gte('saleDate', dateStart);
@@ -173,7 +181,7 @@ export default function RefundManagement() {
         originalSaleId: row.originalSaleId == null ? null : Number(row.originalSaleId),
         approvalNo: String(row.approvalNo ?? ''),
         penaltyAmount: Number(row.penaltyAmount) || 0,
-        status: '완료',
+        status: refundStatusLabel(row.status),
         refundType: String(row.paymentType ?? '전체환불'),
         processedBy: String(row.refundProcessedBy ?? row.staffName ?? '미기록'),
         processedAt: String(row.refundProcessedAt ?? row.saleDate ?? '').slice(0, 16).replace('T', ' '),
@@ -195,13 +203,16 @@ export default function RefundManagement() {
 
   // 통계 집계
   const stats = useMemo(() => {
-    const totalAmount = refundData.reduce((s, i) => s + i.amount, 0);
+    const completedRows = refundData.filter(item => item.status === '완료');
+    const totalAmount = completedRows.reduce((s, i) => s + i.amount, 0);
     const totalCount = refundData.length;
-    const avgAmount = totalCount > 0 ? Math.round(totalAmount / totalCount) : 0;
+    const completedCount = completedRows.length;
+    const pendingCount = refundData.filter(item => item.status === '요청' || item.status === '승인대기').length;
+    const avgAmount = completedCount > 0 ? Math.round(totalAmount / completedCount) : 0;
     const assignedCount = refundData.filter(item => item.assignmentStatus === 'assigned').length;
     const originalLinkedCount = refundData.filter(item => item.originalSaleId != null).length;
     const approvalLinkedCount = refundData.filter(item => item.approvalNo).length;
-    return { totalAmount, totalCount, avgAmount, assignedCount, originalLinkedCount, approvalLinkedCount };
+    return { totalAmount, totalCount, completedCount, pendingCount, avgAmount, assignedCount, originalLinkedCount, approvalLinkedCount };
   }, [refundData]);
 
   const responsibilityRows = useMemo<RefundResponsibilityRow[]>(() => {
@@ -343,7 +354,7 @@ export default function RefundManagement() {
         <StatCard
           label="조회 기간 환불 건수"
           value={`${stats.totalCount}건`}
-          description={`원매출 연결 ${stats.originalLinkedCount}건 / 담당자 귀속 ${stats.assignedCount}건`}
+          description={`완료 ${stats.completedCount}건 / 요청·승인대기 ${stats.pendingCount}건`}
           icon={<Hash />}
         />
         <StatCard

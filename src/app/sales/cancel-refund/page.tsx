@@ -22,16 +22,68 @@ interface Payment {
   durationMonths: number | null;
 }
 
-const cancelReasons = ['단순 변심', '서비스 불만족', '중복 결제', '기타'];
+const cancelReasons = ['단순 변심', '서비스 불만족', '중복 결제', '회원 요청', '결제 오류', '기타'];
 const METHOD_KO: Record<string, string> = {
   CARD: '카드',
   CASH: '현금',
   TRANSFER: '계좌이체',
   MILEAGE: '포인트',
+  MIXED: '혼합결제',
 };
 
 type ActionType = 'cancel' | 'partial';
+type RefundMethod = 'ORIGINAL' | 'CARD' | 'CASH' | 'TRANSFER' | 'MILEAGE' | 'MIXED';
+type ProcessStatus = '요청' | '승인대기' | '완료';
 type ResultStatus = 'success' | null;
+
+interface ManualPolicyForm {
+  usedDeductionAmount: string;
+  penaltyAmount: string;
+  previousRefundAmount: string;
+  availableRefundAmount: string;
+  adjustmentReason: string;
+  refundMethod: RefundMethod;
+  externalStatus: string;
+  evidenceMemo: string;
+  processStatus: ProcessStatus;
+  approvalMemo: string;
+  paymentBranch: string;
+  usageBranch: string;
+  salesAttributionBranch: string;
+  settlementBranch: string;
+  incentiveOwner: string;
+  customReason: string;
+}
+
+const initialManualPolicyForm: ManualPolicyForm = {
+  usedDeductionAmount: '',
+  penaltyAmount: '',
+  previousRefundAmount: '',
+  availableRefundAmount: '',
+  adjustmentReason: '',
+  refundMethod: 'ORIGINAL',
+  externalStatus: '외부 환불 완료',
+  evidenceMemo: '',
+  processStatus: '완료',
+  approvalMemo: '',
+  paymentBranch: '',
+  usageBranch: '',
+  salesAttributionBranch: '',
+  settlementBranch: '',
+  incentiveOwner: '',
+  customReason: '',
+};
+
+const processStatusToDbStatus: Record<ProcessStatus, string> = {
+  요청: 'REFUND_REQUESTED',
+  승인대기: 'REFUND_PENDING',
+  완료: 'REFUNDED',
+};
+
+const parseMoney = (value: string) => {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? Math.round(parsed) : 0;
+};
 
 const getBranchId = () => {
   if (typeof window === 'undefined') return 1;
@@ -49,9 +101,14 @@ export default function CancelRefundPage() {
   const [action, setAction] = useState<ActionType>('cancel');
   const [partialAmount, setPartialAmount] = useState('');
   const [reason, setReason] = useState(cancelReasons[0]);
+  const [manualPolicy, setManualPolicy] = useState<ManualPolicyForm>(initialManualPolicyForm);
   const [result, setResult] = useState<ResultStatus>(null);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const updateManualPolicy = <K extends keyof ManualPolicyForm>(key: K, value: ManualPolicyForm[K]) => {
+    setManualPolicy((prev) => ({ ...prev, [key]: value }));
+  };
 
   const fetchPayments = useCallback(async () => {
     setLoading(true);
@@ -102,19 +159,58 @@ export default function CancelRefundPage() {
     setPartialAmount('');
     setReason(cancelReasons[0]);
     setAction('cancel');
+    setManualPolicy(initialManualPolicyForm);
     setConfirmOpen(false);
     setIsSubmitting(false);
   }, []);
 
+  const usedDeductionAmount = parseMoney(manualPolicy.usedDeductionAmount);
+  const penaltyAmountValue = parseMoney(manualPolicy.penaltyAmount);
+  const previousRefundAmount = parseMoney(manualPolicy.previousRefundAmount);
+  const calculatedAvailableAmount = selected
+    ? Math.max(0, selected.amount - usedDeductionAmount - penaltyAmountValue - previousRefundAmount)
+    : 0;
+  const confirmedAvailableAmount = selected
+    ? manualPolicy.availableRefundAmount.trim()
+      ? Math.max(0, parseMoney(manualPolicy.availableRefundAmount))
+      : calculatedAvailableAmount
+    : 0;
+  const isAvailableAdjusted = Boolean(manualPolicy.availableRefundAmount.trim())
+    && confirmedAvailableAmount !== calculatedAvailableAmount;
+  const requiresAdjustmentReason = usedDeductionAmount > 0 || penaltyAmountValue > 0 || isAvailableAdjusted;
   const refundAmount = selected
     ? action === 'cancel'
-      ? selected.amount
-      : Number(partialAmount)
+      ? confirmedAvailableAmount
+      : parseMoney(partialAmount)
     : 0;
+  const effectiveRefundMethod = selected
+    ? manualPolicy.refundMethod === 'ORIGINAL'
+      ? selected.method
+      : manualPolicy.refundMethod
+    : 'CARD';
+  const finalReason = reason === '기타'
+    ? manualPolicy.customReason.trim()
+    : reason;
 
   const validateRefundAmount = () => {
     if (!selected) return false;
-    if (!refundAmount || refundAmount <= 0 || refundAmount > selected.amount) {
+    if ([usedDeductionAmount, penaltyAmountValue, previousRefundAmount, confirmedAvailableAmount].some((amount) => amount < 0)) {
+      toast.error('수기 입력 금액은 0원 이상이어야 합니다.');
+      return false;
+    }
+    if (requiresAdjustmentReason && !manualPolicy.adjustmentReason.trim()) {
+      toast.error('기사용 차감금, 위약금, 가능액 조정이 있는 경우 조정 사유를 입력해 주세요.');
+      return false;
+    }
+    if (reason === '기타' && !manualPolicy.customReason.trim()) {
+      toast.error('기타 사유를 직접 입력해 주세요.');
+      return false;
+    }
+    if (!confirmedAvailableAmount || confirmedAvailableAmount <= 0) {
+      toast.error('이번 환불 가능액을 확인해 주세요.');
+      return false;
+    }
+    if (!refundAmount || refundAmount <= 0 || refundAmount > confirmedAvailableAmount) {
       toast.error('환불 금액을 확인해 주세요.');
       return false;
     }
@@ -131,6 +227,24 @@ export default function CancelRefundPage() {
     if (!validateRefundAmount()) return;
 
     setIsSubmitting(true);
+    const now = new Date().toISOString();
+    const refundStatus = processStatusToDbStatus[manualPolicy.processStatus];
+    const manualMemo = [
+      `${action === 'cancel' ? '전체 취소' : '부분 환불'}: 원매출 #${selected.id}`,
+      `[수기계산] 기사용 차감금 ${usedDeductionAmount.toLocaleString()}원 / 위약금 ${penaltyAmountValue.toLocaleString()}원 / 기환불 누계 ${previousRefundAmount.toLocaleString()}원 / 환불 가능액 ${confirmedAvailableAmount.toLocaleString()}원`,
+      manualPolicy.adjustmentReason.trim() ? `[조정사유] ${manualPolicy.adjustmentReason.trim()}` : '',
+      `[환불수단] ${manualPolicy.refundMethod === 'ORIGINAL' ? `원결제 수단(${METHOD_KO[selected.method] ?? selected.method})` : METHOD_KO[manualPolicy.refundMethod] ?? manualPolicy.refundMethod}`,
+      `[외부처리] ${manualPolicy.externalStatus}`,
+      manualPolicy.evidenceMemo.trim() ? `[증빙] ${manualPolicy.evidenceMemo.trim()}` : '',
+      `[처리상태] ${manualPolicy.processStatus}`,
+      manualPolicy.approvalMemo.trim() ? `[승인메모] ${manualPolicy.approvalMemo.trim()}` : '',
+      manualPolicy.paymentBranch.trim() ? `[결제지점] ${manualPolicy.paymentBranch.trim()}` : '',
+      manualPolicy.usageBranch.trim() ? `[이용지점] ${manualPolicy.usageBranch.trim()}` : '',
+      manualPolicy.salesAttributionBranch.trim() ? `[매출귀속지점] ${manualPolicy.salesAttributionBranch.trim()}` : '',
+      manualPolicy.settlementBranch.trim() ? `[정산지점] ${manualPolicy.settlementBranch.trim()}` : '',
+      manualPolicy.incentiveOwner.trim() ? `[인센티브귀속자] ${manualPolicy.incentiveOwner.trim()}` : '',
+    ].filter(Boolean).join('\n');
+
     const { error } = await supabase.from('sales').insert({
       memberId: selected.memberId,
       memberName: selected.memberName,
@@ -144,28 +258,28 @@ export default function CancelRefundPage() {
       salePrice: refundAmount,
       discountPrice: 0,
       amount: refundAmount,
-      paymentMethod: selected.method,
+      paymentMethod: effectiveRefundMethod,
       paymentType: action === 'cancel' ? '전체환불' : '부분환불',
-      cash: selected.method === 'CASH' || selected.method === 'TRANSFER' ? refundAmount : 0,
-      card: selected.method === 'CARD' ? refundAmount : 0,
-      mileageUsed: 0,
+      cash: effectiveRefundMethod === 'CASH' || effectiveRefundMethod === 'TRANSFER' || effectiveRefundMethod === 'MIXED' ? refundAmount : 0,
+      card: effectiveRefundMethod === 'CARD' ? refundAmount : 0,
+      mileageUsed: effectiveRefundMethod === 'MILEAGE' ? refundAmount : 0,
       approvalNo: approvalNo(),
-      status: 'REFUNDED',
+      status: refundStatus,
       unpaid: 0,
       staffId: selected.staffId,
       staffName: selected.staffName,
-      memo: `${action === 'cancel' ? '전체 취소' : '부분 환불'}: 원매출 #${selected.id}`,
+      memo: manualMemo,
       durationMonths: selected.durationMonths,
       saleCategory: '환불',
       receiptIssued: false,
-      penaltyAmount: 0,
+      penaltyAmount: penaltyAmountValue,
       branchId: getBranchId(),
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
+      createdAt: now,
+      updatedAt: now,
       originalSaleId: selected.id,
-      refundReason: reason,
+      refundReason: finalReason,
       refundProcessedBy: 'ADMIN',
-      refundProcessedAt: new Date().toISOString(),
+      refundProcessedAt: manualPolicy.processStatus === '완료' ? now : null,
     });
 
     if (error) {
@@ -177,7 +291,7 @@ export default function CancelRefundPage() {
     setConfirmOpen(false);
     setResult('success');
     setIsSubmitting(false);
-    toast.success('환불 처리가 완료되었습니다.');
+    toast.success(manualPolicy.processStatus === '완료' ? '환불 처리가 완료되었습니다.' : '환불 요청 상태로 기록되었습니다.');
     fetchPayments();
   }
 
@@ -240,6 +354,7 @@ export default function CancelRefundPage() {
                           setAction('cancel');
                           setPartialAmount('');
                           setReason(cancelReasons[0]);
+                          setManualPolicy(initialManualPolicyForm);
                         }}
                         className={`px-3 py-1 text-xs rounded-lg font-medium transition-colors ${
                           selected?.id === p.id
@@ -300,17 +415,58 @@ export default function CancelRefundPage() {
                 <p className="mt-1 font-semibold">{selected.amount.toLocaleString()}원</p>
               </div>
               <div className="rounded-md bg-white/70 px-3 py-2">
-                <p className="text-amber-700">이번 환불 가능액</p>
-                <p className="mt-1 font-semibold">{selected.amount.toLocaleString()}원</p>
+                <p className="text-amber-700">계산 환불 가능액</p>
+                <p className="mt-1 font-semibold">{calculatedAvailableAmount.toLocaleString()}원</p>
               </div>
               <div className="rounded-md bg-white/70 px-3 py-2">
                 <p className="text-amber-700">최종 환불액</p>
-                <p className="mt-1 font-semibold">{refundAmount ? refundAmount.toLocaleString() : selected.amount.toLocaleString()}원</p>
+                <p className="mt-1 font-semibold">{refundAmount ? refundAmount.toLocaleString() : confirmedAvailableAmount.toLocaleString()}원</p>
               </div>
             </div>
             <p className="mt-2 text-xs text-amber-800">
-              현재 퍼블리싱에서는 기사용 차감금, 위약금, 기환불 누계의 상세 계산식은 제공되지 않습니다.
+              클라이언트 환불 정책이 확정되기 전에는 아래 수기 입력값을 기준으로 환불 가능액을 계산하고, 조정 사유를 이력에 남깁니다.
             </p>
+          </div>
+
+          {/* 정책 미확정 수기 입력 */}
+          <div className="space-y-3 rounded-lg border border-gray-200 p-4">
+            <div>
+              <p className="text-sm font-semibold text-gray-800">정책 미확정 항목 수기 입력</p>
+              <p className="mt-1 text-xs text-gray-500">사용분 차감, 위약금, 기환불 누계, 가능액 조정은 클라이언트 정책 확정 전까지 수기로 입력합니다.</p>
+            </div>
+            <div className="grid gap-3 md:grid-cols-4">
+              {[
+                ['usedDeductionAmount', '기사용 차감금'],
+                ['penaltyAmount', '위약금'],
+                ['previousRefundAmount', '기환불 누계'],
+                ['availableRefundAmount', '이번 환불 가능액 조정'],
+              ].map(([key, label]) => (
+                <label key={key} className="space-y-1 text-xs font-medium text-gray-600">
+                  <span>{label}</span>
+                  <div className="relative">
+                    <input
+                      type="number"
+                      min={0}
+                      value={manualPolicy[key as keyof ManualPolicyForm]}
+                      onChange={(e) => updateManualPolicy(key as keyof ManualPolicyForm, e.target.value)}
+                      placeholder="0"
+                      className="w-full rounded-lg border border-gray-200 px-3 py-2 pr-8 text-sm font-normal text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-normal text-gray-400">원</span>
+                  </div>
+                </label>
+              ))}
+            </div>
+            <label className="block space-y-1 text-xs font-medium text-gray-600">
+              <span>조정 사유</span>
+              <textarea
+                value={manualPolicy.adjustmentReason}
+                onChange={(e) => updateManualPolicy('adjustmentReason', e.target.value)}
+                placeholder="예: PT 3회 사용분 차감, 약관상 위약금 10%, 센터장 승인으로 위약금 조정"
+                rows={2}
+                className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm font-normal text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </label>
           </div>
 
           {/* 처리 유형 선택 */}
@@ -368,6 +524,105 @@ export default function CancelRefundPage() {
             </select>
           </div>
 
+          {reason === '기타' && (
+            <div className="space-y-1">
+              <label className="text-sm font-medium text-gray-700">기타 사유 직접 입력</label>
+              <input
+                value={manualPolicy.customReason}
+                onChange={(e) => updateManualPolicy('customReason', e.target.value)}
+                placeholder="환불 사유를 직접 입력"
+                className="w-full rounded-lg border border-gray-200 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+          )}
+
+          <div className="grid gap-4 md:grid-cols-3">
+            <label className="space-y-1 text-sm font-medium text-gray-700">
+              <span>환불 수단</span>
+              <select
+                value={manualPolicy.refundMethod}
+                onChange={(e) => updateManualPolicy('refundMethod', e.target.value as RefundMethod)}
+                className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2.5 text-sm font-normal focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="ORIGINAL">원결제 수단 기준</option>
+                <option value="CARD">카드</option>
+                <option value="CASH">현금</option>
+                <option value="TRANSFER">계좌이체</option>
+                <option value="MILEAGE">포인트</option>
+                <option value="MIXED">혼합결제 수기 배분</option>
+              </select>
+            </label>
+            <label className="space-y-1 text-sm font-medium text-gray-700">
+              <span>외부 처리 상태</span>
+              <select
+                value={manualPolicy.externalStatus}
+                onChange={(e) => updateManualPolicy('externalStatus', e.target.value)}
+                className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2.5 text-sm font-normal focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option>외부 환불 완료</option>
+                <option>외부 환불 전</option>
+                <option>PG 처리 대기</option>
+                <option>CRM 기록만</option>
+              </select>
+            </label>
+            <label className="space-y-1 text-sm font-medium text-gray-700">
+              <span>처리 상태</span>
+              <select
+                value={manualPolicy.processStatus}
+                onChange={(e) => updateManualPolicy('processStatus', e.target.value as ProcessStatus)}
+                className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2.5 text-sm font-normal focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option>완료</option>
+                <option>승인대기</option>
+                <option>요청</option>
+              </select>
+            </label>
+          </div>
+
+          <div className="grid gap-4 md:grid-cols-2">
+            <label className="space-y-1 text-sm font-medium text-gray-700">
+              <span>영수증/증빙 메모</span>
+              <input
+                value={manualPolicy.evidenceMemo}
+                onChange={(e) => updateManualPolicy('evidenceMemo', e.target.value)}
+                placeholder="예: POS 취소 승인번호, 계좌이체 완료 메모, 첨부파일명"
+                className="w-full rounded-lg border border-gray-200 px-4 py-2.5 text-sm font-normal focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </label>
+            <label className="space-y-1 text-sm font-medium text-gray-700">
+              <span>지점장 승인/반려 메모</span>
+              <input
+                value={manualPolicy.approvalMemo}
+                onChange={(e) => updateManualPolicy('approvalMemo', e.target.value)}
+                placeholder="예: 10만원 이상 환불로 센터장 승인 필요"
+                className="w-full rounded-lg border border-gray-200 px-4 py-2.5 text-sm font-normal focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </label>
+          </div>
+
+          <div className="space-y-3 rounded-lg border border-gray-200 p-4">
+            <p className="text-sm font-semibold text-gray-800">매출/정산 귀속 수기 메모</p>
+            <div className="grid gap-3 md:grid-cols-5">
+              {[
+                ['paymentBranch', '결제지점'],
+                ['usageBranch', '이용지점'],
+                ['salesAttributionBranch', '매출 귀속 지점'],
+                ['settlementBranch', '정산 지점'],
+                ['incentiveOwner', '인센티브 귀속자'],
+              ].map(([key, label]) => (
+                <label key={key} className="space-y-1 text-xs font-medium text-gray-600">
+                  <span>{label}</span>
+                  <input
+                    value={manualPolicy[key as keyof ManualPolicyForm]}
+                    onChange={(e) => updateManualPolicy(key as keyof ManualPolicyForm, e.target.value)}
+                    placeholder="수기 입력"
+                    className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm font-normal text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </label>
+              ))}
+            </div>
+          </div>
+
           {/* 제출 */}
           <div className="flex gap-3 pt-2">
             <button
@@ -378,10 +633,10 @@ export default function CancelRefundPage() {
             </button>
             <button
               onClick={handleOpenConfirm}
-              disabled={action === 'partial' && (!partialAmount || Number(partialAmount) > selected.amount)}
+              disabled={action === 'partial' && (!partialAmount || parseMoney(partialAmount) > confirmedAvailableAmount)}
               className="flex-1 py-2.5 bg-red-600 text-white rounded-lg text-sm font-medium hover:bg-red-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
             >
-              {action === 'cancel' ? '처리 확인' : '부분 환불 확인'}
+              {manualPolicy.processStatus === '완료' ? (action === 'cancel' ? '처리 확인' : '부분 환불 확인') : `${manualPolicy.processStatus} 기록`}
             </button>
           </div>
         </div>
@@ -394,7 +649,7 @@ export default function CancelRefundPage() {
             <CheckCircle className="w-6 h-6 text-green-600 flex-shrink-0" />
             <div>
               <p className="text-sm font-semibold text-green-800">처리가 완료되었습니다.</p>
-              <p className="text-xs text-green-600 mt-0.5">환불 금액은 결제 수단에 따라 영업일 기준 1~5일 내 처리됩니다.</p>
+              <p className="text-xs text-green-600 mt-0.5">완료 건은 환불 관리에 반영되며, 요청/승인대기 건은 처리 상태 메모와 함께 확인할 수 있습니다.</p>
             </div>
           </div>
           <div className="mt-4 flex flex-col gap-2 sm:flex-row">
@@ -418,7 +673,7 @@ export default function CancelRefundPage() {
         open={confirmOpen}
         title="환불 처리 확인"
         description="아래 내용을 확인한 뒤 처리 완료를 누르세요."
-        confirmLabel={isSubmitting ? '처리 중...' : '처리 완료'}
+        confirmLabel={isSubmitting ? '처리 중...' : manualPolicy.processStatus === '완료' ? '처리 완료' : `${manualPolicy.processStatus} 기록`}
         cancelLabel="이전으로"
         variant="danger"
         onCancel={() => {
@@ -444,13 +699,27 @@ export default function CancelRefundPage() {
               </div>
               <div className="rounded-lg border border-gray-100 p-3">
                 <p className="text-gray-500">환불 수단</p>
-                <p className="mt-1 font-semibold text-gray-900">{METHOD_KO[selected.method] ?? selected.method}</p>
+                <p className="mt-1 font-semibold text-gray-900">{METHOD_KO[effectiveRefundMethod] ?? effectiveRefundMethod}</p>
               </div>
               <div className="rounded-lg border border-gray-100 p-3">
                 <p className="text-gray-500">취소 사유</p>
-                <p className="mt-1 font-semibold text-gray-900">{reason}</p>
+                <p className="mt-1 font-semibold text-gray-900">{finalReason || reason}</p>
+              </div>
+              <div className="rounded-lg border border-gray-100 p-3">
+                <p className="text-gray-500">환불 가능액</p>
+                <p className="mt-1 font-semibold text-gray-900">{confirmedAvailableAmount.toLocaleString()}원</p>
+              </div>
+              <div className="rounded-lg border border-gray-100 p-3">
+                <p className="text-gray-500">처리 상태</p>
+                <p className="mt-1 font-semibold text-gray-900">{manualPolicy.processStatus}</p>
               </div>
             </div>
+            {manualPolicy.adjustmentReason.trim() && (
+              <div className="rounded-lg border border-gray-100 p-3 text-xs">
+                <p className="text-gray-500">조정 사유</p>
+                <p className="mt-1 whitespace-pre-wrap font-medium text-gray-900">{manualPolicy.adjustmentReason.trim()}</p>
+              </div>
+            )}
           </div>
         )}
       </ConfirmDialog>
