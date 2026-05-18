@@ -39,6 +39,10 @@ scripts/*
 !scripts/check-doc-drift.ts
 !scripts/check-feature-codes.ts
 !scripts/check-route-doc-coverage.ts
+!scripts/admin-sheet-deliverable.ts
+!scripts/admin-sheet-qa-plan.ts
+!scripts/admin-sheet-row-e2e.ts
+!scripts/admin-sheet-smoke.ts
 !scripts/export-publishing-client-package.ts
 !scripts/scenarios/
 !scripts/scenarios/**
@@ -63,6 +67,7 @@ __pycache__/
 
 # Output
 output/
+qa-results/
 qa-screenshots/
 qa-test.cjs
 qa-test.mjs
