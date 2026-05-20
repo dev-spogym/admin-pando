@@ -17,7 +17,7 @@ flowchart TD
     P -->|일반| Default[핵심 바로가기 + 오늘 수업 + 마일리지/배지 + 공지]
 ```
 
-## H2. QR 체크인
+## H2. QR 입장
 
 ```mermaid
 sequenceDiagram

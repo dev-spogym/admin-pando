@@ -62,7 +62,7 @@ sequenceDiagram
 
 ```mermaid
 flowchart TD
-    A[회원앱 홈 SCR-MA-100] --> B[QR 체크인 진입 SCR-MA-110]
+    A[회원앱 홈 SCR-MA-100] --> B[QR 입장 진입 SCR-MA-110]
     B --> C[admin에 토큰 발급 요청]
     C --> D[QR 표시 - 카운트다운]
     D --> E{만료?}

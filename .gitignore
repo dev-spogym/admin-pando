@@ -38,6 +38,7 @@ scripts/*
 !scripts/enrich-functional.ts
 !scripts/check-doc-drift.ts
 !scripts/check-feature-codes.ts
+!scripts/check-contract-codes.ts
 !scripts/check-route-doc-coverage.ts
 !scripts/admin-sheet-deliverable.ts
 !scripts/admin-sheet-qa-plan.ts
@@ -72,6 +73,7 @@ qa-screenshots/
 qa-test.cjs
 qa-test.mjs
 docs/admin/testcases/admin-docs-tc/_generated/
+docs/admin/다이어그램/99_TC_매핑/
 
 # MCP
 .mcp.json

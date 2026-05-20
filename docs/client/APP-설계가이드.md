@@ -126,7 +126,7 @@
 | 딥링크 URL | 화면 ID | 파라미터 | 트리거 |
 |-----------|---------|---------|--------|
 | fitgenie://home | MA-100/200/400/500 | - | 홈 |
-| fitgenie://checkin | MA-110 | - | QR 체크인 바로가기 |
+| fitgenie://checkin | MA-110 | - | QR 입장 바로가기 |
 | fitgenie://reservations | MA-122 | - | 내 예약 |
 | fitgenie://class/{classId} | MA-121/212 | classId: uuid | 수업 상세 |
 | fitgenie://ticket/{ticketId} | MA-131 | ticketId: uuid | 이용권 상세 |
@@ -181,7 +181,7 @@
 |------|:---:|----------|------|
 | 로그인 | ❌ | - | 네트워크 필수 |
 | 홈 | ⚠️ | cache-first | 마지막 캐시 데이터 표시 + "오프라인" 배너 |
-| QR 체크인 | ❌ | - | 네트워크 필수 |
+| QR 입장 | ❌ | - | 네트워크 필수 |
 | 출석 이력 | ⚠️ | cache-first | 캐시 데이터 표시 |
 | 수업 목록/예약 | ❌ | stale-while-revalidate | 실시간 정원 확인 필요 |
 | 내 프로필 | ✅ | cache-first | 오프라인 조회 가능 |
@@ -249,7 +249,7 @@
 | 컴포넌트 | accessibilityLabel | accessibilityRole | accessibilityHint |
 |----------|-------------------|--------------------|-------------------|
 | 하단 탭 | "홈 탭" | tab | "홈 화면으로 이동합니다" |
-| QR 스캔 버튼 | "QR 체크인" | button | "카메라로 QR 코드를 스캔합니다" |
+| QR 스캔 버튼 | "QR 입장" | button | "카메라로 QR 코드를 스캔합니다" |
 | 이용권 카드 | "{이용권명} D-{n}" | summary | "이용권 상세를 확인합니다" |
 | 서명 패드 | "서명 영역" | none | "손가락으로 서명해주세요" |
 | 상태 배지 | "{상태명}" | text | - |
@@ -274,7 +274,7 @@
 
 | 요소 | 애니메이션 | 시간 | 설명 |
 |------|----------|------|------|
-| QR 체크인 성공 | checkmark scale-up + confetti | 600ms | Lottie 애니메이션 |
+| QR 입장 성공 | checkmark scale-up + confetti | 600ms | Lottie 애니메이션 |
 | 버튼 press | scale(0.97) | 100ms | 터치 피드백 |
 | 카드 press | opacity(0.7) | 100ms | 터치 피드백 |
 | Pull-to-refresh | spring(dampingRatio: 0.6) | 400ms | 당겨서 새로고침 |

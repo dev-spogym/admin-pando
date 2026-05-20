@@ -33,7 +33,6 @@ flowchart LR
         K4XX[KIO-401~402 관리자]
         K5XX[KIO-501~504 골프]
         K6XX[KIO-601 주차]
-        K7XX[KIO-701~702 매점]
     end
 
     %% admin → kiosk (정책/마스터)

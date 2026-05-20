@@ -8,7 +8,7 @@
 ```mermaid
 flowchart LR
     subgraph clientapp[회원앱 client-pando]
-        C110[SCR-MA-110 QR 체크인]
+        C110[SCR-MA-110 QR 입장]
         C111[SCR-MA-111 출석이력]
         C122[SCR-MA-122 내예약수업이력]
         C123[SCR-MA-123 골프예약상세]
@@ -19,13 +19,12 @@ flowchart LR
     end
 
     subgraph kiosk[kiosk-pando]
-        K101[KIO-101 QR 체크인]
+        K101[KIO-101 QR 입장]
         K201[KIO-201 출석 결과]
         K203[KIO-203 앱 확인]
         K302[KIO-302 이용권]
         K303[KIO-303 예약]
         K501[KIO-501~504 골프]
-        K702[KIO-702 결제]
     end
 
     subgraph admin[admin]

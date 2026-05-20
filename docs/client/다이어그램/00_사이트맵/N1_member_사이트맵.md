@@ -19,7 +19,7 @@ graph TD
     Home --> Notify[알림/설정]
     Home --> Market[MA-300 마켓 둘러보기]
 
-    Attendance --> QR[MA-110 QR 체크인]
+    Attendance --> QR[MA-110 QR 입장]
     Attendance --> History[MA-111 출석 이력]
 
     Reservation --> ClassList[MA-120 수업 목록]

@@ -64,6 +64,7 @@ function walk(dir, list = []) {
     errors.length > 200 ? `\n... 외 ${errors.length - 200}개` : '',
   ].join('\n');
 
+  fs.mkdirSync(path.dirname(OUT), { recursive: true });
   fs.writeFileSync(OUT, report);
   console.log(`✅ 검증 완료. 성공 ${okCount} / 스킵 ${skipped} / 에러 ${errors.length} / 총 ${totalBlocks}`);
   console.log(`📄 ${OUT}`);

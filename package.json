@@ -8,7 +8,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "docs:check": "node --import tsx scripts/sync-docs.ts && node --import tsx scripts/check-feature-codes.ts && node --import tsx scripts/check-route-doc-coverage.ts && node --import tsx scripts/check-doc-drift.ts && node scripts/validate-mermaid.mjs",
+    "docs:check": "node --import tsx scripts/sync-docs.ts && node --import tsx scripts/check-feature-codes.ts && node --import tsx scripts/check-contract-codes.ts && node --import tsx scripts/check-route-doc-coverage.ts && node --import tsx scripts/check-doc-drift.ts && node scripts/diagram/validate-mermaid.cjs",
     "qa:admin-sheet-plan": "tsx --tsconfig tsconfig.scripts.json scripts/admin-sheet-qa-plan.ts",
     "qa:admin-sheet-deliverable": "tsx --tsconfig tsconfig.scripts.json scripts/admin-sheet-deliverable.ts",
     "qa:admin-sheet-row-e2e": "tsx --tsconfig tsconfig.scripts.json scripts/admin-sheet-row-e2e.ts",
