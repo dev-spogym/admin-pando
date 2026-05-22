@@ -24,20 +24,22 @@ D11 통합운영 도메인은 키오스크·IoT·옷 락커·체성분·회원 �
 | 신규 | DLG-I002 옷 락커 배정 | SCR-I001 / SCR-I004 공통 호출 |
 | 신규 | DLG-I003 체성분 수기 등록 | SCR-I006 호출 |
 
-## 화면 인덱스 (총 11개)
+## 화면 인덱스 (구현 대상 총 8개 | SCR 5개 + DLG 3개)
 
-### SCR (8개)
+> **docs2 기준 D11 구현 대상 화면은 5개입니다.** SCR-I002, SCR-I003, SCR-I008은 범위 제외/제한 대상이며 각 파일에 상세 사유가 명시되어 있습니다.
 
-| 화면 ID | 화면명 | 유형 | 라우트 | 기능코드 | 우선순위 |
-|---|---|---|---|---|---|
-| [SCR-I001](./SCR-I001%20통합출석관리%20페이지/README.md) | 통합 출석 관리 | 허브 | `/attendance` | IoT-07 | P0 |
-| [SCR-I002](./SCR-I002%20키오스크설정%20페이지/README.md) | 키오스크 설정 | 정책·설정 | `/settings/kiosk` | IoT-08 | P0 |
-| [SCR-I003](./SCR-I003%20IoT연동관리%20페이지/README.md) | IoT 연동 관리 | 정책·설정 | `/settings/iot` | IoT-03 | P0 |
-| [SCR-I004](./SCR-I004%20옷락커운영관리%20페이지/README.md) | 옷 락커 운영 관리 | 운영 관리 | `/clothing-locker` | IoT-04 | P0 |
-| [SCR-I005](./SCR-I005%20고정물품락커관리%20페이지/README.md) | 고정 물품 락커 관리 | 운영 관리 | `/locker/management` | IoT-04 | P1 |
-| [SCR-I006](./SCR-I006%20체성분통합관리%20페이지/README.md) | 체성분 통합 관리 | 허브 | `/body-composition` | IoT-05 | P1 |
-| [SCR-I007](./SCR-I007%20회원건강연동요약%20페이지/README.md) | 회원 건강 연동 요약 | 회원 상세 종속 | `/members/health` | IoT-05 | P2 |
-| [SCR-I008](./SCR-I008%20키오스크운영현황%20페이지/README.md) | 키오스크 운영 현황 | 허브 | `/kiosk-ops` | IoT-06 | P2 |
+### SCR (등록 8개 / 구현 대상 5개)
+
+| 화면 ID | 화면명 | 유형 | 라우트 | 기능코드 | 우선순위 | 구현 여부 |
+|---|---|---|---|---|---|---|
+| [SCR-I001](./SCR-I001%20통합출석관리%20페이지/README.md) | 통합 출석 관리 | 허브 | `/attendance` | IoT-07 | P0 | ✅ 구현 대상 |
+| [SCR-I002](./SCR-I002%20키오스크설정%20페이지/README.md) | 키오스크 설정 | 정책·설정 | `/settings/kiosk` | IoT-08 | P0 | ❌ D09 소관 (SCR-082/082A/083) |
+| [SCR-I003](./SCR-I003%20IoT연동관리%20페이지/README.md) | IoT 연동 관리 | 정책·설정 | `/settings/iot` | IoT-03 | P0 | ⚠️ 독립 화면 없음 (D11 각 화면에 조회 임베드) |
+| [SCR-I004](./SCR-I004%20옷락커운영관리%20페이지/README.md) | 옷 락커 운영 관리 | 운영 관리 | `/clothing-locker` | IoT-04 | P0 | ✅ 구현 대상 |
+| [SCR-I005](./SCR-I005%20고정물품락커관리%20페이지/README.md) | 고정 물품 락커 관리 | 운영 관리 | `/locker/management` | IoT-04 | P1 | ✅ 구현 대상 |
+| [SCR-I006](./SCR-I006%20체성분통합관리%20페이지/README.md) | 체성분 통합 관리 | 허브 | `/body-composition` | IoT-05 | P1 | ✅ 구현 대상 |
+| [SCR-I007](./SCR-I007%20회원건강연동요약%20페이지/README.md) | 회원 건강 연동 요약 | 회원 상세 종속 | `/members/health` | IoT-05 | P2 | ✅ 구현 대상 |
+| [SCR-I008](./SCR-I008%20키오스크운영현황%20페이지/README.md) | 키오스크 운영 현황 | 허브 | `/kiosk-ops` | IoT-06 | P2 | ❌ KIOSK 기획문서 범위 |
 
 ### DLG (3개)
 

@@ -13,7 +13,7 @@
 | 화면 ID | SCR-083 |
 | 화면명 | IoT 출입 관리 |
 | 화면 유형 | 기기 관리 화면 (Device Management Screen) |
-| 라우트 (URL) | `/settings/iot-access` |
+| 라우트 (URL) | `/settings/iot` (SCR-082A 키오스크 IoT 설정과 동일 페이지의 탭) |
 | 플랫폼 | 데스크톱(기본), 태블릿 |
 | 우선순위 | P0 (출시 필수) |
 | 기능코드 | IoT-02 (IoT 출입 관리) |

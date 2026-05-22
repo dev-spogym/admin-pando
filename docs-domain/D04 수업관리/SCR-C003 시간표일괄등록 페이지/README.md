@@ -13,7 +13,7 @@
 | 화면 ID | SCR-C003 |
 | 화면명 | 시간표 일괄 등록 |
 | 화면 유형 | 작업 화면 (Wizard / Form) |
-| 라우트 (URL) | `/calendar/bulk-create` |
+| 라우트 (URL) | `/class-schedule` |
 | 플랫폼 | 데스크톱(기본) |
 | 우선순위 | P1 |
 | 기능코드 | CLS-03 |

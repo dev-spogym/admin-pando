@@ -13,7 +13,7 @@
 | 화면 ID | SCR-088 |
 | 화면명 | 다국어 설정 |
 | 화면 유형 | 설정 화면 (i18n Settings Screen) |
-| 라우트 (URL) | `/settings/i18n` |
+| 라우트 (URL) | `/settings/language` |
 | 플랫폼 | 데스크톱(기본), 태블릿 |
 | 우선순위 | P0 (출시 필수) |
 | 기능코드 | SET-05 (다국어 설정) |

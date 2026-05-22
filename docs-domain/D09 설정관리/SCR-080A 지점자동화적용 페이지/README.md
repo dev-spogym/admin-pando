@@ -13,7 +13,7 @@
 | 화면 ID | SCR-080A |
 | 화면명 | 지점 자동화 적용 |
 | 화면 유형 | 정책 적용 화면 (Apply Screen) |
-| 라우트 (URL) | `/settings/branch-automation` |
+| 라우트 (URL) | `/settings/automation` |
 | 플랫폼 | 데스크톱(기본), 태블릿 |
 | 우선순위 | P0 (출시 필수) |
 | 기능코드 | SET-EXT-01 (지점 자동화 적용) |

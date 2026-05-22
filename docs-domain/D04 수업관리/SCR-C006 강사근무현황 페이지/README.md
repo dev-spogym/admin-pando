@@ -11,7 +11,7 @@
 | 화면 ID | SCR-C006 |
 | 화면명 | 강사 근무 현황 |
 | 화면 유형 | 현황판 + 인사·KPI 자료 |
-| 라우트 (URL) | `/calendar/instructors` |
+| 라우트 (URL) | `/instructor-status` |
 | 우선순위 | P1 |
 | 기능코드 | CLS-06 |
 | 계약코드 | CLS-06 |

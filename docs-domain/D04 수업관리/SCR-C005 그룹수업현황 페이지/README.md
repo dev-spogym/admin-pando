@@ -11,7 +11,7 @@
 | 화면 ID | SCR-C005 |
 | 화면명 | 그룹 수업 현황 |
 | 화면 유형 | 현황판 (Dashboard / Report) |
-| 라우트 (URL) | `/calendar/group-status` |
+| 라우트 (URL) | `/class-stats` |
 | 우선순위 | P1 |
 | 기능코드 | CLS-05 |
 | 계약코드 | CLS-05 |

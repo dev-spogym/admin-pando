@@ -13,7 +13,7 @@
 | 화면 ID | SCR-087 |
 | 화면명 | 커스텀 역할 생성 |
 | 화면 유형 | 콘텐츠 관리 화면 (Role CRUD Screen) |
-| 라우트 (URL) | `/settings/custom-roles` |
+| 라우트 (URL) | `/settings/custom-role` |
 | 플랫폼 | 데스크톱(기본), 태블릿 |
 | 우선순위 | P0 (출시 필수) |
 | 기능코드 | SET-04 (커스텀 역할 생성) |

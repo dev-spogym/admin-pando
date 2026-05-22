@@ -13,7 +13,7 @@
 | 화면 ID | SCR-082A |
 | 화면명 | 키오스크 IoT 설정 |
 | 화면 유형 | 보조 설정 화면 (Companion Settings Screen) |
-| 라우트 (URL) | `/settings/kiosk-iot` |
+| 라우트 (URL) | `/settings/iot` (SCR-083 IoT 출입 관리와 동일 페이지의 탭) |
 | 플랫폼 | 데스크톱(기본), 태블릿 |
 | 우선순위 | P0 (출시 필수) |
 | 기능코드 | IoT-01 (키오스크 설정 IoT 영역) |

@@ -13,7 +13,7 @@
 | 화면 ID | SCR-072A |
 | 화면명 | 자동 알림 운영 현황 |
 | 화면 유형 | 운영 현황 화면 (Monitoring Screen) |
-| 라우트 (URL) | `/message/auto-alarm/status` |
+| 라우트 (URL) | `/message/auto-alarm` (SCR-072 자동알림설정과 동일 페이지의 운영 현황 탭) |
 | 플랫폼 | 데스크톱(기본), 태블릿 |
 | 우선순위 | P1 (출시 후 권장) |
 | 기능코드 | MKT-02 (자동 알림 설정의 운영 현황 측) |

@@ -11,7 +11,7 @@
 | 화면 ID | SCR-C016 |
 | 화면명 | 예약 목록 |
 | 화면 유형 | 예약 1건 단위 원장 |
-| 라우트 (URL) | `/reservations` |
+| 라우트 (URL) | `/class-reservations` |
 | 우선순위 | P0 |
 | 기능코드 | RSV-01 |
 | 계약코드 | RSV-01, RSV-02 |

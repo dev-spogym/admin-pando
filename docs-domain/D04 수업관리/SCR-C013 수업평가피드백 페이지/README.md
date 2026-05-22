@@ -11,7 +11,7 @@
 | 화면 ID | SCR-C013 |
 | 화면명 | 수업 평가/피드백 |
 | 화면 유형 | 현황 + 신고/검토 |
-| 라우트 (URL) | `/lesson-feedback` |
+| 라우트 (URL) | `/class-feedback` |
 | 우선순위 | P2 |
 | 기능코드 | CLS-13 |
 | 계약코드 | CLS-EXT-02 |
