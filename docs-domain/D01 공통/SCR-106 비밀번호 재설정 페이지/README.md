@@ -13,7 +13,7 @@
 | 화면 ID | SCR-106 |
 | 화면명 | 비밀번호 재설정 |
 | 화면 유형 | 다단계 폼 (3단계 스텝) |
-| 라우트 (URL) | `/reset-password` (1·2단계), `/reset-password/confirm?token={token}` (3단계) |
+| 라우트 (URL) | `/reset-password` |
 | 플랫폼 | 데스크톱(기본), 태블릿, 모바일(풀스크린) |
 | 우선순위 | P0 (출시 필수) |
 | 기능코드 | MFN-SCR-106 (비밀번호 재설정) |
