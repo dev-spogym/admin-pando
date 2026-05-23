@@ -155,6 +155,40 @@ STRUCTURE_FACTS = {
         r"24시간 경과.*만료|24시간.*자동 만료|시작 후 24시간",
 }
 
+# ============================================================
+# I) 화면 품질 정합 (docs-domain-client README 단위)
+# ============================================================
+QUALITY_FACTS = {
+    "mermaid flowchart 다이어그램 사용":
+        r"```mermaid",
+    "메인 흐름 섹션 (## 12)":
+        r"## 12\. 메인 흐름",
+    "에러 흐름 섹션 (## 13)":
+        r"## 13\. 에러와 예외 흐름",
+    "운영 정책 섹션 (## 15)":
+        r"## 15\. 운영 정책",
+    "자기완결 마무리 문구":
+        r"별도 문서 없이.*한 장만 보면",
+    "작성일 2026 명시":
+        r"2026-05-2[34]",
+    "Phase 우선순위 (P0/P1/P2)":
+        r"P[012]",
+    "MFN 기능코드 메타 명시 (MFN-XXX)":
+        r"MFN-\d{3}",
+    "라우트 또는 진입 정의":
+        r"라우트|fitgenie://|자동 진입|진입 경로",
+}
+
+# 화면 강제 fact가 아니라 단순 카운트 fact (docs-domain-client 전체에서 N개 이상)
+SCALE_FACTS = {
+    "docs2 SCR 화면 참조 (회원앱 ↔ CRM 매핑 명시)":
+        r"SCR-\d{3}",
+    "회원 탭바 명시 (홈·예약·QR·리워드·MY 중)":
+        r"탭바",
+    "토스트 명시 (정보·성공·경고·오류 분류 중 하나)":
+        r"정보 토스트|성공 토스트|경고 토스트|오류 토스트|성공.*토스트",
+}
+
 
 def file_pair_check() -> list[tuple[str, bool, bool]]:
     """C01~C08 도메인 폴더에 회원앱.md + 운영정책.md 페어가 모두 있는지."""
@@ -175,6 +209,25 @@ def file_pair_check() -> list[tuple[str, bool, bool]]:
         p_ok = any(True for _ in policy_file)
         rows.append((dom, s_ok, p_ok))
     return rows
+
+
+def per_screen_check(pattern: str) -> tuple[int, int]:
+    """모든 docs-domain-client/CXX*/MA-XXX*/README.md 중 패턴 매칭 건수.
+
+    Returns (matched, total)
+    """
+    matched = 0
+    total = 0
+    for readme in DOCS_DOMAIN_CLIENT.glob("C0*/MA-*/README.md"):
+        total += 1
+        try:
+            text = readme.read_text(encoding="utf-8")
+            import re
+            if re.search(pattern, text):
+                matched += 1
+        except OSError:
+            continue
+    return matched, total
 
 
 def common_folder_check() -> list[tuple[str, bool]]:
@@ -277,6 +330,32 @@ def main() -> int:
             ok_count += 1
         else:
             print(f"  ❌ FAIL  _공통/{fname}  (없음)")
+            fail_count += 1
+
+    print("\n[I) 화면 품질 정합 (docs-domain-client 전 화면 단위, 100% 강제)]")
+    for name, pattern in QUALITY_FACTS.items():
+        matched, total = per_screen_check(pattern)
+        if matched == total:
+            print(f"  ✅ OK    {name}  ({matched}/{total} 화면)")
+            ok_count += 1
+        elif matched >= total * 0.9:
+            print(f"  ⚠️  WEAK  {name}  ({matched}/{total} 화면)")
+            weak_count += 1
+        else:
+            print(f"  ❌ FAIL  {name}  ({matched}/{total} 화면)")
+            fail_count += 1
+
+    print("\n[J) 화면 스케일 fact (도메인 특성상 일부만 가짐, 카운트 검증)]")
+    for name, pattern in SCALE_FACTS.items():
+        matched, total = per_screen_check(pattern)
+        if matched >= 5:
+            print(f"  ✅ OK    {name}  ({matched}/{total} 화면)")
+            ok_count += 1
+        elif matched >= 1:
+            print(f"  ⚠️  WEAK  {name}  ({matched}/{total} 화면)")
+            weak_count += 1
+        else:
+            print(f"  ❌ FAIL  {name}  ({matched}/{total} 화면)")
             fail_count += 1
 
     print("\n[C) 도메인 폴더 양방향 매칭]")
