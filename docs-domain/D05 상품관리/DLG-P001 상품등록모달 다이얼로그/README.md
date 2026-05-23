@@ -80,7 +80,7 @@ GX 세부종목은 상품 구분이 레슨이고 대분류가 GX일 때 6종(요
 |------|----------|------|
 | 지점 | `products.branchId` | 현재 선택된 지점 기준 |
 | 상품명 | `products.name` | 동일 지점 + 동일 대분류에서 중복 차단 |
-| 구분 | `products.category`, `products.productType` | 레슨=PT/GX/LESSON, 이용=MEMBERSHIP, 락커=PRODUCT/RENTAL, 판매=PRODUCT/GENERAL |
+| 구분 | `products.category`, `products.lessonType` | 레슨=LESSON_PASS (lessonType: PT/GX/골프/기타), 이용=MEMBERSHIP, 락커=LOCKER, 운동복=WEAR, 판매=GENERAL |
 | 상품그룹 | `products.productGroupId` | 선택한 `product_groups.id` 저장, 자동 추론 없음 |
 | 가격 | `price`, `cashPrice`, `cardPrice` | `price`는 현금가 기준 |
 | 기간/횟수 | `duration`, `sessions`, `totalCount` | 조건부 입력값에 따라 저장 |
@@ -150,7 +150,7 @@ flowchart TD
 
 상품명 중복 차단 정책은 동일 지점 + 동일 대분류에서 중복이 발견되면 자동 제안(원본명 + " (2)")이 안내된다는 것입니다. 1~50자, 특수문자 일부 허용, 이모지 차단입니다.
 
-GX 세부종목 필수 정책은 `category=GX` 상품에 6종 중 하나를 반드시 선택해야 한다는 것입니다. 시스템 고정 6종(요가·필라테스·스피닝·줌바·에어로빅·GX 기타) 외 추가는 슈퍼관리자만 시스템 코드로 가능합니다.
+GX 세부종목 필수 정책은 `category=LESSON_PASS`이고 `lessonType=GX`인 상품에 세부종목 6종 중 하나를 반드시 선택해야 한다는 것입니다. 시스템 고정 6종(요가·필라테스·스피닝·줌바·에어로빅·GX 기타) 외 추가는 슈퍼관리자만 시스템 코드로 가능합니다.
 
 카드가 정책은 미입력 시 현금가와 동일하게 저장되고, 카드가 < 현금가는 허용(노랑 경고), 카드가 > 현금가는 차단입니다.
 
