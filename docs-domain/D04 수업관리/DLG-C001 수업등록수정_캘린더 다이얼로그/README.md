@@ -56,7 +56,7 @@ owner / manager는 모든 입력이 가능합니다. trainer는 강사 드롭다
 
 ## 9. 데이터 흐름과 외부 연동
 
-API는 신규 등록 `POST /api/lessons`, 수정 `PUT /api/lessons/:id`, 충돌 검증 `GET /api/lessons/conflicts`입니다. 충돌 검증은 저장 직전 백엔드에서 다시 호출되어 사용자 의도와 데이터 일관성을 보장합니다. 강습 세션 유형 4종은 SCR-D003 KPI 대시보드의 강습세션수 원천이며 KPI 대상 수업일 때 필수 입력으로 검증됩니다.
+API는 신규 등록 `POST /api/lessons`, 수정 `PUT /api/lessons/:id`, 충돌 검증 `GET /api/lessons/conflicts`입니다. 충돌 검증은 저장 직전 백엔드에서 다시 호출되어 사용자 의도와 데이터 일관성을 보장합니다. 강습 세션 유형 4종은 SCR-094 KPI 대시보드의 강습세션수 원천이며 KPI 대상 수업일 때 필수 입력으로 검증됩니다.
 
 모든 등록·수정은 SCR-097 감사 로그에 actor·lesson_id·before·after·timestamp로 비동기 INSERT됩니다.
 

@@ -56,7 +56,7 @@ owner / manager는 모든 입력과 활성/비활성 토글, 삭제까지 수행
 
 ## 9. 데이터 흐름과 외부 연동
 
-API는 신규 등록 `POST /api/class-templates`, 수정 `PUT /api/class-templates/:id`, 삭제 `DELETE /api/class-templates/:id`, 참조 수업 카운트 `GET /api/class-templates/:id/reference-count`입니다. 삭제 직전에 참조 카운트가 다시 호출되어 활성 수업과의 연결이 재확인됩니다. 모든 등록·수정·삭제는 SCR-097 감사 로그에 `actor`·`template_id`·`before`·`after`·`timestamp`로 비동기 INSERT됩니다. 강습 세션 유형 4종은 SCR-D003 KPI 대시보드의 강습세션수 집계 원천 중 하나이며, 템플릿 단계에서 KPI 대상 수업의 세션 유형을 미리 정의해 두면 캘린더에서 등록할 때 자동으로 채워져 누락이 방지됩니다.
+API는 신규 등록 `POST /api/class-templates`, 수정 `PUT /api/class-templates/:id`, 삭제 `DELETE /api/class-templates/:id`, 참조 수업 카운트 `GET /api/class-templates/:id/reference-count`입니다. 삭제 직전에 참조 카운트가 다시 호출되어 활성 수업과의 연결이 재확인됩니다. 모든 등록·수정·삭제는 SCR-097 감사 로그에 `actor`·`template_id`·`before`·`after`·`timestamp`로 비동기 INSERT됩니다. 강습 세션 유형 4종은 SCR-094 KPI 대시보드의 강습세션수 집계 원천 중 하나이며, 템플릿 단계에서 KPI 대상 수업의 세션 유형을 미리 정의해 두면 캘린더에서 등록할 때 자동으로 채워져 누락이 방지됩니다.
 
 ## 10. 메인 흐름
 
