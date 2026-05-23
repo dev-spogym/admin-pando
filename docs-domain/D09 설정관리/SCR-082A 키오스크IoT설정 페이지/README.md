@@ -99,7 +99,7 @@
 
 ## 11. 권한별 처리
 
-슈퍼관리자(superAdmin)와 본사 최고관리자(primary), Owner(지점장)이 모든 액션(키오스크 본체·IoT 주변 장치 등록·페어링·재연결·교체·삭제·테스트 모드)을 수행할 수 있습니다. 매니저(manager)는 조회만 가능하며 모든 액션 버튼이 hidden 처리됩니다. FC(fc)·트레이너(trainer)·스태프(staff)·프런트(front)·읽기 전용(readonly)은 이 화면에 접근할 수 없으며 사이드바 메뉴 자체가 hidden 처리되고 직접 URL 접근 시 차단됩니다. owner는 RLS branchId 필터로 자기 지점의 키오스크와 IoT 장치만 관리할 수 있습니다.
+superAdmin와 primary, Owner(지점장)이 모든 액션(키오스크 본체·IoT 주변 장치 등록·페어링·재연결·교체·삭제·테스트 모드)을 수행할 수 있습니다. 매니저(manager)는 조회만 가능하며 모든 액션 버튼이 hidden 처리됩니다. FC(fc)·트레이너(trainer)·스태프(staff)·프런트(front)·읽기 전용(readonly)은 이 화면에 접근할 수 없으며 사이드바 메뉴 자체가 hidden 처리되고 직접 URL 접근 시 차단됩니다. owner는 RLS branchId 필터로 자기 지점의 키오스크와 IoT 장치만 관리할 수 있습니다.
 
 ## 12. 메인 흐름
 
