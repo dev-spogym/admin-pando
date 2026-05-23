@@ -54,7 +54,7 @@
 
 ## 11. 권한별 처리
 
-owner는 자기 지점 커스텀 역할만 삭제 가능합니다(RLS branchId 필터). primary·superAdmin은 전 지점 역할을 삭제할 수 있습니다. superAdmin 카드는 시스템 역할로 삭제 불가하며 이 모달이 호출되지 않습니다.
+Owner(지점장)은 자기 지점 커스텀 역할만 삭제 가능합니다(RLS branchId 필터). primary·superAdmin은 전 지점 역할을 삭제할 수 있습니다. superAdmin 카드는 시스템 역할로 삭제 불가하며 이 모달이 호출되지 않습니다.
 
 ## 12. 메인 흐름
 
@@ -94,7 +94,7 @@ flowchart TD
 
 superAdmin 카드는 시스템 역할로 삭제 불가하며 [삭제] 아이콘 자체가 hidden 처리됩니다.
 
-owner는 자기 지점 역할만 삭제 가능합니다(RLS branchId 필터).
+Owner(지점장)은 자기 지점 역할만 삭제 가능합니다(RLS branchId 필터).
 
 재배정된 직원의 활성 세션은 다음 페이지 로드(JWT refresh)부터 새 역할 권한이 적용됩니다. 담당 회원 매핑은 유지됩니다.
 

@@ -99,7 +99,7 @@ SCR-089 데이터 백업·복원은 자동 백업과 시점 복원을 다루며,
 | 감사 로그 INSERT | actor·type·diff JSON·timestamp / 5초 안에 SCR-097에서 조회 가능 |
 | 외부 면 동기화 | DB 저장 + 외부 push(키오스크·IoT·회원앱·PG·메시지 플랫폼) atomic 처리, 부분 실패 시 재시도 또는 자동 롤백 |
 | 권한 단계 차단 UX | 메뉴 숨김 → 버튼 hidden → 입력 비활성 → 백엔드 403 → 감사 로그 |
-| RLS branchId 필터 | owner는 자기 지점만, superAdmin/primary는 전 지점 / 응답 단계에서 차단 |
+| RLS branchId 필터 | Owner(지점장)은 자기 지점만, superAdmin/primary는 전 지점 / 응답 단계에서 차단 |
 
 ## 외부 연계 화면
 
