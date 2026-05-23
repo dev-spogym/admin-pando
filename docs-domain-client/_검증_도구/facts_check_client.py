@@ -113,6 +113,86 @@ OPERATION_FACTS = {
         r"멱등성.*5분|5분 이내 멱등성|동일.*5분 이내",
 }
 
+# ============================================================
+# F) 구조 / 시간 정합 / 코드 자체 정합 (3차)
+# ============================================================
+STRUCTURE_FACTS = {
+    "HTTPS 강제 (TLS 1.2+) 보안 정책":
+        r"HTTPS.*TLS|TLS 1\.2",
+    "JWT 만료 1시간 + refresh 토큰":
+        r"JWT.*만료 1시간|만료 1시간.*refresh|1시간.*refresh",
+    "QR 토큰 회전 주기 미확정 등재 (또는 회전 명시)":
+        r"QR 토큰 회전 주기|QR.*60초|토큰 회전.*60|QR 토큰.*회전",
+    "회원 홀딩 기간 (기간제 7~30일)":
+        r"7~30일|기간제.*7.*30|홀딩.*7~30",
+    "출석 중복 윈도우 (10분)":
+        r"10분 이내.*재시도|동일 회원 10분|중복.*10분",
+    "결제링크 만료 7일 정책":
+        r"결제링크.*7일|링크 만료.*7일|7일 경과 자동 만료",
+    "마일리지 만료 30일 전 알림":
+        r"만료 30일 전|30일 전 알림|30일 전.*알림",
+    "쿠폰 만료 7일 전 알림":
+        r"쿠폰.*7일 전|7일 전 알림|쿠폰 만료 7일",
+    "신고 부적절 자동 필터 (작성 차단)":
+        r"부적절.*자동 필터|자동 필터.*차단|패턴 매칭.*차단",
+    "PT 횟수 100회 한도 (CLS-07 정합)":
+        r"100회|PT.*100|횟수.*100",
+    "환불 자동 계산 정책 미확정 (수기 산정)":
+        r"환불 자동 계산.*미확정|환불.*수기 입력|수기 산정",
+    "감사 로그 비동기 INSERT (SCR-097)":
+        r"SCR-097.*비동기|비동기 INSERT|SCR-097.*INSERT",
+    "오프라인 캐시 24시간":
+        r"24시간 캐시|오프라인.*24시간|24시간.*캐시",
+    "본인 인증 (생체 또는 앱 비밀번호)":
+        r"생체 인증|앱 비밀번호|FaceID|TouchID|지문",
+    "MFN 기능코드 체계 (MFN-XXX)":
+        r"MFN-",
+    "MA 화면 ID 체계 (MA-XXX)":
+        r"MA-\d{3}",
+    "딥링크 스킴 (fitgenie://)":
+        r"fitgenie://",
+    "수업 시작 24시간 경과 자동 만료 (서명)":
+        r"24시간 경과.*만료|24시간.*자동 만료|시작 후 24시간",
+}
+
+
+def file_pair_check() -> list[tuple[str, bool, bool]]:
+    """C01~C08 도메인 폴더에 회원앱.md + 운영정책.md 페어가 모두 있는지."""
+    domains = [
+        "C01-공통-회원", "C02-트레이너-골프강사", "C03-FC-스태프",
+        "C04-탐색플랫폼", "C05-결제주문", "C06-리워드활동",
+        "C07-커뮤니티", "C08-시스템공통",
+    ]
+    rows = []
+    for dom in domains:
+        domain_md = next(CLIENT2.glob(f"{dom}/*.md"), None) is not None and bool(
+            list((CLIENT2 / dom).glob("*.md"))
+        )
+        # 정확히 회원앱.md + 운영정책.md 페어
+        screen_file = (CLIENT2 / dom).glob("회원앱.md")
+        policy_file = (CLIENT2 / dom).glob("운영정책.md")
+        s_ok = any(True for _ in screen_file)
+        p_ok = any(True for _ in policy_file)
+        rows.append((dom, s_ok, p_ok))
+    return rows
+
+
+def common_folder_check() -> list[tuple[str, bool]]:
+    """client2/_공통 핵심 8 파일 존재 확인."""
+    required = [
+        "권한매트릭스.md",
+        "상태전이.md",
+        "자동화_크론.md",
+        "외부연동_현황.md",
+        "에러_예외_표준.md",
+        "토스트_메시지.md",
+        "디자인_시스템.md",
+    ]
+    rows = []
+    for f in required:
+        rows.append((f, (CLIENT2 / "_공통" / f).is_file()))
+    return rows
+
 
 def grep_count(pattern: str, target_dir: Path) -> int:
     """target_dir 내 패턴 매칭 파일 수를 반환."""
@@ -179,6 +259,25 @@ def main() -> int:
     report("B) 회원앱 자체 정본", CLIENT_CANONICAL_FACTS)
     report("D) 정책 정합 (Owner/PAY-06/HQ-09/NFR-05/CLS/A05)", POLICY_FACTS)
     report("E) 운영정책 세부 fact (회원앱 한정)", OPERATION_FACTS)
+    report("F) 구조 / 시간 정합 / 코드 체계", STRUCTURE_FACTS)
+
+    print("\n[G) client2 도메인별 회원앱.md + 운영정책.md 페어]")
+    for dom, s_ok, p_ok in file_pair_check():
+        if s_ok and p_ok:
+            print(f"  ✅ OK    {dom}  (회원앱.md ✓ / 운영정책.md ✓)")
+            ok_count += 1
+        else:
+            print(f"  ❌ FAIL  {dom}  (회원앱.md {'✓' if s_ok else '✗'} / 운영정책.md {'✓' if p_ok else '✗'})")
+            fail_count += 1
+
+    print("\n[H) client2/_공통 핵심 파일 존재]")
+    for fname, exists in common_folder_check():
+        if exists:
+            print(f"  ✅ OK    _공통/{fname}")
+            ok_count += 1
+        else:
+            print(f"  ❌ FAIL  _공통/{fname}  (없음)")
+            fail_count += 1
 
     print("\n[C) 도메인 폴더 양방향 매칭]")
     domain_fail = 0
