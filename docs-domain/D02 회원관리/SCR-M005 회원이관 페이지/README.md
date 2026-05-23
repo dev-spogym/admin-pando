@@ -13,7 +13,7 @@
 | 화면 ID | SCR-M005 |
 | 화면명 | 회원 이관 |
 | 화면 유형 | 검증·확인 화면 (Validation + Confirmation Screen) |
-| 라우트 (URL) | `/members/:id/transfer` |
+| 라우트 (URL) | `/members/transfer` |
 | 플랫폼 | 데스크톱(기본), 태블릿 |
 | 우선순위 | P0 (출시 필수) |
 | 기능코드 | MBR-ADV-02 (회원 이관) |
@@ -187,7 +187,7 @@ stale 데이터 경고는 화면 진입 시점이나 이관 실행 시점에 다
 
 ```mermaid
 flowchart TD
-    A([이관 진입 /members/:id/transfer]) --> B[GET /api/members/:id/transfer-checklist]
+    A([이관 진입 /members/transfer]) --> B[GET /api/members/:id/transfer-checklist]
     B --> C{응답}
     C -->|200| D[회원 정보 + 체크리스트 + 지점 목록 렌더]
     C -->|stale 데이터| E["회원 정보 변경됨" 경고 + 목록 복귀]
