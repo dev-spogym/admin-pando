@@ -56,7 +56,7 @@ ESC 키 또는 배경 클릭: 모달 닫기(계속 작업과 동일 효과).
 
 ## 6. 권한별 처리
 
-이 모달은 부모 화면(SCR-M002 회원 등록, SCR-M003 회원 수정)에 진입할 수 있는 모든 권한자에게 동일하게 동작합니다. 9개 역할(슈퍼관리자 `superAdmin`, 본사 최고관리자 `primary`, Owner(지점장) `owner`, 매니저 `manager`, FC `fc`, 트레이너 `trainer`, 스태프 `staff`, 프런트 `front`, 읽기 전용 `readonly`) 중 부모 화면 진입 권한이 있는 superAdmin·primary·Owner(지점장)·매니저·스태프는 동일한 모달을 보며, 진입 권한이 없는 FC·트레이너·프런트·readonly는 이 모달을 만나지 않습니다. 권한별 노출·옵션 차이는 없습니다.
+이 모달은 부모 화면(SCR-M002 회원 등록, SCR-M003 회원 수정)에 진입할 수 있는 모든 권한자에게 동일하게 동작합니다. 9개 역할(슈퍼관리자 `superAdmin`, primary `primary`, Owner(지점장) `owner`, 매니저 `manager`, FC `fc`, 트레이너 `trainer`, 스태프 `staff`, 프런트 `front`, 읽기 전용 `readonly`) 중 부모 화면 진입 권한이 있는 superAdmin·primary·Owner(지점장)·매니저·스태프는 동일한 모달을 보며, 진입 권한이 없는 FC·트레이너·프런트·readonly는 이 모달을 만나지 않습니다. 권한별 노출·옵션 차이는 없습니다.
 
 ## 7. 화면 상태
 

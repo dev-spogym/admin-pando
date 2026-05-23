@@ -215,7 +215,7 @@ flowchart TD
     A([IoT 출입 관리 진입]) --> B{권한}
     B -->|FC 이하 / readonly| C[권한 차단]
     B -->|매니저| D[조회 + 재연결만]
-    B -->|owner / primary / superAdmin| E[전체 편집 가능]
+    B -->|Owner(지점장) / primary / superAdmin| E[전체 편집 가능]
     E --> F[기기 목록 + 정책 fetch]
     F --> G{사용자 액션}
     G -->|새 기기 등록| H[페어링 코드 + 설치 위치 입력]
@@ -264,7 +264,7 @@ flowchart TD
     B -->|전체 push 실패| Q[자동 롤백]
     B -->|미저장 + 이탈| R[DLG-080-001]
     B -->|매니저 진입| S[조회 + 재연결만]
-    B -->|owner 타 지점| T[RLS 차단]
+    B -->|Owner(지점장) 타 지점| T[RLS 차단]
     B -->|비정상 출입 시도| U[NFR-19 + 회원 보안 알림 + SCR-093 INSERT]
     B -->|펌웨어 업데이트| V[일시 오프라인 자동 복구]
     B -->|FC 이하 진입| W[차단]

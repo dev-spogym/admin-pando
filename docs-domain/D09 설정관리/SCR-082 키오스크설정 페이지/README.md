@@ -209,7 +209,7 @@ flowchart TD
     A([키오스크 설정 진입]) --> B{권한}
     B -->|FC 이하 / readonly| C[권한 차단]
     B -->|매니저| D[조회만 가능]
-    B -->|owner / primary / superAdmin| E[전체 편집 가능]
+    B -->|Owner(지점장) / primary / superAdmin| E[전체 편집 가능]
     E --> F[설정 + 연결 기기 fetch]
     F --> G{사용자 액션}
     G -->|출석 방식 토글| H[미리보기 갱신]

@@ -54,7 +54,7 @@
 
 ## 11. 권한별 처리
 
-부모 화면 SCR-081에 진입 가능한 owner·primary·superAdmin에게 동일하게 표시됩니다.
+부모 화면 SCR-081에 진입 가능한 Owner(지점장)·primary·superAdmin에게 동일하게 표시됩니다.
 
 ## 12. 메인 흐름
 

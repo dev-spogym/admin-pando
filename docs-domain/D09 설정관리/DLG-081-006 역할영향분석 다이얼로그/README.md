@@ -84,7 +84,7 @@
 
 ## 11. 권한별 처리
 
-부모 화면 SCR-081/SCR-087에 진입 가능한 owner·primary·superAdmin에게 동일하게 표시됩니다. owner는 자기 지점 역할 영향만 조회할 수 있습니다(RLS branchId 필터).
+부모 화면 SCR-081/SCR-087에 진입 가능한 Owner(지점장)·primary·superAdmin에게 동일하게 표시됩니다. owner는 자기 지점 역할 영향만 조회할 수 있습니다(RLS branchId 필터).
 
 ## 12. 메인 흐름
 

@@ -137,7 +137,7 @@ Owner(지점장)은 소속 지점의 구독을 조회·관리·해지할 수 있
 flowchart TD
     A([구독 결제 관리 진입]) --> B{권한}
     B -->|매니저 이하| C[접근 차단]
-    B -->|owner / primary / superAdmin| D[현재 구독 + 플랜 비교 + 이력 fetch]
+    B -->|Owner(지점장) / primary / superAdmin| D[현재 구독 + 플랜 비교 + 이력 fetch]
     D --> E{상태}
     E -->|체험 중| F[플랜 선택 안내]
     E -->|정상| G[현재 플랜 강조]
