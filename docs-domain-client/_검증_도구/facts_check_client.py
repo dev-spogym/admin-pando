@@ -741,6 +741,32 @@ SECURITY_FACTS = {
         r"비밀번호 정책|비밀번호 최소|비밀번호 복잡도|패스워드 정책",
 }
 
+# ============================================================
+# OOO) 자체 README ↔ 화면 README 매핑 정합
+# ============================================================
+README_FACTS = {
+    "docs-domain-client/README.md에 Phase 1~4 우선순위 표 정합":
+        r"Phase 1.*MVP|Phase 2.*트레이너|Phase 3.*골프|Phase 4|Phase [1-4]",
+    "정합 기준 (client2 정본 + docs2 정합)":
+        r"정합 기준|client2.*정본|정합화 완료",
+    "15섹션 표준 구조 정의 (1~15)":
+        r"15섹션|15 섹션|15섹션 표준",
+}
+
+# ============================================================
+# PPP) 결제 카테고리 / 영수증 분류 정합
+# ============================================================
+PAYMENT_CATEGORY_FACTS = {
+    "결제 종류 (선결제·후결제·자동결제·미수금) 분류":
+        r"선결제.*후결제|후결제.*자동결제|자동결제.*미수금",
+    "결제 취소 vs 환불 차이 (당일 취소 vs 사용분 차감 환불)":
+        r"결제 취소.*환불|취소 vs 환불|당일 취소|취소.*환불.*차이",
+    "영수증 / 세금계산서 분류 (개인·사업자)":
+        r"영수증.*세금계산서|개인.*사업자.*영수증|사업자 회원",
+    "결제수단 카드 / 계좌이체 / 간편결제 / 토스 빌링키":
+        r"카드.*계좌이체.*간편결제|토스 빌링키|간편결제 카드|결제수단.*카드/계좌",
+}
+
 # 화면 강제 fact가 아니라 단순 카운트 fact (docs-domain-client 전체에서 N개 이상)
 SCALE_FACTS = {
     "docs2 SCR 화면 참조 (회원앱 ↔ CRM 매핑 명시)":
@@ -909,6 +935,8 @@ def main() -> int:
     report("FFF) 명명 컨벤션 / ID 체계", NAMING_FACTS)
     report("JJJ) 운영 모니터링 / SLA", MONITORING_FACTS)
     report("KKK) 추가 보안 정합", SECURITY_FACTS)
+    report("OOO) 자체 README ↔ 화면 README 매핑", README_FACTS)
+    report("PPP) 결제 카테고리 / 영수증 분류", PAYMENT_CATEGORY_FACTS)
 
     print("\n[CC) mermaid 다이어그램 패턴 (화면 단위 100% 강제)]")
     for name, pattern in MERMAID_FACTS.items():
