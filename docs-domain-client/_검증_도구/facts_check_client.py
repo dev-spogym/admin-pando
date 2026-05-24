@@ -713,6 +713,34 @@ NAMING_FACTS = {
         r"C0[1-8].*D0[1-9]|D0[1-9].*C0[1-8]|C01~C08|D01~D11",
 }
 
+# ============================================================
+# JJJ) 운영 모니터링 / SLA 정합
+# ============================================================
+MONITORING_FACTS = {
+    "푸시 발송 성공률 / 결과 동기화 (NFR-05)":
+        r"푸시 발송 성공률|푸시 결과 동기화|발송 성공률|푸시.*성공률",
+    "결제 성공률 / 토스 SLA":
+        r"결제 성공률|토스 SLA|결제 SLA|토스페이먼츠.*SLA|결제.*성공률",
+    "출석 성공률 / 출석 SLA":
+        r"출석 성공률|출석 SLA|출석.*성공률|QR 입장 SLA",
+    "에러 로그 / 크래시 리포트 수집":
+        r"크래시 리포트|에러 로그 수집|크래시.*수집|Crashlytics|Sentry",
+}
+
+# ============================================================
+# KKK) 추가 보안 정합 (회원앱 모바일)
+# ============================================================
+SECURITY_FACTS = {
+    "SSL pinning (인증서 고정)":
+        r"SSL pinning|인증서 고정|certificate pinning",
+    "root / jailbreak 차단 정책":
+        r"root 차단|jailbreak 차단|루팅 차단|탈옥 차단|rooted|jailbroken",
+    "세션 만료 자동 로그아웃":
+        r"세션 만료.*로그아웃|자동 로그아웃|세션 timeout",
+    "비밀번호 정책 (최소 자릿수 / 복잡도)":
+        r"비밀번호 정책|비밀번호 최소|비밀번호 복잡도|패스워드 정책",
+}
+
 # 화면 강제 fact가 아니라 단순 카운트 fact (docs-domain-client 전체에서 N개 이상)
 SCALE_FACTS = {
     "docs2 SCR 화면 참조 (회원앱 ↔ CRM 매핑 명시)":
@@ -879,6 +907,8 @@ def main() -> int:
     report("CCC) 디바이스 호환성 / 플랫폼", DEVICE_FACTS)
     report("DDD) 핵심 사용자 여정", JOURNEY_FACTS)
     report("FFF) 명명 컨벤션 / ID 체계", NAMING_FACTS)
+    report("JJJ) 운영 모니터링 / SLA", MONITORING_FACTS)
+    report("KKK) 추가 보안 정합", SECURITY_FACTS)
 
     print("\n[CC) mermaid 다이어그램 패턴 (화면 단위 100% 강제)]")
     for name, pattern in MERMAID_FACTS.items():
