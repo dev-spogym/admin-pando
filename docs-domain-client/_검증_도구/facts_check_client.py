@@ -767,6 +767,24 @@ PAYMENT_CATEGORY_FACTS = {
         r"카드.*계좌이체.*간편결제|토스 빌링키|간편결제 카드|결제수단.*카드/계좌",
 }
 
+# ============================================================
+# UUU) 마무리 정합 (인증·표기·휴면)
+# ============================================================
+FINAL_FACTS = {
+    "SMS 인증 코드 만료 시간 (3분 / 5분)":
+        r"SMS 인증 코드.*만료|인증 코드.*[35]분|OTP.*[35]분|3분 만료",
+    "비밀번호 재설정 흐름 (SMS 또는 이메일)":
+        r"비밀번호 재설정|비밀번호 찾기|비밀번호 변경.*SMS|재설정.*SMS",
+    "회원 휴면 정책 (1년 미접속)":
+        r"휴면 회원|휴면 정책|1년 미접속|장기 미접속",
+    "화폐 단위 원 / KRW 명시":
+        r"원\b|KRW|₩|한국 원|원 (단위)",
+    "일시 표기 (YYYY-MM-DD HH:MM KST 또는 KST)":
+        r"YYYY-MM-DD|KST|HH:MM|24h",
+    "마케팅 / 광고 수신 동의 분리 (필수 vs 선택)":
+        r"마케팅 동의|광고 수신 동의|선택 동의.*마케팅|마케팅.*선택",
+}
+
 # 화면 강제 fact가 아니라 단순 카운트 fact (docs-domain-client 전체에서 N개 이상)
 SCALE_FACTS = {
     "docs2 SCR 화면 참조 (회원앱 ↔ CRM 매핑 명시)":
@@ -937,6 +955,7 @@ def main() -> int:
     report("KKK) 추가 보안 정합", SECURITY_FACTS)
     report("OOO) 자체 README ↔ 화면 README 매핑", README_FACTS)
     report("PPP) 결제 카테고리 / 영수증 분류", PAYMENT_CATEGORY_FACTS)
+    report("UUU) 마무리 정합 (인증·표기·휴면)", FINAL_FACTS)
 
     print("\n[CC) mermaid 다이어그램 패턴 (화면 단위 100% 강제)]")
     for name, pattern in MERMAID_FACTS.items():
