@@ -299,6 +299,54 @@ SECTION_HEADER_FACTS = {
         r"## 14\. 핵심 디자인 요청사항",
 }
 
+# ============================================================
+# Q) API 호출 패턴 정합
+# ============================================================
+API_FACTS = {
+    "GET /api/* 호출 패턴":
+        r"GET /api/",
+    "POST /api/* 호출 패턴":
+        r"POST /api/",
+    "회원 전용 /api/member/* 네임스페이스":
+        r"/api/member/",
+    "결제 /api/orders 또는 /api/payments":
+        r"/api/orders|/api/payments",
+    "환불 /api/refunds":
+        r"/api/refunds",
+    "캐시 TTL 명시 (5분 / 10분 / 1시간)":
+        r"5분 캐시|10분 캐시|1시간 캐시|TTL",
+}
+
+# ============================================================
+# S) KPI / 비즈니스 지표 정합
+# ============================================================
+KPI_FACTS = {
+    "활성 회원 / DAU / MAU":
+        r"활성 회원|DAU|MAU|월간 활성",
+    "QR 입장률 / 출석 인증율":
+        r"QR 입장률|출석 인증율|출석률",
+    "예약 전환율 또는 예약율":
+        r"예약 전환율|예약율|예약 전환",
+    "친구 초대 가입률 / 결제 전환율":
+        r"친구 초대 가입률|초대.*전환|초대.*가입률",
+    "자동결제 유지율 또는 구독 유지":
+        r"자동결제 유지|구독 유지|재결제율|리텐션",
+}
+
+# ============================================================
+# T) 다국어 / 오프라인 / 접근성
+# ============================================================
+A11Y_FACTS = {
+    "다국어 v1 한국어 단일 명시":
+        r"v1은 한국어만|한국어 단일|다국어.*한국어",
+    "오프라인 큐 정책 (QR/예약 동기화)":
+        r"오프라인 큐|오프라인.*동기화|큐잉",
+    "WCAG AA 표준 명시":
+        r"WCAG.*AA|AA 대응|AA 수준",
+    "접근성 라벨 (alt / aria / VoiceOver / TalkBack)":
+        r"VoiceOver|TalkBack|alt 텍스트|aria-",
+}
+
 # 화면 강제 fact가 아니라 단순 카운트 fact (docs-domain-client 전체에서 N개 이상)
 SCALE_FACTS = {
     "docs2 SCR 화면 참조 (회원앱 ↔ CRM 매핑 명시)":
@@ -438,6 +486,9 @@ def main() -> int:
     report("M) 결제 / 환불 세부", PAYMENT_FACTS)
     report("N) 알림 / 푸시 카테고리", NOTIFICATION_FACTS)
     report("P) 비즈니스 자동화 정합", AUTOMATION_FACTS)
+    report("Q) API 호출 패턴", API_FACTS)
+    report("S) KPI / 비즈니스 지표", KPI_FACTS)
+    report("T) 다국어 / 오프라인 / 접근성", A11Y_FACTS)
 
     print("\n[G) client2 도메인별 회원앱.md + 운영정책.md 페어]")
     for dom, s_ok, p_ok in file_pair_check():
