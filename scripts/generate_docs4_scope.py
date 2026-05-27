@@ -51,9 +51,55 @@ EXCLUDED_DOCS2_TOP_DIRS = {
 # Examples matched:
 # CLS-01-07, SAL-EXT-05-06, PAY-STF-02-09, SCR-M001, DLG-S016, IoT-05-04.
 CODE_RE = re.compile(r"\b[A-Z][A-Z0-9]*(?:-[A-Z0-9]+){1,6}\b", re.IGNORECASE)
+COMMON_ID_TOKEN = (
+    r"(?:"
+    r"(?:SCR|DLG)-[A-Z0-9]+(?:-[A-Z0-9가-힣_]+){0,6}"
+    r"|[A-Z][A-Z0-9]+(?:-[A-Z0-9]+){1,6}"
+    r"|[AX]\d{2}"
+    r")"
+)
+COMMON_ID_RE = re.compile(
+    rf"(?<![A-Z0-9가-힣_-]){COMMON_ID_TOKEN}(?![A-Z0-9가-힣_-])",
+    re.IGNORECASE,
+)
+BACKTICKED_COMMON_ID_RE = re.compile(
+    rf"`({COMMON_ID_TOKEN})`",
+    re.IGNORECASE,
+)
 SECTION_RE = re.compile(r"(?m)^##\s+(.+?)\s*$")
 SCREEN_REF_RE = re.compile(r"(?<![A-Z0-9-])(?:SCR|DLG)-[A-Z0-9]+(?:-[A-Z0-9]+)*(?!-[A-Z0-9])\b", re.IGNORECASE)
 LINKED_FEATURE_LINE_RE = re.compile(r"(?m)^>\s*연결 기능\s*:.*$")
+SCREEN_HEADING_RE = re.compile(r"^##\s+((?:SCR|DLG)-[^\s]+)\s*(.*?)\s*$", re.IGNORECASE)
+DOCS2_DOMAIN_LOC_RE = re.compile(r"docs2/(D\d{2}-[^/]+/[^`\s|)]+\.md):(\d+)")
+REL_DOMAIN_LOC_RE = re.compile(
+    r"(?<!docs2/)(?<!docs4/V1/)(?<!docs4/V2/)(D\d{2}-[^/`\s|)]+/[^`\s|)]+\.md):(\d+)"
+)
+CODE_REL_LOC_RE = re.compile(
+    r"(?P<code>[A-Z][A-Z0-9]*(?:-[A-Z0-9]+){1,6})\s*/\s*`(?P<rel>D\d{2}-[^/`\s|)]+/[^`\s|)]+\.md):\d+`",
+    re.IGNORECASE,
+)
+DOCS2_DOMAIN_FILE_RE = re.compile(r"docs2/(D\d{2}-[^/`\s|)]+/[^`\s|)]+\.md)(?!:)")
+COMMON_ID_PREFIXES = {
+    "AUTH",
+    "CLS",
+    "CTR",
+    "DLG",
+    "EXT",
+    "HQ",
+    "IOT",
+    "KIOSK",
+    "MA",
+    "MBR",
+    "MFN",
+    "MKT",
+    "NFR",
+    "PAY",
+    "PRD",
+    "SAL",
+    "SCR",
+    "SET",
+    "STF",
+}
 
 FORCE_BOTH_SCREEN_IDS = {
     # V1 화면들이 직접 참조하는 공통/본사 화면. 정의 섹션은 V1/V2 양쪽에 존재해야 한다.
@@ -158,6 +204,30 @@ def extract_codes(value: object) -> tuple[str, ...]:
     seen: set[str] = set()
     for match in CODE_RE.findall(text):
         code = normalize_code(match)
+        if code not in seen:
+            seen.add(code)
+            found.append(code)
+    return tuple(found)
+
+
+def is_common_planning_id(code: str) -> bool:
+    normalized = normalize_code(code)
+    if re.fullmatch(r"[AX]\d{2}", normalized):
+        return True
+    prefix = normalized.split("-", 1)[0]
+    return prefix in COMMON_ID_PREFIXES
+
+
+def extract_common_ids(value: object) -> tuple[str, ...]:
+    if value is None:
+        return ()
+    text = str(value)
+    found: list[str] = []
+    seen: set[str] = set()
+    for match in COMMON_ID_RE.findall(text):
+        code = normalize_code(match)
+        if not is_common_planning_id(code):
+            continue
         if code not in seen:
             seen.add(code)
             found.append(code)
@@ -685,6 +755,12 @@ def split_section_content(
             continue
 
         text = "\n".join(block.lines)
+        if section_screen_id(section) == "SCR-M004" and "15개 탭" in text:
+            for scope in ("V1", "V2"):
+                flush_heading(scope)
+                add_rendered_block(outputs[scope], block.lines)
+                has_content[scope] = True
+            continue
         scope, block_v1, block_v2, warning = classify_text_scope(
             text,
             primary,
@@ -949,7 +1025,7 @@ def set_linked_feature_line(content: str, features: tuple[str, ...], screen_id: 
     elif admin_known:
         line = "> 연결 기능: 없음 (V1 범위 직접 연결 기능 없음; 공통/보조 화면 또는 V2 기능은 V2 문서에서 관리)"
     else:
-        line = f"> 연결 기능: 없음 (docs/admin 화면설계서에서 {screen_id} 원본 미확인)"
+        line = f"> 연결 기능: 없음 ({screen_id}는 docs4 내부에서 독립 보조 화면/다이얼로그로 관리)"
 
     if LINKED_FEATURE_LINE_RE.search(content):
         return LINKED_FEATURE_LINE_RE.sub(line, content, count=1)
@@ -983,9 +1059,9 @@ def enrich_linked_features(
             enriched.append(decision)
             continue
         warning = decision.warning
-        suffix = "원본 화면설계서 feature_codes 기준으로 연결 기능을 명시했습니다."
+        suffix = "연결 기능 기준으로 범위 내 기능 코드를 명시했습니다."
         if not features:
-            suffix = "원본 화면설계서에 feature_codes가 없어 연결 기능 없음으로 명시했습니다."
+            suffix = "범위 내 직접 연결 기능 없음으로 명시했습니다."
         warning = (warning + " " if warning else "") + suffix
         enriched.append(
             SectionDecision(
@@ -1228,6 +1304,484 @@ def copy_common_docs() -> None:
     unresolved = DOCS2 / "_정책미확정_확인필요.md"
     if unresolved.exists():
         shutil.copy2(unresolved, DOCS4 / "_정책미확정_확인필요.md")
+
+
+def read_docs2_id_map_metadata() -> dict[str, dict[str, str]]:
+    path = DOCS2 / "_공통" / "01_ID매핑_v2_v3.md"
+    if not path.exists():
+        return {}
+
+    metadata: dict[str, dict[str, str]] = {}
+    for line in path.read_text(encoding="utf-8").splitlines():
+        if not line.startswith("|") or line.startswith("|---") or line.startswith("| ID "):
+            continue
+        cells = [cell.strip() for cell in line.strip().strip("|").split("|")]
+        if len(cells) < 5:
+            continue
+        screen_id = normalize_code(cells[0])
+        metadata[screen_id] = {
+            "name": cells[1],
+            "domain": cells[2],
+            "route": cells[3],
+        }
+    return metadata
+
+
+def build_docs4_heading_locations() -> dict[str, list[dict[str, object]]]:
+    locations: dict[str, list[dict[str, object]]] = defaultdict(list)
+    for scope in ("V1", "V2"):
+        for path in sorted((DOCS4 / scope).rglob("*.md")):
+            rel = path.relative_to(DOCS4).as_posix()
+            for line_no, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):
+                match = SCREEN_HEADING_RE.match(line)
+                if not match:
+                    continue
+                screen_id = normalize_code(match.group(1))
+                title = match.group(2).strip()
+                locations[screen_id].append(
+                    {
+                        "scope": scope,
+                        "path": rel,
+                        "line": line_no,
+                        "title": title,
+                    }
+                )
+    for items in locations.values():
+        items.sort(key=lambda item: (0 if item["scope"] == "V1" else 1, str(item["path"]), int(item["line"])))
+    return locations
+
+
+def build_docs4_linked_code_locations() -> dict[str, list[dict[str, object]]]:
+    locations: dict[str, list[dict[str, object]]] = defaultdict(list)
+    for scope in ("V1", "V2"):
+        for path in sorted((DOCS4 / scope).rglob("*.md")):
+            rel = path.relative_to(DOCS4).as_posix()
+            current_heading: dict[str, object] | None = None
+            for line_no, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):
+                heading = SCREEN_HEADING_RE.match(line)
+                if heading:
+                    current_heading = {
+                        "scope": scope,
+                        "path": rel,
+                        "line": line_no,
+                        "title": heading.group(2).strip(),
+                    }
+                    locations[normalize_code(heading.group(1))].append(current_heading)
+                    continue
+                if current_heading and line.startswith("> 연결 기능:"):
+                    for code in extract_codes(line):
+                        locations[code].append(dict(current_heading))
+    for items in locations.values():
+        items.sort(key=lambda item: (0 if item["scope"] == "V1" else 1, str(item["path"]), int(item["line"])))
+    return locations
+
+
+def build_docs4_common_code_locations() -> dict[str, list[dict[str, object]]]:
+    """Index canonical common-code headings inside docs4/_공통."""
+    locations: dict[str, list[dict[str, object]]] = defaultdict(list)
+    common_root = DOCS4 / "_공통"
+    if not common_root.exists():
+        return locations
+    for path in sorted(common_root.rglob("*.md")):
+        rel = path.relative_to(DOCS4).as_posix()
+        for line_no, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):
+            if not line.lstrip().startswith("#"):
+                continue
+            title = line.lstrip("#").strip()
+            for code in extract_common_ids(line):
+                locations[code].append(
+                    {
+                        "scope": "_공통",
+                        "path": rel,
+                        "line": line_no,
+                        "title": title,
+                    }
+                )
+    def priority(code: str, item: dict[str, object]) -> tuple[int, str, int]:
+        path = str(item["path"])
+        normalized = normalize_code(code)
+        if normalized.startswith("NFR-") and "비기능요구사항_NFR.md" in path:
+            return (0, path, int(item["line"]))
+        if re.fullmatch(r"[AX]\d{2}", normalized) and "자동화_크론.md" in path:
+            return (0, path, int(item["line"]))
+        if "공통참조_코드인덱스.md" in path:
+            return (2, path, int(item["line"]))
+        return (1, path, int(item["line"]))
+
+    for code, items in locations.items():
+        items.sort(key=lambda item: priority(code, item))
+    return locations
+
+
+def build_docs2_heading_index() -> dict[str, list[tuple[int, str]]]:
+    index: dict[str, list[tuple[int, str]]] = {}
+    for path in docs2_source_files():
+        rel = path.relative_to(DOCS2).as_posix()
+        headings: list[tuple[int, str]] = []
+        for line_no, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):
+            match = SCREEN_HEADING_RE.match(line)
+            if match:
+                headings.append((line_no, normalize_code(match.group(1))))
+        if headings:
+            index[rel] = headings
+    return index
+
+
+def lookup_docs2_screen_id(index: dict[str, list[tuple[int, str]]], rel_path: str, line_no: int) -> str | None:
+    headings = index.get(rel_path)
+    if not headings:
+        return None
+    current: str | None = None
+    for heading_line, screen_id in headings:
+        if heading_line > line_no:
+            if current is None and heading_line - line_no <= 3:
+                return screen_id
+            break
+        current = screen_id
+    return current
+
+
+def choose_docs4_location(
+    screen_id: str,
+    locations: dict[str, list[dict[str, object]]],
+    preferred_scope: str | None,
+) -> dict[str, object] | None:
+    candidates = locations.get(normalize_code(screen_id), [])
+    if not candidates:
+        return None
+    if preferred_scope:
+        for item in candidates:
+            if item["scope"] == preferred_scope:
+                return item
+    for scope in ("V1", "V2"):
+        for item in candidates:
+            if item["scope"] == scope:
+                return item
+    return candidates[0]
+
+
+def find_docs4_code_line(rel_path: str, code: str, preferred_scope: str | None) -> dict[str, object] | None:
+    scopes = [preferred_scope] if preferred_scope in {"V1", "V2"} else []
+    scopes.extend(scope for scope in ("V1", "V2") if scope not in scopes)
+    normalized = normalize_code(code)
+    for scope in scopes:
+        path = DOCS4 / scope / rel_path
+        if not path.exists():
+            continue
+        lines = path.read_text(encoding="utf-8").splitlines()
+        for line_no, line in enumerate(lines, 1):
+            if "분류 근거" in line or "docs4 Scope" in line:
+                continue
+            if normalized in extract_codes(line):
+                return {"scope": scope, "path": f"{scope}/{rel_path}", "line": line_no}
+        for line_no, line in enumerate(lines, 1):
+            if normalized in extract_codes(line):
+                return {"scope": scope, "path": f"{scope}/{rel_path}", "line": line_no}
+    return None
+
+
+def rewrite_docs4_id_map(locations: dict[str, list[dict[str, object]]]) -> None:
+    target = DOCS4 / "_공통" / "01_ID매핑_v2_v3.md"
+    if not target.exists():
+        return
+
+    metadata = read_docs2_id_map_metadata()
+    lines = [
+        "# ID 매핑",
+        "",
+        "이 문서는 docs4 내부의 화면·다이얼로그 섹션 위치만 매핑합니다.",
+        "V1/V2가 모두 존재하는 ID는 범위별로 한 줄씩 표기하여 개발자가 현재 범위 문서에서 바로 이동할 수 있게 합니다.",
+        "",
+        "> `/` route는 역할 기반으로 분기합니다. `superAdmin`/`primary`는 `SCR-101 대시보드 통합`, 그 외 역할은 `SCR-090 지점 대시보드`를 표시합니다.",
+        "",
+        "| Scope | ID | 이름 | 도메인 | route | 문서 위치 |",
+        "|---|---|---|---|---|---|",
+    ]
+    for screen_id in sorted(locations):
+        for item in locations[screen_id]:
+            meta = metadata.get(screen_id, {})
+            title = str(item["title"]).strip()
+            name = meta.get("name") or title or screen_id
+            domain = meta.get("domain") or str(item["path"]).split("/", 2)[1]
+            route = meta.get("route") or "-"
+            location = f"docs4/{item['path']}:{item['line']}"
+            lines.append(f"| {item['scope']} | {screen_id} | {name} | {domain} | {route} | {location} |")
+    target.write_text("\n".join(lines) + "\n", encoding="utf-8")
+
+
+def format_docs4_code_location(code: str, target: dict[str, object]) -> str:
+    return f"{code} / `docs4/{target['path']}:{target['line']}`"
+
+
+def has_immediate_docs4_location(line: str, end_index: int) -> bool:
+    return re.match(r"\s*/\s*`docs4/[^`]+:\d+`", line[end_index:]) is not None
+
+
+def is_inside_inline_code(line: str, index: int) -> bool:
+    return line[:index].count("`") % 2 == 1
+
+
+def choose_common_ref_location(
+    code: str,
+    screen_locations: dict[str, list[dict[str, object]]],
+    code_locations: dict[str, list[dict[str, object]]],
+    common_locations: dict[str, list[dict[str, object]]],
+) -> dict[str, object] | None:
+    normalized = normalize_code(code)
+
+    def pick_v1_first(items: list[dict[str, object]]) -> dict[str, object] | None:
+        if not items:
+            return None
+        return sorted(
+            items,
+            key=lambda item: (
+                0 if item.get("scope") == "V1" else 1 if item.get("scope") == "V2" else 2,
+                str(item.get("path", "")),
+                int(item.get("line", 0)),
+            ),
+        )[0]
+
+    def choose_prefix_location(locations: dict[str, list[dict[str, object]]], value: str) -> dict[str, object] | None:
+        candidates: list[dict[str, object]] = []
+        prefix = f"{value}-"
+        for key, items in locations.items():
+            if key.startswith(prefix):
+                candidates.extend(items)
+        return pick_v1_first(candidates)
+
+    def choose_parent_location(locations: dict[str, list[dict[str, object]]], value: str) -> dict[str, object] | None:
+        parts = value.split("-")
+        while len(parts) > 2:
+            parts = parts[:-1]
+            parent = "-".join(parts)
+            target = choose_docs4_location(parent, locations, None)
+            if target:
+                return target
+            target = choose_prefix_location(locations, parent)
+            if target:
+                return target
+        return None
+
+    # preferred_scope=None intentionally means V1 first, then V2.
+    target = choose_docs4_location(normalized, screen_locations, None)
+    if target:
+        return target
+    target = choose_prefix_location(screen_locations, normalized)
+    if target:
+        return target
+    target = choose_docs4_location(normalized, code_locations, None)
+    if target:
+        return target
+    target = choose_parent_location(screen_locations, normalized)
+    if target:
+        return target
+    target = choose_parent_location(code_locations, normalized)
+    if target:
+        return target
+    common_candidates = common_locations.get(normalized, [])
+    return common_candidates[0] if common_candidates else None
+
+
+def write_common_unmapped_report(unmapped: list[dict[str, object]], linked_count: int) -> None:
+    scope_dir = DOCS4 / "_scope"
+    scope_dir.mkdir(parents=True, exist_ok=True)
+    csv_path = scope_dir / "common_unmapped_id_report.csv"
+    md_path = scope_dir / "common_unmapped_id_report.md"
+
+    rows = sorted(
+        unmapped,
+        key=lambda row: (str(row["file"]), int(row["line"]), str(row["code"])),
+    )
+    with csv_path.open("w", encoding="utf-8-sig", newline="") as fp:
+        writer = csv.DictWriter(fp, fieldnames=["file", "line", "code", "reason", "line_text"])
+        writer.writeheader()
+        writer.writerows(rows)
+
+    lines = [
+        "# docs4 _공통 자동 매핑 불가 ID 리포트",
+        "",
+        f"- 자동 링크 처리: {linked_count}건",
+        f"- 자동 매핑 불가: {len(rows)}건",
+        "",
+    ]
+    if rows:
+        lines.extend(["| 파일 | 줄 | ID | 사유 | 원문 |", "|---|---:|---|---|---|"])
+        for row in rows[:500]:
+            line_text = str(row["line_text"]).replace("|", "\\|")
+            lines.append(
+                f"| {row['file']} | {row['line']} | {row['code']} | {row['reason']} | {line_text} |"
+            )
+        if len(rows) > 500:
+            lines.append(f"| ... | ... | ... | ... | 나머지 {len(rows) - 500}건은 CSV를 확인 |")
+    else:
+        lines.append("자동 매핑 불가 ID가 없습니다.")
+    md_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+
+
+def auto_link_common_ids(
+    screen_locations: dict[str, list[dict[str, object]]],
+    code_locations: dict[str, list[dict[str, object]]],
+) -> None:
+    """Attach docs4 locations to bare IDs in docs4/_공통.
+
+    When an ID exists in both V1 and V2, choose_docs4_location(..., None)
+    resolves it to V1 first. IDs with no resolvable docs4 location are
+    preserved and reported separately.
+    """
+    common_root = DOCS4 / "_공통"
+    if not common_root.exists():
+        write_common_unmapped_report([], 0)
+        return
+
+    common_locations = build_docs4_common_code_locations()
+    unmapped: list[dict[str, object]] = []
+    unmapped_seen: set[tuple[str, int, str, str]] = set()
+    linked_count = 0
+
+    def record_unmapped(path: Path, line_no: int, code: str, line_text: str) -> None:
+        rel = path.relative_to(DOCS4).as_posix()
+        key = (rel, line_no, normalize_code(code), line_text.strip())
+        if key in unmapped_seen:
+            return
+        unmapped_seen.add(key)
+        unmapped.append(
+            {
+                "file": rel,
+                "line": line_no,
+                "code": normalize_code(code),
+                "reason": "docs4 V1/V2/_공통 기준 위치를 자동 산정하지 못함",
+                "line_text": line_text.strip(),
+            }
+        )
+
+    def replace_line(path: Path, line_no: int, line: str) -> str:
+        nonlocal linked_count
+        stripped = line.strip()
+        if not stripped or re.fullmatch(r"\|?\s*:?-{3,}:?\s*(\|\s*:?-{3,}:?\s*)+\|?", stripped):
+            return line
+        if stripped.startswith("|") and "docs4/" in line:
+            return line
+
+        def replace_backticked(match: re.Match[str]) -> str:
+            nonlocal linked_count
+            if has_immediate_docs4_location(line, match.end()):
+                return match.group(0)
+            code = normalize_code(match.group(1))
+            if not is_common_planning_id(code):
+                return match.group(0)
+            target = choose_common_ref_location(code, screen_locations, code_locations, common_locations)
+            if not target:
+                record_unmapped(path, line_no, code, line)
+                return match.group(0)
+            linked_count += 1
+            return format_docs4_code_location(code, target)
+
+        line_after_backticks = BACKTICKED_COMMON_ID_RE.sub(replace_backticked, line)
+
+        def replace_plain(match: re.Match[str]) -> str:
+            nonlocal linked_count
+            if has_immediate_docs4_location(line_after_backticks, match.end()):
+                return match.group(0)
+            if is_inside_inline_code(line_after_backticks, match.start()):
+                return match.group(0)
+            code = normalize_code(match.group(0))
+            if not is_common_planning_id(code):
+                return match.group(0)
+            target = choose_common_ref_location(code, screen_locations, code_locations, common_locations)
+            if not target:
+                record_unmapped(path, line_no, code, line_after_backticks)
+                return match.group(0)
+            linked_count += 1
+            return format_docs4_code_location(code, target)
+
+        return COMMON_ID_RE.sub(replace_plain, line_after_backticks)
+
+    for path in sorted(common_root.rglob("*.md")):
+        lines = path.read_text(encoding="utf-8").splitlines()
+        rewritten = [replace_line(path, line_no, line) for line_no, line in enumerate(lines, 1)]
+        path.write_text("\n".join(rewritten) + "\n", encoding="utf-8")
+
+    write_common_unmapped_report(unmapped, linked_count)
+
+
+def rewrite_docs4_inline_locations() -> None:
+    """Convert docs2-relative section references to docs4 V1/V2 locations."""
+    locations = build_docs4_heading_locations()
+    code_locations = build_docs4_linked_code_locations()
+    docs2_index = build_docs2_heading_index()
+
+    def replace_docs2_ref(match: re.Match[str], preferred_scope: str | None) -> str:
+        rel_path = match.group(1)
+        line_no = int(match.group(2))
+        screen_id = lookup_docs2_screen_id(docs2_index, rel_path, line_no)
+        if not screen_id:
+            return match.group(0).replace("docs2/_정책미확정_확인필요.md", "docs4/_정책미확정_확인필요.md")
+        target = choose_docs4_location(screen_id, locations, preferred_scope)
+        if not target:
+            return match.group(0)
+        return f"docs4/{target['path']}:{target['line']}"
+
+    def replace_relative_ref(match: re.Match[str], preferred_scope: str | None) -> str:
+        rel_path = match.group(1)
+        line_no = int(match.group(2))
+        screen_id = lookup_docs2_screen_id(docs2_index, rel_path, line_no)
+        if not screen_id:
+            return match.group(0)
+        target = choose_docs4_location(screen_id, locations, preferred_scope)
+        if not target:
+            return match.group(0)
+        return f"docs4/{target['path']}:{target['line']}"
+
+    def replace_code_relative_ref(match: re.Match[str], preferred_scope: str | None) -> str:
+        code = normalize_code(match.group("code"))
+        rel_path = match.group("rel")
+        target = find_docs4_code_line(rel_path, code, preferred_scope)
+        if not target:
+            return match.group(0)
+        return f"{match.group('code')} / `docs4/{target['path']}:{target['line']}`"
+
+    def replace_docs2_file_without_line(line: str, preferred_scope: str | None) -> str:
+        if "docs2/" not in line:
+            return line
+        codes = sorted(extract_codes(line), key=len, reverse=True)
+        target: dict[str, object] | None = None
+        for code in codes:
+            target = choose_docs4_location(code, locations, preferred_scope)
+            if not target:
+                target = choose_docs4_location(code, code_locations, preferred_scope)
+            if target:
+                break
+        if not target:
+            return line
+        return DOCS2_DOMAIN_FILE_RE.sub(f"docs4/{target['path']}:{target['line']}", line)
+
+    target_files = [
+        path
+        for root in (DOCS4 / "V1", DOCS4 / "V2", DOCS4 / "_공통")
+        for path in sorted(root.rglob("*.md"))
+    ]
+    if (DOCS4 / "_정책미확정_확인필요.md").exists():
+        target_files.append(DOCS4 / "_정책미확정_확인필요.md")
+
+    for path in target_files:
+        rel_parts = path.relative_to(DOCS4).parts
+        preferred_scope = rel_parts[0] if rel_parts and rel_parts[0] in {"V1", "V2"} else None
+        text = path.read_text(encoding="utf-8")
+        text = text.replace("docs2/_정책미확정_확인필요.md", "docs4/_정책미확정_확인필요.md")
+        text = text.replace("`docs2` 기준", "`docs4` 기준")
+        text = text.replace("`docs2` 전체", "`docs4` 전체")
+        text = text.replace("`docs2`에서", "`docs4`에서")
+        text = text.replace("`docs2` 내부", "`docs4` 내부")
+        text = DOCS2_DOMAIN_LOC_RE.sub(lambda match: replace_docs2_ref(match, preferred_scope), text)
+        text = REL_DOMAIN_LOC_RE.sub(lambda match: replace_relative_ref(match, preferred_scope), text)
+        text = CODE_REL_LOC_RE.sub(lambda match: replace_code_relative_ref(match, preferred_scope), text)
+        text = "\n".join(replace_docs2_file_without_line(line, preferred_scope) for line in text.splitlines()) + "\n"
+        path.write_text(text, encoding="utf-8")
+
+    # ID map must be written after inline replacement so it always reflects
+    # the generated docs4 line numbers, not the source docs2 line numbers.
+    rewrite_docs4_id_map(locations)
+    auto_link_common_ids(locations, code_locations)
 
 
 def clear_docs4_directory() -> None:
@@ -1533,6 +2087,7 @@ def generate(force: bool) -> None:
 
     copy_common_docs()
     write_scope_docs(decisions)
+    rewrite_docs4_inline_locations()
 
     v2_overrides = [
         {

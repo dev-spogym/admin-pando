@@ -7,7 +7,7 @@
 
 | 파일 | 섹션 수 | 분류 요약 |
 |---|---:|---|
-| `V2/D01-공통/공통.md` | 19 | V2_SPLIT 1, V2_SUPPORT 2, V2_UNMAPPED 16 |
+| `V2/D01-공통/공통.md` | 18 | V2_SPLIT 1, V2_SUPPORT 2, V2_UNMAPPED 15 |
 | `V2/D01-공통/운영정책.md` | 6 | V2_SPLIT 1, V2_SUPPORT 4, V2_SUPPORT_SPLIT 1 |
 | `V2/D02-회원관리/운영정책.md` | 8 | V2_SPLIT 3, V2_SUPPORT 5 |
 | `V2/D02-회원관리/회원관리.md` | 42 | V2_SPLIT 37, V2_SUPPORT 2, V2_UNMAPPED 3 |
@@ -23,9 +23,9 @@
 | `V2/D07-직원관리/직원관리.md` | 14 | V2_SPLIT 9, V2_SUPPORT 2, V2_UNMAPPED 3 |
 | `V2/D08-마케팅/마케팅.md` | 31 | V2_SPLIT 26, V2_SUPPORT 2, V2_UNMAPPED 3 |
 | `V2/D08-마케팅/운영정책.md` | 6 | V2_SPLIT 1, V2_SUPPORT 5 |
-| `V2/D09-설정관리/설정관리.md` | 23 | V2 6, V2_SPLIT 11, V2_SUPPORT 1, V2_SUPPORT_SPLIT 1, V2_UNMAPPED 4 |
+| `V2/D09-설정관리/설정관리.md` | 23 | V2 4, V2_SPLIT 14, V2_SUPPORT 1, V2_SUPPORT_SPLIT 1, V2_UNMAPPED 3 |
 | `V2/D09-설정관리/운영정책.md` | 7 | V2_SPLIT 2, V2_SUPPORT 4, V2_SUPPORT_SPLIT 1 |
 | `V2/D10-본사관리/본사관리.md` | 23 | V2 3, V2_SPLIT 15, V2_SUPPORT 2, V2_UNMAPPED 3 |
 | `V2/D10-본사관리/운영정책.md` | 8 | V2_SPLIT 3, V2_SUPPORT 5 |
 | `V2/D11-통합운영/운영정책.md` | 8 | V2_SPLIT 3, V2_SUPPORT 4, V2_SUPPORT_SPLIT 1 |
-| `V2/D11-통합운영/통합운영.md` | 13 | V2_SPLIT 5, V2_SUPPORT 1, V2_SUPPORT_SPLIT 2, V2_UNMAPPED 5 |
+| `V2/D11-통합운영/통합운영.md` | 14 | V2 1, V2_SPLIT 4, V2_SUPPORT 1, V2_SUPPORT_SPLIT 2, V2_UNMAPPED 6 |
