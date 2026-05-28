@@ -1,6 +1,6 @@
 # fact_drift_report
 
-- generated_at: 2026-05-29T00:35:21
+- generated_at: 2026-05-29T01:20:37
 - facts: `registry/facts.yml`
 - source_file_count: 62
 - ERROR: 0
