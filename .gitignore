@@ -40,6 +40,7 @@ scripts/*
 !scripts/check-feature-codes.ts
 !scripts/check-contract-codes.ts
 !scripts/check-route-doc-coverage.ts
+!scripts/check-client2-docs4-alignment.mjs
 !scripts/generate_docs4_scope.py
 !scripts/admin-sheet-deliverable.ts
 !scripts/admin-sheet-qa-plan.ts
