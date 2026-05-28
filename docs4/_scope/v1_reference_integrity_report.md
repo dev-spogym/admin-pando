@@ -4,7 +4,7 @@
 
 - 대상: `docs4/V1/**/*.md`
 - 원본 화면 기준: `docs/admin/화면설계서/**/00-*.md` frontmatter `id`, `feature_codes`
-- 원본 기능 기준: `docs/admin/기능명세서/**/00-*.md` 및 `docs4/_scope/v1_checklist_rows_4_751.csv`
+- 원본 기능 기준: `docs/admin/기능명세서/**/00-*.md`, `docs4/_scope/v1_checklist_rows_4_751.csv`, `docs4/_scope/v1_promoted_rows_753_880.csv`
 - 검증 범위: 화면/다이얼로그 참조 존재 여부, V1 섹션의 연결 기능과 원본 `feature_codes` 비교, `N종/N개` 정의 집합의 항목 명시 여부와 원본 개수 drift
 
 ## 요약

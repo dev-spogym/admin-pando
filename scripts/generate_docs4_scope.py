@@ -4,10 +4,12 @@
 V1 source:
     lastspr/v1checklist.xlsx
     sheet "3.CRM (admin)_제로스트_0518논의"
-    rows 4..751
+    rows 4..751 plus promoted additional-development rows 753..880
 
 V2 source:
     rows 753..end plus docs2 sections that are not mapped to V1.
+    Codes promoted into V1 remain in the raw V2 export for traceability but
+    are excluded from effective V2 matching by V1 priority.
 
 This script is intentionally conservative. It does not rewrite planning content;
 it moves markdown sections into V1 or V2 and, when a section contains both
@@ -38,7 +40,13 @@ SHEET_NAME = "3.CRM (admin)_제로스트_0518논의"
 
 V1_START_ROW = 4
 V1_END_ROW = 751
+V1_PROMOTED_START_ROW = 753
+V1_PROMOTED_END_ROW = 880
 V2_START_ROW = 753
+
+
+def v1_scope_label() -> str:
+    return f"{V1_START_ROW}~{V1_END_ROW}행 + {V1_PROMOTED_START_ROW}~{V1_PROMOTED_END_ROW}행 승격"
 
 EXCLUDED_DOCS2_TOP_DIRS = {
     "_공통",
@@ -356,7 +364,13 @@ def load_records() -> tuple[list[ChecklistRecord], list[ChecklistRecord]]:
             codes=codes,
         )
 
-    v1_records = [make_record(row) for row in range(V1_START_ROW, V1_END_ROW + 1)]
+    v1_records = [
+        make_record(row)
+        for row in (
+            *range(V1_START_ROW, V1_END_ROW + 1),
+            *range(V1_PROMOTED_START_ROW, V1_PROMOTED_END_ROW + 1),
+        )
+    ]
     v2_records = [make_record(row) for row in range(V2_START_ROW, ws.max_row + 1)]
     return v1_records, v2_records
 
@@ -1208,7 +1222,7 @@ def write_scope_docs(decisions: list[SectionDecision]) -> None:
             "> **docs4 Scope 문서**",
             f"> - 원본: `docs2/{source_rel}`",
             f"> - 범위: `{scope}`",
-            f"> - 생성 기준: `{EXCEL.relative_to(ROOT).as_posix()}` `{SHEET_NAME}` 시트, V1=`{V1_START_ROW}~{V1_END_ROW}`행",
+            f"> - 생성 기준: `{EXCEL.relative_to(ROOT).as_posix()}` `{SHEET_NAME}` 시트, V1=`{v1_scope_label()}`",
             "> - 원칙: 원본 기획 내용을 임의 축소하지 않고, 섹션 내부 표/목록/문단 항목까지 V1/V2에 재배치했습니다.",
             "",
         ]
@@ -1231,7 +1245,7 @@ def write_indexes(decisions: list[SectionDecision]) -> None:
             f"# docs4 {scope} INDEX",
             "",
             f"- 생성 기준: `{EXCEL.relative_to(ROOT).as_posix()}` `{SHEET_NAME}`",
-            f"- V1 기준 행: `{V1_START_ROW}~{V1_END_ROW}`",
+            f"- V1 기준 행: `{v1_scope_label()}`",
             f"- {scope} 출력 파일 수: {len(by_file)}",
             f"- {scope} 출력 섹션 수: {len(rows)}",
             "",
@@ -1264,7 +1278,7 @@ def write_readme(
         "",
         f"- 체크리스트: `{EXCEL.relative_to(ROOT).as_posix()}`",
         f"- 시트: `{SHEET_NAME}`",
-        f"- V1: {V1_START_ROW}행부터 {V1_END_ROW}행까지",
+        f"- V1: {v1_scope_label()}",
         f"- V2: {V2_START_ROW}행 이후 및 V1 코드와 직접 매칭되지 않는 보류/기타 섹션",
         "- V1/V2가 같은 섹션에 섞인 경우 표 row, bullet, numbered step, 문단 단위로 분리해 V2 항목을 V1에서 제외했습니다.",
         "- `_공통`은 V1/V2 양쪽에서 참조하는 공통 정책/정의입니다.",
@@ -1822,8 +1836,43 @@ def write_scope_artifacts(
         "extra_opinion",
         "extracted_codes",
     ]
-    write_csv(scope_dir / "v1_checklist_rows_4_751.csv", records_csv_rows(v1_records), record_fields)
+    base_v1_records = [record for record in v1_records if V1_START_ROW <= record.row <= V1_END_ROW]
+    promoted_v1_records = [
+        record for record in v1_records if V1_PROMOTED_START_ROW <= record.row <= V1_PROMOTED_END_ROW
+    ]
+    write_csv(scope_dir / "v1_checklist_rows_4_751.csv", records_csv_rows(base_v1_records), record_fields)
+    promoted_rows = records_csv_rows(promoted_v1_records)
+    for row in promoted_rows:
+        row["promotion_scope"] = "V1_PROMOTED"
+        row["promotion_reason"] = f"rows_{V1_PROMOTED_START_ROW}_{V1_PROMOTED_END_ROW}_promoted_to_docs4_v1"
+    write_csv(
+        scope_dir / f"v1_promoted_rows_{V1_PROMOTED_START_ROW}_{V1_PROMOTED_END_ROW}.csv",
+        promoted_rows,
+        [*record_fields, "promotion_scope", "promotion_reason"],
+    )
     write_csv(scope_dir / "v2_explicit_rows_753_end.csv", records_csv_rows(raw_v2_records), record_fields)
+
+    promoted_lines = [
+        "# V1 추가 개발 승격 기준",
+        "",
+        f"- 기준 원본: `lastspr/v1checklist.xlsx` {V1_PROMOTED_START_ROW}~{V1_PROMOTED_END_ROW}행",
+        "- 적용 범위: `docs4/V1` 추가 개발 범위",
+        f"- 원칙: 기존 ID를 변경하지 않고 {V1_PROMOTED_START_ROW}~{V1_PROMOTED_END_ROW}행의 기획 코드를 V1에서 그대로 사용한다.",
+        "- 주의: V2 폴더는 유지하되, 본 범위의 구현 기준은 V1 문서에도 반영한다.",
+        "",
+        "## 승격 행 목록",
+        "",
+        "| 행 | 계약 코드 | 기획 코드 | 기능명 |",
+        "|---:|---|---|---|",
+    ]
+    for record in promoted_v1_records:
+        promoted_lines.append(
+            f"| {record.row} | `{record.contract_code or '-'}` | `{record.planning_code or '-'}` | {record.planning_name or record.contract_name or '-'} |"
+        )
+    (scope_dir / f"v1_promoted_rows_{V1_PROMOTED_START_ROW}_{V1_PROMOTED_END_ROW}.md").write_text(
+        "\n".join(promoted_lines) + "\n",
+        encoding="utf-8",
+    )
 
     v2_overrides: list[dict[str, object]] = []
     for code in sorted(raw_v2_codes - effective_v2_codes):
@@ -1904,7 +1953,7 @@ def write_scope_artifacts(
         "",
         "## 기준",
         "",
-        f"- V1 체크리스트: `{EXCEL.relative_to(ROOT).as_posix()}` `{SHEET_NAME}` {V1_START_ROW}~{V1_END_ROW}행",
+        f"- V1 체크리스트: `{EXCEL.relative_to(ROOT).as_posix()}` `{SHEET_NAME}` {v1_scope_label()}",
         f"- V2 명시 항목: 같은 시트 {V2_START_ROW}행 이후",
         "- 동일/상하위 코드가 V1과 V2 양쪽에 있으면 V1 코드로 확정하고 V2 매칭에서는 제외",
         "- V1/V2가 같은 섹션에 섞이면 표 row, bullet, numbered step, 문단 단위로 V1/V2를 분리",

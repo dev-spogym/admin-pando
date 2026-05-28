@@ -19,7 +19,7 @@ from pathlib import Path
 from typing import Any
 
 
-EXCLUDE_DIRS = {"registry", "reports", "정합성체크"}
+EXCLUDE_DIRS = {"registry", "reports", "정합성체크", "_scope"}
 ROLE_CODES = ["superAdmin", "primary", "owner", "manager", "fc", "trainer", "staff", "readonly"]
 EXTERNAL_KEYS = [
     "KIOSK",
@@ -54,7 +54,11 @@ TIME_RE = re.compile(
     r"[0-9]+\s*일(?:\s*이내|\s*후|\s*초과|\s*경과|\s*전)?|"
     r"[0-9]+\s*개월(?:\s*이내|\s*후|\s*초과|\s*경과|\s*전)?"
 )
-EXTERNAL_ID_RE = re.compile(r"\b(?:NFR|PAY|MBR|CLS|PRD|FAC|MKT|SAL|DASH|PAY-STF|SCR|DLG)-[A-Z0-9-]+\b")
+EXTERNAL_ID_RE = re.compile(r"(?<![A-Z0-9-])(?:NFR|PAY|MBR|CLS|PRD|FAC|MKT|SAL|DASH|PAY-STF|SCR|DLG)-[A-Z0-9-]+\b")
+INLINE_LOCATION_RE = re.compile(r"\s*/\s*(?:docs2/)?(?:_공통|D\d{2}-[^/\s`]+)\/[^\s`)]*?\.md:\d+")
+INLINE_ID_ANNOTATION_RE = re.compile(r"\s*\([A-Z][A-Z0-9]*(?:-[A-Z0-9]+)+\s*/\s*docs4/V1/[^)]*?\.md:\d+\)")
+INLINE_POLICY_ANNOTATION_RE = re.compile(r"\s*\([A-Z][A-Z0-9]*(?:-[A-Z0-9]+)+\s*/\s*docs4/V[12]/[^)]*?운영정책\.md:\d+\)")
+LEADING_CODE_LABEL_RE = re.compile(r"^[A-Z][A-Z0-9]*(?:-[A-Z0-9]+)+(?:-\d{2,3})?:?\s+")
 
 
 @dataclass
@@ -72,9 +76,16 @@ def strip_md(value: Any) -> str:
     text = re.sub(r"`([^`]*)`", r"\1", text)
     text = re.sub(r"\*\*([^*]+)\*\*", r"\1", text)
     text = re.sub(r"\[([^\]]+)\]\([^)]*\)", r"\1", text)
+    text = INLINE_POLICY_ANNOTATION_RE.sub("", text)
+    text = INLINE_ID_ANNOTATION_RE.sub("", text)
+    text = INLINE_LOCATION_RE.sub("", text)
     text = text.replace("<br>", " / ").replace("<br/>", " / ")
     text = re.sub(r"\s+", " ", text)
     return text.strip(" -")
+
+
+def strip_leading_code_label(value: str) -> str:
+    return LEADING_CODE_LABEL_RE.sub("", value.strip())
 
 
 def norm(value: Any) -> str:
@@ -215,6 +226,14 @@ def is_table_header(cells: list[str]) -> bool:
     )
 
 
+def is_automation_table_header(cells: list[str]) -> bool:
+    joined = " ".join(cells)
+    has_subject = any(token in joined for token in ["자동화", "연계 대상"])
+    has_trigger = any(token in joined for token in ["트리거", "실행 시점"])
+    has_result = any(token in joined for token in ["영향", "처리 동작", "결과"])
+    return has_subject and has_trigger and has_result
+
+
 def split_values(text: str) -> list[str]:
     cleaned = strip_md(text)
     if ":" in cleaned:
@@ -290,6 +309,16 @@ def context_for(
         return f"{section['id']} {section['title']}"
     headings = heading_by_line.get((path, line), [])
     return " > ".join(headings[-3:]) if headings else ""
+
+
+def ignore_generated_reference_line(
+    heading_by_line: dict[tuple[Path, int], list[str]],
+    path: Path,
+    line: int,
+) -> bool:
+    """Skip generated code-reference sections that do not define product facts."""
+    headings = heading_by_line.get((path, line), [])
+    return "세부 기능 코드 참조" in headings or "화면별 운영정책 순서" in headings
 
 
 def canonical_key(raw: str) -> str | None:
@@ -427,6 +456,8 @@ def extract_current_facts(root: Path) -> dict[str, Any]:
 
     for path, lines in docs.items():
         for number, line in enumerate(lines, 1):
+            if ignore_generated_reference_line(heading_by_line, path, number):
+                continue
             if any(keyword in line for keyword in state_keywords):
                 row = table_cells(line)
                 raw = " | ".join(row) if row else strip_md(line)
@@ -472,6 +503,8 @@ def extract_current_facts(root: Path) -> dict[str, Any]:
         active = rel(root, path) == "_공통/자동화_크론.md"
         header = None
         for number, line in enumerate(lines, 1):
+            if ignore_generated_reference_line(heading_by_line, path, number):
+                continue
             heading = HEADING_RE.match(line)
             if heading:
                 title = strip_md(heading.group(2))
@@ -481,7 +514,7 @@ def extract_current_facts(root: Path) -> dict[str, Any]:
                 header = None
                 continue
             row = table_cells(line)
-            if row and any(keyword in " ".join(row) for keyword in ["자동화", "실행 시점", "트리거", "처리 동작", "연결 기능"]):
+            if row and is_automation_table_header(row):
                 active = True
                 header = row
                 continue
@@ -511,8 +544,15 @@ def extract_current_facts(root: Path) -> dict[str, Any]:
         exception_active = rel(root, path) == "_공통/에러_예외_표준.md"
         exception_header = None
         for number, line in enumerate(lines, 1):
+            if ignore_generated_reference_line(heading_by_line, path, number):
+                continue
             if not line.strip().startswith("- 202"):
-                expressions = [match.group(0).strip() for match in TIME_RE.finditer(line)]
+                timing_line = strip_leading_code_label(strip_md(line))
+                timing_line = re.sub(r"(?:docs4/)?V[12]/[^\s`)]*?\.md:\d+", "", timing_line)
+                timing_line = re.sub(r"docs4/V[12]\b", "", timing_line)
+                timing_line = re.sub(r"\bD\d{2}\b", "", timing_line)
+                timing_line = EXTERNAL_ID_RE.sub("", timing_line)
+                expressions = [match.group(0).strip() for match in TIME_RE.finditer(timing_line)]
                 if expressions:
                     timing.append(
                         {
@@ -525,9 +565,10 @@ def extract_current_facts(root: Path) -> dict[str, Any]:
 
             if any(keyword in line for keyword in EXTERNAL_KEYS) and not line.lstrip().startswith("#"):
                 raw = strip_md(line)[:280]
+                raw_for_ids = strip_leading_code_label(raw)
                 external.append(
                     {
-                        "ids": list(dict.fromkeys(EXTERNAL_ID_RE.findall(raw))),
+                        "ids": list(dict.fromkeys(EXTERNAL_ID_RE.findall(raw_for_ids))),
                         "systems_or_channels": [keyword for keyword in EXTERNAL_KEYS if keyword in line],
                         "purpose": raw,
                         "context": context_for(heading_by_line, section_by_line, path, number),

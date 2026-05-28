@@ -12,6 +12,7 @@ Examples:
 
 from __future__ import annotations
 
+import argparse
 import csv
 import re
 from dataclasses import dataclass
@@ -23,6 +24,7 @@ ROOT = Path(__file__).resolve().parents[2]
 DOCS2 = ROOT / "docs2"
 OUT_DIR = DOCS2 / "정합성체크"
 EXCLUDED_TOP_DIRS = {"registry", "reports", "scripts", "정합성체크"}
+IGNORED_HEADING_TITLES = {"세부 기능 코드 참조", "화면별 운영정책 순서"}
 
 HEADING_RE = re.compile(r"^(#{1,6})\s+(.+?)\s*$")
 SCREEN_RE = re.compile(r"\b(?:SCR|DLG)-[A-Z0-9]+(?:-[A-Z0-9가-힣_]+)*\b", re.IGNORECASE)
@@ -322,6 +324,8 @@ def extract_candidates() -> list[Candidate]:
                 continue
 
             heading = " > ".join(title for _, title in heading_stack[-3:])
+            if any(title in IGNORED_HEADING_TITLES for _, title in heading_stack):
+                continue
             work_items: list[str] = []
             cells = split_table_cells(line)
             if cells:
@@ -422,19 +426,19 @@ def write_candidates_csv(path: Path, candidates: list[Candidate]) -> None:
             )
 
 
-def write_report(path: Path, candidates: list[Candidate]) -> None:
+def write_report(path: Path, candidates: list[Candidate], root_label: str) -> None:
     conflicts = conflict_groups(candidates)
     mismatches = count_mismatches(candidates)
 
     lines: list[str] = [
-        "# docs2 내부 정의 집합 정합성 리포트",
+        f"# {root_label} 내부 정의 집합 정합성 리포트",
         "",
         "## 기준",
         "",
-        "- 비교 대상은 `docs2` 내부 문서뿐입니다.",
+        f"- 비교 대상은 `{root_label}` 내부 문서뿐입니다.",
         "- `docs/admin` 원본 화면설계서/기능명세서는 비교하지 않습니다.",
         "- 반복되는 탭·컬럼·배지·상태값·유형·채널·역할·정책 집합을 추출해 같은 개념의 값 집합이 서로 다른지 확인합니다.",
-        "- 모든 위치는 개발자가 바로 이동할 수 있도록 `docs2` 기준 상대 경로와 라인으로 표기합니다.",
+        f"- 모든 위치는 개발자가 바로 이동할 수 있도록 `{root_label}` 기준 상대 경로와 라인으로 표기합니다.",
         "- 판정 범위는 화면/기능/UX/운영정책이며 API, DB 스키마, 테이블, 엔드포인트 같은 백엔드 상세는 제외합니다.",
         "",
         "## 요약",
@@ -493,23 +497,35 @@ def write_report(path: Path, candidates: list[Candidate]) -> None:
     lines += [
         "## 산출물",
         "",
-        "- `docs2/정합성체크/docs2_internal_set_candidates.csv`",
-        "- `docs2/정합성체크/docs2_internal_consistency_report.md`",
+        f"- `{root_label}/정합성체크/{root_label}_internal_set_candidates.csv`",
+        f"- `{root_label}/정합성체크/{root_label}_internal_consistency_report.md`",
         "",
     ]
     path.write_text("\n".join(lines), encoding="utf-8")
 
 
+def parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(description="Audit internal definition-set consistency for a docs root.")
+    parser.add_argument("--root", default=DOCS2, type=Path, help="Docs root directory. Default: docs2")
+    return parser.parse_args()
+
+
 def main() -> None:
+    global DOCS2, OUT_DIR
+    args = parse_args()
+    DOCS2 = args.root.resolve()
+    OUT_DIR = DOCS2 / "정합성체크"
+    root_label = DOCS2.name
+
     candidates = extract_candidates()
     OUT_DIR.mkdir(parents=True, exist_ok=True)
-    write_candidates_csv(OUT_DIR / "docs2_internal_set_candidates.csv", candidates)
-    write_report(OUT_DIR / "docs2_internal_consistency_report.md", candidates)
+    write_candidates_csv(OUT_DIR / f"{root_label}_internal_set_candidates.csv", candidates)
+    write_report(OUT_DIR / f"{root_label}_internal_consistency_report.md", candidates, root_label)
 
     print(f"candidates={len(candidates)}")
     print(f"conflict_groups={len(conflict_groups(candidates))}")
     print(f"count_mismatches={len(count_mismatches(candidates))}")
-    print(f"report={OUT_DIR / 'docs2_internal_consistency_report.md'}")
+    print(f"report={OUT_DIR / f'{root_label}_internal_consistency_report.md'}")
 
 
 if __name__ == "__main__":
