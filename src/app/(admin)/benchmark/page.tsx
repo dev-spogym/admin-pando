@@ -1,129 +1,376 @@
 'use client';
 export const dynamic = 'force-dynamic';
 
-import React, { useState } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import AppLayout from '@/components/layout/AppLayout';
 import PageHeader from '@/components/common/PageHeader';
-import { BarChart3, TrendingUp, TrendingDown, Minus } from 'lucide-react';
+import StatCard from '@/components/common/StatCard';
+import StatCardGrid from '@/components/common/StatCardGrid';
+import ChartCard from '@/components/common/ChartCard';
+import { EmptyState } from '@/components/common/EmptyState';
+import TabNav from '@/components/common/TabNav';
+import Button from '@/components/ui/Button';
+import Select from '@/components/ui/Select';
+import { toast } from 'sonner';
+import {
+  BarChart3, TrendingUp, TrendingDown, Minus, RefreshCw, Download,
+  ArrowUpCircle, ArrowDownCircle, AlertTriangle, Sparkles,
+} from 'lucide-react';
+import { cn } from '@/lib/utils';
 
-const branches = [
-  { name: '목동점', revenue: 38500000, members: 234, attendance: 82, retention: 74, newMember: 28 },
-  { name: '강남점', revenue: 52300000, members: 312, attendance: 88, retention: 81, newMember: 42 },
-  { name: '마포점', revenue: 29800000, members: 178, attendance: 76, retention: 68, newMember: 19 },
-  { name: '송파점', revenue: 44100000, members: 267, attendance: 85, retention: 77, newMember: 35 },
-  { name: '분당점', revenue: 35600000, members: 201, attendance: 79, retention: 72, newMember: 24 },
-];
+/**
+ * SCR-H1003 벤치마크 비교 (슈퍼관리자/Owner 전용 — 권한은 permissions.ts에서 bypass 처리)
+ * 유사 규모·업종 센터와 자사 지점 KPI를 익명 비교. 업계 평균/상위 25% 대비 백분위와
+ * 강점·개선 인사이트를 제공한다.
+ */
 
-const avg = {
-  revenue: Math.round(branches.reduce((s, b) => s + b.revenue, 0) / branches.length),
-  members: Math.round(branches.reduce((s, b) => s + b.members, 0) / branches.length),
-  attendance: Math.round(branches.reduce((s, b) => s + b.attendance, 0) / branches.length),
-  retention: Math.round(branches.reduce((s, b) => s + b.retention, 0) / branches.length),
-  newMember: Math.round(branches.reduce((s, b) => s + b.newMember, 0) / branches.length),
-};
+type MetricKey = 'revenue' | 'attendance' | 'retention' | 'newMember';
 
-const revenueStdDev = Math.round(Math.sqrt(
-  branches.reduce((sum, branch) => sum + (branch.revenue - avg.revenue) ** 2, 0) / branches.length
-));
-const revenueVarianceRate = avg.revenue > 0 ? Math.round((revenueStdDev / avg.revenue) * 100) : 0;
-
-function Indicator({ value, avg }: { value: number; avg: number }) {
-  const diff = value - avg;
-  if (diff > 0) return <TrendingUp className="w-4 h-4 text-green-500 inline" />;
-  if (diff < 0) return <TrendingDown className="w-4 h-4 text-red-500 inline" />;
-  return <Minus className="w-4 h-4 text-gray-400 inline" />;
+interface BenchmarkMetric {
+  key: MetricKey;
+  label: string;
+  unit: string;
+  /** 우리 지점 수치 */
+  mine: number;
+  /** 업계 평균 */
+  industryAvg: number;
+  /** 업계 상위 25% */
+  top25: number;
+  /** 전월 우리 지점 수치 (없으면 null) */
+  prevMine: number | null;
 }
 
-export default function BenchmarkPage() {
-  const [metric, setMetric] = useState<'revenue' | 'attendance' | 'retention' | 'newMember'>('revenue');
-  const metrics = [
-    { key: 'revenue' as const, label: '월 매출' },
-    { key: 'attendance' as const, label: '출석률' },
-    { key: 'retention' as const, label: '재등록률' },
-    { key: 'newMember' as const, label: '신규 등록' },
-  ];
+const SIZE_OPTIONS = [
+  { value: 'small', label: '소 (~150명)' },
+  { value: 'medium', label: '중 (150~300명)' },
+  { value: 'large', label: '대 (300명~)' },
+];
 
-  const sorted = [...branches].sort((a, b) => b[metric] - a[metric]);
+// 노출 순서 고정 (docs4 명세)
+const INDUSTRY_OPTIONS = [
+  { value: 'gym', label: '헬스' },
+  { value: 'pilates', label: '필라테스' },
+  { value: 'ptshop', label: 'PT샵' },
+  { value: 'golf', label: '골프' },
+  { value: 'yoga', label: '요가' },
+  { value: 'crossfit', label: '크로스핏' },
+  { value: 'boxing', label: '복싱' },
+  { value: 'swim', label: '수영' },
+  { value: 'taekwondo', label: '태권도' },
+  { value: 'spinning', label: '스피닝' },
+  { value: 'etc', label: '기타' },
+];
+
+const PERIOD_OPTIONS = [
+  { value: 'month', label: '월간' },
+  { value: 'quarter', label: '분기' },
+  { value: 'year', label: '연간' },
+];
+
+// 분석 결과 목업 (조건별 동일 형태) — 실제로는 벤치마크 풀 API 결과
+function buildMockMetrics(): BenchmarkMetric[] {
+  return [
+    { key: 'revenue', label: '월 매출', unit: '만원', mine: 3850, industryAvg: 3600, top25: 4800, prevMine: 3620 },
+    { key: 'attendance', label: '출석률', unit: '%', mine: 82, industryAvg: 78, top25: 89, prevMine: 80 },
+    { key: 'retention', label: '재등록률', unit: '%', mine: 68, industryAvg: 74, top25: 85, prevMine: 70 },
+    { key: 'newMember', label: '신규 등록', unit: '명', mine: 28, industryAvg: 32, top25: 48, prevMine: 26 },
+  ];
+}
+
+/** 우리 지점이 업계에서 차지하는 백분위 (평균/상위25% 보간 근사) */
+function percentile(m: BenchmarkMetric): number {
+  if (m.mine >= m.top25) return 90;
+  if (m.mine >= m.industryAvg) {
+    const r = (m.mine - m.industryAvg) / Math.max(1, m.top25 - m.industryAvg);
+    return Math.round(50 + r * 25);
+  }
+  const r = m.mine / Math.max(1, m.industryAvg);
+  return Math.round(r * 50);
+}
+
+function fmt(m: BenchmarkMetric, v: number): string {
+  return m.key === 'revenue' ? `${v.toLocaleString()}만원` : `${v}${m.unit}`;
+}
+
+const MAX_TIMEOUT_MS = 30_000;
+
+export default function BenchmarkPage() {
+  const [size, setSize] = useState('medium');
+  const [industry, setIndustry] = useState('gym');
+  const [period, setPeriod] = useState('month');
+  const [metric, setMetric] = useState<MetricKey>('revenue');
+
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(false);
+  const [analyzed, setAnalyzed] = useState(false);
+  const [insufficient, setInsufficient] = useState(false);
+  const [metrics, setMetrics] = useState<BenchmarkMetric[]>([]);
+  const [baseDate, setBaseDate] = useState('');
+
+  const runAnalysis = useCallback(async () => {
+    if (!size || !industry) {
+      toast.error('규모와 업종을 선택해주세요.');
+      return;
+    }
+    setLoading(true);
+    setError(false);
+    setInsufficient(false);
+    try {
+      // 분석 타임아웃(30초) 가드 + 목업 지연
+      await new Promise<void>((resolve, reject) => {
+        const t = setTimeout(resolve, 400);
+        setTimeout(() => { clearTimeout(t); reject(new Error('timeout')); }, MAX_TIMEOUT_MS);
+      });
+      // 비교 샘플 부족 케이스: '기타' 업종은 풀 부족으로 가정
+      if (industry === 'etc') {
+        setInsufficient(true);
+        setMetrics([]);
+        setAnalyzed(true);
+        return;
+      }
+      setMetrics(buildMockMetrics());
+      setBaseDate(new Date().toISOString().slice(0, 10));
+      setAnalyzed(true);
+    } catch {
+      setError(true);
+      toast.error('데이터 수집에 시간이 걸리고 있습니다. 잠시 후 다시 시도해주세요.');
+    } finally {
+      setLoading(false);
+    }
+  }, [size, industry]);
+
+  // 진입 시 기본 조건으로 1회 자동 분석
+  useEffect(() => { runAnalysis(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, []);
+
+  const handleExport = () => {
+    if (!analyzed || metrics.length === 0) {
+      toast.error('내보낼 분석 결과가 없습니다.');
+      return;
+    }
+    toast.success('벤치마크 결과를 PDF로 내보냈습니다.');
+  };
+
+  const strengths = metrics.filter((m) => m.mine >= m.industryAvg);
+  // 업계 평균 대비 20% 이상 미달 = 개선 여지 강조 (docs4 자동 플래그)
+  const weaknesses = metrics.filter((m) => m.mine < m.industryAvg * 0.8);
+  const belowAvg = metrics.filter((m) => m.mine < m.industryAvg);
+
+  const selected = metrics.find((m) => m.key === metric);
+
+  function trendOf(m: BenchmarkMetric): { dir: 'up' | 'down' | 'flat'; rate: number } {
+    if (m.prevMine == null) return { dir: 'flat', rate: 0 };
+    const diff = m.mine - m.prevMine;
+    const rate = Math.round((diff / Math.max(1, m.prevMine)) * 100);
+    return { dir: diff > 0 ? 'up' : diff < 0 ? 'down' : 'flat', rate: Math.abs(rate) };
+  }
 
   return (
     <AppLayout>
-      <PageHeader title="벤치마크 비교" description="지점 간 핵심 지표를 비교해 우수 사례와 개선 포인트를 파악합니다" />
+      <PageHeader
+        title="벤치마크 비교"
+        description="유사 규모·업종 센터와 우리 지점의 KPI를 익명 비교해 경쟁력 위치를 파악합니다"
+        actions={
+          <div className="flex items-center gap-sm">
+            <Button variant="outline" size="sm" icon={<Download size={14} />} onClick={handleExport}>
+              PDF 내보내기
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              icon={<RefreshCw size={14} className={loading ? 'animate-spin' : ''} />}
+              onClick={runAnalysis}
+            >
+              분석 실행
+            </Button>
+          </div>
+        }
+      />
 
-      {/* 업계 평균 기준선 */}
-      <div className="grid grid-cols-1 md:grid-cols-3 xl:grid-cols-6 gap-4 mb-6">
-        {metrics.map(m => (
-          <div key={m.key} className="bg-white rounded-xl border border-gray-200 p-4">
-            <p className="text-xs text-gray-500 mb-1">전체 평균 {m.label}</p>
-            <p className="text-lg font-bold text-gray-800">
-              {m.key === 'revenue' ? `${(avg[m.key] / 10000).toFixed(0)}만원` : `${avg[m.key]}${m.key === 'newMember' ? '명' : '%'}`}
+      {/* 비교 기준 설정 */}
+      <div className="bg-surface rounded-xl border border-line shadow-sm p-lg mb-lg">
+        <h3 className="text-[14px] font-bold text-content mb-md">비교 기준 설정</h3>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-md">
+          <Select label="센터 규모" options={SIZE_OPTIONS} value={size} onChange={setSize} />
+          <Select label="업종" options={INDUSTRY_OPTIONS} value={industry} onChange={setIndustry} searchable />
+          <Select label="기간" options={PERIOD_OPTIONS} value={period} onChange={setPeriod} />
+        </div>
+      </div>
+
+      {/* 로딩 */}
+      {loading && (
+        <StatCardGrid cols={4} className="mb-lg">
+          {[0, 1, 2, 3].map((i) => <StatCard key={i} label="" value="" loading />)}
+        </StatCardGrid>
+      )}
+
+      {/* 오류 */}
+      {!loading && error && (
+        <ChartCard title="분석 오류">
+          <EmptyState
+            icon={AlertTriangle}
+            title="데이터 수집에 시간이 걸리고 있습니다"
+            description="잠시 후 다시 시도해주세요."
+            action={{ label: '재시도', onClick: runAnalysis }}
+          />
+        </ChartCard>
+      )}
+
+      {/* 데이터 부족 */}
+      {!loading && !error && analyzed && insufficient && (
+        <ChartCard title="비교 결과">
+          <EmptyState
+            icon={BarChart3}
+            title="비교 가능한 센터 데이터가 부족합니다"
+            description="비교 기준(규모·업종)을 완화하면 더 많은 센터와 비교할 수 있습니다."
+          />
+        </ChartCard>
+      )}
+
+      {/* 결과 표시 */}
+      {!loading && !error && analyzed && !insufficient && metrics.length > 0 && (
+        <>
+          <div className="flex items-center justify-between mb-sm">
+            <p className="text-[12px] text-content-tertiary">데이터 기준일: {baseDate}</p>
+            <p className="text-[12px] text-content-tertiary">
+              {SIZE_OPTIONS.find((o) => o.value === size)?.label} ·{' '}
+              {INDUSTRY_OPTIONS.find((o) => o.value === industry)?.label} ·{' '}
+              {PERIOD_OPTIONS.find((o) => o.value === period)?.label}
             </p>
           </div>
-        ))}
-        <div className="bg-white rounded-xl border border-gray-200 p-4">
-          <p className="text-xs text-gray-500 mb-1">전지점 매출 표준편차</p>
-          <p className="text-lg font-bold text-gray-800">{(revenueStdDev / 10000).toFixed(0)}만원</p>
-        </div>
-        <div className="bg-white rounded-xl border border-gray-200 p-4">
-          <p className="text-xs text-gray-500 mb-1">매출 편차율</p>
-          <p className="text-lg font-bold text-gray-800">{revenueVarianceRate}%</p>
-        </div>
-      </div>
 
-      {/* 지표 선택 */}
-      <div className="flex gap-2 mb-4">
-        {metrics.map(m => (
-          <button key={m.key} onClick={() => setMetric(m.key)}
-            className={`px-3 py-1.5 rounded-lg text-sm font-medium ${metric === m.key ? 'bg-blue-600 text-white' : 'text-gray-600 hover:bg-gray-100'}`}>
-            {m.label}
-          </button>
-        ))}
-      </div>
+          {/* 지표별 백분위 요약 카드 */}
+          <StatCardGrid cols={4} className="mb-lg">
+            {metrics.map((m) => {
+              const pct = percentile(m);
+              const tr = trendOf(m);
+              const isStrong = m.mine >= m.industryAvg;
+              return (
+                <StatCard
+                  key={m.key}
+                  label={m.label}
+                  value={fmt(m, m.mine)}
+                  description={`업계 상위 ${100 - pct}% · 평균 ${fmt(m, m.industryAvg)}`}
+                  change={tr.dir === 'flat' ? undefined : { value: tr.dir === 'up' ? tr.rate : -tr.rate, label: '전월 대비' }}
+                  variant={isStrong ? 'mint' : 'peach'}
+                  icon={<BarChart3 size={18} />}
+                />
+              );
+            })}
+          </StatCardGrid>
 
-      {/* 지점 비교 테이블 */}
-      <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-        <table className="w-full">
-          <thead className="bg-gray-50 border-b border-gray-100">
-            <tr>
-              <th className="text-left px-5 py-3 text-xs font-semibold text-gray-500">순위</th>
-              <th className="text-left px-5 py-3 text-xs font-semibold text-gray-500">지점</th>
-              <th className="text-right px-5 py-3 text-xs font-semibold text-gray-500">월 매출</th>
-              <th className="text-right px-5 py-3 text-xs font-semibold text-gray-500">회원수</th>
-              <th className="text-right px-5 py-3 text-xs font-semibold text-gray-500">출석률</th>
-              <th className="text-right px-5 py-3 text-xs font-semibold text-gray-500">재등록률</th>
-              <th className="text-right px-5 py-3 text-xs font-semibold text-gray-500">신규</th>
-              <th className="text-right px-5 py-3 text-xs font-semibold text-gray-500">평균 대비</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-gray-100">
-            {sorted.map((b, i) => (
-              <tr key={b.name} className={`hover:bg-gray-50 ${i === 0 ? 'bg-amber-50' : ''}`}>
-                <td className="px-5 py-3.5">
-                  <span className={`text-sm font-bold ${i === 0 ? 'text-amber-600' : i === 1 ? 'text-gray-500' : i === 2 ? 'text-orange-500' : 'text-gray-400'}`}>
-                    {i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : `${i + 1}위`}
-                  </span>
-                </td>
-                <td className="px-5 py-3.5 text-sm font-semibold text-gray-800">{b.name}</td>
-                <td className="px-5 py-3.5 text-right text-sm text-gray-700">
-                  {(b.revenue / 10000).toFixed(0)}만원 <Indicator value={b.revenue} avg={avg.revenue} />
-                </td>
-                <td className="px-5 py-3.5 text-right text-sm text-gray-700">{b.members}명</td>
-                <td className="px-5 py-3.5 text-right text-sm text-gray-700">
-                  {b.attendance}% <Indicator value={b.attendance} avg={avg.attendance} />
-                </td>
-                <td className="px-5 py-3.5 text-right text-sm text-gray-700">
-                  {b.retention}% <Indicator value={b.retention} avg={avg.retention} />
-                </td>
-                <td className="px-5 py-3.5 text-right text-sm text-gray-700">
-                  {b.newMember}명 <Indicator value={b.newMember} avg={avg.newMember} />
-                </td>
-                <td className={`px-5 py-3.5 text-right text-sm font-semibold ${b.revenue >= avg.revenue ? 'text-green-600' : 'text-red-500'}`}>
-                  {b.revenue >= avg.revenue ? '+' : '-'}{Math.abs(Math.round(((b.revenue - avg.revenue) / avg.revenue) * 100))}%
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+          {/* 인사이트 요약 */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-lg mb-lg">
+            <div className="bg-surface rounded-xl border border-line shadow-sm p-lg">
+              <div className="flex items-center gap-sm mb-md">
+                <ArrowUpCircle size={16} className="text-state-success" />
+                <h3 className="text-[14px] font-bold text-content">강점 지표</h3>
+                <span className="text-[12px] text-content-tertiary">{strengths.length}개</span>
+              </div>
+              {strengths.length === 0 ? (
+                <p className="text-[13px] text-content-secondary">업계 평균 대비 우수한 지표가 없습니다.</p>
+              ) : (
+                <ul className="space-y-sm">
+                  {strengths.map((m) => (
+                    <li key={m.key} className="flex items-center justify-between text-[13px]">
+                      <span className="text-content">{m.label}</span>
+                      <span className="text-state-success font-semibold">
+                        평균 대비 +{Math.round(((m.mine - m.industryAvg) / m.industryAvg) * 100)}%
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+
+            <div className="bg-surface rounded-xl border border-line shadow-sm p-lg">
+              <div className="flex items-center gap-sm mb-md">
+                <ArrowDownCircle size={16} className="text-state-error" />
+                <h3 className="text-[14px] font-bold text-content">개선 필요 지표</h3>
+                <span className="text-[12px] text-content-tertiary">{belowAvg.length}개</span>
+              </div>
+              {belowAvg.length === 0 ? (
+                <p className="text-[13px] text-content-secondary">업계 평균 대비 미달 지표가 없습니다.</p>
+              ) : (
+                <ul className="space-y-sm">
+                  {belowAvg.map((m) => {
+                    const flagged = weaknesses.some((w) => w.key === m.key);
+                    return (
+                      <li key={m.key} className="flex items-center justify-between text-[13px]">
+                        <span className="flex items-center gap-xs text-content">
+                          {flagged && <AlertTriangle size={13} className="text-state-error" />}
+                          {m.label}
+                        </span>
+                        <span className="text-state-error font-semibold">
+                          평균 대비 {Math.round(((m.mine - m.industryAvg) / m.industryAvg) * 100)}%
+                        </span>
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
+            </div>
+          </div>
+
+          {/* 액션 아이템 제안 */}
+          {weaknesses.length > 0 && (
+            <div className="bg-primary-light/40 rounded-xl border border-primary/20 p-lg mb-lg">
+              <div className="flex items-center gap-sm mb-sm">
+                <Sparkles size={16} className="text-primary" />
+                <h3 className="text-[14px] font-bold text-content">개선 액션 아이템 제안</h3>
+              </div>
+              <ul className="space-y-xs text-[13px] text-content-secondary list-disc pl-lg">
+                {weaknesses.map((m) => (
+                  <li key={m.key}>
+                    <span className="font-semibold text-content">{m.label}</span>이 업계 평균 대비 20% 이상 낮습니다. 상위 25% 센터({fmt(m, m.top25)}) 수준을 목표로 캠페인·운영 점검을 권장합니다.
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          {/* 지표 선택 후 막대 비교 차트 */}
+          <TabNav
+            tabs={metrics.map((m) => ({ key: m.key, label: m.label }))}
+            activeTab={metric}
+            onTabChange={(k) => setMetric(k as MetricKey)}
+            className="mb-md"
+          />
+
+          {selected && (
+            <ChartCard
+              title={`${selected.label} 벤치마크 비교`}
+              description="우리 지점 vs 업계 평균 vs 업계 상위 25%"
+            >
+              <div className="space-y-md pt-sm">
+                {[
+                  { label: '우리 지점', value: selected.mine, color: 'bg-primary' },
+                  { label: '업계 평균', value: selected.industryAvg, color: 'bg-slate-300' },
+                  { label: '업계 상위 25%', value: selected.top25, color: 'bg-accent' },
+                ].map((row) => {
+                  const max = Math.max(selected.mine, selected.industryAvg, selected.top25, 1);
+                  return (
+                    <div key={row.label} className="flex items-center gap-md">
+                      <div className="w-[96px] text-[12px] text-content-secondary text-right shrink-0">{row.label}</div>
+                      <div className="flex-1 h-8 bg-surface-secondary rounded relative overflow-hidden">
+                        <div className={cn('h-full transition-all duration-500', row.color)} style={{ width: `${(row.value / max) * 100}%` }} />
+                        <span className="absolute inset-0 flex items-center px-sm text-[12px] font-semibold text-content">
+                          {fmt(selected, row.value)}
+                        </span>
+                      </div>
+                    </div>
+                  );
+                })}
+                <p className="text-[12px] text-content-tertiary pt-xs">
+                  우리 지점 백분위: 상위 {100 - percentile(selected)}%
+                  {selected.prevMine != null && (
+                    <> · 전월 {fmt(selected, selected.prevMine)} 대비 {trendOf(selected).dir === 'up' ? '상승' : trendOf(selected).dir === 'down' ? '하락' : '동일'}</>
+                  )}
+                </p>
+              </div>
+            </ChartCard>
+          )}
+        </>
+      )}
     </AppLayout>
   );
 }

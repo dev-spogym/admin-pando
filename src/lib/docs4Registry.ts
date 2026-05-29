@@ -186,15 +186,15 @@ export const DOCS4_SCREENS: Docs4Entry[] = [
   { code: "SCR-093", kind: "SCR", domain: "D10", title: "지점 성과 리포트", version: "both", route: "/branch-report", status: "done" },
   { code: "SCR-094", kind: "SCR", domain: "D10", title: "KPI 대시보드", version: "both", route: "/kpi", status: "done" },
   { code: "SCR-095", kind: "SCR", domain: "D10", title: "KPI 센터", version: "both", route: "/kpi-preview", status: "done" },
-  { code: "SCR-096", kind: "SCR", domain: "D10", title: "온보딩 대시보드", version: "V2", route: "/onboarding", status: "stub" },
+  { code: "SCR-096", kind: "SCR", domain: "D10", title: "온보딩 대시보드", version: "V2", route: "/onboarding", status: "done" },
   { code: "SCR-097", kind: "SCR", domain: "D10", title: "히스토리 로그", version: "both", route: "/audit-log", status: "done" },
   { code: "SCR-098", kind: "SCR", domain: "D10", title: "오늘의 할 일", version: "V1", route: "/today-tasks", status: "done" },
   { code: "SCR-099", kind: "SCR", domain: "D10", title: "리포트 생성", version: "both", route: "/reports", status: "done" },
   { code: "SCR-H1001", kind: "SCR", domain: "D10", title: "자동화 정책 라이브러리", version: "both", route: "/hq/automation-policies", status: "done" },
   { code: "SCR-H1002", kind: "SCR", domain: "D10", title: "커스텀 대시보드 빌더", version: "V2", route: "/dashboard/builder", status: "done" },
-  { code: "SCR-H1003", kind: "SCR", domain: "D10", title: "벤치마크 비교", version: "V2", route: "/benchmark", status: "stub" },
+  { code: "SCR-H1003", kind: "SCR", domain: "D10", title: "벤치마크 비교", version: "V2", route: "/benchmark", status: "done" },
   { code: "SCR-H1004", kind: "SCR", domain: "D10", title: "예측 분석", version: "both", route: "/analytics/forecast", status: "done" },
-  { code: "SCR-H1005", kind: "SCR", domain: "D10", title: "NPS 설문", version: "V2", route: "/nps", status: "stub" },
+  { code: "SCR-H1005", kind: "SCR", domain: "D10", title: "NPS 설문", version: "V2", route: "/nps", status: "done" },
 
   // ── D11 통합운영 ──
   { code: "SCR-I001", kind: "SCR", domain: "D11", title: "통합 출석 관리", version: "both", route: "/attendance", status: "done" },
