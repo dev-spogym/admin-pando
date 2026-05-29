@@ -17,6 +17,8 @@ import Select from '@/components/ui/Select';
 import type { BadgeVariant } from "@/components/common/StatusBadge";
 import { supabase } from '@/lib/supabase';
 import AsyncBoundary from '@/components/common/AsyncBoundary';
+import { useAuthStore } from '@/stores/authStore';
+import { isRoleAtLeast, normalizeRole } from '@/lib/permissions';
 
 // 상태 탭
 const STATUS_TABS = [
@@ -66,6 +68,11 @@ interface MemberOption {
 
 export default function LessonCounts() {
   const branchId = getBranchId();
+  const currentUser = useAuthStore((state) => state.user);
+  const isSuperAdmin = currentUser?.isSuperAdmin ?? false;
+  const role = normalizeRole(currentUser?.role ?? 'readonly');
+  // 횟수 조정·차감은 Owner(지점장)/매니저 이상만 (트레이너/FC/스태프는 조회·이력만) — SCR-C007 권한표
+  const canAdjust = isSuperAdmin || isRoleAtLeast(role, 'manager');
 
   const [counts, setCounts] = useState<LessonCount[]>([]);
   const [loading, setLoading] = useState(false);
@@ -189,6 +196,7 @@ export default function LessonCounts() {
 
   // 1회 차감
   const handleDeduct = async (row: LessonCount) => {
+    if (!canAdjust) { toast.error('횟수 조정 권한이 없습니다.'); return; }
     if (row.usedCount >= row.totalCount) {
       toast.error('잔여 횟수가 없습니다.');
       return;
@@ -209,6 +217,7 @@ export default function LessonCounts() {
 
   // 조정 모달 열기
   const handleOpenAdjust = (row: LessonCount) => {
+    if (!canAdjust) { toast.error('횟수 조정 권한이 없습니다.'); return; }
     setAdjustTarget(row);
     setAdjustType('add');
     setAdjustCount(1);
@@ -330,23 +339,27 @@ export default function LessonCounts() {
       align: 'center' as const,
       render: (_: any, row: LessonCount) => (
         <div className="flex items-center justify-center gap-1">
-          <button
-            className="flex items-center gap-1 px-2 py-1 rounded-md bg-primary-light text-primary text-[12px] font-medium hover:bg-primary hover:text-white transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-            onClick={() => handleDeduct(row)}
-            disabled={row.usedCount >= row.totalCount || row.status !== 'ACTIVE'}
-            title="1회 차감"
-          >
-            <Minus size={12} />
-            차감
-          </button>
-          <button
-            className="flex items-center gap-1 px-2 py-1 rounded-md border border-amber-300 text-amber-600 text-[12px] hover:bg-amber-50 transition-colors"
-            onClick={() => handleOpenAdjust(row)}
-            title="횟수 조정"
-          >
-            <Pencil size={12} />
-            조정
-          </button>
+          {canAdjust && (
+            <>
+              <button
+                className="flex items-center gap-1 px-2 py-1 rounded-md bg-primary-light text-primary text-[12px] font-medium hover:bg-primary hover:text-white transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                onClick={() => handleDeduct(row)}
+                disabled={row.usedCount >= row.totalCount || row.status !== 'ACTIVE'}
+                title="1회 차감"
+              >
+                <Minus size={12} />
+                차감
+              </button>
+              <button
+                className="flex items-center gap-1 px-2 py-1 rounded-md border border-amber-300 text-amber-600 text-[12px] hover:bg-amber-50 transition-colors"
+                onClick={() => handleOpenAdjust(row)}
+                title="횟수 조정"
+              >
+                <Pencil size={12} />
+                조정
+              </button>
+            </>
+          )}
           <button
             className="flex items-center gap-1 px-2 py-1 rounded-md border border-line text-content-secondary text-[12px] hover:bg-surface-tertiary transition-colors"
             onClick={() => handleViewSession(row)}
