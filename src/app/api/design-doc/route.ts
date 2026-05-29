@@ -5,16 +5,20 @@ import { getRouteMapping } from '@/lib/designDocMap';
 import { parseFrontmatter } from '@/lib/frontmatter';
 import { stripDevSections } from '@/lib/stripDevSections';
 import {
-  resolveDocs4ForRoute,
+  getScreensByRoute,
   DOCS4_DOMAIN_FILES,
   DOCS4_DOMAIN_LABELS,
+  type Docs4Domain,
 } from '@/lib/docs4Registry';
 
 // ─── docs4 기획문서(V1+V2) 로더 ──────────────────────────────────────────────
-// docs4/** 는 읽기 전용. 라우트로 도메인/SCR을 역조회해 해당 SCR 섹션만 추출한다.
+// docs4/** 는 읽기 전용. 라우트로 도메인/SCR을 역조회해 해당 SCR + 연결 DLG 섹션을
+// 추출하고, 모든 화면 공통으로 적용되는 공통 프레임/정책을 부록으로 덧붙인다.
+
+const DOCS4_ROOT = path.join(process.cwd(), 'docs4');
 
 /** `## <code> ...` 헤딩부터 다음 `## ` 헤딩(또는 EOF) 직전까지 추출. `### ` 하위 섹션은 유지 */
-function extractScrSection(content: string, code: string): string {
+function extractSection(content: string, code: string): string {
   const lines = content.split('\n');
   const result: string[] = [];
   let capturing = false;
@@ -22,9 +26,8 @@ function extractScrSection(content: string, code: string): string {
     const trimmed = line.trim();
     if (trimmed.startsWith('## ')) {
       if (capturing) break; // 다음 ## 섹션 시작 → 종료
-      // `## SCR-M001 회원 목록` 형태에서 코드 토큰 일치 확인
-      const headingBody = trimmed.replace(/^##\s+/, '');
-      const firstToken = headingBody.split(/\s+/)[0];
+      // `## SCR-M001 회원 목록`, `## DLG-056-001 장비 등록` → 첫 토큰 일치
+      const firstToken = trimmed.replace(/^##\s+/, '').split(/\s+/)[0];
       if (firstToken === code) {
         capturing = true;
         result.push(line);
@@ -36,53 +39,134 @@ function extractScrSection(content: string, code: string): string {
   return result.join('\n').trim();
 }
 
-/** docs4 본문 파일 1개에서 여러 SCR 섹션을 추출해 합친다 */
-function extractCodesFromFile(filePath: string, codes: string[]): string {
+function readFileSafe(filePath: string): string {
   if (!fs.existsSync(filePath)) return '';
-  let raw: string;
   try {
-    raw = fs.readFileSync(filePath, 'utf-8');
+    return fs.readFileSync(filePath, 'utf-8');
   } catch {
     return '';
   }
+}
+
+/** 본문 파일 1개에서 여러 코드(SCR/DLG) 섹션을 추출해 합친다 */
+function extractCodesFromFile(filePath: string, codes: string[]): string {
+  const raw = readFileSafe(filePath);
+  if (!raw) return '';
   return codes
-    .map((code) => extractScrSection(raw, code))
+    .map((code) => extractSection(raw, code))
     .filter((s) => s.length > 0)
     .join('\n\n');
 }
 
-/** 라우트의 docs4 V1/V2 화면 명세 + 운영정책을 functional 콘텐츠로 구성 */
+/** SCR 본문에서 참조된 DLG 코드(예: DLG-M001, DLG-056-001)를 중복 없이 수집 */
+function collectReferencedDialogCodes(scrContent: string): string[] {
+  const matches = scrContent.match(/DLG-[A-Za-z0-9-]+/g) ?? [];
+  return Array.from(new Set(matches));
+}
+
+// 공통 프레임/정책은 매 요청마다 동일하므로 1회 로드 후 캐시
+let commonFrameCache: string | null = null;
+let commonPolicyCache: string | null = null;
+
+/** 모든 화면에 적용되는 공통 프레임 화면(사이드바/글로벌검색/알림센터/화면설계서/로그아웃) */
+function loadCommonFrameDocs(): string {
+  if (commonFrameCache !== null) return commonFrameCache;
+  const codes = ['SCR-102', 'SCR-103', 'SCR-104', 'SCR-107', 'SCR-109'];
+  const parts: string[] = [];
+  for (const version of ['V1', 'V2'] as const) {
+    const body = extractCodesFromFile(
+      path.join(DOCS4_ROOT, version, 'D01-공통', '공통.md'),
+      codes
+    );
+    if (body) parts.push(`## [${version}] 공통 프레임\n\n${body}`);
+  }
+  commonFrameCache = parts.join('\n\n');
+  return commonFrameCache;
+}
+
+/** _공통 정책 문서(권한/토스트/상태전이) — 패널 하단 접이식 부록 */
+function loadCommonPolicyDocs(): string {
+  if (commonPolicyCache !== null) return commonPolicyCache;
+  const files = [
+    { name: '권한매트릭스.md', title: '공통 권한 매트릭스' },
+    { name: '토스트_메시지.md', title: '공통 토스트 메시지' },
+    { name: '상태전이.md', title: '공통 상태 전이' },
+  ];
+  const parts: string[] = [];
+  for (const f of files) {
+    const raw = readFileSafe(path.join(DOCS4_ROOT, '_공통', f.name));
+    if (raw) {
+      // 최상위 `# 제목`은 부록 헤딩과 충돌하지 않도록 `## `로 강등
+      const body = raw.replace(/^#\s+/gm, '## ');
+      parts.push(`## ${f.title}\n\n${body.trim()}`);
+    }
+  }
+  commonPolicyCache = parts.join('\n\n');
+  return commonPolicyCache;
+}
+
+/** 라우트의 docs4 화면 명세(V1/V2) + 운영정책 + 연결 DLG + 공통 프레임/정책을 구성 */
 function loadDocs4Functional(
   routePath: string
 ): { file: string; content: string; keywords: string[]; category: string } | null {
-  const resolved = resolveDocs4ForRoute(routePath);
-  if (!resolved) return null;
+  const screens = getScreensByRoute(routePath);
+  if (screens.length === 0) return null;
 
-  const { domain, codes } = resolved;
-  const meta = DOCS4_DOMAIN_FILES[domain];
-  const docs4Root = path.join(process.cwd(), 'docs4');
+  // 다중 도메인 라우트 대응: 코드를 도메인별로 묶어 각자의 docs4 파일에서 추출
+  const byDomain = new Map<Docs4Domain, string[]>();
+  for (const s of screens) {
+    byDomain.set(s.domain, [...(byDomain.get(s.domain) ?? []), s.code]);
+  }
+
   const sections: string[] = [];
+  const allCodes: string[] = [];
+  const fileLabels: string[] = [];
 
-  for (const version of ['V1', 'V2'] as const) {
-    const bodyPath = path.join(docs4Root, version, meta.folder, meta.body);
-    const body = extractCodesFromFile(bodyPath, codes);
-    if (body) {
-      sections.push(`# [${version}] ${DOCS4_DOMAIN_LABELS[domain]} 화면 명세\n\n${body}`);
-    }
-    const policyPath = path.join(docs4Root, version, meta.folder, '운영정책.md');
-    const policy = extractCodesFromFile(policyPath, codes);
-    if (policy) {
-      sections.push(`# [${version}] 운영정책\n\n${policy}`);
+  for (const [domain, codes] of byDomain) {
+    const meta = DOCS4_DOMAIN_FILES[domain];
+    const label = DOCS4_DOMAIN_LABELS[domain];
+    allCodes.push(...codes);
+    fileLabels.push(`${meta.folder} · ${codes.join(', ')}`);
+
+    for (const version of ['V1', 'V2'] as const) {
+      const bodyPath = path.join(DOCS4_ROOT, version, meta.folder, meta.body);
+      const body = extractCodesFromFile(bodyPath, codes);
+      if (body) {
+        sections.push(`# [${version}] ${label} 화면 명세\n\n${body}`);
+
+        // 화면이 참조하는 다이얼로그 상세도 같은 도메인 파일에서 추출
+        const dlgCodes = collectReferencedDialogCodes(body);
+        const dlgBody = extractCodesFromFile(bodyPath, dlgCodes);
+        if (dlgBody) {
+          sections.push(`# [${version}] ${label} 연결 다이얼로그 상세\n\n${dlgBody}`);
+        }
+      }
+      const policy = extractCodesFromFile(
+        path.join(DOCS4_ROOT, version, meta.folder, '운영정책.md'),
+        codes
+      );
+      if (policy) {
+        sections.push(`# [${version}] ${label} 운영정책\n\n${policy}`);
+      }
     }
   }
 
   if (sections.length === 0) return null;
 
+  // 공통 프레임(사이드바/검색/알림 등) — 모든 화면 공통 적용이므로 부록으로 첨부
+  const commonFrame = loadCommonFrameDocs();
+  if (commonFrame) sections.push(`# 공통 프레임 명세 (모든 화면 공통)\n\n${commonFrame}`);
+
+  // _공통 정책 부록
+  const commonPolicy = loadCommonPolicyDocs();
+  if (commonPolicy) sections.push(`# 공통 정책 (권한·토스트·상태전이)\n\n${commonPolicy}`);
+
+  const primaryDomain = screens[0].domain;
   return {
-    file: `docs4 · ${meta.folder} · ${codes.join(', ')}`,
+    file: `docs4 · ${fileLabels.join(' / ')}`,
     content: sections.join('\n\n---\n\n'),
-    keywords: codes,
-    category: DOCS4_DOMAIN_LABELS[domain],
+    keywords: allCodes,
+    category: DOCS4_DOMAIN_LABELS[primaryDomain],
   };
 }
 
