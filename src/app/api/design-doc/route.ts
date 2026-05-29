@@ -4,6 +4,87 @@ import path from 'path';
 import { getRouteMapping } from '@/lib/designDocMap';
 import { parseFrontmatter } from '@/lib/frontmatter';
 import { stripDevSections } from '@/lib/stripDevSections';
+import {
+  resolveDocs4ForRoute,
+  DOCS4_DOMAIN_FILES,
+  DOCS4_DOMAIN_LABELS,
+} from '@/lib/docs4Registry';
+
+// ─── docs4 기획문서(V1+V2) 로더 ──────────────────────────────────────────────
+// docs4/** 는 읽기 전용. 라우트로 도메인/SCR을 역조회해 해당 SCR 섹션만 추출한다.
+
+/** `## <code> ...` 헤딩부터 다음 `## ` 헤딩(또는 EOF) 직전까지 추출. `### ` 하위 섹션은 유지 */
+function extractScrSection(content: string, code: string): string {
+  const lines = content.split('\n');
+  const result: string[] = [];
+  let capturing = false;
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (trimmed.startsWith('## ')) {
+      if (capturing) break; // 다음 ## 섹션 시작 → 종료
+      // `## SCR-M001 회원 목록` 형태에서 코드 토큰 일치 확인
+      const headingBody = trimmed.replace(/^##\s+/, '');
+      const firstToken = headingBody.split(/\s+/)[0];
+      if (firstToken === code) {
+        capturing = true;
+        result.push(line);
+      }
+      continue;
+    }
+    if (capturing) result.push(line);
+  }
+  return result.join('\n').trim();
+}
+
+/** docs4 본문 파일 1개에서 여러 SCR 섹션을 추출해 합친다 */
+function extractCodesFromFile(filePath: string, codes: string[]): string {
+  if (!fs.existsSync(filePath)) return '';
+  let raw: string;
+  try {
+    raw = fs.readFileSync(filePath, 'utf-8');
+  } catch {
+    return '';
+  }
+  return codes
+    .map((code) => extractScrSection(raw, code))
+    .filter((s) => s.length > 0)
+    .join('\n\n');
+}
+
+/** 라우트의 docs4 V1/V2 화면 명세 + 운영정책을 functional 콘텐츠로 구성 */
+function loadDocs4Functional(
+  routePath: string
+): { file: string; content: string; keywords: string[]; category: string } | null {
+  const resolved = resolveDocs4ForRoute(routePath);
+  if (!resolved) return null;
+
+  const { domain, codes } = resolved;
+  const meta = DOCS4_DOMAIN_FILES[domain];
+  const docs4Root = path.join(process.cwd(), 'docs4');
+  const sections: string[] = [];
+
+  for (const version of ['V1', 'V2'] as const) {
+    const bodyPath = path.join(docs4Root, version, meta.folder, meta.body);
+    const body = extractCodesFromFile(bodyPath, codes);
+    if (body) {
+      sections.push(`# [${version}] ${DOCS4_DOMAIN_LABELS[domain]} 화면 명세\n\n${body}`);
+    }
+    const policyPath = path.join(docs4Root, version, meta.folder, '운영정책.md');
+    const policy = extractCodesFromFile(policyPath, codes);
+    if (policy) {
+      sections.push(`# [${version}] 운영정책\n\n${policy}`);
+    }
+  }
+
+  if (sections.length === 0) return null;
+
+  return {
+    file: `docs4 · ${meta.folder} · ${codes.join(', ')}`,
+    content: sections.join('\n\n---\n\n'),
+    keywords: codes,
+    category: DOCS4_DOMAIN_LABELS[domain],
+  };
+}
 
 // ─── 시스템 모듈 / KPI 참조 매핑 (기존 동일) ─────────────────────────────────
 const ROUTE_TO_MODULE: Record<string, { module: string; section?: string }> = {
@@ -311,7 +392,10 @@ export async function GET(request: NextRequest) {
   const mapping = getRouteMapping(routePath);
   const indexedScreenFolder = getScreenIndex().get(routePath) ?? null;
 
-  if (!mapping && !indexedScreenFolder) {
+  // ── docs4 우선 (단일 진실원) ──
+  const docs4Functional = loadDocs4Functional(routePath);
+
+  if (!mapping && !indexedScreenFolder && !docs4Functional) {
     return NextResponse.json({
       path: routePath,
       title: routePath,
@@ -322,13 +406,20 @@ export async function GET(request: NextRequest) {
     });
   }
 
-  // ── 1) 화면설계서 (screen) ──
+  // ── 1) 화면설계서 (screen) — 레거시 docs/admin 폴백 ──
   // 우선순위: 명시적 mapping.screen.folder → frontmatter.route 기반 자동 인덱스
   const screenFolder = mapping?.screen?.folder ?? indexedScreenFolder;
   const screen = screenFolder ? loadScreenDocs(screenFolder) : null;
 
   // ── 2) 기능명세서 (functional) ──
-  let functional = loadFunctionalFromFeatureCodes(screen?.frontmatter?.feature_codes);
+  // 우선순위: docs4(V1+V2) → 화면설계서 feature_codes → 레거시 기능명세서
+  let functional: { file: string; content: string; keywords: string[] } | null = docs4Functional
+    ? { file: docs4Functional.file, content: docs4Functional.content, keywords: docs4Functional.keywords }
+    : null;
+
+  if (!functional) {
+    functional = loadFunctionalFromFeatureCodes(screen?.frontmatter?.feature_codes);
+  }
 
   if (!functional && mapping?.functional) {
     functional = loadLegacyFunctionalDoc(mapping.functional.file, mapping.functional.keywords);
@@ -364,7 +455,10 @@ export async function GET(request: NextRequest) {
     functional = { ...functional, content };
   }
 
-  const category = mapping?.category || (mapping?.functional ? FILE_TO_CATEGORY[mapping.functional.file] ?? '' : '');
+  const category =
+    docs4Functional?.category ||
+    mapping?.category ||
+    (mapping?.functional ? FILE_TO_CATEGORY[mapping.functional.file] ?? '' : '');
 
   return NextResponse.json({
     path: routePath,
