@@ -1,132 +1,220 @@
 'use client';
 export const dynamic = 'force-dynamic';
 
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
+import { Plus, CheckCircle2, Circle, Clock, Sparkles, RefreshCw, PartyPopper } from 'lucide-react';
+import { toast } from 'sonner';
 import AppLayout from '@/components/layout/AppLayout';
 import PageHeader from '@/components/common/PageHeader';
-import { Sparkles, CheckCircle, Clock, Plus, RefreshCw } from 'lucide-react';
-import { usePageSeed } from '@/hooks';
-import type { CleaningScheduleSeedPayload } from '@/lib/publishingPageSeed';
+import StatCard from '@/components/common/StatCard';
+import StatCardGrid from '@/components/common/StatCardGrid';
+import StatusBadge from '@/components/common/StatusBadge';
+import TabNav from '@/components/common/TabNav';
+import { EmptyState } from '@/components/common/EmptyState';
+import Button from '@/components/ui/Button';
+import { cn } from '@/lib/utils';
+import { CleaningScheduleModal } from '@/components/common/FacilityModals';
+import {
+  MOCK_CLEANING_TASKS,
+  MOCK_CLEANING_SCHEDULES,
+  MOCK_FACILITY_STAFF,
+  type CleaningTask,
+  type CleaningSchedule,
+  type CleaningCycle,
+} from '@/mocks/facility';
 
-const FALLBACK_CLEANING: CleaningScheduleSeedPayload = {
-  schedule: [
-    { id: 1, area: '탈의실 A', frequency: '매일', time: '06:00, 14:00, 20:00', assignee: '청소팀 A', lastDone: '오늘 06:00', status: '완료' },
-    { id: 2, area: '헬스장 메인', frequency: '매일', time: '07:00, 15:00', assignee: '청소팀 B', lastDone: '오늘 07:00', status: '완료' },
-    { id: 3, area: '필라테스룸', frequency: '매일', time: '09:00, 18:00', assignee: '청소팀 A', lastDone: '오늘 09:00', status: '예정' },
-    { id: 4, area: '샤워실', frequency: '매일', time: '06:30, 13:30, 19:30', assignee: '청소팀 C', lastDone: '오늘 06:30', status: '완료' },
-    { id: 5, area: '수영장', frequency: '주 3회', time: '06:00', assignee: '청소팀 B', lastDone: '2026-04-25', status: '예정' },
-    { id: 6, area: '로비', frequency: '매일', time: '08:00, 17:00', assignee: '청소팀 A', lastDone: '오늘 08:00', status: '완료' },
-  ],
-  todayLog: [
-    { time: '06:00', area: '탈의실 A', staff: '김청소', done: true },
-    { time: '06:30', area: '샤워실', staff: '이청소', done: true },
-    { time: '07:00', area: '헬스장 메인', staff: '박청소', done: true },
-    { time: '08:00', area: '로비', staff: '김청소', done: true },
-    { time: '09:00', area: '필라테스룸', staff: '이청소', done: false },
-    { time: '13:30', area: '샤워실', staff: '이청소', done: false },
-  ],
-  summary: {
-    weekCompletionRate: 94,
-  },
+// SCR-058 청소 스케줄 (docs4/V2/D06-시설관리/시설관리.md ## SCR-058)
+// 호스트 다이얼로그: DLG-058-001 청소 스케줄 등록
+
+/** HH:mm 현재 시각 */
+const nowHM = (): string => {
+  const d = new Date();
+  return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
 };
 
 export default function CleaningSchedulePage() {
-  const [tab, setTab] = useState<'스케줄' | '오늘점검'>('스케줄');
-  const { data, loading, error, branchId, snapshotDate, reload } = usePageSeed<CleaningScheduleSeedPayload>(
-    '/cleaning-schedule',
-    FALLBACK_CLEANING,
-  );
-  const { schedule, todayLog } = data;
-  const doneCount = todayLog.filter(log => log.done).length;
-  const pendingCount = todayLog.length - doneCount;
+  const [tab, setTab] = useState<'today' | 'schedule'>('today');
+  const [tasks, setTasks] = useState<CleaningTask[]>(MOCK_CLEANING_TASKS);
+  const [schedules, setSchedules] = useState<CleaningSchedule[]>(MOCK_CLEANING_SCHEDULES);
+  const [registerOpen, setRegisterOpen] = useState(false);
+  const [loading, setLoading] = useState(false);
+
+  const stats = useMemo(() => {
+    const total = tasks.length;
+    const done = tasks.filter((t) => t.done).length;
+    const pending = total - done;
+    const rate = total === 0 ? 0 : Math.round((done / total) * 100);
+    return { total, done, pending, rate };
+  }, [tasks]);
+
+  const allDone = stats.total > 0 && stats.done === stats.total;
+
+  // 담당자 미지정·미완료 우선 정렬
+  const sortedTasks = useMemo(() => {
+    return [...tasks].sort((a, b) => {
+      const score = (t: CleaningTask) => (t.overdue ? 0 : !t.assignee ? 1 : t.done ? 3 : 2);
+      return score(a) - score(b);
+    });
+  }, [tasks]);
+
+  // ─── 완료 체크 토글 ───────────────────────────────────────────────────────
+  const handleToggle = (task: CleaningTask) => {
+    if (task.done) { toast.info('이미 완료 처리되었습니다.'); return; }
+    setTasks((prev) => prev.map((t) =>
+      t.id === task.id ? { ...t, done: true, doneTime: nowHM(), overdue: false } : t,
+    ));
+    toast.success('처리되었습니다.');
+  };
+
+  const handleRegister = (p: { area: string; cycle: CleaningCycle; assignee: string | null; scheduledTime: string; detail: string; startDate: string }) => {
+    const id = Math.max(0, ...schedules.map((s) => s.id), ...tasks.map((t) => t.id)) + 1;
+    setSchedules((prev) => [...prev, { id, ...p }]);
+    // 일일 청소면 오늘 체크리스트에도 반영
+    if (p.cycle === '일일') {
+      setTasks((prev) => [...prev, {
+        id: id + 100, area: p.area, cycle: p.cycle, assignee: p.assignee,
+        scheduledTime: p.scheduledTime, done: false, doneTime: null, overdue: false,
+      }]);
+    }
+  };
 
   return (
     <AppLayout>
-      <PageHeader title="청소 스케줄" description="구역별 청소 일정과 완료 현황을 관리합니다" actions={
-        <div className="flex flex-wrap gap-2">
-          <button
-            className="flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
-            onClick={() => void reload(true)}
-            type="button"
-          >
-            <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} /> seed 갱신
-          </button>
-          <button className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700">
-            <Plus className="w-4 h-4" /> 스케줄 등록
-          </button>
-        </div>
-      } />
+      <PageHeader
+        title="청소 스케줄"
+        description="구역별 청소 일정과 담당자를 관리하고 오늘의 완료 현황을 점검합니다."
+        actions={
+          <div className="flex items-center gap-sm">
+            <Button type="button" variant="outline" size="md" icon={<RefreshCw size={14} className={loading ? 'animate-spin' : ''} />}
+              onClick={() => { setLoading(true); setTimeout(() => { setTasks(MOCK_CLEANING_TASKS); setSchedules(MOCK_CLEANING_SCHEDULES); setLoading(false); }, 500); }}>
+              새로고침
+            </Button>
+            <Button type="button" variant="primary" size="md" icon={<Plus size={14} />} onClick={() => setRegisterOpen(true)}>
+              청소 스케줄 등록
+            </Button>
+          </div>
+        }
+      />
 
-      <div className="mb-4 rounded-xl border border-blue-100 bg-blue-50 px-4 py-3 text-xs text-blue-700">
-        Supabase snapshot · 지점 {branchId} · 기준일 {snapshotDate ?? '-'}
-        {error && <span className="ml-2 text-red-600">Fallback 사용: {error}</span>}
-      </div>
+      {/* 오늘의 청소 현황 카드 */}
+      <StatCardGrid cols={4} className="mb-lg">
+        <StatCard label="오늘 전체 구역" value={`${stats.total}곳`} icon={<Sparkles />} />
+        <StatCard label="완료" value={`${stats.done}곳`} icon={<CheckCircle2 />} variant="mint" />
+        <StatCard label="미완료" value={`${stats.pending}곳`} icon={<Clock />} variant={stats.pending > 0 ? 'peach' : undefined} />
+        <StatCard label="완료율" value={`${stats.rate}%`} icon={<PartyPopper />} />
+      </StatCardGrid>
 
-      <div className="grid grid-cols-3 gap-4 mb-6">
-        <div className="bg-white rounded-xl border border-gray-200 p-4">
-          <p className="text-xs text-gray-500 mb-1">오늘 완료</p>
-          <p className="text-2xl font-bold text-green-600">{doneCount}건</p>
-        </div>
-        <div className="bg-white rounded-xl border border-gray-200 p-4">
-          <p className="text-xs text-gray-500 mb-1">오늘 예정</p>
-          <p className="text-2xl font-bold text-blue-600">{pendingCount}건</p>
-        </div>
-        <div className="bg-white rounded-xl border border-gray-200 p-4">
-          <p className="text-xs text-gray-500 mb-1">이번 주 완료율</p>
-          <p className="text-2xl font-bold text-gray-900">{data.summary.weekCompletionRate}%</p>
-        </div>
-      </div>
-
-      <div className="flex gap-2 mb-4">
-        {(['스케줄', '오늘점검'] as const).map(t => (
-          <button key={t} onClick={() => setTab(t)}
-            className={`px-4 py-2 rounded-lg text-sm font-medium ${tab === t ? 'bg-blue-600 text-white' : 'text-gray-600 hover:bg-gray-100'}`}>
-            {t}
-          </button>
-        ))}
-      </div>
-
-      {tab === '스케줄' ? (
-        <div className="bg-white rounded-xl border border-gray-200 divide-y divide-gray-100">
-          {schedule.map(item => (
-            <div key={item.id} className="flex items-center justify-between px-5 py-4 hover:bg-gray-50">
-              <div className="flex items-center gap-4">
-                <div className={`p-2.5 rounded-xl ${item.status === '완료' ? 'bg-green-100' : 'bg-blue-100'}`}>
-                  <Sparkles className={`w-4 h-4 ${item.status === '완료' ? 'text-green-600' : 'text-blue-600'}`} />
-                </div>
-                <div>
-                  <p className="text-sm font-semibold text-gray-800">{item.area}</p>
-                  <p className="text-xs text-gray-500 mt-0.5">{item.frequency} · {item.time} · {item.assignee}</p>
-                </div>
-              </div>
-              <div className="flex items-center gap-4">
-                <div className="text-right">
-                  <p className="text-xs text-gray-400">최근 완료</p>
-                  <p className="text-xs font-medium text-gray-700">{item.lastDone}</p>
-                </div>
-                <span className={`text-xs px-2.5 py-1 rounded-full font-medium ${item.status === '완료' ? 'bg-green-100 text-green-700' : 'bg-blue-100 text-blue-700'}`}>{item.status}</span>
-              </div>
-            </div>
-          ))}
-        </div>
-      ) : (
-        <div className="bg-white rounded-xl border border-gray-200 divide-y divide-gray-100">
-          {todayLog.map((log, i) => (
-            <div key={i} className="flex items-center justify-between px-5 py-3.5 hover:bg-gray-50">
-              <div className="flex items-center gap-4">
-                <span className="text-sm font-mono text-gray-600 w-12">{log.time}</span>
-                <div>
-                  <p className="text-sm font-medium text-gray-800">{log.area}</p>
-                  <p className="text-xs text-gray-400">{log.staff}</p>
-                </div>
-              </div>
-              {log.done
-                ? <CheckCircle className="w-5 h-5 text-green-500" />
-                : <Clock className="w-5 h-5 text-gray-300" />}
-            </div>
-          ))}
+      {allDone && (
+        <div className="mb-lg flex items-center gap-sm rounded-2xl border border-state-success/30 bg-emerald-50 px-lg py-md text-[13px] font-semibold text-state-success">
+          <PartyPopper size={16} /> 오늘 예정된 청소가 모두 완료되었습니다. 수고하셨습니다!
         </div>
       )}
+
+      <TabNav
+        className="mb-lg"
+        tabs={[
+          { key: 'today', label: '오늘의 청소', count: stats.total },
+          { key: 'schedule', label: '정기 청소 일정', count: schedules.length },
+        ]}
+        activeTab={tab}
+        onTabChange={(k) => setTab(k as 'today' | 'schedule')}
+      />
+
+      {loading ? (
+        <div className="space-y-sm">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <div key={i} className="h-16 animate-pulse rounded-2xl border border-line bg-surface-secondary/60" />
+          ))}
+        </div>
+      ) : tab === 'today' ? (
+        tasks.length === 0 ? (
+          <div className="rounded-3xl border border-line bg-white">
+            <EmptyState icon={Sparkles} title="오늘 예정된 청소 일정이 없습니다"
+              description="오늘 배정된 청소 구역이 없습니다. 정기 청소 일정을 등록하면 체크리스트에 자동 반영됩니다."
+              action={{ label: '청소 스케줄 등록', onClick: () => setRegisterOpen(true) }} />
+          </div>
+        ) : (
+          // 청소 구역 체크리스트
+          <div className="overflow-hidden rounded-2xl border border-line bg-white divide-y divide-line/70">
+            {sortedTasks.map((t) => (
+              <div key={t.id} className={cn('flex items-center justify-between px-5 py-4',
+                t.done ? 'bg-emerald-50/50' : t.overdue ? 'bg-red-50/40' : 'hover:bg-surface-secondary/40')}>
+                <div className="flex items-center gap-4">
+                  <button type="button" onClick={() => handleToggle(t)} aria-label={`${t.area} 완료 체크`}
+                    className={cn('transition-colors', t.done ? 'text-state-success' : 'text-content-tertiary hover:text-primary')}>
+                    {t.done ? <CheckCircle2 size={22} /> : <Circle size={22} />}
+                  </button>
+                  <div>
+                    <div className="flex items-center gap-sm">
+                      <p className={cn('text-[14px] font-semibold', t.done ? 'text-content-secondary line-through' : 'text-content')}>{t.area}</p>
+                      <StatusBadge variant="secondary">{t.cycle}</StatusBadge>
+                      {!t.assignee && <StatusBadge variant="warning">담당자 미지정</StatusBadge>}
+                      {t.overdue && !t.done && <StatusBadge variant="error" dot>시간 초과</StatusBadge>}
+                    </div>
+                    <p className="mt-0.5 text-[12px] text-content-secondary">예정 {t.scheduledTime} · 담당 {t.assignee ?? '미지정'}</p>
+                  </div>
+                </div>
+                <div className="text-right">
+                  {t.done ? (
+                    <p className="text-[12px] font-medium text-state-success">완료 {t.doneTime}</p>
+                  ) : t.overdue ? (
+                    <p className="text-[12px] font-medium text-state-error">예정 시간 경과</p>
+                  ) : (
+                    <p className="text-[12px] text-content-tertiary">대기 중</p>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        )
+      ) : (
+        // 정기 청소 일정 목록
+        schedules.length === 0 ? (
+          <div className="rounded-3xl border border-line bg-white">
+            <EmptyState icon={Sparkles} title="등록된 청소 일정이 없습니다"
+              description="정기 청소 일정을 등록하면 주기마다 체크리스트가 자동 생성됩니다."
+              action={{ label: '청소 스케줄 등록', onClick: () => setRegisterOpen(true) }} />
+          </div>
+        ) : (
+          <div className="overflow-hidden rounded-2xl border border-line bg-white">
+            <table className="w-full text-[13px]">
+              <thead className="bg-surface-secondary/60 text-content-secondary">
+                <tr>
+                  <th className="px-4 py-3 text-left font-semibold">구역명</th>
+                  <th className="px-4 py-3 text-left font-semibold">청소 유형</th>
+                  <th className="px-4 py-3 text-left font-semibold">주기</th>
+                  <th className="px-4 py-3 text-left font-semibold">담당자</th>
+                  <th className="px-4 py-3 text-left font-semibold">예정 시간</th>
+                  <th className="px-4 py-3 text-left font-semibold">시작일</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-line/70">
+                {schedules.map((s) => (
+                  <tr key={s.id} className="text-content hover:bg-surface-secondary/40">
+                    <td className="px-4 py-3 font-semibold">{s.area}</td>
+                    <td className="px-4 py-3"><StatusBadge variant="secondary">{s.cycle}</StatusBadge></td>
+                    <td className="px-4 py-3 text-content-secondary">{s.detail}</td>
+                    <td className="px-4 py-3 text-content-secondary">
+                      {s.assignee ?? <span className="text-amber-600">미지정</span>}
+                    </td>
+                    <td className="px-4 py-3 tabular-nums text-content-secondary">{s.scheduledTime}</td>
+                    <td className="px-4 py-3 tabular-nums text-content-secondary">{s.startDate}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )
+      )}
+
+      {/* ── 다이얼로그 (DLG-058-001) ── */}
+      <CleaningScheduleModal
+        isOpen={registerOpen}
+        onClose={() => setRegisterOpen(false)}
+        existingAreas={schedules.map((s) => s.area)}
+        staff={MOCK_FACILITY_STAFF}
+        onSubmit={handleRegister}
+      />
     </AppLayout>
   );
 }

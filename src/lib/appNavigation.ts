@@ -131,6 +131,7 @@ export const APP_MENU_ITEMS: NavigationMenuItem[] = [
       { label: "장비 점검", path: "/equipment-check" },
       { label: "소모품 재고", path: "/consumables" },
       { label: "청소 스케줄", path: "/cleaning-schedule" },
+      { label: "공간 자산 관리", path: "/asset-management" },
     ],
   },
   {

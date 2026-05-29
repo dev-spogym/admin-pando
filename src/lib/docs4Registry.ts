@@ -143,9 +143,9 @@ export const DOCS4_SCREENS: Docs4Entry[] = [
   { code: "SCR-054", kind: "SCR", domain: "D06", title: "골프 타석 관리", version: "both", route: "/golf-bays", status: "done" },
   { code: "SCR-055", kind: "SCR", domain: "D06", title: "상품 재고 관리(시설)", version: "V2", route: "/products/inventory", status: "done" },
   { code: "SCR-056", kind: "SCR", domain: "D06", title: "장비 점검 일정", version: "V2", route: "/equipment-check", status: "done" },
-  { code: "SCR-057", kind: "SCR", domain: "D06", title: "소모품 재고 관리", version: "V2", route: "/consumables", status: "stub" },
-  { code: "SCR-058", kind: "SCR", domain: "D06", title: "청소 스케줄", version: "V2", route: "/cleaning-schedule", status: "stub" },
-  { code: "SCR-059", kind: "SCR", domain: "D06", title: "공간 자산 관리", version: "V2", route: "/asset-management", status: "missing" },
+  { code: "SCR-057", kind: "SCR", domain: "D06", title: "소모품 재고 관리", version: "V2", route: "/consumables", status: "done" },
+  { code: "SCR-058", kind: "SCR", domain: "D06", title: "청소 스케줄", version: "V2", route: "/cleaning-schedule", status: "done" },
+  { code: "SCR-059", kind: "SCR", domain: "D06", title: "공간 자산 관리", version: "V2", route: "/asset-management", status: "done" },
 
   // ── D07 직원관리 ──
   { code: "SCR-060", kind: "SCR", domain: "D07", title: "직원 목록", version: "both", route: "/staff", status: "done" },
@@ -227,13 +227,13 @@ export const DOCS4_DIALOGS: Docs4Entry[] = [
   { code: "DLG-P022", kind: "DLG", domain: "D05", title: "입출고 이력 조회", version: "V2", hostRoute: "/products/inventory", status: "done" },
 
   // ── D06 시설관리 (V2 신규) ──
-  { code: "DLG-056-001", kind: "DLG", domain: "D06", title: "장비 등록", version: "V2", hostRoute: "/equipment-check", status: "dialog-pending" },
-  { code: "DLG-056-002", kind: "DLG", domain: "D06", title: "점검 등록", version: "V2", hostRoute: "/equipment-check", status: "dialog-pending" },
-  { code: "DLG-056-003", kind: "DLG", domain: "D06", title: "수리 등록", version: "V2", hostRoute: "/equipment-check", status: "dialog-pending" },
-  { code: "DLG-057-001", kind: "DLG", domain: "D06", title: "소모품 등록", version: "V2", hostRoute: "/consumables", status: "dialog-pending" },
-  { code: "DLG-057-002", kind: "DLG", domain: "D06", title: "입출고 처리", version: "V2", hostRoute: "/consumables", status: "dialog-pending" },
-  { code: "DLG-057-003", kind: "DLG", domain: "D06", title: "발주 생성", version: "V2", hostRoute: "/consumables", status: "dialog-pending" },
-  { code: "DLG-058-001", kind: "DLG", domain: "D06", title: "청소 스케줄 등록", version: "V2", hostRoute: "/cleaning-schedule", status: "dialog-pending" },
+  { code: "DLG-056-001", kind: "DLG", domain: "D06", title: "장비 등록", version: "V2", hostRoute: "/equipment-check", status: "done" },
+  { code: "DLG-056-002", kind: "DLG", domain: "D06", title: "점검 등록", version: "V2", hostRoute: "/equipment-check", status: "done" },
+  { code: "DLG-056-003", kind: "DLG", domain: "D06", title: "수리 등록", version: "V2", hostRoute: "/equipment-check", status: "done" },
+  { code: "DLG-057-001", kind: "DLG", domain: "D06", title: "소모품 등록", version: "V2", hostRoute: "/consumables", status: "done" },
+  { code: "DLG-057-002", kind: "DLG", domain: "D06", title: "입출고 처리", version: "V2", hostRoute: "/consumables", status: "done" },
+  { code: "DLG-057-003", kind: "DLG", domain: "D06", title: "발주 생성", version: "V2", hostRoute: "/consumables", status: "done" },
+  { code: "DLG-058-001", kind: "DLG", domain: "D06", title: "청소 스케줄 등록", version: "V2", hostRoute: "/cleaning-schedule", status: "done" },
 ];
 
 export const DOCS4_REGISTRY: Docs4Entry[] = [...DOCS4_SCREENS, ...DOCS4_DIALOGS];

@@ -111,6 +111,7 @@ export const ROUTE_PERMISSIONS: Record<string, UserRole[]> = {
   '/equipment-check': ['primary', 'owner', 'manager', 'staff'],
   '/consumables': ['primary', 'owner', 'manager', 'staff'],
   '/cleaning-schedule': ['primary', 'owner', 'manager', 'staff'],
+  '/asset-management': ['primary', 'owner', 'manager'],
 
   // 급여
   '/payroll': ['primary', 'owner'],
