@@ -122,6 +122,21 @@ function MemberTransfer() {
   const [transferType, setTransferType] = useState<MemberTransferRequest['transferType']>('KEEP_TICKET');
   const [reason, setReason] = useState('');
 
+  /**
+   * 귀속 재배정 값 (docs4 SCR-M005 / MBR-ADV-02-04 "귀속 필드 재배정 표").
+   * 이관 후 새 지점 기준으로 재배정할 값. 백엔드 미구현이므로 화면 상태로만 관리(목업).
+   * 빈 값은 "새 지점 기본값 사용"을 의미한다.
+   */
+  const [reassign, setReassign] = useState<{
+    homeBranch: string;
+    usageBranch: string;
+    revenueBranch: string;
+    settlementBranch: string;
+    fc: string;
+    trainer: string;
+    incentiveOwner: string;
+  }>({ homeBranch: '', usageBranch: '', revenueBranch: '', settlementBranch: '', fc: '', trainer: '', incentiveOwner: '' });
+
   // 확인 모달
   const [showConfirm, setShowConfirm] = useState(false);
 
@@ -481,6 +496,77 @@ function MemberTransfer() {
                   disabled={!checkResult?.canTransfer}
                 />
               </div>
+            </div>
+          </section>
+
+          {/* ── 섹션 3-2: 귀속 필드 재배정 (docs4 SCR-M005 / MBR-ADV-02-04) */}
+          <section className="bg-surface rounded-xl border border-border p-5">
+            <h2 className="text-sm font-semibold text-content mb-1 flex items-center gap-2">
+              <MapPin className="w-4 h-4 text-content-secondary" />
+              귀속 필드 재배정
+            </h2>
+            <p className="text-xs text-content-secondary mb-4">
+              이관 후 새 지점 기준으로 재배정할 항목입니다. 비워두면 새 지점 기본값을 사용합니다.
+              이용권 잔여·결제/출석 이력·상담 메모는 이관 후에도 그대로 유지됩니다.
+            </p>
+
+            <div className="overflow-hidden rounded-lg border border-border">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="bg-surface-secondary text-content-secondary">
+                    <th className="px-3 py-2 text-left text-xs font-medium w-[34%]">항목</th>
+                    <th className="px-3 py-2 text-left text-xs font-medium w-[30%]">현재 값</th>
+                    <th className="px-3 py-2 text-left text-xs font-medium">이관 후 값</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-border">
+                  {([
+                    { key: 'homeBranch', label: '소속 지점', current: member.branchName ?? `지점 #${member.branchId}`, branchField: true },
+                    { key: 'usageBranch', label: '기본 이용지점', current: member.branchName ?? `지점 #${member.branchId}`, branchField: true },
+                    { key: 'revenueBranch', label: '기본 매출 귀속 지점', current: member.branchName ?? `지점 #${member.branchId}`, branchField: true },
+                    { key: 'settlementBranch', label: '정산 지점 기본값', current: member.branchName ?? `지점 #${member.branchId}`, branchField: true },
+                    { key: 'fc', label: '담당 상담자(FC)', current: '현재 담당', branchField: false },
+                    { key: 'trainer', label: '담당 트레이너', current: '현재 담당', branchField: false },
+                    { key: 'incentiveOwner', label: '인센티브 귀속자', current: '현재 귀속자', branchField: false },
+                  ] as const).map((row) => (
+                    <tr key={row.key}>
+                      <td className="px-3 py-2 text-content font-medium">{row.label}</td>
+                      <td className="px-3 py-2 text-content-secondary">{row.current}</td>
+                      <td className="px-3 py-2">
+                        {row.branchField ? (
+                          <Select
+                            options={[
+                              { value: '', label: selectedBranchName ? `${selectedBranchName} (이관 지점)` : '이관 지점 기본값' },
+                              ...branches.map((b) => ({ value: String(b.id), label: b.name })),
+                            ]}
+                            value={reassign[row.key]}
+                            onChange={(v) => setReassign((prev) => ({ ...prev, [row.key]: v }))}
+                            placeholder="이관 지점 기본값"
+                            disabled={!checkResult?.canTransfer || !toBranchId}
+                          />
+                        ) : (
+                          <input
+                            type="text"
+                            className="w-full rounded-input border border-line bg-surface-secondary px-md py-sm text-[13px] outline-none focus:ring-2 focus:ring-primary/20"
+                            placeholder="새 지점 기준 재배정"
+                            value={reassign[row.key]}
+                            onChange={(e) => setReassign((prev) => ({ ...prev, [row.key]: e.target.value }))}
+                            disabled={!checkResult?.canTransfer || !toBranchId}
+                          />
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            <div className="mt-3 flex items-start gap-2 rounded-lg bg-blue-50 border border-blue-200 px-3 py-2 text-xs text-blue-700">
+              <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-[1px]" />
+              <span>
+                법인 회원권·홈&amp;오피스·주말 이용권·통합 회원권은 단순 소속지점 이동만으로 끝나지 않으므로
+                이용 가능 지점과 정산 지점 정책을 함께 점검해야 합니다.
+              </span>
             </div>
           </section>
 
