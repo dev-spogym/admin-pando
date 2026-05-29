@@ -1,13 +1,18 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { Search, X, Users, Package, FileText, Settings } from 'lucide-react';
+import { Search, X, Users, Package, FileText, Settings, UserCog, CalendarClock } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/lib/supabase';
 import { moveToPage } from '@/internal';
+import { useAuthStore } from '@/stores/authStore';
+import { normalizeRole } from '@/lib/permissions';
 
 const getBranchId = (): number => Number(localStorage.getItem('branchId')) || 1;
 
+/** SCR-103: 글로벌 검색 오버레이를 외부(상단 검색창 클릭 등)에서 열기 위한 이벤트명 */
+export const OPEN_GLOBAL_SEARCH_EVENT = 'open-global-search';
+
 interface SearchResult {
-  type: 'member' | 'product' | 'notice' | 'menu';
+  type: 'member' | 'staff' | 'class' | 'product' | 'notice' | 'menu';
   id: number | string;
   title: string;
   subtitle: string;
@@ -64,6 +69,12 @@ export default function GlobalSearch() {
   const [recentSearches, setRecentSearches] = useState<string[]>([]);
   const inputRef = useRef<HTMLInputElement>(null);
 
+  const authUser = useAuthStore((s) => s.user);
+  const role = normalizeRole(authUser?.role ?? 'staff');
+  const isSuperAdmin = !!authUser?.isSuperAdmin;
+  // SCR-103 권한: 직원 검색은 운영 관리 권한 역할에게만 노출
+  const canSearchStaff = isSuperAdmin || role === 'primary' || role === 'owner' || role === 'manager';
+
   // ⌘K / Ctrl+K 단축키
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
@@ -75,6 +86,13 @@ export default function GlobalSearch() {
     };
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
+  }, []);
+
+  // 상단 검색창 클릭 등 외부 트리거로 열기 (SCR-103)
+  useEffect(() => {
+    const openHandler = () => setIsOpen(true);
+    window.addEventListener(OPEN_GLOBAL_SEARCH_EVENT, openHandler);
+    return () => window.removeEventListener(OPEN_GLOBAL_SEARCH_EVENT, openHandler);
   }, []);
 
   // 열릴 때 포커스 + 최근 검색어 로드
@@ -128,6 +146,38 @@ export default function GlobalSearch() {
         });
       } catch { /* ignore */ }
 
+      // 직원 검색 (권한 있는 역할만 — SCR-103). 스키마 차이를 피하려 안전 컬럼만 조회
+      if (canSearchStaff) {
+        try {
+          const { data: staff, error } = await supabase
+            .from('staff').select('id, name, role')
+            .ilike('name', `%${q}%`).limit(5);
+          if (!error) (staff ?? []).forEach((s: any) => {
+            items.push({
+              type: 'staff', id: s.id, title: s.name,
+              subtitle: `${s.role ?? '직원'}`,
+              icon: <UserCog size={14} className="text-state-info" />,
+              action: () => moveToPage(974),
+            });
+          });
+        } catch { /* ignore */ }
+      }
+
+      // 수업 검색 (안전 컬럼만 조회 — 스키마 차이 시 조용히 건너뜀)
+      try {
+        const { data: classes, error } = await supabase
+          .from('classes').select('id, name')
+          .ilike('name', `%${q}%`).limit(5);
+        if (!error) (classes ?? []).forEach((c: any) => {
+          items.push({
+            type: 'class', id: c.id, title: c.name,
+            subtitle: '수업',
+            icon: <CalendarClock size={14} className="text-accent" />,
+            action: () => moveToPage(969),
+          });
+        });
+      } catch { /* ignore */ }
+
       // 상품 검색
       try {
         const { data: products } = await supabase
@@ -160,7 +210,7 @@ export default function GlobalSearch() {
       setResults(items);
       setLoading(false);
     }, 200);
-  }, []);
+  }, [canSearchStaff]);
 
   // 키보드 네비게이션
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -186,7 +236,7 @@ export default function GlobalSearch() {
             value={query}
             onChange={e => handleSearch(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder="회원, 상품, 메뉴 검색..."
+            placeholder="회원, 직원, 수업, 상품, 메뉴 검색..."
             className="flex-1 text-[14px] text-content bg-transparent outline-none placeholder:text-content-tertiary"
           />
           <kbd className="hidden sm:inline-flex items-center px-xs py-[1px] text-[10px] text-content-tertiary border border-line rounded">ESC</kbd>
@@ -224,7 +274,7 @@ export default function GlobalSearch() {
                     <p className="text-[11px] text-content-tertiary truncate">{item.subtitle}</p>
                   </div>
                   <span className="text-[10px] text-content-tertiary uppercase shrink-0">
-                    {{ member: '회원', product: '상품', notice: '공지', menu: '메뉴' }[item.type]}
+                    {{ member: '회원', staff: '직원', class: '수업', product: '상품', notice: '공지', menu: '메뉴' }[item.type]}
                   </span>
                 </button>
               ))}
@@ -256,7 +306,7 @@ export default function GlobalSearch() {
                 </div>
               )}
               <p className="mb-xs font-medium">빠른 검색</p>
-              <p>회원 이름, 전화번호, 상품명, 메뉴를 검색하세요</p>
+              <p>회원·직원·수업·상품·메뉴를 통합 검색하세요</p>
               <p className="mt-xs">↑↓ 이동 · Enter 선택 · Esc 닫기</p>
             </div>
           )}

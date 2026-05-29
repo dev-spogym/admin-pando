@@ -57,8 +57,10 @@ export const APP_MENU_ITEMS: NavigationMenuItem[] = [
     path: "/members",
     children: [
       { label: "회원 목록", path: "/members", viewId: 967 },
+      { label: "회원 등록", path: "/members/new", viewId: 986 },
+      { label: "체성분 관리", path: "/body-composition" },
+      { label: "등급 관리", path: "/members/grade" },
       { label: "출석 관리", path: "/attendance", viewId: 968 },
-      { label: "마일리지 관리", path: "/mileage", viewId: 981 },
       { label: "전자계약", path: "/contracts/new", viewId: 977 },
     ],
   },

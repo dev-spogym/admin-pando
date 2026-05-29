@@ -3,6 +3,7 @@ import AppHeader from "@/components/layout/AppHeader";
 import AppSidebar from "@/components/layout/AppSidebar";
 import RightQuickPanel from "@/components/panels/RightQuickPanel";
 import DesignDocPanel from "@/components/layout/DesignDocPanel";
+import GlobalSearch from "@/components/layout/GlobalSearch";
 import { cn } from "@/lib/utils";
 import { useUiStore } from "@/stores/uiStore";
 import { useRouter, usePathname } from "next/navigation";
@@ -174,6 +175,9 @@ const AppLayout = ({ children }: AppLayoutProps) => {
 
       {/* 화면설계서 오버레이 패널 */}
       <DesignDocPanel />
+
+      {/* 글로벌 검색 오버레이 (Cmd+K / 상단 검색창 클릭) — SCR-103 */}
+      <GlobalSearch />
       </div>
     </div>
   );

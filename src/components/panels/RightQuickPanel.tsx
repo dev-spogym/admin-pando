@@ -1,16 +1,16 @@
 import { usePathname } from "next/navigation";
 import React, { useState, useEffect, useRef, useCallback } from "react";
-import { Bell, Calendar, Users, Wifi, X, ArrowUpRight, CreditCard, MessageSquare, Settings } from "lucide-react";
+import { Calendar, Users, Wifi, X, ArrowUpRight, CreditCard, MessageSquare, Settings } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { moveToPage } from "@/internal";
-import NewsFeedPanel from "@/components/panels/NewsFeedPanel";
 import SchedulePanel from "@/components/panels/SchedulePanel";
 import VisitPanel    from "@/components/panels/VisitPanel";
 import RemotePanel   from "@/components/panels/RemotePanel";
 
 // ─── 패널 식별자 타입 ──────────────────────────────────────────────────────
+// 알림센터(news)는 사이드바 NotificationCenter(SCR-104)로 일원화되어 제거됨.
 
-type PanelKey = "news" | "schedule" | "visit" | "remote";
+type PanelKey = "schedule" | "visit" | "remote";
 
 // ─── 퀵메뉴 버튼 설정 ─────────────────────────────────────────────────────
 
@@ -22,12 +22,6 @@ interface QuickMenuButton {
 }
 
 const QUICK_BUTTONS: QuickMenuButton[] = [
-  {
-    key:        "news",
-    label:      "알림센터",
-    icon:       <Bell size={18} />,
-    panelTitle: "알림센터",
-  },
   {
     key:        "schedule",
     label:      "일정관리",
@@ -52,13 +46,10 @@ const QUICK_BUTTONS: QuickMenuButton[] = [
 
 interface PanelContentProps {
   panelKey: PanelKey;
-  onUnreadCountChange: (count: number) => void;
 }
 
-function PanelContent({ panelKey, onUnreadCountChange }: PanelContentProps) {
+function PanelContent({ panelKey }: PanelContentProps) {
   switch (panelKey) {
-    case "news":
-      return <NewsFeedPanel onUnreadCountChange={onUnreadCountChange} />;
     case "schedule":
       return <SchedulePanel />;
     case "visit":
@@ -129,8 +120,6 @@ const RightQuickPanel = () => {
   const pathname = usePathname();
   // 현재 열린 패널 (null = 모두 닫힘)
   const [activePanel, setActivePanel] = useState<PanelKey | null>(null);
-  // 알림 미읽 건수 (벨 버튼 배지에 표시)
-  const [unreadCount, setUnreadCount] = useState(0);
 
   const panelRef  = useRef<HTMLDivElement>(null);
   const barRef    = useRef<HTMLDivElement>(null);
@@ -163,10 +152,6 @@ const RightQuickPanel = () => {
   // 버튼 클릭: 같은 패널이면 닫기, 다른 패널이면 열기
   const handleButtonClick = useCallback((key: PanelKey) => {
     setActivePanel((prev) => (prev === key ? null : key));
-  }, []);
-
-  const handleUnreadCountChange = useCallback((count: number) => {
-    setUnreadCount(count);
   }, []);
 
   const contextArea = getContextShortcuts(pathname);
@@ -220,10 +205,7 @@ const RightQuickPanel = () => {
               </div>
             </div>
             <div className="min-h-0 flex-1">
-              <PanelContent
-                panelKey={activePanel}
-                onUnreadCountChange={handleUnreadCountChange}
-              />
+              <PanelContent panelKey={activePanel} />
             </div>
           </div>
         )}
@@ -250,12 +232,6 @@ const RightQuickPanel = () => {
                 title={btn.label}
               >
                 {btn.icon}
-                {/* 알림 미읽 배지 (뉴스피드 버튼에만 표시) */}
-                {btn.key === "news" && unreadCount > 0 && (
-                  <span className="absolute -right-[3px] -top-[3px] flex h-[16px] min-w-[16px] items-center justify-center rounded-full bg-state-error text-[9px] font-bold text-white px-[3px]">
-                    {unreadCount > 99 ? "99+" : unreadCount}
-                  </span>
-                )}
               </button>
 
               {/* 툴팁 (버튼 좌측에 표시) */}
