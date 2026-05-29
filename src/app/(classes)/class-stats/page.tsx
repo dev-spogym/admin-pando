@@ -8,7 +8,7 @@ import PageHeader from "@/components/common/PageHeader";
 import StatCard from "@/components/common/StatCard";
 import StatCardGrid from "@/components/common/StatCardGrid";
 import DataTable from "@/components/common/DataTable";
-import { BarChart3, Users, CalendarCheck, TrendingUp } from 'lucide-react';
+import { BarChart3, Users, CalendarCheck, TrendingUp, Settings2, XCircle, X } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import {
   LESSON_SESSION_TYPES,
@@ -16,6 +16,10 @@ import {
   deriveLessonSessionType,
   formatLessonSessionType,
 } from '@/lib/lessonSessionTypes';
+import { useAuthStore } from '@/stores/authStore';
+import { isRoleAtLeast, normalizeRole } from '@/lib/permissions';
+import Modal from '@/components/ui/Modal';
+import { toast } from 'sonner';
 
 // 기간 필터 옵션
 const PERIOD_OPTIONS = [
@@ -69,12 +73,24 @@ const getPeriodRange = (key: string): { start: string; end: string } => {
 
 export default function ClassStats() {
   const branchId = getBranchId();
+  const currentUser = useAuthStore((state) => state.user);
+  const isSuperAdmin = currentUser?.isSuperAdmin ?? false;
+  const role = normalizeRole(currentUser?.role ?? 'readonly');
+  // 정원 조정·수업 취소 진입은 Owner(지점장)/매니저 이상만 (FC/스태프 hidden) — SCR-C005 권한표
+  const canOperate = isSuperAdmin || isRoleAtLeast(role, 'manager');
 
   const [period, setPeriod] = useState('month');
   const [loading, setLoading] = useState(false);
   const [classStats, setClassStats] = useState<ClassStat[]>([]);
   const [monthlyBars, setMonthlyBars] = useState<MonthlyBar[]>([]);
   const [searchValue, setSearchValue] = useState('');
+  const [sortKey, setSortKey] = useState<'attendRate' | 'remaining' | 'bookedCount'>('attendRate');
+
+  // 정원 조정 모달
+  const [capacityTarget, setCapacityTarget] = useState<ClassStat | null>(null);
+  const [capacityValue, setCapacityValue] = useState('');
+  // 회원 명단 드로어
+  const [rosterTarget, setRosterTarget] = useState<ClassStat | null>(null);
 
   // 데이터 조회
   const fetchStats = async () => {
@@ -183,12 +199,64 @@ export default function ClassStats() {
     return { total, totalBooked, totalAttendees, avgBookingRate, avgAttendRate, top3, sessionCounts };
   }, [classStats]);
 
-  // 검색 필터
+  // 검색 + 정렬 (CLS-05-05)
   const filtered = useMemo(() => {
     const q = searchValue.toLowerCase();
-    if (!q) return classStats;
-    return classStats.filter((c) => c.title.toLowerCase().includes(q));
-  }, [classStats, searchValue]);
+    const base = q ? classStats.filter((c) => c.title.toLowerCase().includes(q)) : [...classStats];
+    base.sort((a, b) => {
+      if (sortKey === 'remaining') {
+        return (a.capacity - a.bookedCount) - (b.capacity - b.bookedCount);
+      }
+      if (sortKey === 'bookedCount') return b.bookedCount - a.bookedCount;
+      return b.attendRate - a.attendRate;
+    });
+    return base;
+  }, [classStats, searchValue, sortKey]);
+
+  // ── 운영 액션 핸들러 (목업) ──────────────────────────────────
+  const openCapacity = (row: ClassStat) => {
+    setCapacityTarget(row);
+    setCapacityValue(String(row.capacity));
+  };
+
+  const handleSaveCapacity = () => {
+    if (!capacityTarget) return;
+    const next = Number(capacityValue);
+    if (!Number.isFinite(next) || next <= 0) {
+      toast.error('정원은 1 이상이어야 합니다.');
+      return;
+    }
+    // 정원 < 예약 인원 차단 (SCR-C005 예외처리)
+    if (next < capacityTarget.bookedCount) {
+      toast.error('예약 인원보다 정원이 작아요. 정원을 조정할 수 없어요.');
+      return;
+    }
+    setClassStats((prev) =>
+      prev.map((c) =>
+        c.id === capacityTarget.id
+          ? { ...c, capacity: next, bookingRate: Math.round((c.bookedCount / next) * 100) }
+          : c
+      )
+    );
+    toast.success(`'${capacityTarget.title}' 정원을 ${next}명으로 조정했습니다.`);
+    setCapacityTarget(null);
+  };
+
+  const handleCancelClass = (row: ClassStat) => {
+    if (!canOperate) return;
+    // 취소 진입 — 실제 취소는 수업 캘린더/관리에서 수행하는 목업 안내
+    toast.success(`'${row.title}' 폐강 검토를 시작합니다. 수업 관리에서 취소를 확정하세요.`);
+  };
+
+  // 회원 명단 mock (행 클릭 시) — 실제 예약자 수 기준으로 더미 명단 생성
+  const rosterMembers = useMemo(() => {
+    if (!rosterTarget) return [];
+    const names = ['김민수', '이서연', '박지훈', '최유진', '정도윤', '강하늘', '윤서아', '임준호', '한지민', '오세훈'];
+    return Array.from({ length: rosterTarget.bookedCount }).map((_, i) => ({
+      name: names[i % names.length],
+      attended: i < rosterTarget.attendeeCount,
+    }));
+  }, [rosterTarget]);
 
   // 바 차트 최대값
   const maxBar = useMemo(() => Math.max(...monthlyBars.map((b) => b.count), 1), [monthlyBars]);
@@ -225,6 +293,26 @@ export default function ClassStats() {
     },
     { key: 'attendeeCount', header: '출석자', align: 'center' as const, render: (v: number) => `${v}명` },
     {
+      key: 'remaining', header: '잔여 자리', align: 'center' as const,
+      render: (_: unknown, row: ClassStat) => {
+        const remaining = Math.max(row.capacity - row.bookedCount, 0);
+        const ratio = row.capacity > 0 ? remaining / row.capacity : 0;
+        const barColor = remaining === 0 ? 'bg-red-500' : ratio <= 0.2 ? 'bg-amber-500' : 'bg-green-500';
+        return (
+          <div className="flex items-center justify-center gap-2">
+            <div className="w-16 h-1.5 bg-surface-secondary rounded-full overflow-hidden">
+              <div className={`h-full rounded-full ${barColor}`} style={{ width: `${(1 - ratio) * 100}%` }} />
+            </div>
+            {remaining === 0 ? (
+              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold bg-red-100 text-red-700">마감</span>
+            ) : (
+              <span className={`text-[12px] tabular-nums ${ratio <= 0.2 ? 'text-amber-600 font-semibold' : 'text-content-secondary'}`}>{remaining}석</span>
+            )}
+          </div>
+        );
+      },
+    },
+    {
       key: 'attendRate',
       header: '출석률',
       align: 'center' as const,
@@ -242,6 +330,29 @@ export default function ClassStats() {
         </div>
       ),
     },
+    ...(canOperate
+      ? [{
+          key: 'ops', header: '운영', align: 'center' as const,
+          render: (_: unknown, row: ClassStat) => (
+            <div className="flex items-center justify-center gap-1" onClick={(e) => e.stopPropagation()}>
+              <button
+                className="p-1.5 rounded-md text-content-secondary hover:text-primary hover:bg-primary-light transition-colors"
+                onClick={() => openCapacity(row)}
+                title="정원 조정"
+              >
+                <Settings2 size={14} />
+              </button>
+              <button
+                className="p-1.5 rounded-md text-content-secondary hover:text-state-error hover:bg-red-50 transition-colors"
+                onClick={() => handleCancelClass(row)}
+                title="수업 취소 진입"
+              >
+                <XCircle size={14} />
+              </button>
+            </div>
+          ),
+        }]
+      : []),
   ];
 
   return (
@@ -250,20 +361,39 @@ export default function ClassStats() {
         title="그룹수업 현황"
         description="수업별 출석률과 월별 트렌드를 확인합니다."
         actions={
-          <div className="flex gap-1 bg-surface-secondary rounded-lg p-0.5">
-            {PERIOD_OPTIONS.map((o) => (
-              <button
-                key={o.key}
-                className={`px-3 py-1.5 rounded-md text-[12px] font-medium transition-colors ${
-                  period === o.key
-                    ? 'bg-surface text-content shadow-sm'
-                    : 'text-content-secondary hover:text-content'
-                }`}
-                onClick={() => setPeriod(o.key)}
-              >
-                {o.label}
-              </button>
-            ))}
+          <div className="flex items-center gap-sm">
+            <div className="flex gap-1 bg-surface-secondary rounded-lg p-0.5">
+              {([
+                { key: 'attendRate', label: '출석률순' },
+                { key: 'remaining', label: '잔여석 적은순' },
+                { key: 'bookedCount', label: '예약 많은순' },
+              ] as { key: typeof sortKey; label: string }[]).map((o) => (
+                <button
+                  key={o.key}
+                  className={`px-3 py-1.5 rounded-md text-[12px] font-medium transition-colors ${
+                    sortKey === o.key ? 'bg-surface text-content shadow-sm' : 'text-content-secondary hover:text-content'
+                  }`}
+                  onClick={() => setSortKey(o.key)}
+                >
+                  {o.label}
+                </button>
+              ))}
+            </div>
+            <div className="flex gap-1 bg-surface-secondary rounded-lg p-0.5">
+              {PERIOD_OPTIONS.map((o) => (
+                <button
+                  key={o.key}
+                  className={`px-3 py-1.5 rounded-md text-[12px] font-medium transition-colors ${
+                    period === o.key
+                      ? 'bg-surface text-content shadow-sm'
+                      : 'text-content-secondary hover:text-content'
+                  }`}
+                  onClick={() => setPeriod(o.key)}
+                >
+                  {o.label}
+                </button>
+              ))}
+            </div>
           </div>
         }
       />
@@ -312,11 +442,86 @@ export default function ClassStats() {
         columns={columns}
         data={filtered}
         loading={loading}
-        emptyMessage="해당 기간에 수업 데이터가 없습니다."
+        emptyMessage="해당 기간에 그룹 수업이 없어요."
         onSearch={setSearchValue}
         searchValue={searchValue}
         searchPlaceholder="수업명 검색..."
+        onRowClick={(row) => setRosterTarget(row)}
       />
+
+      {/* 정원 조정 모달 (Owner/매니저 — SCR-C005) */}
+      <Modal
+        isOpen={!!capacityTarget}
+        onClose={() => setCapacityTarget(null)}
+        title="정원 조정"
+        size="sm"
+        footer={
+          <div className="flex justify-end gap-sm">
+            <button
+              className="px-4 py-2 rounded-lg border border-line text-[13px] text-content-secondary hover:bg-surface-tertiary transition-colors"
+              onClick={() => setCapacityTarget(null)}
+            >취소</button>
+            <button
+              className="px-4 py-2 rounded-lg bg-primary text-white text-[13px] font-medium hover:bg-primary/90 transition-colors"
+              onClick={handleSaveCapacity}
+            >저장</button>
+          </div>
+        }
+      >
+        {capacityTarget && (
+          <div className="space-y-md">
+            <p className="text-[13px] text-content">
+              <span className="font-semibold">{capacityTarget.title}</span> 수업의 정원을 조정합니다.
+            </p>
+            <p className="text-[12px] text-content-secondary">
+              현재 예약 {capacityTarget.bookedCount}명 · 기존 정원 {capacityTarget.capacity}명
+            </p>
+            <div>
+              <label className="block text-[12px] font-semibold text-content-secondary mb-xs">새 정원 (명)</label>
+              <input
+                type="number"
+                min={1}
+                value={capacityValue}
+                onChange={(e) => setCapacityValue(e.target.value)}
+                className="w-full h-10 px-3 rounded-lg border border-line text-[13px] focus:outline-none focus:border-primary"
+              />
+            </div>
+          </div>
+        )}
+      </Modal>
+
+      {/* 예약 회원 명단 드로어 (CLS-05-06) */}
+      {rosterTarget && (
+        <div className="fixed inset-0 z-50 flex justify-end bg-black/40" onClick={() => setRosterTarget(null)}>
+          <div className="w-full max-w-sm h-full bg-surface shadow-xl flex flex-col" onClick={(e) => e.stopPropagation()}>
+            <div className="px-lg py-md border-b border-line flex items-center justify-between">
+              <div>
+                <h3 className="text-[14px] font-bold text-content">예약 회원 명단</h3>
+                <p className="text-[12px] text-content-secondary mt-0.5">{rosterTarget.title} · {rosterTarget.bookedCount}/{rosterTarget.capacity}명</p>
+              </div>
+              <button onClick={() => setRosterTarget(null)} className="p-1.5 rounded-md hover:bg-surface-secondary text-content-secondary">
+                <X size={18} />
+              </button>
+            </div>
+            <div className="flex-1 overflow-y-auto p-md">
+              {rosterMembers.length === 0 ? (
+                <p className="text-[13px] text-content-tertiary text-center py-lg">예약자가 없습니다.</p>
+              ) : (
+                <ul className="space-y-xs">
+                  {rosterMembers.map((m, i) => (
+                    <li key={i} className="flex items-center justify-between px-3 py-2 rounded-lg bg-surface-secondary">
+                      <span className="text-[13px] text-content">{m.name}</span>
+                      <span className={`text-[11px] font-semibold ${m.attended ? 'text-state-success' : 'text-content-tertiary'}`}>
+                        {m.attended ? '출석' : '예약'}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </AppLayout>
   );
 }
