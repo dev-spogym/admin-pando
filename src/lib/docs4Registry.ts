@@ -73,9 +73,9 @@ export const DOCS4_SCREENS: Docs4Entry[] = [
   // ── D01 공통 ──
   { code: "SCR-100", kind: "SCR", domain: "D01", title: "로그인", version: "both", route: "/login", status: "done" },
   { code: "SCR-101", kind: "SCR", domain: "D01", title: "대시보드 통합", version: "V2", route: "/super-dashboard", status: "done" },
-  { code: "SCR-102", kind: "SCR", domain: "D01", title: "사이드바 네비게이션", version: "V2", route: "(공통)", status: "stub" },
-  { code: "SCR-103", kind: "SCR", domain: "D01", title: "글로벌 검색", version: "V2", route: "(공통)", status: "missing" },
-  { code: "SCR-104", kind: "SCR", domain: "D01", title: "알림 센터", version: "both", route: "(공통)", status: "stub" },
+  { code: "SCR-102", kind: "SCR", domain: "D01", title: "사이드바 네비게이션", version: "V2", route: "(공통)", status: "done" },
+  { code: "SCR-103", kind: "SCR", domain: "D01", title: "글로벌 검색", version: "V2", route: "(공통)", status: "done" },
+  { code: "SCR-104", kind: "SCR", domain: "D01", title: "알림 센터", version: "both", route: "(공통)", status: "done" },
   { code: "SCR-105", kind: "SCR", domain: "D01", title: "프로필 / 계정 설정", version: "V2", route: "/profile", status: "done" },
   { code: "SCR-106", kind: "SCR", domain: "D01", title: "비밀번호 재설정", version: "V2", route: "/reset-password", status: "done" },
   { code: "SCR-107", kind: "SCR", domain: "D01", title: "화면설계서 오버레이 (Cmd+/)", version: "V2", route: "(공통)", status: "done" },
