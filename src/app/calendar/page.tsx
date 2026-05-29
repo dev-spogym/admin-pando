@@ -91,7 +91,8 @@ const CLASS_TYPES = [
 
 // 페널티 데이터는 DB 테이블 미구현 — 빈 배열로 초기화 (추후 Supabase 연동 시 교체)
 
-type EventType = "PT" | "GX" | "개인레슨" | "기타";
+// 수업 유형은 docs4 명세(SCR-C001)에 따라 PT / GX / 골프 / 기타 4종으로 고정
+type EventType = "PT" | "GX" | "골프" | "기타";
 
 interface ScheduleEvent {
   id: string;
@@ -177,7 +178,7 @@ interface LessonSchedule {
 const EVENT_TYPE_HEX: Record<EventType, { bg: string; border: string; text: string }> = {
   PT:       { bg: "#eff6ff", border: "#3b82f6", text: "#1d4ed8" },
   GX:       { bg: "#eff8ff", border: "#0ea5e9", text: "#0369a1" },
-  개인레슨: { bg: "#f0fdf4", border: "#22c55e", text: "#15803d" },
+  골프:     { bg: "#f0fdf4", border: "#22c55e", text: "#15803d" },
   기타:     { bg: "#f5f5f5", border: "#a3a3a3", text: "#525252" },
 };
 
@@ -195,7 +196,7 @@ const DEFAULT_HEX = { bg: "#f5f5f5", border: "#d4d4d4", text: "#525252" };
 const EVENT_TYPE_COLORS: Record<EventType, { bg: string; border: string; text: string; light: string }> = {
   PT:       { bg: "bg-primary/10",      border: "border-primary",      text: "text-primary",       light: "bg-primary/5" },
   GX:       { bg: "bg-state-info/10",   border: "border-state-info",   text: "text-state-info",    light: "bg-state-info/5" },
-  개인레슨: { bg: "bg-state-success/10",border: "border-state-success",text: "text-state-success", light: "bg-state-success/5" },
+  골프:     { bg: "bg-state-success/10",border: "border-state-success",text: "text-state-success", light: "bg-state-success/5" },
   기타:     { bg: "bg-surface-tertiary",border: "border-line",         text: "text-content-secondary", light: "bg-surface-secondary" },
 };
 
@@ -812,7 +813,7 @@ export default function Calendar() {
   const [formTemplate, setFormTemplate] = useState("");
   const [formName, setFormName] = useState("");
   const [isSaving, setIsSaving] = useState(false);
-  const [formType, setFormType] = useState("그룹 수업");
+  const [formType, setFormType] = useState("PT");
   const [formCapacity, setFormCapacity] = useState(14);
   const [formInstructor, setFormInstructor] = useState("");
   const [formDate, setFormDate] = useState("");
@@ -846,6 +847,13 @@ export default function Calendar() {
   const participantSearchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   // --- #17 카테고리 필터 ---
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
+  // --- 강습 세션 유형 멀티필터 (PT/GX/골프/기타) ---
+  const [selectedSessionTypes, setSelectedSessionTypes] = useState<EventType[]>([]);
+  // --- 스케줄 일괄 변경 모달 ---
+  const [isBulkChangeOpen, setIsBulkChangeOpen] = useState(false);
+  const [bulkInstructor, setBulkInstructor] = useState("");
+  const [bulkRoom, setBulkRoom] = useState("");
+  const [bulkTimeShift, setBulkTimeShift] = useState("0");
   // --- #18 미승인 처리 ---
   const [pendingCount, setPendingCount] = useState(0);
 
@@ -990,8 +998,12 @@ export default function Calendar() {
     if (selectedCategories.length > 0) {
       result = result.filter(e => e.scheduleCategory && selectedCategories.includes(e.scheduleCategory));
     }
+    // 강습 세션 유형 멀티필터 (PT/GX/골프/기타)
+    if (selectedSessionTypes.length > 0) {
+      result = result.filter(e => selectedSessionTypes.includes(e.type));
+    }
     return result;
-  }, [allEvents, selectedInstructor, selectedLessonFilter, capacityFilter, selectedCategories]);
+  }, [allEvents, selectedInstructor, selectedLessonFilter, capacityFilter, selectedCategories, selectedSessionTypes]);
 
   // lesson_schedules → FullCalendar 이벤트 변환
   const lessonScheduleEvents = useMemo(() => {
@@ -1256,7 +1268,7 @@ export default function Calendar() {
   const resetForm = () => {
     setFormTemplate("");
     setFormName("");
-    setFormType("그룹 수업");
+    setFormType("PT");
     setFormCapacity(14);
     setFormInstructor("");
     setFormDate("");
@@ -1346,7 +1358,7 @@ export default function Calendar() {
         capacity: formCapacity,
         currentCount: 0,
         status: "예약",
-        type: formType === "PT / OT" ? "PT" : formType === "개인 레슨" ? "개인레슨" : "GX",
+        type: (["PT", "GX", "골프", "기타"].includes(formType) ? formType : "기타") as EventType,
         maxCapacity: formMaxCapacity > 0 ? formMaxCapacity : formCapacity,
         currentReservations: 0,
         reservationDeadline: formReservationDeadline || undefined,
@@ -1447,6 +1459,45 @@ export default function Calendar() {
     setIsDetailModalOpen(false);
   }, [selectedEvent]);
 
+  // --- 스케줄 일괄 변경 (CLS-01-06) — 목업: 필터된 일정에 강사/장소/시간 일괄 적용 ---
+  const handleBulkChange = useCallback(() => {
+    const targets = filteredEvents.filter(e => e.status !== "완료" && e.status !== "취소");
+    if (targets.length === 0) {
+      toast.error("변경할 일정이 없습니다. 필터를 조정해 주세요.");
+      return;
+    }
+    const shift = Number(bulkTimeShift) || 0;
+    let success = 0;
+    const failed: string[] = [];
+    setEvents(prev => prev.map(e => {
+      if (!targets.some(t => t.id === e.id)) return e;
+      // 완료된 수업 시간 이동 차단(이미 제외했지만 방어)
+      if (e.status === "완료") { failed.push(e.title); return e; }
+      const next = { ...e };
+      if (bulkInstructor) {
+        const inst = instructors.find(i => i.id === bulkInstructor);
+        if (inst) { next.instructorId = inst.id; next.instructor = inst.name; }
+      }
+      if (bulkRoom) next.room = bulkRoom;
+      if (shift !== 0) {
+        const s = new Date(e.start); const en = new Date(e.end);
+        s.setMinutes(s.getMinutes() + shift * 60);
+        en.setMinutes(en.getMinutes() + shift * 60);
+        next.start = s.toISOString().slice(0, 19);
+        next.end = en.toISOString().slice(0, 19);
+      }
+      success += 1;
+      return next;
+    }));
+    setIsBulkChangeOpen(false);
+    setBulkInstructor(""); setBulkRoom(""); setBulkTimeShift("0");
+    if (failed.length > 0) {
+      toast.error(`${success}건 변경, ${failed.length}건 실패(완료된 수업)`);
+    } else {
+      toast.success(`${success}건의 일정을 일괄 변경했습니다.`);
+    }
+  }, [filteredEvents, bulkInstructor, bulkRoom, bulkTimeShift, instructors]);
+
   const tabs = [
     { key: "schedule", label: "일정표", icon: CalendarIcon },
     { key: "classes",  label: "수업 관리", count: classManagement.length },
@@ -1465,7 +1516,7 @@ export default function Calendar() {
         description="PT 및 그룹 수업 스케줄을 관리하고 회원의 예약 현황을 확인합니다."
         actions={
           <div className="flex items-center gap-sm">
-            <Button variant="outline" icon={<Settings2 size={15} />}>스케줄 일괄 변경</Button>
+            <Button variant="outline" icon={<Settings2 size={15} />} onClick={() => setIsBulkChangeOpen(true)}>스케줄 일괄 변경</Button>
             <Button variant="primary" icon={<Plus size={15} />} onClick={() => { setSelectedEvent(null); resetForm(); setIsAddModalOpen(true); }}>수업 등록</Button>
           </div>
         }
@@ -1569,6 +1620,44 @@ export default function Calendar() {
                         }
                       >
                         {cat}
+                      </button>
+                    );
+                  })}
+                </div>
+                {/* 강습 세션 유형 멀티필터 (PT/GX/골프/기타) */}
+                <div className="flex flex-wrap items-center gap-xs pt-xs border-t border-line">
+                  <span className="text-[12px] font-semibold text-content-secondary mr-xs">강습 세션 유형</span>
+                  <button
+                    type="button"
+                    onClick={() => setSelectedSessionTypes([])}
+                    className={cn(
+                      "h-7 px-sm rounded-full text-[11px] font-semibold border transition-colors",
+                      selectedSessionTypes.length === 0
+                        ? "bg-primary text-white border-primary"
+                        : "bg-surface-secondary text-content-secondary border-line hover:border-primary hover:text-primary"
+                    )}
+                  >
+                    전체
+                  </button>
+                  {(["PT", "GX", "골프", "기타"] as EventType[]).map(t => {
+                    const isSelected = selectedSessionTypes.includes(t);
+                    return (
+                      <button
+                        key={t}
+                        type="button"
+                        onClick={() => {
+                          setSelectedSessionTypes(prev =>
+                            isSelected ? prev.filter(x => x !== t) : [...prev, t]
+                          );
+                        }}
+                        className={cn(
+                          "h-7 px-sm rounded-full text-[11px] font-semibold border transition-colors",
+                          isSelected
+                            ? "bg-primary text-white border-primary"
+                            : "bg-surface-secondary text-content-secondary border-line hover:border-primary hover:text-primary"
+                        )}
+                      >
+                        {t}
                       </button>
                     );
                   })}
@@ -2084,9 +2173,10 @@ export default function Calendar() {
                         value={formType}
                         onChange={v => setFormType(v)}
                         options={[
-                          { value: "그룹 수업", label: "그룹 수업" },
-                          { value: "PT / OT", label: "PT / OT" },
-                          { value: "개인 레슨", label: "개인 레슨" },
+                          { value: "PT", label: "PT" },
+                          { value: "GX", label: "GX" },
+                          { value: "골프", label: "골프" },
+                          { value: "기타", label: "기타" },
                         ]}
                       />
                     </div>
@@ -2481,6 +2571,55 @@ export default function Calendar() {
               >
                 {isSaving ? "등록 중..." : selectedEvent ? "수정 완료" : "수업 등록"}
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 스케줄 일괄 변경 모달 (CLS-01-06) */}
+      {isBulkChangeOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-md">
+          <div className="bg-surface rounded-2xl shadow-xl w-full max-w-md overflow-hidden">
+            <div className="px-xl py-lg border-b border-line">
+              <h2 className="text-[15px] font-bold text-content">스케줄 일괄 변경</h2>
+              <p className="text-[12px] text-content-secondary mt-xs">
+                현재 필터로 조회된 {filteredEvents.filter(e => e.status !== "완료" && e.status !== "취소").length}건의 일정에 일괄 적용합니다. (완료·취소 일정 제외)
+              </p>
+            </div>
+            <div className="px-xl py-lg space-y-md">
+              <Select
+                label="강사 변경"
+                value={bulkInstructor}
+                onChange={v => setBulkInstructor(v)}
+                options={[{ value: "", label: "변경 안 함" }, ...instructors.map(i => ({ value: i.id, label: i.name }))]}
+              />
+              <Select
+                label="장소(룸) 변경"
+                value={bulkRoom}
+                onChange={v => setBulkRoom(v)}
+                options={[{ value: "", label: "변경 안 함" }, ...ROOMS.map(r => ({ value: r.name, label: r.name }))]}
+              />
+              <Select
+                label="시간 이동"
+                value={bulkTimeShift}
+                onChange={v => setBulkTimeShift(v)}
+                options={[
+                  { value: "0", label: "변경 안 함" },
+                  { value: "-1", label: "1시간 앞당기기" },
+                  { value: "1", label: "1시간 미루기" },
+                  { value: "2", label: "2시간 미루기" },
+                ]}
+              />
+            </div>
+            <div className="px-xl py-lg border-t border-line flex items-center justify-end gap-md">
+              <button
+                className="px-xl py-sm rounded-lg text-[13px] font-semibold text-content-secondary hover:bg-surface-secondary transition-all"
+                onClick={() => { setIsBulkChangeOpen(false); setBulkInstructor(""); setBulkRoom(""); setBulkTimeShift("0"); }}
+              >취소</button>
+              <button
+                className="px-xl py-sm rounded-lg bg-primary text-white text-[13px] font-bold shadow-sm hover:opacity-90 transition-all"
+                onClick={handleBulkChange}
+              >일괄 변경</button>
             </div>
           </div>
         </div>
