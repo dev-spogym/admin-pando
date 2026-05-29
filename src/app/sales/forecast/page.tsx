@@ -15,6 +15,8 @@ import Button from '@/components/ui/Button';
 import Modal from '@/components/ui/Modal';
 import Input from '@/components/ui/Input';
 import { formatKRW } from '@/lib/format';
+import { useAuthStore } from '@/stores/authStore';
+import { isRoleAtLeast, normalizeRole } from '@/lib/permissions';
 
 // ─── SCR-S011 매출 예측 (SAL-07) ──────────────────────────────────────────────
 // docs4/V1/D03-매출관리/매출관리.md ## SCR-S011
@@ -63,6 +65,18 @@ export default function ForecastPage() {
   const [target, setTarget] = useState<number>(13500000); // 0이면 목표 미설정 상태
   const [goalOpen, setGoalOpen] = useState(false);
   const [goalDraft, setGoalDraft] = useState(13500000);
+
+  // SCR-S011 권한: 목표 변경은 매니저 이상만. FC는 DLG-S012 진입 차단(매니저 요청 안내).
+  const authUser = useAuthStore((s) => s.user);
+  const canSetGoal = Boolean(authUser?.isSuperAdmin) || isRoleAtLeast(normalizeRole(authUser?.role ?? ''), 'manager');
+  const openGoalDialog = (draft: number) => {
+    if (!canSetGoal) {
+      toast.error('목표 변경 권한이 없습니다. 매니저에게 요청해주세요.');
+      return;
+    }
+    setGoalDraft(draft);
+    setGoalOpen(true);
+  };
 
   // 데이터 부족(6개월 미만) 시뮬레이션 토글 (예외처리 데모용)
   const enoughHistory = HISTORY.filter(m => m.actual !== null).length >= 6;
@@ -132,9 +146,11 @@ export default function ForecastPage() {
                 {p}
               </button>
             ))}
-            <Button variant="outline" size="sm" icon={<Settings size={14} />} onClick={() => { setGoalDraft(target); setGoalOpen(true); }}>
+            {canSetGoal && (
+            <Button variant="outline" size="sm" icon={<Settings size={14} />} onClick={() => openGoalDialog(target)}>
               목표 설정
             </Button>
+            )}
           </div>
         }
       />
@@ -201,9 +217,13 @@ export default function ForecastPage() {
           ) : (
             <div className="flex h-full flex-col items-center justify-center gap-md text-center">
               <p className="text-[13px] text-content-secondary">목표 매출을 설정하면 달성률 게이지가 표시됩니다.</p>
-              <Button variant="primary" size="sm" icon={<Target size={14} />} onClick={() => { setGoalDraft(0); setGoalOpen(true); }}>
-                목표 설정하기
-              </Button>
+              {canSetGoal ? (
+                <Button variant="primary" size="sm" icon={<Target size={14} />} onClick={() => openGoalDialog(0)}>
+                  목표 설정하기
+                </Button>
+              ) : (
+                <p className="text-[12px] text-content-tertiary">목표 변경 권한이 없습니다. 매니저에게 요청해주세요.</p>
+              )}
             </div>
           )}
         </ChartCard>
