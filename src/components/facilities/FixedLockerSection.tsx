@@ -15,7 +15,7 @@ import Modal from '@/components/ui/Modal';
 import Button from '@/components/ui/Button';
 import Select from '@/components/ui/Select';
 import { toast } from 'sonner';
-import { Package, AlertTriangle, RefreshCw, Plus, Search } from 'lucide-react';
+import { Package, AlertTriangle, RefreshCw, Plus, Search, Download } from 'lucide-react';
 import { useAuthStore } from '@/stores/authStore';
 import { isRoleAtLeast } from '@/lib/permissions';
 
@@ -187,6 +187,15 @@ export default function FixedLockerSection({ embedded = false }: { embedded?: bo
     toast.success('고정 락커 상태를 동기화했습니다.');
   };
 
+  // 엑셀 다운로드 (SCR-I005 버튼, 목업) — 30,000행 초과 시 범위 축소 안내
+  const handleExcelDownload = () => {
+    if (filtered.length > 30000) {
+      toast.error('범위를 좁혀주세요. (엑셀 다운로드 30,000행 초과)');
+      return;
+    }
+    toast.success('현재 배정 목록 엑셀 다운로드를 시작합니다. (목업)');
+  };
+
   // ─── 테이블 컬럼 ──────────────────────────────────────────────────────────
 
   const columns = [
@@ -238,6 +247,9 @@ export default function FixedLockerSection({ embedded = false }: { embedded?: bo
         <div className="mb-md flex justify-end gap-sm">
           <Button variant="outline" size="sm" icon={<RefreshCw className="h-4 w-4" />} onClick={handleSync}>
             상태 동기화
+          </Button>
+          <Button variant="outline" size="sm" icon={<Download className="h-4 w-4" />} onClick={handleExcelDownload}>
+            엑셀 다운로드
           </Button>
           {canManage && (
             <Button size="sm" icon={<Plus className="h-4 w-4" />} onClick={() => setShowAssign(true)}>
