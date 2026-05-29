@@ -18,13 +18,17 @@ import type { z } from 'zod';
 
 type ProductFormData = z.input<typeof productFormSchema>;
 
-type ProductKind = '레슨' | '이용' | '락커' | '판매';
+// 상품구분: docs4 SCR-P002 정합 (회원권 / 수강권 / 락커 / 운동복 / 일반)
+type ProductKind = '회원권' | '수강권' | '락커' | '운동복' | '일반';
 type LessonCategory = 'PT' | 'GX';
 type UseCategory = '기간' | '횟수' | '포인트';
+// 판매유형: docs4 SCR-P002 정합 (전체 / 현장 / 키오스크 / 온라인)
+type SalesType = '전체' | '현장' | '키오스크' | '온라인';
 type ProductGroup = { id: number; name: string; branchId: number; sortOrder: number; isActive: boolean };
 type ExistingProduct = { id: number; name: string; category: string };
 
-const PRODUCT_KIND_OPTIONS: ProductKind[] = ['레슨', '이용', '락커', '판매'];
+const PRODUCT_KIND_OPTIONS: ProductKind[] = ['회원권', '수강권', '락커', '운동복', '일반'];
+const SALES_TYPE_OPTIONS: SalesType[] = ['전체', '현장', '키오스크', '온라인'];
 const LESSON_CATEGORY_OPTIONS: LessonCategory[] = ['PT', 'GX'];
 const GX_SUB_CATEGORY_OPTIONS = ['요가', '필라테스', '스피닝', '줌바', '에어로빅', 'GX 기타'];
 const USE_CATEGORY_OPTIONS: UseCategory[] = ['기간', '횟수', '포인트'];
@@ -61,13 +65,15 @@ const getBranchId = (): number => {
 
 const mapKindToCategory = (kind: ProductKind): string => {
   switch (kind) {
-    case '레슨':
+    case '수강권':
       return 'PT';
-    case '이용':
+    case '회원권':
       return '이용권';
     case '락커':
       return '기타';
-    case '판매':
+    case '운동복':
+      return '기타';
+    case '일반':
       return '기타';
     default:
       return '이용권';
@@ -88,12 +94,12 @@ const mapCategoryToKind = (category: string): ProductKind => {
   switch (category) {
     case 'PT':
     case 'GX':
-      return '레슨';
+      return '수강권';
     case '이용권':
-      return '이용';
+      return '회원권';
     case '기타':
     default:
-      return '판매';
+      return '일반';
   }
 };
 
@@ -208,7 +214,8 @@ function ProductForm() {
   const [existingProducts, setExistingProducts] = useState<ExistingProduct[]>([]);
   const [productGroups, setProductGroups] = useState<ProductGroup[]>([]);
 
-  const [productKind, setProductKind] = useState<ProductKind>('이용');
+  const [productKind, setProductKind] = useState<ProductKind>('회원권');
+  const [salesType, setSalesType] = useState<SalesType>('전체');
   const [lessonCategory, setLessonCategory] = useState<LessonCategory>('PT');
   const [gxSubCategory, setGxSubCategory] = useState('');
   const [occupancy, setOccupancy] = useState('1명');
@@ -389,9 +396,11 @@ function ProductForm() {
 
   const handleKindChange = (kind: ProductKind) => {
     setProductKind(kind);
-    setValue('category', kind === '레슨' ? lessonCategory : mapKindToCategory(kind), { shouldValidate: true });
-    if (kind === '레슨') {
+    setValue('category', kind === '수강권' ? lessonCategory : mapKindToCategory(kind), { shouldValidate: true });
+    if (kind === '수강권') {
       setUseCategory('횟수');
+    } else if (kind === '회원권') {
+      setUseCategory('기간');
     }
   };
 
@@ -412,25 +421,25 @@ function ProductForm() {
       setError('name', { message: `'${data.name}' 상품명이 이미 존재합니다.` });
       return;
     }
-    if (productKind === '레슨' && lessonCategory === 'GX' && !gxSubCategory) {
+    if (productKind === '수강권' && lessonCategory === 'GX' && !gxSubCategory) {
       toast.error('GX 상품은 세부종목을 선택해야 합니다.');
       return;
     }
     const durationValue =
-      productKind === '락커' || (productKind === '이용' && useCategory === '기간')
+      productKind === '락커' || (productKind === '회원권' && useCategory === '기간')
         ? data.period || useAmount
         : '';
     const countValue =
-      productKind === '레슨'
+      productKind === '수강권'
         ? data.count || useAmount
-        : productKind === '이용' && useCategory !== '기간'
+        : productKind === '회원권' && useCategory !== '기간'
           ? data.count || useAmount
           : '';
-    if ((productKind === '락커' || (productKind === '이용' && useCategory === '기간')) && !durationValue) {
+    if ((productKind === '락커' || (productKind === '회원권' && useCategory === '기간')) && !durationValue) {
       setError('period', { message: '기간 상품은 이용 기간을 입력해주세요.' });
       return;
     }
-    if ((productKind === '레슨' || (productKind === '이용' && useCategory !== '기간')) && !countValue) {
+    if ((productKind === '수강권' || (productKind === '회원권' && useCategory !== '기간')) && !countValue) {
       setError('count', { message: '횟수 또는 포인트 수량을 입력해주세요.' });
       return;
     }
@@ -485,7 +494,12 @@ function ProductForm() {
       price: cashPrice,
       cashPrice,
       cardPrice,
-      productType: productKind === '락커' ? 'RENTAL' : typeMap[data.category] ?? 'GENERAL',
+      productType:
+        productKind === '락커'
+          ? 'RENTAL'
+          : productKind === '운동복' || productKind === '일반'
+            ? 'GENERAL'
+            : typeMap[data.category] ?? 'GENERAL',
       totalCount: countValue ? parsePrice(countValue) : null,
       duration: durationValue ? parsePrice(durationValue) : null,
       sessions: countValue ? parsePrice(countValue) : null,
@@ -502,7 +516,16 @@ function ProductForm() {
       holdingEnabled: data.isHoldingEnabled ?? false,
       transferEnabled: optionStates.transferable,
       pointAccrual: true,
-      salesChannel: optionStates.kioskUsage ? 'KIOSK' : 'ALL',
+      salesChannel:
+        salesType === '키오스크'
+          ? 'KIOSK'
+          : salesType === '현장'
+            ? 'OFFLINE'
+            : salesType === '온라인'
+              ? 'ONLINE'
+              : optionStates.kioskUsage
+                ? 'KIOSK'
+                : 'ALL',
       usage_restrictions: usageRestrictions,
     };
 
@@ -560,7 +583,7 @@ function ProductForm() {
                 <SelectBox value={occupancy} onChange={setOccupancy} options={OCCUPANCY_OPTIONS} />
               </div>
 
-              {productKind === '레슨' && (
+              {productKind === '수강권' && (
                 <div className="grid gap-x-[6px] gap-y-[4px] border border-[#9ec5ff] bg-[#f8fbff] p-[6px] md:grid-cols-[44px_1fr_52px_112px] md:items-center">
                   <div className="font-bold text-[#555]">1단계</div>
                   <div className="flex flex-wrap items-center gap-3">
@@ -595,6 +618,33 @@ function ProductForm() {
                   )}
                 </div>
               )}
+
+              {productKind === '운동복' && (
+                <div className="border border-[#cdb18a] bg-[#fbf6ee] p-[6px] text-[10px] leading-[1.5] text-[#7a5a26]">
+                  운동복은 대여비/상품 비용으로 등록합니다. 대여 기간·가격은 입력할 수 있으나 실제
+                  운동복 수량·회원별 대여/반납·세탁/파손 상태는 입력하지 않습니다. 실제 재고 수량 관리는
+                  D06 상품 재고 관리(시설)에서 처리합니다.
+                </div>
+              )}
+              {productKind === '일반' && (
+                <div className="border border-[#c7c7c7] bg-[#f3f3f3] p-[6px] text-[10px] leading-[1.5] text-[#666]">
+                  일반 상품은 태그, 가격, 판매유형, 재고 연동 여부를 관리합니다.
+                </div>
+              )}
+
+              <div className="grid gap-x-[6px] gap-y-[4px] md:grid-cols-[44px_1fr_52px_1fr] md:items-center">
+                <div className="font-bold text-[#555]">판매유형</div>
+                <div className="flex flex-wrap items-center gap-3">
+                  {SALES_TYPE_OPTIONS.map(option => (
+                    <ClassicRadio
+                      key={option}
+                      checked={salesType === option}
+                      onChange={() => setSalesType(option)}
+                      label={option}
+                    />
+                  ))}
+                </div>
+              </div>
 
               <div className="grid gap-x-[6px] gap-y-[4px] md:grid-cols-[44px_1fr] md:items-center">
                 <div className="font-bold text-[#555]">상품그룹</div>
