@@ -53,6 +53,8 @@ type SaleItem = {
   paymentMethod: string;
   paymentType: string;
   paymentTool: string;
+  paymentRoute: string; // 결제경로: 현장 결제(POS) / 결제링크
+  linkStatus: string;   // 링크 상태: 미결제 등 (결제링크 경로 전용, '발송됨'은 노출 안 함)
   cash: number;
   card: number;
   mileage: number;
@@ -193,6 +195,11 @@ export default function Sales() {
             const resolvedProductId = Number(row.productId) || productIdByName.get(productName) || 0;
             // paymentTool: 결제수단 한글 레이블 (복합결제 고려)
             const payTool = PAYMENT_KO[payMethodEn] ?? payMethodEn;
+            const payTypeRaw = (row.paymentType as string) ?? '';
+            // 결제경로: paymentType에 '결제링크'가 포함되면 결제링크, 그 외는 현장 결제(POS)
+            const payRoute = payTypeRaw.includes('결제링크') ? '결제링크' : '현장(POS)';
+            // 링크 상태: 결제링크 경로이면서 결제 미완료(PENDING 등)면 '미결제'. '발송됨'은 노출하지 않는다.
+            const isLinkPending = payRoute === '결제링크' && ['PENDING', 'UNPAID', 'REQUESTED'].includes(statusEn);
             return {
               id: row.id as number,
               productId: resolvedProductId,
@@ -209,8 +216,10 @@ export default function Sales() {
               salePrice: Number(row.salePrice) || Number(row.amount) || 0,
               discountPrice: Number(row.discountPrice) || 0,
               paymentMethod: payMethodEn,
-              paymentType: (row.paymentType as string) ?? '',
+              paymentType: payTypeRaw,
               paymentTool: payTool,
+              paymentRoute: payRoute,
+              linkStatus: isLinkPending ? '미결제' : '-',
               cash: cashAmt,
               card: cardAmt,
               mileage: mileageAmt,
@@ -436,6 +445,18 @@ export default function Sales() {
     { key: 'salePrice', header: '금액', width: 110, align: 'right' as const,
       render: (v: number) => <span className="font-semibold tabular-nums">{formatKRW(v)}</span> },
     { key: 'paymentTool', header: '결제수단', width: 90, align: 'center' as const },
+    { key: 'paymentRoute', header: '결제경로', width: 100, align: 'center' as const,
+      render: (val: string) => (
+        <StatusBadge variant={val === '결제링크' ? 'warning' : 'secondary'}>{val}</StatusBadge>
+      )
+    },
+    { key: 'linkStatus', header: '링크 상태', width: 90, align: 'center' as const,
+      render: (val: string) => (
+        val === '미결제'
+          ? <StatusBadge variant="error" dot>미결제</StatusBadge>
+          : <span className="text-content-tertiary">-</span>
+      )
+    },
     { key: 'cash', header: '현금', width: 90, align: 'right' as const,
       render: (v: number) => <span className="tabular-nums">{formatNumber(v)}</span> },
     { key: 'card', header: '카드', width: 90, align: 'right' as const,
