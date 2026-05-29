@@ -156,16 +156,16 @@ export const DOCS4_SCREENS: Docs4Entry[] = [
   { code: "SCR-065", kind: "SCR", domain: "D07", title: "급여 명세서", version: "both", route: "/payroll/statements", status: "done" },
 
   // ── D08 마케팅 ──
-  { code: "SCR-070", kind: "SCR", domain: "D08", title: "리드 관리", version: "both", route: "/leads", status: "stub" },
+  { code: "SCR-070", kind: "SCR", domain: "D08", title: "리드 관리", version: "both", route: "/leads", status: "done" },
   { code: "SCR-071", kind: "SCR", domain: "D08", title: "메시지 발송", version: "both", route: "/message", status: "done" },
   { code: "SCR-072", kind: "SCR", domain: "D08", title: "자동 알림 설정", version: "both", route: "/message/auto-alarm", status: "done" },
   { code: "SCR-073", kind: "SCR", domain: "D08", title: "쿠폰 관리", version: "both", route: "/message/coupon", status: "done" },
   { code: "SCR-074", kind: "SCR", domain: "D08", title: "마일리지 관리", version: "both", route: "/mileage", status: "done" },
   { code: "SCR-075", kind: "SCR", domain: "D08", title: "전자 계약", version: "both", route: "/contracts/new", status: "done" },
-  { code: "SCR-076", kind: "SCR", domain: "D08", title: "캠페인 관리", version: "both", route: "/marketing/campaign", status: "stub" },
-  { code: "SCR-077", kind: "SCR", domain: "D08", title: "리퍼럴 프로그램", version: "both", route: "/marketing/referral", status: "stub" },
-  { code: "SCR-078", kind: "SCR", domain: "D08", title: "SMS/카카오 대량 발송", version: "V1", route: "/marketing/sms", status: "stub" },
-  { code: "SCR-079", kind: "SCR", domain: "D08", title: "A/B 테스트", version: "both", route: "/marketing/ab-test", status: "stub" },
+  { code: "SCR-076", kind: "SCR", domain: "D08", title: "캠페인 관리", version: "both", route: "/marketing/campaign", status: "done" },
+  { code: "SCR-077", kind: "SCR", domain: "D08", title: "리퍼럴 프로그램", version: "both", route: "/marketing/referral", status: "done" },
+  { code: "SCR-078", kind: "SCR", domain: "D08", title: "SMS/카카오 대량 발송", version: "V1", route: "/marketing/sms", status: "done" },
+  { code: "SCR-079", kind: "SCR", domain: "D08", title: "A/B 테스트", version: "both", route: "/marketing/ab-test", status: "done" },
 
   // ── D09 설정관리 ──
   { code: "SCR-080", kind: "SCR", domain: "D09", title: "센터 설정", version: "V1", route: "/settings", status: "done" },

@@ -1,132 +1,166 @@
 'use client';
 export const dynamic = 'force-dynamic';
 
+// SCR-079 A/B 테스트 (docs4/V2/D08-마케팅/마케팅.md ## SCR-079, V1 제외 / V2 이관)
+// 호스트 다이얼로그: DLG-079-001 A/B 테스트 등록 / DLG-079-002 삭제 확인
+// 명세 기준: 등록·자동 분배·우수안 채택은 "고객사 확인 후 개발 진행" — 저장 비활성 + 안내.
+//            변형 비교·결과(오픈율/클릭율/승리안)는 목업으로 표시. 로딩/빈/오류 상태 포함.
+
 import React, { useState } from 'react';
+import { FlaskConical, Plus, Trophy, RefreshCw, Info, BarChart3 } from 'lucide-react';
 import AppLayout from '@/components/layout/AppLayout';
 import PageHeader from '@/components/common/PageHeader';
-import { FlaskConical, TrendingUp, Plus, Trophy } from 'lucide-react';
+import StatCard from '@/components/common/StatCard';
+import StatCardGrid from '@/components/common/StatCardGrid';
+import StatusBadge from '@/components/common/StatusBadge';
+import { EmptyState } from '@/components/common/EmptyState';
+import FormModal from '@/components/common/FormModal';
+import Button from '@/components/ui/Button';
+import Input from '@/components/ui/Input';
+import Textarea from '@/components/ui/Textarea';
+import { cn } from '@/lib/utils';
+import { MOCK_AB_TESTS, type AbTest } from '@/mocks/marketing';
 
-const tests = [
-  {
-    id: 1, name: '재등록 유도 메시지 최적화', status: '진행중',
-    variantA: { name: 'A안: 할인 강조', sent: 250, open: 163, click: 45 },
-    variantB: { name: 'B안: 혜택 강조', sent: 250, open: 188, click: 62 },
-    winner: null, startDate: '2026-04-20', endDate: '2026-05-04',
-  },
-  {
-    id: 2, name: '신규 환영 메시지 제목 테스트', status: '완료',
-    variantA: { name: 'A안: 이름 호칭', sent: 120, open: 84, click: 32 },
-    variantB: { name: 'B안: 혜택 중심', sent: 120, open: 96, click: 48 },
-    winner: 'B', startDate: '2026-04-01', endDate: '2026-04-15',
-  },
-];
+type LoadState = 'loading' | 'error' | 'ready';
 
 export default function AbTestPage() {
-  const [showNew, setShowNew] = useState(false);
+  const [loadState, setLoadState] = useState<LoadState>('ready');
+  const [tests] = useState<AbTest[]>(MOCK_AB_TESTS);
+  const [createOpen, setCreateOpen] = useState(false);
+
+  const active = tests.filter((t) => t.status === '진행').length;
+  const done = tests.filter((t) => t.status === '완료').length;
 
   return (
     <AppLayout>
-      <PageHeader title="A/B 테스트" description="두 가지 메시지 안을 비교해 더 효과적인 방식을 찾습니다" actions={
-        <button onClick={() => setShowNew(true)} className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700">
-          <Plus className="w-4 h-4" /> 테스트 생성
-        </button>
-      } />
-
-      <div className="grid grid-cols-3 gap-4 mb-6">
-        <div className="bg-white rounded-xl border border-gray-200 p-4">
-          <p className="text-xs text-gray-500 mb-1">진행 중 테스트</p>
-          <p className="text-2xl font-bold text-green-600">1개</p>
-        </div>
-        <div className="bg-white rounded-xl border border-gray-200 p-4">
-          <p className="text-xs text-gray-500 mb-1">완료된 테스트</p>
-          <p className="text-2xl font-bold text-gray-900">1개</p>
-        </div>
-        <div className="bg-white rounded-xl border border-gray-200 p-4">
-          <p className="text-xs text-gray-500 mb-1">평균 성과 향상</p>
-          <p className="text-2xl font-bold text-blue-600">+23%</p>
-        </div>
-      </div>
-
-      <div className="space-y-4">
-        {tests.map(test => {
-          const aOpenRate = Math.round((test.variantA.open / test.variantA.sent) * 100);
-          const bOpenRate = Math.round((test.variantB.open / test.variantB.sent) * 100);
-          const aClickRate = Math.round((test.variantA.click / test.variantA.sent) * 100);
-          const bClickRate = Math.round((test.variantB.click / test.variantB.sent) * 100);
-
-          return (
-            <div key={test.id} className="bg-white rounded-xl border border-gray-200 p-5">
-              <div className="flex items-start justify-between mb-4">
-                <div className="flex items-center gap-3">
-                  <div className="p-2.5 bg-indigo-100 rounded-xl">
-                    <FlaskConical className="w-4 h-4 text-indigo-600" />
-                  </div>
-                  <div>
-                    <p className="text-sm font-semibold text-gray-800">{test.name}</p>
-                    <p className="text-xs text-gray-400 mt-0.5">{test.startDate} ~ {test.endDate}</p>
-                  </div>
-                </div>
-                <span className={`text-xs px-2.5 py-1 rounded-full font-medium ${test.status === '진행중' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>{test.status}</span>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                {[test.variantA, test.variantB].map((v, i) => {
-                  const isWinner = test.winner === (i === 0 ? 'A' : 'B');
-                  const openRate = i === 0 ? aOpenRate : bOpenRate;
-                  const clickRate = i === 0 ? aClickRate : bClickRate;
-                  return (
-                    <div key={i} className={`rounded-xl p-4 border-2 ${isWinner ? 'border-green-400 bg-green-50' : 'border-gray-100 bg-gray-50'}`}>
-                      <div className="flex items-center gap-2 mb-3">
-                        <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${i === 0 ? 'bg-blue-100 text-blue-700' : 'bg-purple-100 text-purple-700'}`}>{i === 0 ? 'A' : 'B'}</span>
-                        <span className="text-xs font-medium text-gray-700">{v.name}</span>
-                        {isWinner && <Trophy className="w-3.5 h-3.5 text-amber-500 ml-auto" />}
-                      </div>
-                      <div className="grid grid-cols-3 gap-2">
-                        <div className="text-center">
-                          <p className="text-xs text-gray-400">발송</p>
-                          <p className="text-sm font-bold text-gray-800">{v.sent}</p>
-                        </div>
-                        <div className="text-center">
-                          <p className="text-xs text-gray-400">오픈율</p>
-                          <p className="text-sm font-bold text-blue-600">{openRate}%</p>
-                        </div>
-                        <div className="text-center">
-                          <p className="text-xs text-gray-400">클릭율</p>
-                          <p className="text-sm font-bold text-purple-600">{clickRate}%</p>
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          );
-        })}
-      </div>
-
-      {showNew && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-          <div className="bg-white rounded-2xl shadow-2xl p-6 w-full max-w-md space-y-4">
-            <h2 className="text-base font-bold text-gray-900">A/B 테스트 생성</h2>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">테스트 이름</label>
-              <input className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="테스트 이름" />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">A안 메시지</label>
-              <textarea rows={2} className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="A안 메시지 내용" />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">B안 메시지</label>
-              <textarea rows={2} className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="B안 메시지 내용" />
-            </div>
-            <div className="flex gap-3 pt-2">
-              <button onClick={() => setShowNew(false)} className="flex-1 py-2.5 border border-gray-300 text-gray-700 text-sm font-medium rounded-lg">취소</button>
-              <button onClick={() => setShowNew(false)} className="flex-1 py-2.5 bg-blue-600 text-white text-sm font-medium rounded-lg">생성</button>
-            </div>
+      <PageHeader
+        title="A/B 테스트"
+        description="두 가지 메시지 안(A·B)을 비교해 더 효과적인 방식을 찾습니다. (V2 후속 범위)"
+        actions={
+          <div className="flex items-center gap-sm">
+            <Button type="button" variant="outline" size="md" icon={<RefreshCw size={14} className={loadState === 'loading' ? 'animate-spin' : ''} />}
+              onClick={() => { setLoadState('loading'); setTimeout(() => setLoadState('ready'), 500); }}>
+              새로고침
+            </Button>
+            <Button type="button" variant="primary" size="md" icon={<Plus size={14} />} onClick={() => setCreateOpen(true)}>
+              테스트 생성
+            </Button>
           </div>
+        }
+      />
+
+      {/* V2 이관 안내 배너 (등록·자동실행은 고객사 확인 후 개발) */}
+      <div className="mb-lg flex items-start gap-sm rounded-2xl border border-blue-200 bg-blue-50 px-lg py-md text-[13px] text-state-info">
+        <Info size={16} className="mt-[2px] shrink-0" />
+        <span>A/B 테스트 등록·자동 분배·우수안 자동 채택은 고객사 확인 후 개발 진행하는 V2 후속 범위입니다. 현재 화면은 변형 비교·결과를 목업으로 제공합니다.</span>
+      </div>
+
+      {loadState === 'error' && (
+        <div className="mb-lg flex items-center justify-between rounded-2xl border border-state-error/40 bg-red-50 px-lg py-md text-[13px] text-state-error">
+          <span>테스트 정보를 불러오지 못했습니다. 다시 시도해주세요.</span>
+          <Button type="button" variant="outline" size="sm" onClick={() => setLoadState('ready')}>재시도</Button>
         </div>
       )}
+
+      <StatCardGrid cols={3} className="mb-lg">
+        <StatCard label="진행 중 테스트" value={`${active}개`} icon={<FlaskConical />} variant={active > 0 ? 'mint' : undefined} />
+        <StatCard label="완료된 테스트" value={`${done}개`} icon={<BarChart3 />} />
+        <StatCard label="평균 성과 향상" value="+23%" icon={<Trophy />} variant="peach" />
+      </StatCardGrid>
+
+      {loadState === 'loading' ? (
+        <div className="space-y-md">
+          {Array.from({ length: 2 }).map((_, i) => (
+            <div key={i} className="h-40 animate-pulse rounded-2xl border border-line bg-surface-secondary/60" />
+          ))}
+        </div>
+      ) : tests.length === 0 ? (
+        <div className="rounded-3xl border border-line bg-white">
+          <EmptyState icon={FlaskConical} title="등록된 A/B 테스트가 없습니다"
+            description="A/B 테스트 등록은 V2 후속 범위로 고객사 확인 후 제공됩니다. 확정 전까지는 비교 결과 목업만 표시됩니다." />
+        </div>
+      ) : (
+        <div className="space-y-md">
+          {tests.map((test) => {
+            const variants = [
+              { key: 'A' as const, v: test.variantA },
+              { key: 'B' as const, v: test.variantB },
+            ];
+            return (
+              <div key={test.id} className="rounded-2xl border border-line bg-white p-lg">
+                <div className="mb-md flex items-start justify-between gap-md">
+                  <div className="flex items-center gap-md">
+                    <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-primary-light text-primary">
+                      <FlaskConical size={18} />
+                    </div>
+                    <div>
+                      <p className="text-[14px] font-bold text-content">{test.name}</p>
+                      <p className="mt-xs text-[12px] text-content-secondary">{test.startDate} ~ {test.endDate}</p>
+                    </div>
+                  </div>
+                  <StatusBadge variant={test.status === '진행' ? 'success' : 'default'} dot>
+                    {test.status === '진행' ? '진행 중' : '완료'}
+                  </StatusBadge>
+                </div>
+
+                {/* 변형 비교 */}
+                <div className="grid grid-cols-1 gap-md sm:grid-cols-2">
+                  {variants.map(({ key, v }) => {
+                    const openRate = v.sent > 0 ? Math.round((v.open / v.sent) * 100) : 0;
+                    const clickRate = v.sent > 0 ? Math.round((v.click / v.sent) * 100) : 0;
+                    const isWinner = test.winner === key;
+                    return (
+                      <div key={key} className={cn('rounded-xl border-2 p-4',
+                        isWinner ? 'border-state-success/50 bg-emerald-50/60' : 'border-line bg-surface-secondary/40')}>
+                        <div className="mb-3 flex items-center gap-sm">
+                          <StatusBadge variant={key === 'A' ? 'info' : 'peach'}>{key}</StatusBadge>
+                          <span className="text-[12px] font-medium text-content">{v.name}</span>
+                          {isWinner && <Trophy size={14} className="ml-auto text-amber-500" />}
+                        </div>
+                        <div className="grid grid-cols-3 gap-2 text-center">
+                          <div>
+                            <p className="text-[11px] text-content-tertiary">발송</p>
+                            <p className="text-[14px] font-bold tabular-nums text-content">{v.sent}</p>
+                          </div>
+                          <div>
+                            <p className="text-[11px] text-content-tertiary">오픈율</p>
+                            <p className="text-[14px] font-bold tabular-nums text-state-info">{openRate}%</p>
+                          </div>
+                          <div>
+                            <p className="text-[11px] text-content-tertiary">클릭율</p>
+                            <p className="text-[14px] font-bold tabular-nums text-primary">{clickRate}%</p>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* DLG-079-001 A/B 테스트 등록 — 저장 비활성 (고객사 확인 후 개발) */}
+      <FormModal
+        isOpen={createOpen}
+        onClose={() => setCreateOpen(false)}
+        title="A/B 테스트 등록"
+        size="lg"
+        submitLabel="저장 (고객사 확인 후)"
+        onSubmit={(e) => e.preventDefault()}
+        extraActions={
+          <span className="mr-auto text-[12px] text-amber-600">고객사 확인 후 개발 진행 — 저장 비활성</span>
+        }
+      >
+        <div className="mb-sm flex items-start gap-sm rounded-xl border border-blue-200 bg-blue-50 px-md py-sm text-[12px] text-state-info">
+          <Info size={14} className="mt-[2px] shrink-0" />
+          <span>등록·대상 분배·자동 실행은 V2 후속 범위입니다. 입력값은 미리보기 용도이며 현재 저장되지 않습니다.</span>
+        </div>
+        <Input label="테스트 이름" placeholder="예: 재등록 유도 메시지 최적화" disabled />
+        <Textarea label="A안 메시지" rows={2} placeholder="A안 메시지 내용" disabled />
+        <Textarea label="B안 메시지" rows={2} placeholder="B안 메시지 내용" disabled />
+      </FormModal>
     </AppLayout>
   );
 }
