@@ -64,14 +64,27 @@ interface ConflictWarning {
 
 // --- 역할 목록 (시스템 역할 초기값) ---
 
+// RBAC 표준 역할 8종 (docs4 SCR-081 기준): superAdmin, primary, owner, manager, fc, trainer, staff, readonly
 const INITIAL_ROLES: Role[] = [
-  { id: "1", code: "primary", name: "최고관리자", description: "모든 권한 (수정 불가)", isSystem: true, userCount: 0 },
-  { id: "2", code: "owner", name: "센터장", description: "경영/매출 전체 접근", isSystem: true, userCount: 0 },
-  { id: "3", code: "manager", name: "매니저", description: "회원·상품·일정 관리", isSystem: true, userCount: 0 },
-  { id: "4", code: "fc", name: "피트니스 코치", description: "담당 회원·수업 접근", isSystem: true, userCount: 0 },
-  { id: "5", code: "staff", name: "스태프", description: "출석 체크·기본 조회", isSystem: true, userCount: 0 },
-  { id: "6", code: "readonly", name: "조회전용", description: "읽기 전용 전체", isSystem: true, userCount: 0 },
+  { id: "1", code: "superAdmin", name: "슈퍼관리자", description: "본사 전체 권한 (수정 불가)", isSystem: true, userCount: 0 },
+  { id: "2", code: "primary", name: "최고관리자", description: "모든 권한 (수정 불가)", isSystem: true, userCount: 0 },
+  { id: "3", code: "owner", name: "Owner(지점장)", description: "경영/매출 전체 접근", isSystem: true, userCount: 0 },
+  { id: "4", code: "manager", name: "매니저", description: "회원·상품·일정 관리", isSystem: true, userCount: 0 },
+  { id: "5", code: "fc", name: "FC", description: "담당 회원·수업 접근", isSystem: true, userCount: 0 },
+  { id: "6", code: "trainer", name: "트레이너", description: "담당 회원·수업 접근 (PT/GX/골프 직무)", isSystem: true, userCount: 0 },
+  { id: "7", code: "staff", name: "스태프", description: "출석 체크·기본 조회", isSystem: true, userCount: 0 },
+  { id: "8", code: "readonly", name: "조회전용", description: "읽기 전용 전체", isSystem: true, userCount: 0 },
 ];
+
+// 민감 기능 6종 (docs4 SCR-081): superAdmin/primary 외 역할은 체크 불가·저장 차단
+const SENSITIVE_FUNCTIONS = [
+  { id: "member-permanent-delete", label: "회원 영구 삭제" },
+  { id: "refund-process", label: "환불 처리" },
+  { id: "payroll-confirm", label: "급여 확정·지급" },
+  { id: "superadmin-grant", label: "슈퍼관리자 권한 부여/회수" },
+  { id: "data-restore", label: "데이터 복원" },
+  { id: "audit-log-export", label: "감사로그 내보내기" },
+] as const;
 
 const MENU_GROUPS = [
   { group: "회원", menus: ["회원 목록", "회원 상세", "회원 등록/수정"] },
@@ -119,8 +132,11 @@ function validateConflicts(permissions: MenuPermission[]): ConflictWarning[] {
 
 export default function PermissionSettings() {
   const [roles, setRoles] = useState<Role[]>(INITIAL_ROLES);
-  const [selectedRoleId, setSelectedRoleId] = useState<string>("2");
+  const [selectedRoleId, setSelectedRoleId] = useState<string>("1");
   const [permissions, setPermissions] = useState<MenuPermission[]>([]);
+  // 민감 기능 6종 체크 상태 (역할별, 목업: 로컬 상태)
+  const [sensitiveChecked, setSensitiveChecked] = useState<Record<string, boolean>>({});
+  const [showSensitiveBlock, setShowSensitiveBlock] = useState(false);
   const [savedPermissions, setSavedPermissions] = useState<MenuPermission[]>([]);
   const [isDirty, setIsDirty] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -144,7 +160,10 @@ export default function PermissionSettings() {
   const [copyNewRoleCode, setCopyNewRoleCode] = useState("");
 
   const selectedRole = roles.find(r => r.id === selectedRoleId) || roles[0];
-  const isPrimary = selectedRole.code === "primary";
+  // superAdmin·primary는 매트릭스 잠금(읽기 전용)
+  const isPrimary = selectedRole.code === "primary" || selectedRole.code === "superAdmin";
+  // 민감 기능을 부여할 수 있는 역할 (superAdmin/primary만 허용)
+  const canHoldSensitive = selectedRole.code === "superAdmin" || selectedRole.code === "primary";
 
   // 직원 목록을 role별로 조회
   useEffect(() => {
@@ -209,8 +228,36 @@ export default function PermissionSettings() {
     setSavedPermissions(JSON.parse(JSON.stringify(basePermissions)));
     setIsDirty(false);
     setConflictWarnings([]);
+    setShowSensitiveBlock(false);
+
+    // 민감 기능 체크 상태 로드 (역할별 localStorage)
+    const sensitiveKey = `sensitive_${roleCode}`;
+    const savedSensitive = localStorage.getItem(sensitiveKey);
+    if (savedSensitive) {
+      try { setSensitiveChecked(JSON.parse(savedSensitive)); } catch { setSensitiveChecked({}); }
+    } else {
+      // superAdmin/primary는 기본적으로 전 민감 기능 보유
+      const defaults: Record<string, boolean> = {};
+      if (roleCode === "superAdmin" || roleCode === "primary") {
+        SENSITIVE_FUNCTIONS.forEach(f => { defaults[f.id] = true; });
+      }
+      setSensitiveChecked(defaults);
+    }
+
     setIsLoading(false);
   }, [selectedRoleId]);
+
+  // 민감 기능 토글 (목업)
+  const handleSensitiveToggle = (id: string) => {
+    if (isPrimary) return; // superAdmin/primary 매트릭스 잠금
+    setSensitiveChecked(prev => ({ ...prev, [id]: !prev[id] }));
+    setShowSensitiveBlock(false);
+    setIsDirty(true);
+  };
+
+  // 비허용 역할이 민감 기능을 체크했는지 (저장 차단 대상)
+  const hasBlockedSensitive = !canHoldSensitive &&
+    SENSITIVE_FUNCTIONS.some(f => sensitiveChecked[f.id]);
 
   const handleToggle = (menuId: string, type: PermissionType) => {
     if (isPrimary) return;
@@ -253,6 +300,7 @@ export default function PermissionSettings() {
     const permMap: Record<string, MenuPermission['permissions']> = {};
     permissions.forEach(p => { permMap[p.id] = p.permissions; });
     localStorage.setItem(storageKey, JSON.stringify(permMap));
+    localStorage.setItem(`sensitive_${selectedRole.code}`, JSON.stringify(sensitiveChecked));
 
     setSavedPermissions(JSON.parse(JSON.stringify(permissions)));
     setIsDirty(false);
@@ -261,6 +309,11 @@ export default function PermissionSettings() {
   };
 
   const handleSave = () => {
+    // 민감 기능 6종은 superAdmin/primary 외 역할이 보유한 상태로 저장 차단
+    if (hasBlockedSensitive) {
+      setShowSensitiveBlock(true);
+      return;
+    }
     const warnings = validateConflicts(permissions);
     if (warnings.length > 0) {
       setConflictWarnings(warnings);
@@ -395,11 +448,11 @@ export default function PermissionSettings() {
                 초기화
               </button>
               <button
-                disabled={!isDirty || isPrimary}
+                disabled={!isDirty || isPrimary || hasBlockedSensitive}
                 onClick={handleSave}
                 className={cn(
                   "flex items-center gap-xs rounded-button px-md py-sm text-Label text-white transition-all",
-                  isDirty && !isPrimary ? "bg-primary shadow-sm hover:opacity-90" : "bg-surface-secondary cursor-not-allowed"
+                  isDirty && !isPrimary && !hasBlockedSensitive ? "bg-primary shadow-sm hover:opacity-90" : "bg-surface-secondary cursor-not-allowed"
                 )} >
                 <Save size={16} />
                 변경 사항 저장
@@ -556,7 +609,7 @@ export default function PermissionSettings() {
             {isPrimary && (
               <div className="flex items-center gap-sm bg-surface-secondary p-md text-primary" >
                 <Shield size={20}/>
-                <p className="text-sm font-medium" >최고관리자는 시스템의 모든 권한을 가지며 수정할 수 없습니다.</p>
+                <p className="text-sm font-medium" >{selectedRole.name}은(는) 시스템의 모든 권한을 가지며 수정할 수 없습니다.</p>
               </div>
             )}
 
@@ -673,8 +726,97 @@ export default function PermissionSettings() {
                 </tbody>
               </table>
             </div>
+
+            {/* 민감 기능 6종 (docs4 SCR-081) */}
+            <div className="border-t border-line p-md">
+              <div className="flex items-center gap-xs mb-sm">
+                <Shield size={16} className="text-state-error" />
+                <h3 className="text-sm font-bold text-content">민감 기능</h3>
+                <span className="text-[11px] text-content-secondary">슈퍼관리자·최고관리자만 보유 가능</span>
+              </div>
+              <p className="mb-sm text-[12px] leading-relaxed text-content-secondary">
+                아래 6종은 민감 기능으로, <span className="font-semibold text-state-error">superAdmin / primary</span> 외 역할에서는 부여할 수 없으며 체크된 상태로 저장이 차단됩니다.
+              </p>
+              <div className="grid gap-sm md:grid-cols-2">
+                {SENSITIVE_FUNCTIONS.map(fn => {
+                  const checked = Boolean(sensitiveChecked[fn.id]);
+                  const blocked = checked && !canHoldSensitive;
+                  return (
+                    <button
+                      key={fn.id}
+                      type="button"
+                      disabled={isPrimary}
+                      onClick={() => handleSensitiveToggle(fn.id)}
+                      className={cn(
+                        "flex items-center gap-sm rounded-lg border p-sm text-left transition-all",
+                        blocked
+                          ? "border-state-error bg-state-error/5"
+                          : checked
+                            ? "border-primary bg-primary-light"
+                            : "border-line bg-surface hover:bg-surface-secondary",
+                        isPrimary ? "cursor-default opacity-90" : "cursor-pointer"
+                      )}
+                    >
+                      <span className={cn(
+                        "flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full transition-all",
+                        checked ? (blocked ? "bg-state-error text-white" : "bg-primary text-white") : "bg-surface-secondary text-line"
+                      )}>
+                        {checked ? <Check size={14} strokeWidth={3} /> : <X size={14} />}
+                      </span>
+                      <div className="flex flex-col">
+                        <span className="text-sm text-content">{fn.label}</span>
+                        {blocked && (
+                          <span className="text-[11px] text-state-error">권한 부족 — 저장 차단됨</span>
+                        )}
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+              {hasBlockedSensitive && (
+                <div className="mt-sm flex items-start gap-xs rounded-lg border border-state-error/30 bg-state-error/5 p-sm">
+                  <AlertCircle className="text-state-error mt-xs flex-shrink-0" size={14} />
+                  <p className="text-[12px] text-state-error">
+                    민감 기능은 superAdmin / primary 권한에서만 부여할 수 있습니다. 체크를 해제하거나 superAdmin/primary 권한 부여를 요청하세요.
+                  </p>
+                </div>
+              )}
+            </div>
           </div>
         </div>
+
+        {/* 민감 기능 저장 차단 알림 모달 */}
+        {showSensitiveBlock && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-white/50 backdrop-blur-sm p-md">
+            <div className="w-full max-w-md rounded-lg bg-surface p-xl shadow-md">
+              <div className="flex items-center gap-md mb-lg">
+                <div className="w-[48px] h-[48px] bg-state-error/10 rounded-full flex items-center justify-center flex-shrink-0">
+                  <Shield className="text-state-error" size={24} />
+                </div>
+                <div>
+                  <h3 className="text-xl font-bold text-content">민감 기능 저장 차단</h3>
+                  <p className="text-sm text-content-secondary mt-xs">superAdmin / primary 외 역할은 민감 기능을 보유할 수 없습니다.</p>
+                </div>
+              </div>
+              <div className="space-y-sm mb-xl max-h-[200px] overflow-y-auto">
+                {SENSITIVE_FUNCTIONS.filter(f => sensitiveChecked[f.id]).map(f => (
+                  <div key={f.id} className="flex items-start gap-xs p-sm rounded-lg bg-state-error/5 border border-state-error/20">
+                    <AlertCircle className="text-state-error mt-xs flex-shrink-0" size={14} />
+                    <p className="text-sm text-content">{f.label}</p>
+                  </div>
+                ))}
+              </div>
+              <div className="flex justify-end gap-sm">
+                <button
+                  className="rounded-lg bg-primary px-md py-sm text-sm text-white hover:opacity-90 transition-all"
+                  onClick={() => setShowSensitiveBlock(false)}
+                >
+                  확인
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* D. 커스텀 역할 생성 모달 */}
         {isCreateModalOpen && (
