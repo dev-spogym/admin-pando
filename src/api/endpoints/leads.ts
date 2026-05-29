@@ -4,8 +4,11 @@
  */
 import { supabase } from '@/lib/supabase';
 
-/** 리드 유입 경로 */
-export type LeadSource = '간판' | '인터넷' | '전단지' | '추천' | 'SNS' | '카카오톡' | '전화문의' | '방문' | '기타';
+/** 리드 가입경로 (CRM-01-03 / docs4 명세 9종) */
+export type LeadSource = '간판' | '블로그' | '인스타' | '당근' | '지역카페' | '현수막' | '전단지' | '회원소개' | '기타';
+
+/** 리드 문의유형 (방문/전화문의/체험/일일입장) */
+export type LeadInquiryType = '방문' | '전화문의' | '체험' | '일일입장';
 
 /** 리드 상태 */
 export type LeadStatus = '신규' | '연락완료' | '상담예정' | '방문완료' | '등록완료' | '미전환' | '보류';
@@ -17,6 +20,7 @@ export interface Lead {
   name: string;
   phone: string | null;
   source: LeadSource;
+  inquiryType: LeadInquiryType;
   status: LeadStatus;
   assignedFc: string | null;
   memo: string | null;
@@ -32,11 +36,34 @@ export interface CreateLeadInput {
   name: string;
   phone?: string | null;
   source: LeadSource;
+  inquiryType?: LeadInquiryType;
   status?: LeadStatus;
   assignedFc?: string | null;
   memo?: string | null;
   inquiryDate?: string;
   followUpDate?: string | null;
+}
+
+/** 레거시 seed source 값 → 명세 9종 가입경로 매핑 */
+const SOURCE_ALIAS: Record<string, LeadSource> = {
+  인터넷: '블로그',
+  추천: '회원소개',
+  SNS: '인스타',
+  카카오톡: '인스타',
+  전화문의: '기타',
+  방문: '기타',
+};
+function normalizeSource(value: unknown): LeadSource {
+  const v = String(value ?? '');
+  const valid: LeadSource[] = ['간판', '블로그', '인스타', '당근', '지역카페', '현수막', '전단지', '회원소개', '기타'];
+  if ((valid as string[]).includes(v)) return v as LeadSource;
+  return SOURCE_ALIAS[v] ?? '기타';
+}
+function normalizeInquiryType(value: unknown): LeadInquiryType {
+  const v = String(value ?? '');
+  const valid: LeadInquiryType[] = ['방문', '전화문의', '체험', '일일입장'];
+  if ((valid as string[]).includes(v)) return v as LeadInquiryType;
+  return '전화문의';
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -46,7 +73,8 @@ function rowToLead(row: Record<string, any>): Lead {
     branchId: row.branchId ?? row.branch_id,
     name: row.name ?? '',
     phone: row.phone ?? null,
-    source: row.source ?? '기타',
+    source: normalizeSource(row.source),
+    inquiryType: normalizeInquiryType(row.inquiryType ?? row.inquiry_type),
     status: row.status ?? '신규',
     assignedFc: row.assignedFc ?? row.assigned_fc ?? null,
     memo: row.memo ?? null,
