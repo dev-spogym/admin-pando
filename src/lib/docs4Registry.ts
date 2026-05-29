@@ -89,10 +89,10 @@ export const DOCS4_SCREENS: Docs4Entry[] = [
   { code: "SCR-M004", kind: "SCR", domain: "D02", title: "회원 상세", version: "both", route: "/members/detail", status: "done" },
   { code: "SCR-M005", kind: "SCR", domain: "D02", title: "회원 이관", version: "both", route: "/members/transfer", status: "done" },
   { code: "SCR-M006", kind: "SCR", domain: "D02", title: "체성분 관리", version: "both", route: "/body-composition", status: "done" },
-  { code: "SCR-M007", kind: "SCR", domain: "D02", title: "회원 병합", version: "V1", route: "/members/merge", status: "stub" },
-  { code: "SCR-M008", kind: "SCR", domain: "D02", title: "가족 회원", version: "V1", route: "/members/family", status: "stub" },
-  { code: "SCR-M009", kind: "SCR", domain: "D02", title: "등급 관리", version: "both", route: "/members/grade", status: "stub" },
-  { code: "SCR-M010", kind: "SCR", domain: "D02", title: "세그먼트 관리", version: "V1", route: "/members/segment", status: "stub" },
+  { code: "SCR-M007", kind: "SCR", domain: "D02", title: "회원 병합", version: "V1", route: "/members/merge", status: "done" },
+  { code: "SCR-M008", kind: "SCR", domain: "D02", title: "가족 회원", version: "V1", route: "/members/family", status: "done" },
+  { code: "SCR-M009", kind: "SCR", domain: "D02", title: "등급 관리", version: "both", route: "/members/grade", status: "done" },
+  { code: "SCR-M010", kind: "SCR", domain: "D02", title: "세그먼트 관리", version: "V1", route: "/members/segment", status: "done" },
 
   // ── D03 매출관리 ──
   { code: "SCR-S001", kind: "SCR", domain: "D03", title: "매출 현황", version: "both", route: "/sales", status: "done" },
@@ -211,8 +211,8 @@ export const DOCS4_SCREENS: Docs4Entry[] = [
 // 작업이 필요한 V2 신규 / 미연결 다이얼로그 위주로 추적한다.
 export const DOCS4_DIALOGS: Docs4Entry[] = [
   // ── D02 회원관리 (V2 신규) ──
-  { code: "DLG-M021", kind: "DLG", domain: "D02", title: "마일리지 조정", version: "V2", hostRoute: "/members/detail", status: "dialog-pending" },
-  { code: "DLG-M025", kind: "DLG", domain: "D02", title: "운동 프로그램 배정", version: "V2", hostRoute: "/members/detail", status: "dialog-pending" },
+  { code: "DLG-M021", kind: "DLG", domain: "D02", title: "마일리지 조정", version: "V2", hostRoute: "/members/detail", status: "done" },
+  { code: "DLG-M025", kind: "DLG", domain: "D02", title: "운동 프로그램 배정", version: "V2", hostRoute: "/members/detail", status: "done" },
 
   // ── D03 매출관리 (V2 신규) ──
   { code: "DLG-S016", kind: "DLG", domain: "D03", title: "결제링크 발송", version: "V2", hostRoute: "/unpaid", status: "dialog-pending" },

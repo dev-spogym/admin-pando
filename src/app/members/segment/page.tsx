@@ -3,12 +3,20 @@
 import React, { useMemo, useState } from 'react';
 import AppLayout from '@/components/layout/AppLayout';
 import PageHeader from '@/components/common/PageHeader';
+import StatCard from '@/components/common/StatCard';
+import StatCardGrid from '@/components/common/StatCardGrid';
+import EmptyState from '@/components/common/EmptyState';
 import Button from '@/components/ui/Button';
 import Modal from '@/components/ui/Modal';
 import { toast } from 'sonner';
 import { Filter, Plus, Zap, ChevronRight, Tag, RefreshCw, Send } from 'lucide-react';
 import { usePageSeed } from '@/hooks';
 import type { MemberSegmentSeedPayload } from '@/lib/publishingPageSeed';
+
+// ─── SCR-M010 세그먼트 관리 (MBR-EXT-04) ──────────────────────────────────────
+// docs4/V1/D02-회원관리/회원관리.md ## SCR-M010
+// 기능형 목업: 세그먼트 카드 목록(자동/커스텀) → 생성 → 미리보기 → 메시지 발송
+// 자동 세그먼트는 수정·삭제 버튼을 제공하지 않는다(시스템 정의).
 
 const FALLBACK_SEGMENTS: MemberSegmentSeedPayload = {
   segments: [
@@ -95,11 +103,33 @@ export default function SegmentPage() {
           }
         />
 
+        {/* 세그먼트 요약 (자동/커스텀/총 대상) */}
+        <StatCardGrid cols={3}>
+          <StatCard label="자동 세그먼트" value={segments.filter((s) => s.auto).length} icon={<Zap size={20} />} />
+          <StatCard label="커스텀 세그먼트" value={segments.filter((s) => !s.auto).length} icon={<Tag size={20} />} variant="mint" />
+          <StatCard label="대상 회원 합계" value={segments.reduce((acc, s) => acc + s.count, 0)} icon={<Filter size={20} />} variant="peach" />
+        </StatCardGrid>
+
         <div className="rounded-xl border border-blue-100 bg-blue-50 px-4 py-3 text-xs text-blue-700">
           Supabase snapshot · 지점 {branchId} · 기준일 {snapshotDate ?? '-'}
           {error && <span className="ml-2 text-red-600">Fallback 사용: {error}</span>}
         </div>
 
+        {/* 4축 상태: 로딩 / 빈 / 정상 */}
+        {loading ? (
+          <div className="space-y-3">
+            {[0, 1, 2].map((i) => (
+              <div key={i} className="h-20 animate-pulse rounded-xl border border-line bg-surface-secondary/60" />
+            ))}
+          </div>
+        ) : segments.length === 0 ? (
+          <EmptyState
+            icon={Tag}
+            title="세그먼트가 없습니다"
+            description="조건을 조합해 타겟 회원 그룹을 만들고 메시지 발송·혜택 적용 액션을 연결하세요."
+            action={{ label: '세그먼트 생성', onClick: () => setShowCreate(true) }}
+          />
+        ) : (
         <div className="space-y-3">
           {segments.map((seg) => (
             <div key={seg.id} className="bg-white rounded-xl border border-gray-200 hover:border-gray-300 transition-colors p-5 flex items-center justify-between">
@@ -133,6 +163,7 @@ export default function SegmentPage() {
             </div>
           ))}
         </div>
+        )}
       </div>
 
       <Modal

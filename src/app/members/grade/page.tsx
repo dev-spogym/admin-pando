@@ -3,25 +3,33 @@
 import React, { useMemo, useState } from 'react';
 import AppLayout from '@/components/layout/AppLayout';
 import PageHeader from '@/components/common/PageHeader';
+import StatCard from '@/components/common/StatCard';
+import StatCardGrid from '@/components/common/StatCardGrid';
 import Button from '@/components/ui/Button';
 import Modal from '@/components/ui/Modal';
 import { toast } from 'sonner';
 import { Star, Users, Settings, ChevronRight, Plus, Trash2 } from 'lucide-react';
+
+// ─── SCR-M009 등급 관리 (MBR-EXT-03) ──────────────────────────────────────────
+// docs4/V1+V2/D02-회원관리/회원관리.md ## SCR-M009
+// 기능형 목업: 등급 목록 + 등급별 회원수 요약 → 기준 설정(방문 임계값) → 혜택(마일리지 적립률·할인율) → 갱신 주기
 
 interface GradeItem {
   name: string;
   color: string;
   count: number;
   minVisit: number;
+  mileageRate: number; // 마일리지 적립률 % (MBR-EXT-03-03)
+  discountRate: number; // 이용권 할인율 %
   benefits: string[];
 }
 
 const INITIAL_GRADES: GradeItem[] = [
-  { name: 'VVIP', color: 'bg-purple-100 text-purple-700 border-purple-200', count: 12, minVisit: 200, benefits: ['전용 라커', '무료 PT 2회/월', '생일 혜택'] },
-  { name: 'VIP', color: 'bg-amber-100 text-amber-700 border-amber-200', count: 48, minVisit: 100, benefits: ['우선 예약', '10% 할인', '생일 혜택'] },
-  { name: 'GOLD', color: 'bg-yellow-100 text-yellow-700 border-yellow-200', count: 127, minVisit: 50, benefits: ['5% 할인', '생일 혜택'] },
-  { name: 'SILVER', color: 'bg-gray-100 text-gray-600 border-gray-200', count: 234, minVisit: 20, benefits: ['생일 혜택'] },
-  { name: 'BRONZE', color: 'bg-orange-50 text-orange-600 border-orange-200', count: 456, minVisit: 0, benefits: ['기본 서비스'] },
+  { name: 'VVIP', color: 'bg-purple-100 text-purple-700 border-purple-200', count: 12, minVisit: 200, mileageRate: 5, discountRate: 15, benefits: ['전용 라커', '무료 PT 2회/월', '생일 혜택'] },
+  { name: 'VIP', color: 'bg-amber-100 text-amber-700 border-amber-200', count: 48, minVisit: 100, mileageRate: 3, discountRate: 10, benefits: ['우선 예약', '10% 할인', '생일 혜택'] },
+  { name: 'GOLD', color: 'bg-yellow-100 text-yellow-700 border-yellow-200', count: 127, minVisit: 50, mileageRate: 2, discountRate: 5, benefits: ['5% 할인', '생일 혜택'] },
+  { name: 'SILVER', color: 'bg-gray-100 text-gray-600 border-gray-200', count: 234, minVisit: 20, mileageRate: 1, discountRate: 0, benefits: ['생일 혜택'] },
+  { name: 'BRONZE', color: 'bg-orange-50 text-orange-600 border-orange-200', count: 456, minVisit: 0, mileageRate: 0.5, discountRate: 0, benefits: ['기본 서비스'] },
 ];
 
 const gradeMembers: Record<string, Array<{ name: string; visits: number; contract: string }>> = {
@@ -50,17 +58,46 @@ export default function GradeManagePage() {
   );
 
   const handleSaveCriteria = () => {
+    // 예외처리: 음수 입력 차단
+    const hasNegative = grades.some((grade) => (criteriaDraft[grade.name] ?? grade.minVisit) < 0);
+    if (hasNegative) {
+      toast.error('0 이상 입력해주세요.');
+      return;
+    }
+    // 예외처리: 임계값 역전 (상위 등급이 하위보다 작으면 차단)
+    // grades 배열은 상위→하위 순서이므로 위 등급의 기준이 아래 등급보다 커야 한다.
+    for (let i = 0; i < grades.length - 1; i++) {
+      const upper = criteriaDraft[grades[i].name] ?? grades[i].minVisit;
+      const lower = criteriaDraft[grades[i + 1].name] ?? grades[i + 1].minVisit;
+      if (upper <= lower) {
+        toast.error(`상위 등급(${grades[i].name})은 하위 등급(${grades[i + 1].name})보다 기준이 커야 합니다.`);
+        return;
+      }
+    }
     setGrades((prev) => prev.map((grade) => ({ ...grade, minVisit: criteriaDraft[grade.name] ?? grade.minVisit })));
     setIsCriteriaOpen(false);
-    toast.success(`등급 기준과 갱신 주기(${refreshCycle})를 저장했습니다.`);
+    toast.success('저장되었습니다.');
   };
 
   const handleSaveBenefits = () => {
     if (!editingGrade) return;
+    // 예외처리: 마일리지 적립률 10% 초과 / 할인율 100% 초과 / 음수 차단
+    if (editingGrade.mileageRate < 0 || editingGrade.discountRate < 0) {
+      toast.error('0 이상 입력해주세요.');
+      return;
+    }
+    if (editingGrade.mileageRate > 10) {
+      toast.error('마일리지 적립률은 10% 이하로 입력해주세요.');
+      return;
+    }
+    if (editingGrade.discountRate > 100) {
+      toast.error('할인율은 100% 이하로 입력해주세요.');
+      return;
+    }
     setGrades((prev) => prev.map((grade) => (grade.name === editingGrade.name ? editingGrade : grade)));
     setEditingGrade(null);
     setNewBenefit('');
-    toast.success(`${editingGrade.name} 혜택을 저장했습니다.`);
+    toast.success('저장되었습니다.');
   };
 
   return (
@@ -75,6 +112,13 @@ export default function GradeManagePage() {
             </Button>
           }
         />
+
+        {/* 등급별 회원 현황 요약 (MBR-EXT-03-05) */}
+        <StatCardGrid cols={3}>
+          <StatCard label="등급 수" value={grades.length} icon={<Star size={20} />} />
+          <StatCard label="전체 등급 회원" value={grades.reduce((acc, g) => acc + g.count, 0)} icon={<Users size={20} />} variant="mint" />
+          <StatCard label="갱신 주기" value={refreshCycle} icon={<Settings size={20} />} variant="peach" />
+        </StatCardGrid>
 
         <div className="space-y-3">
           {grades.map((grade) => (
@@ -98,6 +142,10 @@ export default function GradeManagePage() {
               </div>
               {selected === grade.name && (
                 <div className="px-5 pb-5 border-t border-gray-100 pt-4">
+                  <div className="mb-3 flex flex-wrap gap-2">
+                    <span className="rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700 border border-emerald-200">마일리지 적립 {grade.mileageRate}%</span>
+                    <span className="rounded-full bg-blue-50 px-2.5 py-1 text-xs font-semibold text-blue-700 border border-blue-200">이용권 할인 {grade.discountRate}%</span>
+                  </div>
                   <p className="text-xs font-semibold text-gray-500 mb-2">혜택</p>
                   <div className="flex flex-wrap gap-2">
                     {grade.benefits.map((benefit) => (
@@ -186,6 +234,34 @@ export default function GradeManagePage() {
       >
         {editingGrade && (
           <div className="space-y-md">
+            {/* 등급별 혜택 설정 (MBR-EXT-03-03): 마일리지 적립률·할인율 */}
+            <div className="grid grid-cols-2 gap-md">
+              <div className="space-y-xs">
+                <label className="text-xs font-semibold text-content-secondary">마일리지 적립률 (%)</label>
+                <input
+                  type="number"
+                  min={0}
+                  max={10}
+                  step={0.5}
+                  value={editingGrade.mileageRate}
+                  onChange={(event) => setEditingGrade({ ...editingGrade, mileageRate: Number(event.target.value) })}
+                  className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm"
+                />
+                <p className="text-[11px] text-content-tertiary">최대 10%까지 입력 가능</p>
+              </div>
+              <div className="space-y-xs">
+                <label className="text-xs font-semibold text-content-secondary">이용권 할인율 (%)</label>
+                <input
+                  type="number"
+                  min={0}
+                  max={100}
+                  value={editingGrade.discountRate}
+                  onChange={(event) => setEditingGrade({ ...editingGrade, discountRate: Number(event.target.value) })}
+                  className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm"
+                />
+                <p className="text-[11px] text-content-tertiary">최대 100%까지 입력 가능</p>
+              </div>
+            </div>
             <div className="flex gap-sm">
               <input
                 type="text"

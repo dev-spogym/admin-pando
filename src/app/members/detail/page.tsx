@@ -1526,6 +1526,17 @@ function MemberDetail() {
   const [isManualAttendanceSubmitting, setIsManualAttendanceSubmitting] = useState(false);
   const [isWithdrawModalOpen, setIsWithdrawModalOpen] = useState(false);
   const [withdrawReason, setWithdrawReason] = useState('');
+  // DLG-M021 마일리지 조정
+  const [isMileageModalOpen, setIsMileageModalOpen] = useState(false);
+  const [mileageType, setMileageType] = useState<'적립' | '차감'>('적립');
+  const [mileageAmount, setMileageAmount] = useState('');
+  const [mileageReason, setMileageReason] = useState('');
+  // DLG-M025 운동 프로그램 배정
+  const [isProgramModalOpen, setIsProgramModalOpen] = useState(false);
+  const [programName, setProgramName] = useState('');
+  const [programStart, setProgramStart] = useState(getCurrentDateInputValue);
+  const [programEnd, setProgramEnd] = useState('');
+  const [programTrainer, setProgramTrainer] = useState('');
   const canTransfer = hasFeature(authUser?.role ?? '', 'memberTransfer', authUser?.isSuperAdmin);
   const canWithdraw = hasFeature(authUser?.role ?? '', 'memberWithdraw', authUser?.isSuperAdmin);
 
@@ -1811,6 +1822,54 @@ function MemberDetail() {
     setIsWithdrawModalOpen(false);
     setWithdrawReason('');
     moveToPage(967);
+  };
+
+  // DLG-M021 마일리지 조정: 적립/차감 처리 (목업 — 토스트 + 닫기)
+  const closeMileageModal = () => {
+    setIsMileageModalOpen(false);
+    setMileageType('적립');
+    setMileageAmount('');
+    setMileageReason('');
+  };
+  const currentMileage = member?.mileage ?? 0;
+  const mileageDelta = Number(mileageAmount) || 0;
+  const projectedMileage = mileageType === '적립' ? currentMileage + mileageDelta : currentMileage - mileageDelta;
+  const handleMileageSubmit = () => {
+    if (mileageDelta <= 0) {
+      toast.error('조정 포인트를 입력해주세요.');
+      return;
+    }
+    if (!mileageReason.trim()) {
+      toast.error('조정 사유를 입력해주세요.');
+      return;
+    }
+    if (mileageType === '차감' && projectedMileage < 0) {
+      toast.error('차감 후 잔액이 0보다 작을 수 없습니다.');
+      return;
+    }
+    closeMileageModal();
+    toast.success('처리되었습니다.');
+  };
+
+  // DLG-M025 운동 프로그램 배정 처리 (목업 — 토스트 + 닫기)
+  const closeProgramModal = () => {
+    setIsProgramModalOpen(false);
+    setProgramName('');
+    setProgramStart(getCurrentDateInputValue());
+    setProgramEnd('');
+    setProgramTrainer('');
+  };
+  const handleProgramSubmit = () => {
+    if (!programName.trim()) {
+      toast.error('프로그램을 선택해주세요.');
+      return;
+    }
+    if (!programStart) {
+      toast.error('배정 시작일을 선택해주세요.');
+      return;
+    }
+    closeProgramModal();
+    toast.success('처리되었습니다.');
   };
 
   // 회원권 만료일까지 남은 일수 계산
@@ -2103,6 +2162,12 @@ function MemberDetail() {
                 </Button>
                 <Button variant="outline" size="sm" icon={<MessageSquare size={13} />} onClick={() => moveToPage(980)}>
                   메시지
+                </Button>
+                <Button variant="outline" size="sm" icon={<Star size={13} />} onClick={() => setIsMileageModalOpen(true)}>
+                  마일리지 조정
+                </Button>
+                <Button variant="outline" size="sm" icon={<Dumbbell size={13} />} onClick={() => setIsProgramModalOpen(true)}>
+                  운동 프로그램 배정
                 </Button>
                 {canTransfer && (
                   <Button variant="outline" size="sm" icon={<ArrowRightLeft size={13} />} onClick={() => moveToPage(1002, { memberId: memberId ?? '' })}>
@@ -2475,6 +2540,145 @@ function MemberDetail() {
             onChange={(e) => setManualAttendanceReason(e.target.value)}
             placeholder="예: 키오스크 오류, 회원 요청, 현장 수기 처리"
             hint="사유는 히스토리 로그 detail에 함께 기록됩니다."
+          />
+        </div>
+      </Modal>
+
+      {/* DLG-M021 마일리지 조정 */}
+      <Modal
+        isOpen={isMileageModalOpen}
+        onClose={closeMileageModal}
+        title="마일리지 조정"
+        size="md"
+        footer={
+          <div className="flex items-center justify-end gap-sm">
+            <Button variant="ghost" onClick={closeMileageModal}>취소</Button>
+            <Button variant="primary" onClick={handleMileageSubmit}>확인</Button>
+          </div>
+        }
+      >
+        <div className="space-y-md">
+          <div className="rounded-2xl border border-line bg-surface-secondary px-md py-sm">
+            <div className="text-[12px] text-content-secondary">현재 마일리지 잔액</div>
+            <div className="mt-[2px] text-[18px] font-bold text-content tabular-nums">{formatNumber(currentMileage)}P</div>
+          </div>
+
+          <div className="space-y-xs">
+            <label className="text-[13px] font-semibold text-content-secondary">조정 유형</label>
+            <div className="flex gap-sm">
+              {(['적립', '차감'] as const).map((type) => (
+                <button
+                  key={type}
+                  type="button"
+                  onClick={() => setMileageType(type)}
+                  className={cn(
+                    'flex-1 rounded-xl border py-sm text-[13px] font-semibold transition-colors',
+                    mileageType === type ? 'border-primary bg-primary/5 text-primary' : 'border-line text-content-secondary hover:bg-surface-secondary',
+                  )}
+                >
+                  {type}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="space-y-xs">
+            <label className="text-[13px] font-semibold text-content-secondary">
+              조정 포인트 <span className="text-state-error">*</span>
+            </label>
+            <input
+              type="number"
+              min={0}
+              value={mileageAmount}
+              onChange={(e) => setMileageAmount(e.target.value)}
+              placeholder="예: 1000"
+              className="w-full rounded-2xl border border-line px-md py-sm text-[13px] text-content outline-none transition-all focus:border-primary focus:ring-2 focus:ring-primary/10"
+            />
+          </div>
+
+          <div className="rounded-2xl border border-line bg-surface-secondary/60 px-md py-sm">
+            <div className="text-[12px] text-content-secondary">조정 후 예상 잔액</div>
+            <div className={cn('mt-[2px] text-[16px] font-bold tabular-nums', projectedMileage < 0 ? 'text-state-error' : 'text-content')}>
+              {formatNumber(projectedMileage)}P
+            </div>
+          </div>
+
+          <Textarea
+            label="조정 사유"
+            rows={3}
+            value={mileageReason}
+            onChange={(e) => setMileageReason(e.target.value)}
+            placeholder="예: 이벤트 지급, 시스템 오류 보정"
+            hint="조정 사유는 마일리지 이력에 함께 기록됩니다."
+          />
+        </div>
+      </Modal>
+
+      {/* DLG-M025 운동 프로그램 배정 */}
+      <Modal
+        isOpen={isProgramModalOpen}
+        onClose={closeProgramModal}
+        title="운동 프로그램 배정"
+        size="md"
+        footer={
+          <div className="flex items-center justify-end gap-sm">
+            <Button variant="ghost" onClick={closeProgramModal}>취소</Button>
+            <Button variant="primary" onClick={handleProgramSubmit}>배정</Button>
+          </div>
+        }
+      >
+        <div className="space-y-md">
+          <div className="rounded-2xl border border-line bg-surface-secondary px-md py-sm">
+            <div className="text-[12px] text-content-secondary">배정 대상 회원</div>
+            <div className="mt-[2px] text-[14px] font-semibold text-content">{member?.name} #{member?.id}</div>
+          </div>
+
+          <Select
+            label="프로그램 선택"
+            value={programName}
+            onChange={setProgramName}
+            placeholder="기존 프로그램에서 선택"
+            options={[
+              { value: '체지방 감량 8주', label: '체지방 감량 8주' },
+              { value: '근력 강화 12주', label: '근력 강화 12주' },
+              { value: '재활/코어 안정화', label: '재활/코어 안정화' },
+              { value: '바디 프로필 준비', label: '바디 프로필 준비' },
+            ]}
+          />
+
+          <div className="grid gap-md md:grid-cols-2">
+            <div className="space-y-xs">
+              <label className="text-[13px] font-semibold text-content-secondary">
+                배정 시작일 <span className="text-state-error">*</span>
+              </label>
+              <input
+                type="date"
+                value={programStart}
+                onChange={(e) => setProgramStart(e.target.value)}
+                className="w-full rounded-2xl border border-line px-md py-sm text-[13px] text-content outline-none transition-all focus:border-primary focus:ring-2 focus:ring-primary/10"
+              />
+            </div>
+            <div className="space-y-xs">
+              <label className="text-[13px] font-semibold text-content-secondary">배정 종료일 (선택)</label>
+              <input
+                type="date"
+                value={programEnd}
+                onChange={(e) => setProgramEnd(e.target.value)}
+                className="w-full rounded-2xl border border-line px-md py-sm text-[13px] text-content outline-none transition-all focus:border-primary focus:ring-2 focus:ring-primary/10"
+              />
+            </div>
+          </div>
+
+          <Select
+            label="담당 트레이너 (선택)"
+            value={programTrainer}
+            onChange={setProgramTrainer}
+            placeholder="담당 트레이너 지정"
+            options={[
+              { value: '이지원', label: '이지원' },
+              { value: '김민수', label: '김민수' },
+              { value: '최유리', label: '최유리' },
+            ]}
           />
         </div>
       </Modal>
