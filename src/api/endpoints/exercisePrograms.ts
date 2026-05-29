@@ -15,7 +15,9 @@ export interface ExerciseProgram {
   category: string | null;
   level: ProgramLevel | null;
   description: string | null;
+  exercises: ExerciseItem[];
   createdAt: string;
+  updatedAt: string | null;
 }
 
 /** 회원 배정 운동 프로그램 */
@@ -35,14 +37,24 @@ export interface MemberExerciseProgram {
 /** row → ExerciseProgram 변환 */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function rowToProgram(row: Record<string, any>): ExerciseProgram {
+  // exercises는 DB에 JSON 문자열로 저장되므로 파싱 (수정 진입 시 동작 목록 복원)
+  let exercises: ExerciseItem[] = [];
+  const raw = row.exercises;
+  if (Array.isArray(raw)) {
+    exercises = raw as ExerciseItem[];
+  } else if (typeof raw === 'string' && raw.trim()) {
+    try { const parsed = JSON.parse(raw); if (Array.isArray(parsed)) exercises = parsed; } catch { /* noop */ }
+  }
   return {
     id: row.id,
     branchId: row.branchId ?? row.branch_id,
     name: row.name,
     category: row.category ?? null,
-    level: row.level ?? null,
+    level: row.level ?? row.difficulty ?? null,
     description: row.description ?? null,
+    exercises,
     createdAt: row.createdAt ?? row.created_at ?? '',
+    updatedAt: row.updatedAt ?? row.updated_at ?? null,
   };
 }
 

@@ -4,7 +4,7 @@ export const dynamic = 'force-dynamic';
 import { getBranchId } from '@/lib/getBranchId';
 import React, { useState, useEffect } from 'react';
 import { toast } from 'sonner';
-import { Plus, Edit2, Trash2, Dumbbell, PlusCircle, X } from 'lucide-react';
+import { Plus, Edit2, Trash2, Dumbbell, PlusCircle, X, Users, UserPlus } from 'lucide-react';
 import AppLayout from "@/components/layout/AppLayout";
 import PageHeader from "@/components/common/PageHeader";
 import DataTable from "@/components/common/DataTable";
@@ -14,6 +14,8 @@ import { cn } from '@/lib/utils';
 import Select from '@/components/ui/Select';
 import Textarea from '@/components/ui/Textarea';
 import Button from '@/components/ui/Button';
+import { useAuthStore } from '@/stores/authStore';
+import { isRoleAtLeast, normalizeRole } from '@/lib/permissions';
 import {
   getExercisePrograms,
   createExerciseProgram,
@@ -50,8 +52,17 @@ const EMPTY_FORM = {
   exercises: [{ ...EMPTY_EXERCISE }] as ExerciseItem[],
 };
 
+// 배정 회원 mock 후보 (백엔드 미구현 — 회원 배정은 로컬 목업으로 동작)
+const MOCK_MEMBER_CANDIDATES = ['김민수', '이서연', '박지훈', '최유진', '정도윤', '강하늘', '윤서아', '임준호', '한지민', '오세훈'];
+
 export default function ExerciseProgramManagement() {
   const branchId = getBranchId();
+  const currentUser = useAuthStore((state) => state.user);
+  const isSuperAdmin = currentUser?.isSuperAdmin ?? false;
+  const role = normalizeRole(currentUser?.role ?? 'readonly');
+  // 트레이너 이상만 프로그램 생성·수정·배정 가능. FC/스태프는 조회만 — SCR-C010 권한표
+  const canManage = isSuperAdmin || isRoleAtLeast(role, 'fc');
+
   const [programs, setPrograms] = useState<ExerciseProgram[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [modalOpen, setModalOpen] = useState(false);
@@ -61,6 +72,12 @@ export default function ExerciseProgramManagement() {
   const [deleteTarget, setDeleteTarget] = useState<number | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [filterCategory, setFilterCategory] = useState('전체');
+  // 필터: 배정 회원 있는 프로그램만 보기
+  const [onlyAssigned, setOnlyAssigned] = useState(false);
+  // 회원 배정 (프로그램ID → 배정 회원명 목록) — 목업 로컬 상태
+  const [assignments, setAssignments] = useState<Record<number, string[]>>({});
+  const [assignTarget, setAssignTarget] = useState<ExerciseProgram | null>(null);
+  const [memberSearch, setMemberSearch] = useState('');
 
   const fetchPrograms = async () => {
     setIsLoading(true);
@@ -84,13 +101,22 @@ export default function ExerciseProgramManagement() {
       category: program.category ?? '근력',
       level: (program.level ?? '초급') as ProgramLevel,
       description: program.description ?? '',
-      exercises: [{ ...EMPTY_EXERCISE }],
+      // 버그 수정: 기존 동작 목록을 그대로 불러와 수정 진입 시 유실되지 않도록 함
+      exercises: program.exercises.length > 0
+        ? program.exercises.map((e) => ({ ...e }))
+        : [{ ...EMPTY_EXERCISE }],
     });
     setModalOpen(true);
   };
 
   const handleSave = async () => {
     if (!form.name.trim()) { toast.error('프로그램 이름을 입력해주세요.'); return; }
+    const validExercises = form.exercises.filter(e => e.name.trim());
+    // 명세: 동작 0개 저장 차단
+    if (validExercises.length === 0) { toast.error('최소 1개 동작이 필요해요.'); return; }
+    // 명세: 활성 프로그램명 중복 차단
+    const dup = programs.some(p => p.name.trim() === form.name.trim() && p.id !== editTarget?.id);
+    if (dup) { toast.error('이미 같은 이름의 프로그램이 있어요.'); return; }
     setIsSaving(true);
 
     const payload = {
@@ -99,7 +125,7 @@ export default function ExerciseProgramManagement() {
       category: form.category || null,
       level: form.level || null,
       description: form.description || null,
-      exercises: form.exercises.filter(e => e.name.trim()),
+      exercises: validExercises,
     };
 
     if (editTarget) {
@@ -121,6 +147,11 @@ export default function ExerciseProgramManagement() {
     if (deleteTarget === null) return;
     const { error } = await deleteExerciseProgram(deleteTarget);
     if (error) { toast.error('삭제에 실패했습니다.'); return; }
+    setAssignments((prev) => {
+      const next = { ...prev };
+      delete next[deleteTarget];
+      return next;
+    });
     toast.success('운동 프로그램이 삭제되었습니다.');
     setDeleteDialogOpen(false);
     setDeleteTarget(null);
@@ -136,7 +167,35 @@ export default function ExerciseProgramManagement() {
     }));
   };
 
-  const filtered = filterCategory === '전체' ? programs : programs.filter(p => p.category === filterCategory);
+  // 회원 배정 (목업)
+  const openAssign = (program: ExerciseProgram) => {
+    if (!canManage) return;
+    setMemberSearch('');
+    setAssignTarget(program);
+  };
+  const addAssignment = (memberName: string) => {
+    if (!assignTarget) return;
+    setAssignments((prev) => {
+      const list = prev[assignTarget.id] ?? [];
+      if (list.includes(memberName)) return prev;
+      return { ...prev, [assignTarget.id]: [...list, memberName] };
+    });
+    toast.success(`${memberName} 회원에게 배정했습니다.`);
+  };
+  const removeAssignment = (programId: number, memberName: string) => {
+    setAssignments((prev) => ({ ...prev, [programId]: (prev[programId] ?? []).filter((n) => n !== memberName) }));
+  };
+  const assignedCount = (programId: number) => (assignments[programId] ?? []).length;
+
+  const filtered = programs.filter((p) => {
+    if (filterCategory !== '전체' && p.category !== filterCategory) return false;
+    if (onlyAssigned && assignedCount(p.id) === 0) return false;
+    return true;
+  });
+
+  const assignCandidates = MOCK_MEMBER_CANDIDATES.filter(
+    (n) => !memberSearch || n.includes(memberSearch)
+  );
 
   const columns = [
     { key: 'name', header: '프로그램명', width: 220 },
@@ -149,19 +208,43 @@ export default function ExerciseProgramManagement() {
       render: (v: string | null) => v ? <StatusBadge variant={LEVEL_VARIANT[v] ?? 'default'}>{v}</StatusBadge> : <span className="text-content-tertiary">-</span>,
     },
     {
-      key: 'description', header: '설명', width: 280,
-      render: (v: string | null) => <span className="text-[12px] text-content-tertiary line-clamp-1">{v ?? '-'}</span>,
+      key: 'exercises', header: '동작 수', width: 80, align: 'center' as const,
+      render: (_: unknown, row: ExerciseProgram) => <span className="text-[12px] tabular-nums">{row.exercises.length}개</span>,
     },
     {
-      key: 'actions', header: '', width: 80, align: 'center' as const,
+      key: 'assigned', header: '배정 회원', width: 90, align: 'center' as const,
+      render: (_: unknown, row: ExerciseProgram) => {
+        const cnt = assignedCount(row.id);
+        return cnt > 0
+          ? <span className="text-[12px] font-semibold text-primary tabular-nums">{cnt}명</span>
+          : <span className="text-[12px] text-content-tertiary">-</span>;
+      },
+    },
+    {
+      key: 'updatedAt', header: '수정일', width: 110,
+      render: (_: unknown, row: ExerciseProgram) => {
+        const d = row.updatedAt ?? row.createdAt;
+        return <span className="text-[12px] text-content-tertiary tabular-nums">{d ? d.slice(0, 10) : '-'}</span>;
+      },
+    },
+    {
+      key: 'actions', header: '', width: 130, align: 'center' as const,
       render: (_: unknown, row: ExerciseProgram) => (
         <div className="flex items-center justify-center gap-xs">
-          <Button variant="ghost" size="sm" onClick={() => openEdit(row)} title="수정">
-            <Edit2 size={15} />
-          </Button>
-          <Button variant="ghost" size="sm" onClick={() => { setDeleteTarget(row.id); setDeleteDialogOpen(true); }} title="삭제">
-            <Trash2 size={15} />
-          </Button>
+          {canManage && (
+            <>
+              <Button variant="ghost" size="sm" onClick={() => openAssign(row)} title="회원 배정">
+                <UserPlus size={15} />
+              </Button>
+              <Button variant="ghost" size="sm" onClick={() => openEdit(row)} title="수정">
+                <Edit2 size={15} />
+              </Button>
+              <Button variant="ghost" size="sm" onClick={() => { setDeleteTarget(row.id); setDeleteDialogOpen(true); }} title="삭제">
+                <Trash2 size={15} />
+              </Button>
+            </>
+          )}
+          {!canManage && <span className="text-[11px] text-content-tertiary">조회 전용</span>}
         </div>
       ),
     },
@@ -173,13 +256,15 @@ export default function ExerciseProgramManagement() {
         title="운동 프로그램 관리"
         description="센터에서 운영하는 운동 프로그램을 등록하고 관리합니다."
         actions={
-          <Button variant="primary" size="sm" icon={<Plus size={16} />} onClick={openCreate}>
-            프로그램 추가
-          </Button>
+          canManage ? (
+            <Button variant="primary" size="sm" icon={<Plus size={16} />} onClick={openCreate}>
+              프로그램 추가
+            </Button>
+          ) : null
         }
       />
 
-      {/* 카테고리 필터 */}
+      {/* 카테고리 필터 + 배정 회원 필터 */}
       <div className="flex items-center gap-xs flex-wrap mb-lg">
         {['전체', ...CATEGORIES].map(cat => (
           <button
@@ -195,6 +280,18 @@ export default function ExerciseProgramManagement() {
             {cat}
           </button>
         ))}
+        <div className="w-px h-5 bg-line mx-xs" />
+        <button
+          onClick={() => setOnlyAssigned((v) => !v)}
+          className={cn(
+            'flex items-center gap-xs px-md py-xs rounded-button text-[12px] font-semibold transition-colors',
+            onlyAssigned
+              ? 'bg-primary text-surface'
+              : 'bg-surface border border-line text-content-secondary hover:bg-surface-secondary'
+          )}
+        >
+          <Users size={13} /> 배정 회원 있는 프로그램만
+        </button>
       </div>
 
       <div className="bg-surface rounded-xl border border-line shadow-card overflow-hidden">
@@ -328,10 +425,75 @@ export default function ExerciseProgramManagement() {
         </div>
       )}
 
+      {/* 회원 배정 드로어 (목업) */}
+      {assignTarget && (
+        <div className="fixed inset-0 z-[9999] flex justify-end bg-black/40" onClick={() => setAssignTarget(null)}>
+          <div className="w-full max-w-sm h-full bg-surface shadow-xl flex flex-col" onClick={(e) => e.stopPropagation()}>
+            <div className="px-lg py-md border-b border-line flex items-center justify-between">
+              <div>
+                <h3 className="text-[14px] font-bold text-content flex items-center gap-xs"><UserPlus size={16} /> 회원 배정</h3>
+                <p className="text-[12px] text-content-secondary mt-0.5">{assignTarget.name}</p>
+              </div>
+              <button onClick={() => setAssignTarget(null)} className="p-1.5 rounded-md hover:bg-surface-secondary text-content-secondary">
+                <X size={18} />
+              </button>
+            </div>
+            <div className="p-md border-b border-line">
+              <p className="text-[12px] font-semibold text-content-secondary mb-xs">배정된 회원 ({(assignments[assignTarget.id] ?? []).length}명)</p>
+              {(assignments[assignTarget.id] ?? []).length === 0 ? (
+                <p className="text-[12px] text-content-tertiary">아직 배정된 회원이 없습니다.</p>
+              ) : (
+                <div className="flex flex-wrap gap-xs">
+                  {(assignments[assignTarget.id] ?? []).map((n) => (
+                    <span key={n} className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-primary-light text-primary text-[12px] font-medium">
+                      {n}
+                      <button onClick={() => removeAssignment(assignTarget.id, n)} className="hover:text-state-error"><X size={12} /></button>
+                    </span>
+                  ))}
+                </div>
+              )}
+            </div>
+            <div className="p-md flex-1 overflow-y-auto">
+              <input
+                value={memberSearch}
+                onChange={(e) => setMemberSearch(e.target.value)}
+                placeholder="회원 이름 검색..."
+                className="w-full h-9 px-3 mb-sm rounded-lg border border-line text-[13px] focus:outline-none focus:border-primary"
+              />
+              {assignCandidates.length === 0 ? (
+                <p className="text-[12px] text-content-tertiary text-center py-md">검색 결과가 없어요.</p>
+              ) : (
+                <ul className="space-y-xs">
+                  {assignCandidates.map((n) => {
+                    const already = (assignments[assignTarget.id] ?? []).includes(n);
+                    return (
+                      <li key={n} className="flex items-center justify-between px-3 py-2 rounded-lg bg-surface-secondary">
+                        <span className="text-[13px] text-content">{n}</span>
+                        <button
+                          disabled={already}
+                          onClick={() => addAssignment(n)}
+                          className="text-[12px] font-semibold text-primary disabled:text-content-tertiary disabled:cursor-not-allowed"
+                        >
+                          {already ? '배정됨' : '배정'}
+                        </button>
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
       <ConfirmDialog
         open={deleteDialogOpen}
         title="운동 프로그램 삭제"
-        description="정말로 이 운동 프로그램을 삭제하시겠습니까?"
+        description={
+          deleteTarget !== null && assignedCount(deleteTarget) > 0
+            ? `배정 회원 ${assignedCount(deleteTarget)}명(${(assignments[deleteTarget] ?? []).join(', ')})이 있습니다. 삭제하면 배정이 해제되고 회원에게 안내됩니다. 계속하시겠습니까?`
+            : '정말로 이 운동 프로그램을 삭제하시겠습니까?'
+        }
         confirmLabel="삭제"
         cancelLabel="취소"
         variant="danger"
