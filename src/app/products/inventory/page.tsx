@@ -113,14 +113,14 @@ export default function ProductInventoryPage() {
 
   return (
     <AppLayout>
-      <PageHeader title="재고 관리" description="운동복·일반 상품의 재고 현황과 입출고 이력을 관리합니다" actions={
+      <PageHeader title="재고 관리 (D06/후속)" description="운동복·일반 상품의 재고 현황과 입출고 이력을 관리합니다" actions={
         <div className="flex flex-wrap gap-2">
           <button
             className="flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
             onClick={() => void reload(true)}
             type="button"
           >
-            <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} /> seed 갱신
+            <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} /> 자료 새로고침
           </button>
           <button
             type="button"
@@ -140,9 +140,13 @@ export default function ProductInventoryPage() {
         </div>
       } />
 
+      <div className="mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-xs font-semibold text-red-700">
+        docs4 기준 실물 재고 수량 관리 책임은 D06 시설관리 상품 재고로 이관된 후속 범위입니다. D05 화면에서는 범위 식별용으로 유지합니다.
+      </div>
+
       <div className="mb-4 rounded-xl border border-blue-100 bg-blue-50 px-4 py-3 text-xs text-blue-700">
-        Supabase snapshot · 지점 {branchId} · 기준일 {snapshotDate ?? '-'}
-        {error && <span className="ml-2 text-red-600">Fallback 사용: {error}</span>}
+        지점 {branchId} · 기준일 {snapshotDate ?? '-'}
+        {error && <span className="ml-2 text-red-600">임시 자료 사용: {error}</span>}
       </div>
 
       {/* 재고 통계 카드 (docs4: 전체 품목 수 / 부족 재고 / 품절) */}

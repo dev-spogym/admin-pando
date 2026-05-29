@@ -941,7 +941,7 @@ export default function Sales() {
               {/* DLG-S016 결제링크 발송: 전액 결제 전용. 결제 미완료 건에만 노출 */}
               {selectedSale.status !== '완료' && (
                 <Button
-                  variant="outline"
+                  variant="danger"
                   size="sm"
                   icon={<Link2 size={14} />}
                   onClick={() => {
@@ -955,7 +955,7 @@ export default function Sales() {
                     });
                   }}
                 >
-                  결제링크 발송
+                  결제링크 V2/후속
                 </Button>
               )}
               <button
@@ -1134,6 +1134,7 @@ export default function Sales() {
         onClose={() => setLinkTarget(null)}
         target={linkTarget}
         canSend={canSendLink}
+        v2Only
       />
     </AppLayout>
   );

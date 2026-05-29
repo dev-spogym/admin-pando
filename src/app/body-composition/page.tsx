@@ -1,7 +1,7 @@
 'use client';
 export const dynamic = 'force-dynamic';
 
-import React, { useState, useEffect } from "react";
+import React, { useMemo, useState, useEffect } from "react";
 import {
   Plus,
   History,
@@ -16,6 +16,7 @@ import {
   AlertCircle,
   CheckCircle2,
   Target,
+  Search,
 } from "lucide-react";
 import AppLayout from "@/components/layout/AppLayout";
 import PageHeader from "@/components/common/PageHeader";
@@ -30,7 +31,7 @@ import { cn } from "@/lib/utils";
 import { formatNumber } from '@/lib/format';
 import Button from "@/components/ui/Button";
 import { supabase } from "@/lib/supabase";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { getPreviewScenario, isPreviewMode } from "@/lib/preview";
 import { getPreviewBodyComposition } from "@/mocks/memberPreview";
 
@@ -48,6 +49,16 @@ type Measurement = {
   pbf: number;
   bmr: number;
   bodyWater?: number | null;
+};
+
+type MemberOption = {
+  id: number;
+  name: string;
+  phone: string | null;
+  membershipType: string | null;
+  status: string | null;
+  registeredAt: string | null;
+  height: number | null;
 };
 
 // INITIAL_MEASUREMENTS 제거 - Supabase body_compositions 테이블에서 로드
@@ -71,6 +82,24 @@ const calcBMI = (weight: number, height: number) => {
 const calcBMR = (weight: number, height: number, age: number) =>
   Math.round(10 * weight + 6.25 * height - 5 * age - 161);
 
+const getCurrentBranchId = () => {
+  if (typeof window === "undefined") return null;
+  const value = Number(localStorage.getItem("branchId") ?? "");
+  return Number.isFinite(value) && value > 0 ? value : null;
+};
+
+const memberStatusLabel = (status: string | null | undefined) => {
+  const map: Record<string, string> = {
+    ACTIVE: "활성",
+    INACTIVE: "비활성",
+    EXPIRED: "만료",
+    HOLDING: "홀딩",
+    SUSPENDED: "정지",
+    WITHDRAWN: "탈퇴",
+  };
+  return map[String(status ?? "")] ?? status ?? "-";
+};
+
 // ────────────────────────────────────────────────────────────
 // SVG 라인 차트 컴포넌트 (UI-122)
 // ────────────────────────────────────────────────────────────
@@ -88,6 +117,14 @@ function LineChart({ records }: { records: Measurement[] }) {
   const [tooltip, setTooltip] = useState<{ x: number; y: number; record: Measurement; metric: MetricKey } | null>(null);
 
   const sorted = [...records].sort((a, b) => a.date.localeCompare(b.date));
+  if (sorted.length < 2) {
+    return (
+      <div className="flex min-h-[220px] items-center justify-center rounded-lg border border-line bg-surface-secondary/40 text-[13px] text-content-secondary">
+        2건 이상의 측정 기록이 있어야 변화 그래프를 표시합니다.
+      </div>
+    );
+  }
+
   const W = 560, H = 220, PAD_X = 48, PAD_Y = 28;
   const chartW = W - PAD_X * 2;
   const chartH = H - PAD_Y * 2;
@@ -342,17 +379,88 @@ function AnalysisRow({
 // ────────────────────────────────────────────────────────────
 
 function BodyComposition() {
+  const router = useRouter();
   const searchParams = useSearchParams();
   const isPreview = isPreviewMode(searchParams);
   const scenario = getPreviewScenario(searchParams, "default");
-  const memberId = searchParams?.get("memberId") ?? "1";
+  const requestedMemberId = searchParams?.get("memberId") ?? null;
+  const memberId = requestedMemberId ?? (isPreview ? "1" : null);
 
   const [activeTab, setActiveTab] = useState("list");
   const [measurements, setMeasurements] = useState<Measurement[]>([]);
-  const [memberInfo, setMemberInfo] = useState({ id: memberId, name: "회원", age: 0, gender: "미상", height: 0 });
+  const [memberInfo, setMemberInfo] = useState({ id: memberId ?? "", name: "회원", age: 0, gender: "미상", height: 0 });
+  const [memberOptions, setMemberOptions] = useState<MemberOption[]>([]);
+  const [memberSearch, setMemberSearch] = useState("");
+  const [membersLoading, setMembersLoading] = useState(false);
+
+  useEffect(() => {
+    if (isPreview) return;
+
+    const fetchMembers = async () => {
+      setMembersLoading(true);
+      const branchId = getCurrentBranchId();
+      let query = supabase
+        .from("members")
+        .select("id, name, phone, membershipType, status, registeredAt, height")
+        .is("deletedAt", null)
+        .order("registeredAt", { ascending: false })
+        .limit(200);
+
+      if (branchId) query = query.eq("branchId", branchId);
+
+      const { data, error } = await query;
+      setMembersLoading(false);
+
+      if (error) {
+        toast.error(`회원 목록 조회 실패: ${error.message}`);
+        return;
+      }
+
+      setMemberOptions((data ?? []).map((row: Record<string, unknown>) => ({
+        id: Number(row.id),
+        name: String(row.name ?? ""),
+        phone: row.phone == null ? null : String(row.phone),
+        membershipType: row.membershipType == null ? null : String(row.membershipType),
+        status: row.status == null ? null : String(row.status),
+        registeredAt: row.registeredAt == null ? null : String(row.registeredAt),
+        height: row.height == null ? null : Number(row.height),
+      })));
+    };
+
+    fetchMembers();
+  }, [isPreview]);
+
+  const filteredMemberOptions = useMemo(() => {
+    const keyword = memberSearch.trim().toLowerCase();
+    if (!keyword) return memberOptions;
+
+    return memberOptions.filter((member) => [
+      member.id,
+      member.name,
+      member.phone,
+      member.membershipType,
+      member.status,
+    ].some((value) => String(value ?? "").toLowerCase().includes(keyword)));
+  }, [memberOptions, memberSearch]);
+
+  const openMember = (nextMemberId: number) => {
+    const params = new URLSearchParams();
+    params.set("memberId", String(nextMemberId));
+    if (isPreview) {
+      params.set("preview", "1");
+      params.set("scenario", scenario);
+    }
+    router.push(`/body-composition?${params.toString()}`);
+  };
 
   useEffect(() => {
     const fetchData = async () => {
+      if (!memberId) {
+        setMemberInfo({ id: "", name: "회원", age: 0, gender: "미상", height: 0 });
+        setMeasurements([]);
+        return;
+      }
+
       if (isPreview) {
         const previewData = getPreviewBodyComposition(Number(memberId), scenario);
         setMemberInfo(previewData.memberInfo);
@@ -425,6 +533,12 @@ function BodyComposition() {
   // 목표값 DB에서 로드
   useEffect(() => {
     const fetchGoals = async () => {
+      if (!memberId) {
+        setGoals({ weight: 0, pbf: 0 });
+        setGoalDraft({ weight: "0", pbf: "0" });
+        return;
+      }
+
       if (isPreview) {
         const previewData = getPreviewBodyComposition(Number(memberId), scenario);
         setGoals(previewData.goals);
@@ -439,7 +553,7 @@ function BodyComposition() {
         .from('member_goals')
         .select('goalWeight, goalPbf')
         .eq('memberId', memberId)
-        .single();
+        .maybeSingle();
       if (data) {
         const w = data.goalWeight ?? 0;
         const p = data.goalPbf ?? 0;
@@ -511,6 +625,11 @@ function BodyComposition() {
   };
 
   const commitEntry = async (entry: Omit<Measurement, "id">) => {
+    if (!memberId) {
+      toast.error("체성분을 등록할 회원을 먼저 선택해주세요.");
+      return;
+    }
+
     if (isPreview) {
       const next: Measurement = {
         ...entry,
@@ -619,17 +738,105 @@ function BodyComposition() {
     { key: "goal",  label: "목표 관리", icon: Target },
   ];
 
+  const memberColumns = [
+    {
+      key: "name",
+      header: "회원",
+      width: 220,
+      render: (_: string, row: MemberOption) => (
+        <div className="min-w-0">
+          <p className="font-semibold text-content">{row.name || "-"}</p>
+          <p className="mt-[2px] text-[11px] text-content-tertiary">{row.phone || "연락처 없음"}</p>
+        </div>
+      ),
+    },
+    {
+      key: "membershipType",
+      header: "이용권",
+      width: 140,
+      render: (value: string | null) => <span>{value || "-"}</span>,
+    },
+    {
+      key: "status",
+      header: "상태",
+      width: 100,
+      align: "center" as const,
+      render: (value: string | null) => <span>{memberStatusLabel(value)}</span>,
+    },
+    {
+      key: "height",
+      header: "키",
+      width: 90,
+      align: "right" as const,
+      render: (value: number | null) => <span>{value ? `${value}cm` : "-"}</span>,
+    },
+    {
+      key: "registeredAt",
+      header: "가입일",
+      width: 120,
+      render: (value: string | null) => <span className="tabular-nums">{value ? value.slice(0, 10) : "-"}</span>,
+    },
+    {
+      key: "actions",
+      header: "선택",
+      width: 90,
+      align: "center" as const,
+      render: (_: unknown, row: MemberOption) => (
+        <Button variant="primary" size="sm" onClick={() => openMember(row.id)}>
+          선택
+        </Button>
+      ),
+    },
+  ];
+
+  if (!memberId) {
+    return (
+      <AppLayout>
+        <div className="min-h-screen bg-surface-secondary p-lg">
+          <PageHeader
+            title="체성분 관리"
+            description="체성분 기록을 조회하거나 등록할 회원을 먼저 선택해주세요."
+          />
+
+          <div className="mb-lg rounded-xl border border-amber-200 bg-amber-50 px-lg py-md text-[13px] text-amber-900">
+            회원 미선택 상태입니다. 사이드바에서 진입한 경우 상단 목록에서 회원을 선택해야 체성분 기록과 목표를 조회할 수 있습니다.
+          </div>
+
+          <DataTable
+            title="회원 선택"
+            columns={memberColumns}
+            data={filteredMemberOptions}
+            loading={membersLoading}
+            searchValue={memberSearch}
+            onSearch={setMemberSearch}
+            searchPlaceholder="회원명, 연락처, 회원번호, 이용권 검색"
+            emptyMessage="선택할 회원이 없습니다."
+            onRowClick={(row: MemberOption) => openMember(row.id)}
+          />
+        </div>
+      </AppLayout>
+    );
+  }
+
   return (
     <AppLayout>
       <div className="p-lg bg-surface-secondary min-h-screen">
-        {/* 뒤로가기 */}
-        <button
-          className="flex items-center gap-xs text-content-secondary hover:text-content mb-md transition-colors text-[13px]"
-          onClick={() => moveToPage(985, { id: memberId })}
-        >
-          <ChevronLeft size={18} />
-          회원 상세로 돌아가기
-        </button>
+        <div className="mb-md flex flex-wrap items-center gap-sm">
+          <button
+            className="flex items-center gap-xs rounded-lg border border-line bg-surface px-md py-sm text-[13px] text-content-secondary transition-colors hover:bg-surface-secondary hover:text-content"
+            onClick={() => router.push("/body-composition")}
+          >
+            <Search size={15} />
+            회원 변경
+          </button>
+          <button
+            className="flex items-center gap-xs rounded-lg border border-line bg-surface px-md py-sm text-[13px] text-content-secondary transition-colors hover:bg-surface-secondary hover:text-content"
+            onClick={() => moveToPage(985, { id: memberId })}
+          >
+            <ChevronLeft size={18} />
+            회원 상세로 이동
+          </button>
+        </div>
 
         {/* 페이지 헤더 */}
         <PageHeader
@@ -695,33 +902,35 @@ function BodyComposition() {
                 </div>
 
                 {/* 변화 요약 */}
-                <div className="bg-surface rounded-xl border border-line p-lg">
-                  <h4 className="text-Section-Title text-content mb-md">변화 요약</h4>
-                  {(() => {
-                    const first = measurements[measurements.length - 1];
-                    const last  = measurements[0];
-                    const wDiff = +(last.weight - first.weight).toFixed(1);
-                    const mDiff = +(last.muscle - first.muscle).toFixed(1);
-                    const pDiff = +(last.pbf - first.pbf).toFixed(1);
-                    return (
-                      <p className="text-[13px] text-content-secondary leading-relaxed">
-                        측정 기간({first.date} ~ {last.date}) 동안 체중은{" "}
-                        <span className={cn("font-bold", wDiff <= 0 ? "text-state-success" : "text-primary")}>
-                          {wDiff > 0 ? "+" : ""}{wDiff}kg
-                        </span>
-                        , 골격근량은{" "}
-                        <span className={cn("font-bold", mDiff >= 0 ? "text-accent" : "text-state-error")}>
-                          {mDiff > 0 ? "+" : ""}{mDiff}kg
-                        </span>
-                        , 체지방률은{" "}
-                        <span className={cn("font-bold", pDiff <= 0 ? "text-state-success" : "text-state-warning")}>
-                          {pDiff > 0 ? "+" : ""}{pDiff}%
-                        </span>{" "}
-                        변화하였습니다.
-                      </p>
-                    );
-                  })()}
-                </div>
+                {measurements.length >= 2 && (
+                  <div className="bg-surface rounded-xl border border-line p-lg">
+                    <h4 className="text-Section-Title text-content mb-md">변화 요약</h4>
+                    {(() => {
+                      const first = measurements[measurements.length - 1];
+                      const last  = measurements[0];
+                      const wDiff = +(last.weight - first.weight).toFixed(1);
+                      const mDiff = +(last.muscle - first.muscle).toFixed(1);
+                      const pDiff = +(last.pbf - first.pbf).toFixed(1);
+                      return (
+                        <p className="text-[13px] text-content-secondary leading-relaxed">
+                          측정 기간({first.date} ~ {last.date}) 동안 체중은{" "}
+                          <span className={cn("font-bold", wDiff <= 0 ? "text-state-success" : "text-primary")}>
+                            {wDiff > 0 ? "+" : ""}{wDiff}kg
+                          </span>
+                          , 골격근량은{" "}
+                          <span className={cn("font-bold", mDiff >= 0 ? "text-accent" : "text-state-error")}>
+                            {mDiff > 0 ? "+" : ""}{mDiff}kg
+                          </span>
+                          , 체지방률은{" "}
+                          <span className={cn("font-bold", pDiff <= 0 ? "text-state-success" : "text-state-warning")}>
+                            {pDiff > 0 ? "+" : ""}{pDiff}%
+                          </span>{" "}
+                          변화하였습니다.
+                        </p>
+                      );
+                    })()}
+                  </div>
+                )}
               </div>
             )}
 

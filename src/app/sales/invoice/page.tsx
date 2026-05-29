@@ -83,6 +83,12 @@ const STATUS_ICON: Record<InvoiceStatus, React.ReactNode> = {
 
 const isValidBizNo = (v: string) => v.replace(/[^0-9]/g, '').length === 10;
 const isValidEmail = (v: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v);
+const fmtLocal = (date: Date) => {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const d = String(date.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+};
 
 const TABS = [
   { key: 'ISSUE', label: '발행' },
@@ -98,16 +104,17 @@ export default function InvoicePage() {
   const [issueTarget, setIssueTarget] = useState<PendingTarget | null>(null);
   const [form, setForm] = useState({ recipient: '', bizNo: '', email: '' });
   const [detail, setDetail] = useState<Invoice | null>(null);
+  const today = fmtLocal(new Date());
+  const currentMonth = today.slice(0, 7);
 
   const stats = useMemo(() => {
-    const thisMonth = '2026-05';
-    const issuedThisMonth = invoices.filter(i => i.issueDate.slice(0, 7) === thisMonth && i.status !== '취소 발행');
+    const issuedThisMonth = invoices.filter(i => i.issueDate.slice(0, 7) === currentMonth && i.status !== '취소 발행');
     return {
       count: issuedThisMonth.length,
       amount: issuedThisMonth.reduce((s, i) => s + total(i), 0),
       pending: pending.length,
     };
-  }, [invoices, pending]);
+  }, [currentMonth, invoices, pending]);
 
   const openIssue = (target: PendingTarget) => {
     setIssueTarget(target);
@@ -130,7 +137,7 @@ export default function InvoicePage() {
     setInvoices(prev => [
       {
         id,
-        issueDate: '2026-05-29',
+        issueDate: today,
         recipient: form.recipient.trim(),
         bizNo: form.bizNo,
         email: form.email.trim(),
@@ -151,12 +158,12 @@ export default function InvoicePage() {
       toast.error('이메일 형식을 확인해주세요.');
       return;
     }
-    setInvoices(prev => prev.map(i => i.id === inv.id ? { ...i, status: '전송 완료', emailSentAt: '2026-05-29' } : i));
+    setInvoices(prev => prev.map(i => i.id === inv.id ? { ...i, status: '전송 완료', emailSentAt: today } : i));
     toast.success('전송되었습니다.');
   };
 
   const handleReissue = (inv: Invoice) => {
-    setInvoices(prev => prev.map(i => i.id === inv.id ? { ...i, status: '발행 완료', issueDate: '2026-05-29' } : i));
+    setInvoices(prev => prev.map(i => i.id === inv.id ? { ...i, status: '발행 완료', issueDate: today } : i));
     toast.success('재발행되었습니다.');
   };
 

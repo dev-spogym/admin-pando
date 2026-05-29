@@ -25,11 +25,47 @@ export interface DeferredRevenueItem {
 // 선수익금 목록 조회
 export async function getDeferredRevenues(branchId?: number): Promise<{ data: DeferredRevenueItem[] | null; error: string | null }> {
   const bid = branchId ?? getBranchId();
+  const { data: deferredData, error: deferredError } = await supabase
+    .from('deferred_revenue')
+    .select('id, saleId, memberId, memberName, productName, totalAmount, recognizedAmount, remainingAmount, startDate, endDate, branchId, createdAt')
+    .eq('branchId', bid)
+    .order('startDate', { ascending: false });
+
+  if (!deferredError && deferredData && deferredData.length > 0) {
+    const items: DeferredRevenueItem[] = deferredData.map((row: Record<string, unknown>) => {
+      const totalAmount = Number(row.totalAmount) || 0;
+      const recognizedAmount = Number(row.recognizedAmount) || 0;
+      const remainingAmount = Number(row.remainingAmount) || Math.max(totalAmount - recognizedAmount, 0);
+      const progressPct = totalAmount > 0
+        ? Math.max(0, Math.min(100, Math.round((recognizedAmount / totalAmount) * 100)))
+        : 0;
+
+      return {
+        id: row.id as number,
+        saleId: row.saleId as number,
+        memberId: row.memberId as number,
+        memberName: (row.memberName as string) ?? '',
+        productName: (row.productName as string) ?? '',
+        totalAmount,
+        recognizedAmount,
+        remainingAmount,
+        startDate: String(row.startDate ?? '').slice(0, 10),
+        endDate: String(row.endDate ?? '').slice(0, 10),
+        progressPct,
+        branchId: (row.branchId as number) ?? bid,
+        createdAt: String(row.createdAt ?? ''),
+      };
+    });
+
+    return { data: items, error: null };
+  }
+
   const { data: salesData, error: salesError } = await supabase
     .from('sales')
     .select('id, memberId, memberName, productName, saleDate, type, amount, salePrice, status, branchId')
     .eq('branchId', bid)
-    .neq('status', 'REFUNDED')
+    .eq('status', 'COMPLETED')
+    .gt('amount', 0)
     .order('saleDate', { ascending: false });
 
   if (salesError) return { data: null, error: salesError.message };

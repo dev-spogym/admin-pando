@@ -77,12 +77,16 @@ enum PaymentMethod {
   CASH
   TRANSFER
   MILEAGE
+  MIXED
 }
 
 enum SaleStatus {
   COMPLETED
   UNPAID
   REFUNDED
+  REFUND_REQUESTED
+  REFUND_PENDING
+  REFUND_REJECTED
   PENDING
 }
 
@@ -421,6 +425,10 @@ model Sale {
   saleCategory    String?     // 법인권|취소재결제|재등록|일반
   receiptIssued   Boolean     @default(true)  // 현금영수증 발급 여부
   penaltyAmount   Decimal     @default(0)     // 위약금 (환불 시)
+  originalSaleId  Int?
+  refundReason    String?
+  refundProcessedBy String?
+  refundProcessedAt DateTime?
   branchId      Int
   createdAt     DateTime      @default(now())
   updatedAt     DateTime      @default(now()) @updatedAt
@@ -432,8 +440,48 @@ model Sale {
   product Product? @relation(fields: [productId], references: [id])
   staff   Staff?   @relation(fields: [staffId], references: [id])
   branch  Branch   @relation(fields: [branchId], references: [id])
+  paymentLines SalePaymentLine[]
+  originalSale Sale? @relation("SaleRefunds", fields: [originalSaleId], references: [id], onDelete: SetNull)
+  refundSales  Sale[] @relation("SaleRefunds")
 
+  @@index([originalSaleId])
   @@map("sales")
+}
+
+/// 상품별 수납 행 / 환불 배분 행
+model SalePaymentLine {
+  id                    BigInt        @id @default(autoincrement())
+  saleId                Int
+  branchId              Int
+  memberId              Int
+  productId             Int?
+  productName           String
+  itemKey               String?
+  lineType              String        @default("PAYMENT")
+  method                PaymentMethod @default(CARD)
+  amount                Decimal       @default(0)
+  refundedAmount        Decimal       @default(0)
+  originalLineId        BigInt?
+  approvalNo            String?
+  terminalId            String?
+  externalTransactionId String?
+  bankPayerName         String?
+  transferConfirmNo     String?
+  cashReceiptIssued     Boolean       @default(false)
+  cashReceiptType       String?
+  cashReceiptIdentifier String?
+  memo                  String?
+  createdAt             DateTime      @default(now())
+  updatedAt             DateTime      @default(now()) @updatedAt
+
+  sale         Sale              @relation(fields: [saleId], references: [id], onDelete: Cascade)
+  originalLine SalePaymentLine?  @relation("RefundOriginalPaymentLine", fields: [originalLineId], references: [id], onDelete: SetNull)
+  refundLines  SalePaymentLine[] @relation("RefundOriginalPaymentLine")
+
+  @@index([saleId])
+  @@index([originalLineId])
+  @@index([branchId, memberId])
+  @@map("sale_payment_lines")
 }
 
 /// 출석

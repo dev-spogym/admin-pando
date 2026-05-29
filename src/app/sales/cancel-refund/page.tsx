@@ -1,12 +1,11 @@
 'use client';
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { useRouter } from 'next/navigation';
-import { Search, AlertTriangle, CheckCircle } from 'lucide-react';
+import React, { useCallback, useEffect, useState } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { Search, RefreshCcw, AlertTriangle, CheckCircle } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '@/lib/supabase';
-import ConfirmDialog from '@/components/ui/ConfirmDialog';
 import AppLayout from '@/components/layout/AppLayout';
-import PageHeader from '@/components/common/PageHeader';
+import ConfirmDialog from '@/components/ui/ConfirmDialog';
 
 interface Payment {
   id: number;
@@ -22,7 +21,29 @@ interface Payment {
   staffId: number | null;
   staffName: string | null;
   durationMonths: number | null;
-  paymentRoute: '현장(POS)' | '결제링크'; // 환불 수단 확인을 위한 결제경로
+  approvalNo: string | null;
+  memo: string | null;
+  cardAmount: number;
+  cashAmount: number;
+  mileageAmount: number;
+  paymentLines: PaymentLine[];
+}
+
+interface PaymentLine {
+  key: string;
+  id: number | null;
+  saleId: number;
+  productId: number | null;
+  productName: string;
+  method: string;
+  amount: number;
+  refundedAmount: number;
+  remainingAmount: number;
+  approvalNo: string | null;
+  terminalId: string | null;
+  externalTransactionId: string | null;
+  bankPayerName: string | null;
+  transferConfirmNo: string | null;
 }
 
 const cancelReasons = ['단순 변심', '서비스 불만족', '중복 결제', '회원 요청', '결제 오류', '기타'];
@@ -35,18 +56,8 @@ const METHOD_KO: Record<string, string> = {
 };
 
 type ActionType = 'cancel' | 'partial';
+type SettlementMode = 'PRODUCT_REFUND' | 'COLLECTION_CANCEL';
 type RefundMethod = 'ORIGINAL' | 'CARD' | 'CASH' | 'TRANSFER' | 'MILEAGE' | 'MIXED';
-// SAL-EXT-04-11: 수납행 취소(계약 유지·미수 전환) vs 상품 환불/계약 취소(매출·계약 축소)
-type RefundScope = 'receiptCancel' | 'productRefund';
-
-// 혼합결제 환불 분해표 행 (mock — 원수납 결제수단별 분해)
-interface RefundBreakdownRow {
-  method: 'CARD' | 'CASH' | 'TRANSFER' | 'MILEAGE';
-  label: string;
-  originalAmount: number;   // 원수납액
-  previousRefund: number;   // 기환불액
-  thisRefund: number;       // 이번 환불 배분액 (수기 입력)
-}
 type ProcessStatus = '요청' | '승인대기' | '완료';
 type ResultStatus = 'success' | null;
 
@@ -95,8 +106,140 @@ const processStatusToDbStatus: Record<ProcessStatus, string> = {
 };
 
 const parseMoney = (value: string) => {
-  const parsed = Number(value);
+  const parsed = Number(String(value).replace(/[^\d.-]/g, ''));
   return Number.isFinite(parsed) ? Math.round(parsed) : 0;
+};
+
+const paymentLineKey = (line: Pick<PaymentLine, 'key'>) => line.key;
+
+const createAllocationDraft = (lines: PaymentLine[], amount: number) => {
+  let remaining = Math.max(0, Math.round(amount));
+  return lines.reduce<Record<string, string>>((acc, line) => {
+    const allocation = Math.min(line.remainingAmount, remaining);
+    acc[paymentLineKey(line)] = allocation > 0 ? String(allocation) : '';
+    remaining -= allocation;
+    return acc;
+  }, {});
+};
+
+const toMethodCode = (label: string | null | undefined) => {
+  const normalized = String(label ?? '').trim().toUpperCase();
+  if (normalized.includes('카드') || normalized === 'CARD') return 'CARD';
+  if (normalized.includes('현금') || normalized === 'CASH') return 'CASH';
+  if (normalized.includes('계좌') || normalized === 'TRANSFER') return 'TRANSFER';
+  if (normalized.includes('포인트') || normalized.includes('마일리지') || normalized === 'MILEAGE') return 'MILEAGE';
+  if (normalized.includes('혼합') || normalized === 'MIXED') return 'MIXED';
+  return 'CARD';
+};
+
+const resolveAllocationMethod = (
+  lineMethod: string,
+  refundMethod: RefundMethod,
+  settlementMode: SettlementMode,
+) => {
+  if (settlementMode === 'COLLECTION_CANCEL') return toMethodCode(lineMethod);
+  if (refundMethod === 'ORIGINAL' || refundMethod === 'MIXED') return toMethodCode(lineMethod);
+  return toMethodCode(refundMethod);
+};
+
+const extractInternalApprovalNo = (memo: string | null | undefined, approvalNo: string | null | undefined) => {
+  const memoMatch = String(memo ?? '').match(/CRM 내부 승인번호:\s*([^\n]+)/);
+  if (memoMatch?.[1]) return memoMatch[1].trim();
+  const approval = String(approvalNo ?? '').trim();
+  return approval || null;
+};
+
+const parsePaymentLinesFromMemo = (sale: {
+  id: number;
+  productId: number | null;
+  productName: string;
+  memo: string | null;
+}) => {
+  const marker = '상품별 수납:';
+  if (!sale.memo?.includes(marker)) return [];
+
+  const section = sale.memo
+    .slice(sale.memo.indexOf(marker) + marker.length)
+    .split('\n결제일시:')[0]
+    .trim();
+
+  return section
+    .split('\n')
+    .map((raw, index): PaymentLine | null => {
+      const parts = raw.split('|').map((part) => part.trim()).filter(Boolean);
+      if (parts.length < 3) return null;
+
+      const method = toMethodCode(parts[1]);
+      const amount = parseMoney(parts[2]);
+      if (amount <= 0) return null;
+
+      const approvalNo = parts.find((part) => part.startsWith('카드 승인번호'))?.replace('카드 승인번호', '').trim() || null;
+      const terminalId = parts.find((part) => part.startsWith('단말 ID'))?.replace('단말 ID', '').trim() || null;
+      const externalTransactionId = parts.find((part) => part.startsWith('외부 거래번호'))?.replace('외부 거래번호', '').trim() || null;
+      const bankPayerName = parts.find((part) => part.startsWith('입금자명'))?.replace('입금자명', '').trim() || null;
+      const transferConfirmNo = parts.find((part) => part.startsWith('이체확인번호'))?.replace('이체확인번호', '').trim() || null;
+
+      return {
+        key: `memo-${sale.id}-${index}`,
+        id: null,
+        saleId: sale.id,
+        productId: sale.productId,
+        productName: parts[0].replace(/\sx\d+$/, '') || sale.productName,
+        method,
+        amount,
+        refundedAmount: 0,
+        remainingAmount: amount,
+        approvalNo,
+        terminalId,
+        externalTransactionId,
+        bankPayerName,
+        transferConfirmNo,
+      };
+    })
+    .filter((line): line is PaymentLine => Boolean(line));
+};
+
+const buildFallbackPaymentLines = (sale: {
+  id: number;
+  productId: number | null;
+  productName: string;
+  amount: number;
+  method: string;
+  approvalNo: string | null;
+  memo: string | null;
+  cardAmount: number;
+  cashAmount: number;
+  mileageAmount: number;
+}) => {
+  const memoLines = parsePaymentLinesFromMemo(sale);
+  if (memoLines.length > 0) return memoLines;
+
+  const aggregateLines = [
+    { method: 'CARD', amount: sale.cardAmount, name: '카드 수납' },
+    { method: 'CASH', amount: sale.cashAmount, name: '현금/계좌 수납' },
+    { method: 'MILEAGE', amount: sale.mileageAmount, name: '포인트 사용' },
+  ].filter((line) => line.amount > 0);
+
+  const lines = aggregateLines.length > 0
+    ? aggregateLines
+    : [{ method: sale.method, amount: sale.amount, name: sale.productName }];
+
+  return lines.map((line, index): PaymentLine => ({
+    key: `fallback-${sale.id}-${index}`,
+    id: null,
+    saleId: sale.id,
+    productId: sale.productId,
+    productName: line.name === sale.productName ? sale.productName : `${sale.productName} / ${line.name}`,
+    method: toMethodCode(line.method),
+    amount: Math.round(line.amount),
+    refundedAmount: 0,
+    remainingAmount: Math.round(line.amount),
+    approvalNo: sale.approvalNo,
+    terminalId: null,
+    externalTransactionId: null,
+    bankPayerName: null,
+    transferConfirmNo: null,
+  }));
 };
 
 const getBranchId = () => {
@@ -106,35 +249,22 @@ const getBranchId = () => {
 
 const approvalNo = () => `RF${Date.now().toString().slice(-6)}${Math.floor(Math.random() * 9000) + 1000}`;
 
-// 원결제 수단을 기준으로 혼합결제 환불 분해표 mock 생성.
-// 수단별 자동 분해 정책 확정 전에는 원수납액을 단일 수단에 배치하고 운영자가 수기 조정한다.
-const buildBreakdownRows = (payment: Payment): RefundBreakdownRow[] => {
-  const total = payment.amount;
-  const base = {
-    CARD: { method: 'CARD' as const, label: '카드', originalAmount: 0, previousRefund: 0, thisRefund: 0 },
-    CASH: { method: 'CASH' as const, label: '현금', originalAmount: 0, previousRefund: 0, thisRefund: 0 },
-    TRANSFER: { method: 'TRANSFER' as const, label: '계좌이체', originalAmount: 0, previousRefund: 0, thisRefund: 0 },
-    MILEAGE: { method: 'MILEAGE' as const, label: '마일리지(포인트)', originalAmount: 0, previousRefund: 0, thisRefund: 0 },
-  };
-  if (payment.method === 'CASH') base.CASH.originalAmount = total;
-  else if (payment.method === 'TRANSFER') base.TRANSFER.originalAmount = total;
-  else if (payment.method === 'MILEAGE') base.MILEAGE.originalAmount = total;
-  else base.CARD.originalAmount = total; // CARD/MIXED/기타 기본은 카드 행으로 배치
-  return [base.CARD, base.CASH, base.TRANSFER, base.MILEAGE];
-};
-
 export default function CancelRefundPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const linkedSaleId = searchParams?.get('saleId') ?? null;
+  const linkedApprovalNo = searchParams?.get('approvalNo') ?? null;
   const [query, setQuery] = useState('');
   const [payments, setPayments] = useState<Payment[]>([]);
   const [loading, setLoading] = useState(false);
   const [selected, setSelected] = useState<Payment | null>(null);
+  const [initialSelectionApplied, setInitialSelectionApplied] = useState(false);
   const [action, setAction] = useState<ActionType>('cancel');
-  const [refundScope, setRefundScope] = useState<RefundScope>('productRefund');
-  const [breakdownRows, setBreakdownRows] = useState<RefundBreakdownRow[]>([]);
+  const [settlementMode, setSettlementMode] = useState<SettlementMode>('PRODUCT_REFUND');
   const [partialAmount, setPartialAmount] = useState('');
   const [reason, setReason] = useState(cancelReasons[0]);
   const [manualPolicy, setManualPolicy] = useState<ManualPolicyForm>(initialManualPolicyForm);
+  const [refundAllocations, setRefundAllocations] = useState<Record<string, string>>({});
   const [result, setResult] = useState<ResultStatus>(null);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -147,7 +277,7 @@ export default function CancelRefundPage() {
     setLoading(true);
     const { data, error } = await supabase
       .from('sales')
-      .select('id, memberId, memberName, productId, productName, amount, saleDate, paymentMethod, paymentType, type, round, staffId, staffName, durationMonths')
+      .select('id, memberId, memberName, productId, productName, amount, saleDate, paymentMethod, type, round, staffId, staffName, durationMonths, approvalNo, memo, card, cash, mileageUsed')
       .eq('branchId', getBranchId())
       .eq('status', 'COMPLETED')
       .gt('amount', 0)
@@ -161,7 +291,7 @@ export default function CancelRefundPage() {
       return;
     }
 
-    setPayments((data ?? []).map((row: Record<string, unknown>) => ({
+    const saleRows = (data ?? []).map((row: Record<string, unknown>) => ({
       id: Number(row.id),
       memberId: Number(row.memberId),
       memberName: String(row.memberName ?? ''),
@@ -175,8 +305,92 @@ export default function CancelRefundPage() {
       staffId: row.staffId == null ? null : Number(row.staffId),
       staffName: row.staffName == null ? null : String(row.staffName),
       durationMonths: row.durationMonths == null ? null : Number(row.durationMonths),
-      paymentRoute: String(row.paymentType ?? '').includes('결제링크') ? '결제링크' : '현장(POS)',
-    })));
+      approvalNo: extractInternalApprovalNo(
+        row.memo == null ? null : String(row.memo),
+        row.approvalNo == null ? null : String(row.approvalNo),
+      ),
+      memo: row.memo == null ? null : String(row.memo),
+      cardAmount: Math.round(Number(row.card) || 0),
+      cashAmount: Math.round(Number(row.cash) || 0),
+      mileageAmount: Math.round(Number(row.mileageUsed) || 0),
+      paymentLines: [] as PaymentLine[],
+    }));
+
+    const saleIds = saleRows.map((row) => row.id);
+    const paymentLinesBySaleId = new Map<number, PaymentLine[]>();
+
+    if (saleIds.length > 0) {
+      const { data: lineRows, error: lineError } = await supabase
+        .from('sale_payment_lines')
+        .select('id, saleId, productId, productName, method, amount, refundedAmount, approvalNo, terminalId, externalTransactionId, bankPayerName, transferConfirmNo')
+        .in('saleId', saleIds)
+        .eq('lineType', 'PAYMENT')
+        .order('id', { ascending: true });
+
+      if (!lineError && lineRows && lineRows.length > 0) {
+        const lineIds = lineRows.map((line: Record<string, unknown>) => Number(line.id));
+        const refundedByLineId = new Map<number, number>();
+
+        const { data: refundLineRows } = await supabase
+          .from('sale_payment_lines')
+          .select('originalLineId, amount')
+          .eq('lineType', 'REFUND')
+          .in('originalLineId', lineIds);
+
+        (refundLineRows ?? []).forEach((line: Record<string, unknown>) => {
+          const originalLineId = Number(line.originalLineId);
+          refundedByLineId.set(originalLineId, (refundedByLineId.get(originalLineId) ?? 0) + Math.round(Number(line.amount) || 0));
+        });
+
+        lineRows.forEach((line: Record<string, unknown>) => {
+          const id = Number(line.id);
+          const saleId = Number(line.saleId);
+          const amount = Math.round(Number(line.amount) || 0);
+          const storedRefundedAmount = Math.round(Number(line.refundedAmount) || 0);
+          const refundedAmount = Math.max(storedRefundedAmount, refundedByLineId.get(id) ?? 0);
+          const paymentLine: PaymentLine = {
+            key: `db-${id}`,
+            id,
+            saleId,
+            productId: line.productId == null ? null : Number(line.productId),
+            productName: String(line.productName ?? '상품 미지정'),
+            method: String(line.method ?? 'CARD'),
+            amount,
+            refundedAmount,
+            remainingAmount: Math.max(0, amount - refundedAmount),
+            approvalNo: line.approvalNo == null ? null : String(line.approvalNo),
+            terminalId: line.terminalId == null ? null : String(line.terminalId),
+            externalTransactionId: line.externalTransactionId == null ? null : String(line.externalTransactionId),
+            bankPayerName: line.bankPayerName == null ? null : String(line.bankPayerName),
+            transferConfirmNo: line.transferConfirmNo == null ? null : String(line.transferConfirmNo),
+          };
+          paymentLinesBySaleId.set(saleId, [...(paymentLinesBySaleId.get(saleId) ?? []), paymentLine]);
+        });
+      } else if (lineError) {
+        toast.warning(`상품별 수납 행을 불러오지 못해 결제 집계값으로 표시합니다: ${lineError.message}`);
+      }
+    }
+
+    setPayments(saleRows.map((row) => {
+      const dbLines = paymentLinesBySaleId.get(row.id) ?? [];
+      const fallbackLines = buildFallbackPaymentLines({
+        id: row.id,
+        productId: row.productId,
+        productName: row.product,
+        amount: row.amount,
+        method: row.method,
+        approvalNo: row.approvalNo,
+        memo: row.memo,
+        cardAmount: row.cardAmount,
+        cashAmount: row.cashAmount,
+        mileageAmount: row.mileageAmount,
+      });
+
+      return {
+        ...row,
+        paymentLines: dbLines.length > 0 ? dbLines : fallbackLines,
+      };
+    }));
   }, []);
 
   useEffect(() => {
@@ -184,7 +398,7 @@ export default function CancelRefundPage() {
   }, [fetchPayments]);
 
   const filtered = payments.filter(
-    (p) => p.memberName.includes(query) || String(p.id).includes(query) || p.product.includes(query)
+    (p) => p.memberName.includes(query) || String(p.id).includes(query) || (p.approvalNo ?? '').includes(query) || p.product.includes(query)
   );
 
   const resetFlow = useCallback(() => {
@@ -193,35 +407,30 @@ export default function CancelRefundPage() {
     setPartialAmount('');
     setReason(cancelReasons[0]);
     setAction('cancel');
-    setRefundScope('productRefund');
-    setBreakdownRows([]);
+    setSettlementMode('PRODUCT_REFUND');
     setManualPolicy(initialManualPolicyForm);
+    setRefundAllocations({});
     setConfirmOpen(false);
     setIsSubmitting(false);
   }, []);
 
-  // 분해표 이번 환불 배분액 합계 + 마일리지 복원 요약
-  const breakdownThisRefundTotal = useMemo(
-    () => breakdownRows.reduce((sum, row) => sum + (row.thisRefund || 0), 0),
-    [breakdownRows],
-  );
-  const mileageRestoreAmount = useMemo(
-    () => breakdownRows.find(r => r.method === 'MILEAGE')?.thisRefund ?? 0,
-    [breakdownRows],
-  );
-  const updateBreakdownRow = (method: RefundBreakdownRow['method'], thisRefund: number) =>
-    setBreakdownRows(rows => rows.map(r => (r.method === method ? { ...r, thisRefund: Math.max(0, thisRefund) } : r)));
-
   const usedDeductionAmount = parseMoney(manualPolicy.usedDeductionAmount);
   const penaltyAmountValue = parseMoney(manualPolicy.penaltyAmount);
   const previousRefundAmount = parseMoney(manualPolicy.previousRefundAmount);
+  const storedPreviousRefundAmount = selected
+    ? selected.paymentLines.reduce((sum, line) => sum + line.refundedAmount, 0)
+    : 0;
+  const effectivePreviousRefundAmount = Math.max(previousRefundAmount, storedPreviousRefundAmount);
+  const remainingLineTotal = selected
+    ? selected.paymentLines.reduce((sum, line) => sum + line.remainingAmount, 0)
+    : 0;
   const calculatedAvailableAmount = selected
-    ? Math.max(0, selected.amount - usedDeductionAmount - penaltyAmountValue - previousRefundAmount)
+    ? Math.max(0, selected.amount - usedDeductionAmount - penaltyAmountValue - effectivePreviousRefundAmount)
     : 0;
   const confirmedAvailableAmount = selected
     ? manualPolicy.availableRefundAmount.trim()
       ? Math.max(0, parseMoney(manualPolicy.availableRefundAmount))
-      : calculatedAvailableAmount
+      : Math.min(calculatedAvailableAmount, remainingLineTotal)
     : 0;
   const isAvailableAdjusted = Boolean(manualPolicy.availableRefundAmount.trim())
     && confirmedAvailableAmount !== calculatedAvailableAmount;
@@ -231,14 +440,97 @@ export default function CancelRefundPage() {
       ? confirmedAvailableAmount
       : parseMoney(partialAmount)
     : 0;
-  const effectiveRefundMethod = selected
-    ? manualPolicy.refundMethod === 'ORIGINAL'
-      ? selected.method
-      : manualPolicy.refundMethod
-    : 'CARD';
+  const allocationTotal = selected
+    ? selected.paymentLines.reduce((sum, line) => sum + parseMoney(refundAllocations[paymentLineKey(line)] ?? ''), 0)
+    : 0;
+  const allocationDiff = refundAmount - allocationTotal;
+  const previewAllocationMethods = selected
+    ? Array.from(new Set(selected.paymentLines
+      .map((line) => ({
+        amount: parseMoney(refundAllocations[paymentLineKey(line)] ?? ''),
+        method: resolveAllocationMethod(line.method, manualPolicy.refundMethod, settlementMode),
+      }))
+      .filter((allocation) => allocation.amount > 0)
+      .map((allocation) => allocation.method)))
+    : [];
+  const effectiveRefundMethod = previewAllocationMethods.length > 1
+    ? 'MIXED'
+    : previewAllocationMethods[0] ?? (selected ? toMethodCode(selected.method) : 'CARD');
   const finalReason = reason === '기타'
     ? manualPolicy.customReason.trim()
     : reason;
+
+  const handleSelectPayment = useCallback((payment: Payment) => {
+    setSelected(payment);
+    setResult(null);
+    setConfirmOpen(false);
+    setAction('cancel');
+    setSettlementMode('PRODUCT_REFUND');
+    setPartialAmount('');
+    setReason(cancelReasons[0]);
+    setManualPolicy(initialManualPolicyForm);
+    const remainingTotal = payment.paymentLines.reduce((sum, line) => sum + line.remainingAmount, 0);
+    setRefundAllocations(createAllocationDraft(payment.paymentLines, remainingTotal || payment.amount));
+  }, []);
+
+  useEffect(() => {
+    if (initialSelectionApplied || payments.length === 0 || selected || result) return;
+    if (!linkedSaleId && !linkedApprovalNo) return;
+
+    const target = payments.find((payment) => {
+      const matchesSaleId = linkedSaleId ? String(payment.id) === linkedSaleId : false;
+      const matchesApprovalNo = linkedApprovalNo ? payment.approvalNo === linkedApprovalNo : false;
+      return matchesSaleId || matchesApprovalNo;
+    });
+
+    setInitialSelectionApplied(true);
+
+    if (!target) {
+      setQuery(linkedSaleId ?? linkedApprovalNo ?? '');
+      toast.warning('연결된 결제 건을 현재 지점의 완료 결제 목록에서 찾지 못했습니다.');
+      return;
+    }
+
+    setQuery(target.approvalNo || String(target.id));
+    handleSelectPayment(target);
+  }, [
+    handleSelectPayment,
+    initialSelectionApplied,
+    linkedApprovalNo,
+    linkedSaleId,
+    payments,
+    result,
+    selected,
+  ]);
+
+  const handleSettlementModeChange = (nextMode: SettlementMode) => {
+    setSettlementMode(nextMode);
+    if (nextMode === 'COLLECTION_CANCEL') {
+      updateManualPolicy('refundMethod', 'ORIGINAL');
+    }
+  };
+
+  const handleActionChange = (nextAction: ActionType) => {
+    setAction(nextAction);
+    setSettlementMode(nextAction === 'partial' ? 'COLLECTION_CANCEL' : 'PRODUCT_REFUND');
+    if (nextAction === 'partial') {
+      updateManualPolicy('refundMethod', 'ORIGINAL');
+    }
+    if (!selected) return;
+    const targetAmount = nextAction === 'cancel' ? confirmedAvailableAmount : parseMoney(partialAmount);
+    setRefundAllocations(createAllocationDraft(selected.paymentLines, targetAmount));
+  };
+
+  const handlePartialAmountChange = (value: string) => {
+    setPartialAmount(value);
+    if (!selected) return;
+    setRefundAllocations(createAllocationDraft(selected.paymentLines, parseMoney(value)));
+  };
+
+  const handleAutoAllocate = () => {
+    if (!selected) return;
+    setRefundAllocations(createAllocationDraft(selected.paymentLines, refundAmount));
+  };
 
   const validateRefundAmount = () => {
     if (!selected) return false;
@@ -254,12 +546,31 @@ export default function CancelRefundPage() {
       toast.error('기타 사유를 직접 입력해 주세요.');
       return false;
     }
+    if (!remainingLineTotal || remainingLineTotal <= 0) {
+      toast.error('이미 전액 취소 또는 환불된 결제 건입니다.');
+      return false;
+    }
     if (!confirmedAvailableAmount || confirmedAvailableAmount <= 0) {
       toast.error('이번 환불 가능액을 확인해 주세요.');
       return false;
     }
     if (!refundAmount || refundAmount <= 0 || refundAmount > confirmedAvailableAmount) {
       toast.error('환불 금액을 확인해 주세요.');
+      return false;
+    }
+    for (const line of selected.paymentLines) {
+      const amount = parseMoney(refundAllocations[paymentLineKey(line)] ?? '');
+      if (amount < 0) {
+        toast.error(`${line.productName} 환불 배분액은 0원 이상이어야 합니다.`);
+        return false;
+      }
+      if (amount > line.remainingAmount) {
+        toast.error(`${line.productName} 환불 배분액이 잔여 가능액을 초과했습니다.`);
+        return false;
+      }
+    }
+    if (allocationTotal !== refundAmount) {
+      toast.error('상품별 환불 배분 합계가 최종 환불액과 일치해야 합니다.');
       return false;
     }
     return true;
@@ -277,16 +588,37 @@ export default function CancelRefundPage() {
     setIsSubmitting(true);
     const now = new Date().toISOString();
     const refundStatus = processStatusToDbStatus[manualPolicy.processStatus];
-    const breakdownSummary = breakdownRows
-      .filter(r => r.originalAmount > 0 || r.thisRefund > 0)
-      .map(r => `${r.label} 원수납 ${r.originalAmount.toLocaleString()} / 기환불 ${r.previousRefund.toLocaleString()} / 이번환불 ${r.thisRefund.toLocaleString()} / 잔여 ${(r.originalAmount - r.previousRefund - r.thisRefund).toLocaleString()}`)
-      .join(' | ');
+    const shouldFinalizeRefund = manualPolicy.processStatus === '완료';
+    const refundApprovalNo = approvalNo();
+    const selectedAllocations = selected.paymentLines
+      .map((line) => {
+        const amount = parseMoney(refundAllocations[paymentLineKey(line)] ?? '');
+        const method = resolveAllocationMethod(line.method, manualPolicy.refundMethod, settlementMode);
+        return { line, amount, method };
+      })
+      .filter((allocation) => allocation.amount > 0);
+    const allocatedCardAmount = selectedAllocations
+      .filter((allocation) => allocation.method === 'CARD')
+      .reduce((sum, allocation) => sum + allocation.amount, 0);
+    const allocatedCashAmount = selectedAllocations
+      .filter((allocation) => allocation.method === 'CASH' || allocation.method === 'TRANSFER')
+      .reduce((sum, allocation) => sum + allocation.amount, 0);
+    const allocatedMileageAmount = selectedAllocations
+      .filter((allocation) => allocation.method === 'MILEAGE')
+      .reduce((sum, allocation) => sum + allocation.amount, 0);
+    const allocationMethods = Array.from(new Set(selectedAllocations.map((allocation) => allocation.method)));
+    const refundPaymentMethod = allocationMethods.length > 1
+      ? 'MIXED'
+      : allocationMethods[0] ?? toMethodCode(effectiveRefundMethod);
+    const allocationMemo = selectedAllocations
+      .map((allocation) => `${allocation.line.productName} / ${METHOD_KO[allocation.method] ?? allocation.method} / ${allocation.amount.toLocaleString()}원`)
+      .join('\n');
     const manualMemo = [
       `${action === 'cancel' ? '전체 취소' : '부분 환불'}: 원매출 #${selected.id}`,
-      `[처리구분] ${refundScope === 'receiptCancel' ? '수납행 취소(계약 유지·미수 전환)' : '상품 환불/계약 취소'}`,
-      breakdownSummary ? `[혼합결제 분해] ${breakdownSummary}` : '',
-      `[복원] 마일리지 ${mileageRestoreAmount.toLocaleString()}P 우선 복원 + 사용 쿠폰 미사용 복원`,
-      `[수기계산] 기사용 차감금 ${usedDeductionAmount.toLocaleString()}원 / 위약금 ${penaltyAmountValue.toLocaleString()}원 / 기환불 누계 ${previousRefundAmount.toLocaleString()}원 / 환불 가능액 ${confirmedAvailableAmount.toLocaleString()}원`,
+      `[처리목적] ${settlementMode === 'COLLECTION_CANCEL' ? '수납행 취소(상품 계약 유지, 미수금 전환)' : '상품 환불/계약 취소'}`,
+      `[수기계산] 기사용 차감금 ${usedDeductionAmount.toLocaleString()}원 / 위약금 ${penaltyAmountValue.toLocaleString()}원 / 기환불 누계 ${effectivePreviousRefundAmount.toLocaleString()}원 / 환불 가능액 ${confirmedAvailableAmount.toLocaleString()}원`,
+      allocationMemo ? `[상품별 환불 배분]\n${allocationMemo}` : '',
+      settlementMode === 'COLLECTION_CANCEL' && shouldFinalizeRefund ? `[미수전환] 취소 수납금액 ${refundAmount.toLocaleString()}원은 상품 계약 유지 미수금으로 생성` : '',
       manualPolicy.adjustmentReason.trim() ? `[조정사유] ${manualPolicy.adjustmentReason.trim()}` : '',
       `[환불수단] ${manualPolicy.refundMethod === 'ORIGINAL' ? `원결제 수단(${METHOD_KO[selected.method] ?? selected.method})` : METHOD_KO[manualPolicy.refundMethod] ?? manualPolicy.refundMethod}`,
       `[외부처리] ${manualPolicy.externalStatus}`,
@@ -300,32 +632,34 @@ export default function CancelRefundPage() {
       manualPolicy.incentiveOwner.trim() ? `[인센티브귀속자] ${manualPolicy.incentiveOwner.trim()}` : '',
     ].filter(Boolean).join('\n');
 
-    const { error } = await supabase.from('sales').insert({
+    const { data: refundSale, error } = await supabase.from('sales').insert({
       memberId: selected.memberId,
       memberName: selected.memberName,
       productId: selected.productId,
       productName: selected.product,
       saleDate: new Date().toISOString(),
       type: '환불',
-      round: action === 'cancel' ? '환불' : '부분환불',
+      round: settlementMode === 'COLLECTION_CANCEL' ? '수납행취소' : action === 'cancel' ? '환불' : '부분환불',
       quantity: 1,
       originalPrice: refundAmount,
       salePrice: refundAmount,
       discountPrice: 0,
       amount: refundAmount,
-      paymentMethod: effectiveRefundMethod,
-      paymentType: action === 'cancel' ? '전체환불' : '부분환불',
-      cash: effectiveRefundMethod === 'CASH' || effectiveRefundMethod === 'TRANSFER' || effectiveRefundMethod === 'MIXED' ? refundAmount : 0,
-      card: effectiveRefundMethod === 'CARD' ? refundAmount : 0,
-      mileageUsed: effectiveRefundMethod === 'MILEAGE' ? refundAmount : 0,
-      approvalNo: approvalNo(),
+      paymentMethod: refundPaymentMethod,
+      paymentType: settlementMode === 'COLLECTION_CANCEL'
+        ? action === 'cancel' ? '수납행전체취소' : '수납행부분취소'
+        : action === 'cancel' ? '전체환불' : '부분환불',
+      cash: allocatedCashAmount,
+      card: allocatedCardAmount,
+      mileageUsed: allocatedMileageAmount,
+      approvalNo: refundApprovalNo,
       status: refundStatus,
       unpaid: 0,
       staffId: selected.staffId,
       staffName: selected.staffName,
       memo: manualMemo,
       durationMonths: selected.durationMonths,
-      saleCategory: '환불',
+      saleCategory: settlementMode === 'COLLECTION_CANCEL' ? '수납행취소' : '환불',
       receiptIssued: false,
       penaltyAmount: penaltyAmountValue,
       branchId: getBranchId(),
@@ -335,7 +669,7 @@ export default function CancelRefundPage() {
       refundReason: finalReason,
       refundProcessedBy: 'ADMIN',
       refundProcessedAt: manualPolicy.processStatus === '완료' ? now : null,
-    });
+    }).select('id').single();
 
     if (error) {
       setIsSubmitting(false);
@@ -343,21 +677,121 @@ export default function CancelRefundPage() {
       return;
     }
 
+    const refundSaleId = Number(refundSale?.id);
+    if (!refundSaleId) {
+      setIsSubmitting(false);
+      toast.error('환불 처리 번호를 확인할 수 없습니다.');
+      return;
+    }
+
+    if (selectedAllocations.length > 0 && shouldFinalizeRefund) {
+      const refundLineRows = selectedAllocations.map((allocation) => ({
+        saleId: refundSaleId,
+        branchId: getBranchId(),
+        memberId: selected.memberId,
+        productId: allocation.line.productId,
+        productName: allocation.line.productName,
+        itemKey: allocation.line.key,
+        lineType: 'REFUND',
+        method: allocation.method,
+        amount: allocation.amount,
+        refundedAmount: 0,
+        originalLineId: allocation.line.id,
+        approvalNo: refundApprovalNo,
+        terminalId: allocation.line.terminalId,
+        externalTransactionId: allocation.line.externalTransactionId,
+        bankPayerName: allocation.line.bankPayerName,
+        transferConfirmNo: allocation.line.transferConfirmNo,
+        cashReceiptIssued: false,
+        cashReceiptType: null,
+        cashReceiptIdentifier: null,
+        memo: `원매출 #${selected.id} / ${action === 'cancel' ? '전체 취소' : '부분 환불'} / ${finalReason || reason}`,
+      }));
+
+      const { error: lineError } = await supabase.from('sale_payment_lines').insert(refundLineRows);
+      if (lineError) {
+        setIsSubmitting(false);
+        toast.error(`환불 배분 행 저장 실패: ${lineError.message}`);
+        return;
+      }
+
+      await Promise.all(selectedAllocations
+        .filter((allocation) => allocation.line.id != null)
+        .map((allocation) => supabase
+          .from('sale_payment_lines')
+          .update({
+            refundedAmount: allocation.line.refundedAmount + allocation.amount,
+            updatedAt: now,
+          })
+          .eq('id', allocation.line.id)));
+    }
+
+    if (settlementMode === 'COLLECTION_CANCEL' && shouldFinalizeRefund && selectedAllocations.length > 0) {
+      const unpaidRows = selectedAllocations.map((allocation) => ({
+        memberId: selected.memberId,
+        memberName: selected.memberName,
+        productId: allocation.line.productId,
+        productName: allocation.line.productName,
+        saleDate: now,
+        type: selected.type,
+        round: '수납행취소미수',
+        quantity: 1,
+        originalPrice: allocation.amount,
+        salePrice: allocation.amount,
+        discountPrice: 0,
+        amount: allocation.amount,
+        paymentMethod: allocation.method,
+        paymentType: '수납행취소미수',
+        cash: 0,
+        card: 0,
+        mileageUsed: 0,
+        approvalNo: selected.approvalNo,
+        status: 'UNPAID',
+        unpaid: allocation.amount,
+        staffId: selected.staffId,
+        staffName: selected.staffName,
+        memo: `수납행 취소 미수 전환 / 원매출 #${selected.id} / 환불처리 #${refundSaleId} / ${METHOD_KO[allocation.method] ?? allocation.method} ${allocation.amount.toLocaleString()}원`,
+        durationMonths: selected.durationMonths,
+        saleCategory: '수납행취소미수',
+        receiptIssued: false,
+        penaltyAmount: 0,
+        branchId: getBranchId(),
+        createdAt: now,
+        updatedAt: now,
+        originalSaleId: selected.id,
+      }));
+
+      const { error: unpaidError } = await supabase.from('sales').insert(unpaidRows);
+      if (unpaidError) {
+        setIsSubmitting(false);
+        toast.error(`미수금 전환 실패: ${unpaidError.message}`);
+        return;
+      }
+    }
+
     setConfirmOpen(false);
     setResult('success');
     setIsSubmitting(false);
-    toast.success(manualPolicy.processStatus === '완료' ? '환불 처리가 완료되었습니다.' : '환불 요청 상태로 기록되었습니다.');
+    toast.success(manualPolicy.processStatus === '완료'
+      ? settlementMode === 'COLLECTION_CANCEL'
+        ? '수납행 취소와 미수금 전환이 완료되었습니다.'
+        : '환불 처리가 완료되었습니다.'
+      : '환불 요청 상태로 기록되었습니다.');
     fetchPayments();
   }
 
   return (
     <AppLayout>
-      <PageHeader
-        title="결제 취소 / 부분 환불"
-        description="결제 내역을 조회하고 혼합결제 환불 분해와 함께 취소 또는 부분 환불을 처리합니다."
-      />
+    <div className="max-w-5xl mx-auto space-y-6">
+      {/* 헤더 */}
+      <div className="flex items-center gap-3">
+        <RefreshCcw className="w-6 h-6 text-red-500" />
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">결제 취소 / 부분 환불</h1>
+          <p className="text-sm text-gray-500">결제 내역을 조회하고 취소 또는 부분 환불을 처리합니다.</p>
+        </div>
+      </div>
 
-      <div className="space-y-6">
       {/* 결제 조회 */}
       <div className="bg-white border rounded-xl p-5 space-y-4">
         <h2 className="text-base font-semibold text-gray-800">1. 결제 조회</h2>
@@ -366,8 +800,8 @@ export default function CancelRefundPage() {
           <input
             type="text"
             value={query}
-            onChange={(e) => { setQuery(e.target.value); setSelected(null); setBreakdownRows([]); setResult(null); setConfirmOpen(false); }}
-            placeholder="회원명, 결제번호, 상품명으로 검색"
+            onChange={(e) => { setQuery(e.target.value); setSelected(null); setResult(null); setConfirmOpen(false); }}
+            placeholder="회원명, 결제번호, 내부 승인번호, 상품명으로 검색"
             className="w-full pl-9 pr-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
         </div>
@@ -377,7 +811,7 @@ export default function CancelRefundPage() {
             <table className="w-full text-sm">
               <thead className="bg-gray-50 border-b">
                 <tr>
-                  <th className="text-left px-4 py-2 font-medium text-gray-600">결제번호</th>
+                  <th className="text-left px-4 py-2 font-medium text-gray-600">결제번호 / 내부 승인번호</th>
                   <th className="text-left px-4 py-2 font-medium text-gray-600">회원명</th>
                   <th className="text-left px-4 py-2 font-medium text-gray-600">상품</th>
                   <th className="text-right px-4 py-2 font-medium text-gray-600">금액</th>
@@ -391,7 +825,10 @@ export default function CancelRefundPage() {
                   <tr><td colSpan={7} className="text-center py-6 text-gray-400">검색 결과가 없습니다.</td></tr>
                 ) : filtered.map((p) => (
                   <tr key={p.id} className={`hover:bg-gray-50 transition-colors ${selected?.id === p.id ? 'bg-blue-50' : ''}`}>
-                    <td className="px-4 py-3 font-mono text-xs text-gray-600">SALE-{p.id}</td>
+                    <td className="px-4 py-3">
+                      <p className="font-mono text-xs text-gray-600">SALE-{p.id}</p>
+                      <p className="mt-1 font-mono text-[11px] text-blue-600">{p.approvalNo || '-'}</p>
+                    </td>
                     <td className="px-4 py-3 text-gray-900">{p.memberName}</td>
                     <td className="px-4 py-3 text-gray-600">{p.product}</td>
                     <td className="px-4 py-3 text-right font-medium text-gray-900">{p.amount.toLocaleString()}원</td>
@@ -399,17 +836,7 @@ export default function CancelRefundPage() {
                     <td className="px-4 py-3 text-center text-gray-500">{METHOD_KO[p.method] ?? p.method}</td>
                     <td className="px-4 py-3 text-center">
                       <button
-                        onClick={() => {
-                          setSelected(p);
-                          setResult(null);
-                          setConfirmOpen(false);
-                          setAction('cancel');
-                          setRefundScope('productRefund');
-                          setBreakdownRows(buildBreakdownRows(p));
-                          setPartialAmount('');
-                          setReason(cancelReasons[0]);
-                          setManualPolicy(initialManualPolicyForm);
-                        }}
+                        onClick={() => handleSelectPayment(p)}
                         className={`px-3 py-1 text-xs rounded-lg font-medium transition-colors ${
                           selected?.id === p.id
                             ? 'bg-blue-600 text-white'
@@ -441,10 +868,14 @@ export default function CancelRefundPage() {
               </div>
               <span className="font-bold text-gray-900">{selected.amount.toLocaleString()}원</span>
             </div>
-            <div className="mt-3 grid gap-2 text-xs text-gray-600 md:grid-cols-4">
+            <div className="mt-3 grid gap-2 text-xs text-gray-600 md:grid-cols-5">
               <div>
                 <p className="font-medium text-gray-500">결제번호</p>
                 <p className="mt-1 font-mono text-gray-800">SALE-{selected.id}</p>
+              </div>
+              <div>
+                <p className="font-medium text-gray-500">CRM 내부 승인번호</p>
+                <p className="mt-1 font-mono text-blue-700">{selected.approvalNo || '-'}</p>
               </div>
               <div>
                 <p className="font-medium text-gray-500">결제일</p>
@@ -458,29 +889,94 @@ export default function CancelRefundPage() {
                 <p className="font-medium text-gray-500">담당자</p>
                 <p className="mt-1 text-gray-800">{selected.staffName || '-'}</p>
               </div>
-              <div>
-                <p className="font-medium text-gray-500">결제경로</p>
-                <p className="mt-1 text-gray-800">{selected.paymentRoute}</p>
-              </div>
             </div>
           </div>
 
-          {/* 환불 수단 확인 (결제경로별 안내) */}
-          <div className="rounded-lg border border-sky-200 bg-sky-50 p-4 text-sm">
-            <p className="font-medium text-sky-900">환불 수단 확인</p>
-            <p className="mt-1 text-xs text-sky-800">
-              {selected.paymentRoute === '결제링크'
-                ? '결제링크 건은 PG 환불 상태를 확인합니다. 결제되지 않은 링크는 환불 대상이 아니므로 결제링크 무효화로 안내합니다.'
-                : '현장 등록 건은 외부 POS/현금/계좌이체 환불 완료 증빙을 확인합니다. 카드 수납행 취소는 외부 승인금액 단위 전체 취소를 원칙으로 안내합니다.'}
-            </p>
+          <div className="space-y-3 rounded-lg border border-gray-200 p-4">
+            <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+              <div>
+                <p className="text-sm font-semibold text-gray-800">상품별 수납 행 / 환불 배분</p>
+                <p className="mt-1 text-xs text-gray-500">
+                  내부 승인번호 {selected.approvalNo || `SALE-${selected.id}`} 기준으로 상품별 원수납액, 기환불액, 이번 취소/환불 배분액을 기록합니다.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={handleAutoAllocate}
+                className="rounded-lg border border-gray-200 px-3 py-2 text-xs font-medium text-gray-600 transition-colors hover:bg-gray-50"
+              >
+                환불액 자동 배분
+              </button>
+            </div>
+            <div className="overflow-x-auto rounded-lg border border-gray-100">
+              <table className="w-full min-w-[760px] text-xs">
+                <thead className="bg-gray-50 text-gray-500">
+                  <tr>
+                    <th className="px-3 py-2 text-left font-medium">상품/수납 행</th>
+                    <th className="px-3 py-2 text-center font-medium">수단</th>
+                    <th className="px-3 py-2 text-right font-medium">원수납액</th>
+                    <th className="px-3 py-2 text-right font-medium">기환불액</th>
+                    <th className="px-3 py-2 text-right font-medium">잔여 가능액</th>
+                    <th className="px-3 py-2 text-right font-medium">이번 배분액</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100">
+                  {selected.paymentLines.map((line) => {
+                    const key = paymentLineKey(line);
+                    const allocationValue = refundAllocations[key] ?? '';
+                    const allocationAmount = parseMoney(allocationValue);
+                    const overAllocated = allocationAmount > line.remainingAmount;
+                    return (
+                      <tr key={key}>
+                        <td className="px-3 py-3 text-gray-700">
+                          <p className="font-medium text-gray-900">{line.productName}</p>
+                          <p className="mt-1 text-[11px] text-gray-400">
+                            {line.approvalNo ? `승인/확인번호 ${line.approvalNo}` : line.transferConfirmNo ? `이체확인번호 ${line.transferConfirmNo}` : '확인번호 없음'}
+                          </p>
+                        </td>
+                        <td className="px-3 py-3 text-center text-gray-600">{METHOD_KO[line.method] ?? line.method}</td>
+                        <td className="px-3 py-3 text-right font-medium text-gray-900">{line.amount.toLocaleString()}원</td>
+                        <td className="px-3 py-3 text-right text-gray-600">{line.refundedAmount.toLocaleString()}원</td>
+                        <td className="px-3 py-3 text-right text-gray-600">{line.remainingAmount.toLocaleString()}원</td>
+                        <td className="px-3 py-3 text-right">
+                          <input
+                            type="number"
+                            min={0}
+                            max={line.remainingAmount}
+                            value={allocationValue}
+                            onChange={(e) => setRefundAllocations((prev) => ({ ...prev, [key]: e.target.value }))}
+                            className={`w-32 rounded-lg border px-3 py-2 text-right text-sm focus:outline-none focus:ring-2 ${
+                              overAllocated
+                                ? 'border-red-300 text-red-600 focus:ring-red-200'
+                                : 'border-gray-200 text-gray-900 focus:ring-blue-500'
+                            }`}
+                          />
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+            <div className={`flex justify-end text-sm font-semibold ${allocationDiff === 0 ? 'text-gray-700' : 'text-red-600'}`}>
+              배분 합계 {allocationTotal.toLocaleString()}원 / 최종 환불액 {refundAmount.toLocaleString()}원
+              {allocationDiff !== 0 ? ` (차액 ${allocationDiff.toLocaleString()}원)` : ''}
+            </div>
           </div>
 
           <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm">
             <p className="font-medium text-amber-900">환불 계산 요약</p>
-            <div className="mt-3 grid gap-2 text-xs text-amber-900 md:grid-cols-3">
+            <div className="mt-3 grid gap-2 text-xs text-amber-900 md:grid-cols-4">
               <div className="rounded-md bg-white/70 px-3 py-2">
                 <p className="text-amber-700">원결제금액</p>
                 <p className="mt-1 font-semibold">{selected.amount.toLocaleString()}원</p>
+              </div>
+              <div className="rounded-md bg-white/70 px-3 py-2">
+                <p className="text-amber-700">기환불 누계</p>
+                <p className="mt-1 font-semibold">{effectivePreviousRefundAmount.toLocaleString()}원</p>
+                {storedPreviousRefundAmount > 0 && (
+                  <p className="mt-1 text-[11px] text-amber-700">DB 기준 {storedPreviousRefundAmount.toLocaleString()}원</p>
+                )}
               </div>
               <div className="rounded-md bg-white/70 px-3 py-2">
                 <p className="text-amber-700">계산 환불 가능액</p>
@@ -492,7 +988,7 @@ export default function CancelRefundPage() {
               </div>
             </div>
             <p className="mt-2 text-xs text-amber-800">
-              클라이언트 환불 정책이 확정되기 전에는 아래 수기 입력값을 기준으로 환불 가능액을 계산하고, 조정 사유를 이력에 남깁니다.
+              클라이언트 환불 정책이 확정되기 전에는 수기 입력값을 기준으로 환불 가능액을 계산하고, 실제 배분은 상품별 수납 행 잔여 가능액을 초과할 수 없습니다.
             </p>
           </div>
 
@@ -506,7 +1002,7 @@ export default function CancelRefundPage() {
               {[
                 ['usedDeductionAmount', '기사용 차감금'],
                 ['penaltyAmount', '위약금'],
-                ['previousRefundAmount', '기환불 누계'],
+                ['previousRefundAmount', '기환불 누계 수기 보정'],
                 ['availableRefundAmount', '이번 환불 가능액 조정'],
               ].map(([key, label]) => (
                 <label key={key} className="space-y-1 text-xs font-medium text-gray-600">
@@ -537,99 +1033,6 @@ export default function CancelRefundPage() {
             </label>
           </div>
 
-          {/* SAL-EXT-04-11: 수납행 취소 / 상품 환불 구분 */}
-          <div className="space-y-2">
-            <p className="text-sm font-medium text-gray-700">처리 구분</p>
-            <div className="grid gap-3 md:grid-cols-2">
-              {([
-                ['receiptCancel', '수납행 취소', '결제수단 변경·승인 취소 등 상품 계약은 유지. 취소 배분액을 즉시 미수금으로 전환합니다.'],
-                ['productRefund', '상품 환불 / 계약 취소', '상품 해지·이용권 환불. 매출과 계약을 줄이고 자동 미수금을 만들지 않습니다.'],
-              ] as [RefundScope, string, string][]).map(([val, label, desc]) => (
-                <button
-                  key={val}
-                  onClick={() => setRefundScope(val)}
-                  className={`text-left rounded-lg border p-3 transition-colors ${
-                    refundScope === val
-                      ? 'border-blue-600 bg-blue-50'
-                      : 'border-gray-200 bg-white hover:border-gray-300'
-                  }`}
-                >
-                  <p className={`text-sm font-semibold ${refundScope === val ? 'text-blue-700' : 'text-gray-700'}`}>{label}</p>
-                  <p className="mt-1 text-xs text-gray-500">{desc}</p>
-                </button>
-              ))}
-            </div>
-            {refundScope === 'receiptCancel' && (
-              <p className="text-xs text-amber-700 flex items-center gap-1">
-                <AlertTriangle className="w-3 h-3" /> 취소 금액은 미수금으로 남습니다. 재결제 시 완납 처리됩니다.
-              </p>
-            )}
-          </div>
-
-          {/* 혼합결제 환불 분해표 */}
-          <div className="space-y-2 rounded-lg border border-gray-200 p-4">
-            <p className="text-sm font-semibold text-gray-800">혼합결제 환불 분해표</p>
-            <p className="text-xs text-gray-500">
-              내부 승인번호 기준 결제수단별 원수납액·기환불액·이번 환불 배분액·잔여 환불 가능액을 확인합니다. 자동 분해 정책 확정 전에는 수기로 배분합니다.
-            </p>
-            <div className="overflow-hidden rounded-lg border border-gray-100">
-              <table className="w-full text-xs">
-                <thead className="bg-gray-50 text-gray-600">
-                  <tr>
-                    <th className="px-3 py-2 text-left font-medium">수단</th>
-                    <th className="px-3 py-2 text-right font-medium">원수납액</th>
-                    <th className="px-3 py-2 text-right font-medium">기환불액</th>
-                    <th className="px-3 py-2 text-right font-medium">이번 환불 배분</th>
-                    <th className="px-3 py-2 text-right font-medium">잔여 가능액</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-100">
-                  {breakdownRows.map((row) => {
-                    const remaining = row.originalAmount - row.previousRefund - row.thisRefund;
-                    return (
-                      <tr key={row.method} className={row.originalAmount === 0 ? 'text-gray-300' : ''}>
-                        <td className="px-3 py-2 text-gray-700">{row.label}</td>
-                        <td className="px-3 py-2 text-right tabular-nums">{row.originalAmount.toLocaleString()}</td>
-                        <td className="px-3 py-2 text-right tabular-nums">{row.previousRefund.toLocaleString()}</td>
-                        <td className="px-3 py-2 text-right">
-                          <input
-                            type="number"
-                            min={0}
-                            max={row.originalAmount - row.previousRefund}
-                            value={row.thisRefund || ''}
-                            onChange={(e) => updateBreakdownRow(row.method, Number(e.target.value))}
-                            disabled={row.originalAmount === 0}
-                            placeholder="0"
-                            className="w-24 rounded border border-gray-200 px-2 py-1 text-right tabular-nums focus:outline-none focus:ring-1 focus:ring-blue-500 disabled:bg-gray-50 disabled:cursor-not-allowed"
-                          />
-                        </td>
-                        <td className={`px-3 py-2 text-right tabular-nums ${remaining < 0 ? 'text-red-500 font-semibold' : ''}`}>{remaining.toLocaleString()}</td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-                <tfoot className="bg-gray-50 font-semibold text-gray-800">
-                  <tr>
-                    <td className="px-3 py-2">합계 (이번 환불 배분)</td>
-                    <td colSpan={2}></td>
-                    <td className="px-3 py-2 text-right tabular-nums">{breakdownThisRefundTotal.toLocaleString()}</td>
-                    <td></td>
-                  </tr>
-                </tfoot>
-              </table>
-            </div>
-          </div>
-
-          {/* 쿠폰/마일리지 복원 요약 */}
-          <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-4 text-sm">
-            <p className="font-semibold text-emerald-900">쿠폰/마일리지 복원 요약</p>
-            <ul className="mt-2 space-y-1 text-xs text-emerald-800">
-              <li>· 사용 마일리지(포인트) 우선 복원: <span className="font-semibold">{mileageRestoreAmount.toLocaleString()}P</span></li>
-              <li>· 사용 쿠폰: 미사용 상태로 복원</li>
-              <li>· 복원 대상·금액·상태는 처리 전 최종 확인 팝업에서 확인합니다.</li>
-            </ul>
-          </div>
-
           {/* 처리 유형 선택 */}
           <div className="space-y-2">
             <p className="text-sm font-medium text-gray-700">처리 유형</p>
@@ -637,7 +1040,7 @@ export default function CancelRefundPage() {
               {([['cancel', '전체 취소'], ['partial', '부분 환불']] as const).map(([val, label]) => (
                 <button
                   key={val}
-                  onClick={() => setAction(val)}
+                  onClick={() => handleActionChange(val)}
                   className={`flex-1 py-2.5 rounded-lg text-sm font-medium border transition-colors ${
                     action === val
                       ? 'border-blue-600 bg-blue-50 text-blue-700'
@@ -650,6 +1053,37 @@ export default function CancelRefundPage() {
             </div>
           </div>
 
+          <div className="space-y-2">
+            <p className="text-sm font-medium text-gray-700">처리 목적</p>
+            <div className="grid gap-3 md:grid-cols-2">
+              {([
+                ['PRODUCT_REFUND', '상품 환불 / 계약 취소', '매출과 계약을 줄이고 자동 미수금은 만들지 않습니다.'],
+                ['COLLECTION_CANCEL', '수납행 취소 / 계약 유지', '취소 수납금액을 같은 상품의 미수금으로 전환합니다.'],
+              ] as const).map(([value, label, description]) => (
+                <button
+                  key={value}
+                  type="button"
+                  onClick={() => handleSettlementModeChange(value)}
+                  className={`rounded-lg border px-4 py-3 text-left transition-colors ${
+                    settlementMode === value
+                      ? value === 'COLLECTION_CANCEL'
+                        ? 'border-amber-400 bg-amber-50 text-amber-900'
+                        : 'border-blue-600 bg-blue-50 text-blue-700'
+                      : 'border-gray-200 bg-white text-gray-600 hover:border-gray-300'
+                  }`}
+                >
+                  <p className="text-sm font-semibold">{label}</p>
+                  <p className="mt-1 text-xs opacity-80">{description}</p>
+                </button>
+              ))}
+            </div>
+            {settlementMode === 'COLLECTION_CANCEL' && (
+              <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-xs text-amber-900">
+                수납행 취소로 완료 처리하면 배분 합계 {allocationTotal.toLocaleString()}원이 미수금으로 생성됩니다. 상품 해지·이용권 환불이면 상품 환불 / 계약 취소를 선택해야 합니다.
+              </div>
+            )}
+          </div>
+
           {/* 부분 환불 금액 */}
           {action === 'partial' && (
             <div className="space-y-1">
@@ -658,7 +1092,7 @@ export default function CancelRefundPage() {
                 <input
                   type="number"
                   value={partialAmount}
-                  onChange={(e) => setPartialAmount(e.target.value)}
+                  onChange={(e) => handlePartialAmountChange(e.target.value)}
                   placeholder="환불할 금액 입력"
                   max={selected.amount}
                   className="w-full px-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -703,6 +1137,7 @@ export default function CancelRefundPage() {
               <select
                 value={manualPolicy.refundMethod}
                 onChange={(e) => updateManualPolicy('refundMethod', e.target.value as RefundMethod)}
+                disabled={settlementMode === 'COLLECTION_CANCEL'}
                 className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2.5 text-sm font-normal focus:outline-none focus:ring-2 focus:ring-blue-500"
               >
                 <option value="ORIGINAL">원결제 수단 기준</option>
@@ -712,6 +1147,9 @@ export default function CancelRefundPage() {
                 <option value="MILEAGE">포인트</option>
                 <option value="MIXED">혼합결제 수기 배분</option>
               </select>
+              {settlementMode === 'COLLECTION_CANCEL' && (
+                <p className="mt-1 text-xs font-normal text-amber-700">수납행 취소는 원수납 행의 카드/현금/계좌이체 수단 기준으로 기록합니다.</p>
+              )}
             </label>
             <label className="space-y-1 text-sm font-medium text-gray-700">
               <span>외부 처리 상태</span>
@@ -794,7 +1232,7 @@ export default function CancelRefundPage() {
             </button>
             <button
               onClick={handleOpenConfirm}
-              disabled={action === 'partial' && (!partialAmount || parseMoney(partialAmount) > confirmedAvailableAmount)}
+              disabled={(action === 'partial' && (!partialAmount || parseMoney(partialAmount) > confirmedAvailableAmount)) || allocationDiff !== 0}
               className="flex-1 py-2.5 bg-red-600 text-white rounded-lg text-sm font-medium hover:bg-red-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
             >
               {manualPolicy.processStatus === '완료' ? (action === 'cancel' ? '처리 확인' : '부분 환불 확인') : `${manualPolicy.processStatus} 기록`}
@@ -855,12 +1293,8 @@ export default function CancelRefundPage() {
                 <p className="mt-1 font-semibold text-gray-900">{action === 'cancel' ? '전체 취소' : '부분 환불'}</p>
               </div>
               <div className="rounded-lg border border-gray-100 p-3">
-                <p className="text-gray-500">처리 구분</p>
-                <p className="mt-1 font-semibold text-gray-900">{refundScope === 'receiptCancel' ? '수납행 취소' : '상품 환불/계약 취소'}</p>
-              </div>
-              <div className="rounded-lg border border-gray-100 p-3">
-                <p className="text-gray-500">마일리지 복원</p>
-                <p className="mt-1 font-semibold text-gray-900">{mileageRestoreAmount.toLocaleString()}P</p>
+                <p className="text-gray-500">처리 목적</p>
+                <p className="mt-1 font-semibold text-gray-900">{settlementMode === 'COLLECTION_CANCEL' ? '수납행 취소 / 미수 전환' : '상품 환불 / 계약 취소'}</p>
               </div>
               <div className="rounded-lg border border-gray-100 p-3">
                 <p className="text-gray-500">환불 금액</p>
@@ -883,6 +1317,26 @@ export default function CancelRefundPage() {
                 <p className="mt-1 font-semibold text-gray-900">{manualPolicy.processStatus}</p>
               </div>
             </div>
+            <div className="rounded-lg border border-gray-100 p-3 text-xs">
+              <p className="text-gray-500">상품별 취소/환불 배분</p>
+              <div className="mt-2 space-y-1">
+                {selected.paymentLines
+                  .map((line) => ({ line, amount: parseMoney(refundAllocations[paymentLineKey(line)] ?? '') }))
+                  .filter(({ amount }) => amount > 0)
+                  .map(({ line, amount }) => (
+                    <div key={paymentLineKey(line)} className="flex items-center justify-between gap-3">
+                      <span className="truncate text-gray-700">{line.productName} / {METHOD_KO[line.method] ?? line.method}</span>
+                      <span className="font-semibold text-gray-900">{amount.toLocaleString()}원</span>
+                    </div>
+                  ))}
+              </div>
+            </div>
+            {settlementMode === 'COLLECTION_CANCEL' && manualPolicy.processStatus === '완료' && (
+              <div className="rounded-lg border border-amber-100 bg-amber-50 p-3 text-xs text-amber-900">
+                <p className="font-semibold">미수금 전환 확인</p>
+                <p className="mt-1">처리 완료 시 취소 수납금액 {refundAmount.toLocaleString()}원이 같은 상품의 미수금으로 생성됩니다.</p>
+              </div>
+            )}
             {manualPolicy.adjustmentReason.trim() && (
               <div className="rounded-lg border border-gray-100 p-3 text-xs">
                 <p className="text-gray-500">조정 사유</p>
@@ -892,7 +1346,7 @@ export default function CancelRefundPage() {
           </div>
         )}
       </ConfirmDialog>
-      </div>
+    </div>
     </AppLayout>
   );
 }

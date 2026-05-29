@@ -26,9 +26,6 @@ export default function PageHeader({
       )}
       <div className="flex flex-col gap-md lg:flex-row lg:items-start lg:justify-between">
         <div className="min-w-[160px] max-w-[860px]">
-          <div className="mb-sm flex items-center gap-sm">
-            <span className="app-chip text-primary">Screen Publishing</span>
-          </div>
           <h1 className="text-Page-Title text-content">{title}</h1>
           {description && (
             <p className="mt-[6px] text-[13px] leading-6 text-content-secondary">{description}</p>

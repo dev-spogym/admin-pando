@@ -13,7 +13,6 @@ import {
   EyeOff,
   Loader2,
   ClipboardList,
-  LayoutGrid,
 } from "lucide-react";
 import { toast } from "sonner";
 import { moveToPage } from "@/internal";
@@ -280,18 +279,6 @@ const AppHeader = ({
 
       {/* ── Right ── */}
       <div className="flex items-center gap-sm">
-        <div className="relative group">
-          <button
-            className="flex h-9 w-9 items-center justify-center rounded-xl text-content-secondary transition-colors hover:bg-white/75 hover:text-content"
-            onClick={() => window.location.assign('/publishing')}
-          >
-            <LayoutGrid size={18} />
-          </button>
-          <span className="absolute -bottom-8 left-1/2 z-50 -translate-x-1/2 whitespace-nowrap rounded bg-content px-2 py-1 text-[11px] text-white opacity-0 transition-opacity pointer-events-none group-hover:opacity-100">
-            퍼블리싱 갤러리
-          </span>
-        </div>
-
         {/* ── 화면설계서 모드 토글 ── */}
         <div className="relative group">
           <button

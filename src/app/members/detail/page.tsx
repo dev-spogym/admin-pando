@@ -123,6 +123,10 @@ type SaleRecord = {
   id: number;
   saleDate: string | null;
   itemName: string | null;
+  productName?: string | null;
+  type?: string | null;
+  paymentType?: string | null;
+  saleCategory?: string | null;
   amount: number;
   salePrice: number;
   originalPrice: number;
@@ -134,6 +138,32 @@ type SaleRecord = {
   paymentMethod: string | null;
   status: string | null;
 };
+
+function isRefundHistoryRow(row: SaleRecord) {
+  const status = String(row.status ?? "").trim().toUpperCase();
+  const text = [
+    row.status,
+    row.type,
+    row.paymentType,
+    row.saleCategory,
+  ].map((value) => String(value ?? ""));
+
+  return status.startsWith("REFUND")
+    || status === "REFUNDED"
+    || text.some((value) => value.includes("환불") || value.includes("취소"));
+}
+
+function isRefundablePaymentRow(row: SaleRecord) {
+  const status = String(row.status ?? "").trim();
+  const statusKey = status.toUpperCase();
+
+  if (Number(row.salePrice) <= 0) return false;
+  if (isRefundHistoryRow(row)) return false;
+  if (statusKey === "UNPAID" || statusKey === "PENDING" || status.includes("미납") || status.includes("대기")) return false;
+  if (status && statusKey !== "COMPLETED" && status !== "완료") return false;
+
+  return true;
+}
 
 type AttendanceRecord = {
   id: number;
@@ -650,9 +680,9 @@ function TabAttendance({ attendances }: { attendances: AttendanceRecord[] }) {
 }
 
 // UI-025 결제 탭
-function TabPayment({ sales, memberId, memberName }: { sales: SaleRecord[]; memberId: string | null; memberName: string }) {
+function TabPayment({ sales }: { sales: SaleRecord[]; memberId: string | null; memberName: string }) {
+  const router = useRouter();
   const [page, setPage] = useState(1);
-  const [refundTarget, setRefundTarget] = useState<SaleRecord | null>(null);
   const [detailTarget, setDetailTarget] = useState<SaleRecord | null>(null);
   const PAGE_SIZE = 3;
   const paged = sales.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
@@ -694,12 +724,14 @@ function TabPayment({ sales, memberId, memberName }: { sales: SaleRecord[]; memb
           >
             상세
           </button>
-          <button
-            className="text-[11px] px-sm py-xs rounded border border-state-error/40 text-state-error hover:bg-red-50 transition-colors"
-            onClick={() => setRefundTarget(row)}
-          >
-            환불
-          </button>
+          {isRefundablePaymentRow(row) && (
+            <button
+              className="text-[11px] px-sm py-xs rounded border border-state-error/40 text-state-error hover:bg-red-50 transition-colors"
+              onClick={() => router.push(`/sales/cancel-refund?saleId=${row.id}`)}
+            >
+              환불
+            </button>
+          )}
         </div>
       ),
     },
@@ -714,43 +746,6 @@ function TabPayment({ sales, memberId, memberName }: { sales: SaleRecord[]; memb
         pagination={{ page, pageSize: PAGE_SIZE, total: sales.length }}
         onPageChange={setPage}
         emptyMessage="결제 이력이 없습니다."
-      />
-
-      {/* 환불 확인 다이얼로그 */}
-      <ConfirmDialog
-        open={refundTarget !== null}
-        title="환불 처리"
-        description={`[${refundTarget?.itemName}] ${formatNumber(Number(refundTarget?.salePrice))}원 결제 건을 환불 처리하시겠습니까?`}
-        confirmLabel="환불 처리"
-        variant="danger"
-        onConfirm={async () => {
-          if (!refundTarget) return;
-          // 환불 레코드를 sales 테이블에 저장 (음수 금액)
-          const { error } = await supabase.from('sales').insert({
-            branchId: Number(typeof window !== 'undefined' ? localStorage.getItem('branchId') : '1'),
-            memberId: Number(memberId),
-            memberName: memberName,
-            productName: refundTarget.itemName,
-            type: '환불',
-            amount: -Math.abs(Number(refundTarget.salePrice)),
-            salePrice: -Math.abs(Number(refundTarget.salePrice)),
-            originalPrice: Number(refundTarget.originalPrice),
-            discountPrice: 0,
-            paymentMethod: (refundTarget.paymentMethod as 'CARD' | 'CASH' | 'TRANSFER' | 'MILEAGE') ?? 'CARD',
-            status: 'REFUNDED',
-            saleDate: new Date().toISOString(),
-            memo: `환불: ${refundTarget.itemName}`,
-          });
-          if (error) {
-            toast.error(`환불 처리 실패: ${error.message}`);
-            return;
-          }
-          // 원본 결제 건 상태를 REFUNDED로 업데이트
-          await supabase.from('sales').update({ status: 'REFUNDED' }).eq('id', refundTarget.id);
-          toast.success("환불 처리가 완료되었습니다.");
-          setRefundTarget(null);
-        }}
-        onCancel={() => setRefundTarget(null)}
       />
 
       {/* 결제 상세 모달 */}
@@ -2324,7 +2319,7 @@ function MemberDetail() {
                 memberName={member.name}
                 onRefresh={async () => {
                   const { data } = await supabase
-                    .from("sale")
+                    .from("sales")
                     .select("*")
                     .eq("memberId", memberId)
                     .order("saleDate", { ascending: false });

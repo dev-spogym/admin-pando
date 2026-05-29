@@ -23,6 +23,7 @@ export interface NavigationLeafItem {
   label: string;
   path: string;
   viewId?: number;
+  scope?: "v2";
 }
 
 export interface NavigationMenuItem extends NavigationLeafItem {
@@ -82,8 +83,8 @@ export const APP_MENU_ITEMS: NavigationMenuItem[] = [
       { label: "강사 현황", path: "/instructor-status" },
       { label: "대기열 관리", path: "/class-waitlist" },
       { label: "수업 평가", path: "/class-feedback" },
-      { label: "QR 체크인", path: "/attendance/qr" },
-      { label: "수업 녹화", path: "/class-recording" },
+      { label: "수업 출석/완료 확인", path: "/attendance/lesson-completion" },
+      { label: "수업 녹화 V2/후속", path: "/class-recording", scope: "v2" },
     ],
   },
   {
@@ -99,6 +100,7 @@ export const APP_MENU_ITEMS: NavigationMenuItem[] = [
       { label: "선수익금", path: "/deferred-revenue" },
       { label: "POS 결제", path: "/pos", viewId: 971 },
       { label: "현장 판매", path: "/pos/payment", viewId: 982 },
+      { label: "결제 취소 / 부분 환불", path: "/sales/cancel-refund" },
       { label: "환불 관리", path: "/refunds" },
       { label: "미수금 관리", path: "/unpaid" },
     ],
@@ -109,9 +111,9 @@ export const APP_MENU_ITEMS: NavigationMenuItem[] = [
     path: "/products",
     children: [
       { label: "상품 관리", path: "/products", viewId: 972 },
-      { label: "상품 카탈로그", path: "/products/catalog" },
-      { label: "상품 비교", path: "/products/compare" },
-      { label: "재고 관리", path: "/products/inventory" },
+      { label: "상품 카탈로그 V2/후속", path: "/products/catalog", scope: "v2" },
+      { label: "상품 비교 V2/후속", path: "/products/compare", scope: "v2" },
+      { label: "재고 관리 D06/후속", path: "/products/inventory", scope: "v2" },
       { label: "시즌 가격", path: "/products/seasonal-price" },
       { label: "할인 설정", path: "/discount-settings" },
     ],
@@ -126,7 +128,7 @@ export const APP_MENU_ITEMS: NavigationMenuItem[] = [
       { label: "밴드/카드", path: "/rfid", viewId: 979 },
       { label: "운동룸", path: "/rooms", viewId: 978 },
       { label: "골프 타석", path: "/golf-bays" },
-      { label: "운동복", path: "/clothing" },
+      { label: "상품 재고", path: "/facility/inventory" },
       { label: "옷 보관함", path: "/clothing-locker" },
       { label: "장비 점검", path: "/equipment-check" },
       { label: "소모품 재고", path: "/consumables" },

@@ -204,7 +204,7 @@ const AppSidebar: React.FC<AppSidebarProps> = ({
               </div>
               <div className="flex min-w-0 flex-col">
                 <span className="truncate text-[15px] font-black tracking-tight text-content">FitGenie CRM</span>
-                <span className="text-[11px] font-medium text-content-tertiary">Publishing Workspace</span>
+                <span className="text-[11px] font-medium text-content-tertiary">운영 관리자</span>
               </div>
             </div>
             <NotificationCenter collapsed={false} />
@@ -376,9 +376,12 @@ const AppSidebar: React.FC<AppSidebarProps> = ({
                       key={child.label}
                       className={cn(
                         "flex h-[32px] w-full items-center rounded-lg px-[10px] text-[12px] transition-all",
+                        child.scope === "v2" && "border border-red-200 bg-red-50/60 text-red-700 hover:bg-red-50 hover:text-red-800",
                         activePath === child.path
-                          ? "bg-primary-light/60 text-primary font-semibold"
-                          : "text-content-secondary hover:bg-white/70 hover:text-content"
+                          ? child.scope === "v2"
+                            ? "bg-red-100 text-red-800 font-semibold"
+                            : "bg-primary-light/60 text-primary font-semibold"
+                          : child.scope !== "v2" && "text-content-secondary hover:bg-white/70 hover:text-content"
                       )}
                       onClick={() => handleNavigate(child.path, child.viewId)}
                     >

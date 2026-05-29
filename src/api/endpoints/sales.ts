@@ -5,6 +5,8 @@ import { supabase } from '../../lib/supabase';
 import { createAuditLog, AUDIT_ACTIONS } from './auditLog';
 import type { ApiResponse, PaginatedResponse, PaginationParams } from '../types';
 
+type SaleStatus = 'COMPLETED' | 'UNPAID' | 'REFUNDED' | 'REFUND_REQUESTED' | 'REFUND_PENDING' | 'REFUND_REJECTED' | 'PENDING';
+
 /** branchId 가져오기 */
 const getBranchId = (): number => { if (typeof window === "undefined") return 1;
   const stored = localStorage.getItem('branchId');
@@ -26,7 +28,7 @@ export interface Sale {
   salePrice?: number;
   discountPrice?: number;
   amount: number;
-  paymentMethod: 'CARD' | 'CASH' | 'TRANSFER' | 'MILEAGE';
+  paymentMethod: 'CARD' | 'CASH' | 'TRANSFER' | 'MILEAGE' | 'MIXED';
   paymentType?: string;
   cash?: number;
   card?: number;
@@ -34,7 +36,7 @@ export interface Sale {
   cardCompany?: string;
   cardNumber?: string;
   approvalNo?: string;
-  status: 'COMPLETED' | 'UNPAID' | 'REFUNDED' | 'PENDING';
+  status: SaleStatus;
   unpaid?: number;
   staffId?: number;
   staffName?: string;
@@ -52,7 +54,7 @@ export interface SaleRequest {
   salePrice?: number;
   originalPrice?: number;
   discountPrice?: number;
-  paymentMethod: 'CARD' | 'CASH' | 'TRANSFER' | 'MILEAGE';
+  paymentMethod: 'CARD' | 'CASH' | 'TRANSFER' | 'MILEAGE' | 'MIXED';
   paymentType?: string;
   cash?: number;
   card?: number;
@@ -60,7 +62,7 @@ export interface SaleRequest {
   cardCompany?: string;
   cardNumber?: string;
   approvalNo?: string;
-  status?: 'COMPLETED' | 'UNPAID' | 'REFUNDED' | 'PENDING';
+  status?: SaleStatus;
   unpaid?: number;
   staffId?: number;
   staffName?: string;

@@ -44,6 +44,8 @@ interface PaymentLinkModalProps {
   target: PaymentLinkTarget | null;
   /** 발송 액션 권한 (Owner/manager/fc). false면 액션 차단 안내 */
   canSend?: boolean;
+  /** V1 화면에 후속 범위를 노출만 해야 하는 경우 */
+  v2Only?: boolean;
   /** 발송 완료 콜백 (호스트 화면 이력 갱신용) */
   onSent?: (channel: Channel) => void;
 }
@@ -68,6 +70,7 @@ export default function PaymentLinkModal({
   onClose,
   target,
   canSend = true,
+  v2Only = false,
   onSent,
 }: PaymentLinkModalProps) {
   const [channel, setChannel] = useState<Channel>('app');
@@ -90,9 +93,13 @@ export default function PaymentLinkModal({
   // 예외처리: 0원 결제 / 회원 비활성·탈퇴 / 연락처 무효
   const zeroAmount = target.amount <= 0;
   const noPhone = !target.phone?.trim();
-  const blocked = hasActiveLink || zeroAmount || target.inactive || noPhone || !canSend;
+  const blocked = v2Only || hasActiveLink || zeroAmount || target.inactive || noPhone || !canSend;
 
   const handleSend = async () => {
+    if (v2Only) {
+      toast.info('결제링크 발송은 V2/후속 범위입니다.');
+      return;
+    }
     if (!canSend) {
       toast.error('결제링크 발송 권한이 없습니다.');
       return;
@@ -125,20 +132,26 @@ export default function PaymentLinkModal({
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      title="결제링크 발송"
+      title={v2Only ? '결제링크 발송 (V2/후속)' : '결제링크 발송'}
       size="lg"
       footer={
         <div className="flex justify-end gap-sm">
           <Button variant="outline" size="sm" onClick={onClose}>
             취소
           </Button>
-          <Button variant="primary" size="sm" icon={<Link2 size={14} />} loading={sending} disabled={blocked} onClick={handleSend}>
-            발송
+          <Button variant={v2Only ? 'danger' : 'primary'} size="sm" icon={<Link2 size={14} />} loading={sending} disabled={blocked} onClick={handleSend}>
+            {v2Only ? 'V2/후속 범위' : '발송'}
           </Button>
         </div>
       }
     >
       <div className="space-y-md">
+        {v2Only && (
+          <div className="rounded-xl border border-red-200 bg-red-50 p-md text-[12px] font-medium leading-relaxed text-red-700">
+            PG 결제링크, webhook 자동 반영, 자동 만료 알림은 V1 확정 구현 범위가 아닙니다. 현재 화면에서는 후속 범위 항목임을 식별하기 위한 정보만 표시합니다.
+          </div>
+        )}
+
         {/* 회원 정보 */}
         <div className="rounded-xl border border-line bg-surface-secondary/50 p-md">
           <div className="flex items-center justify-between">
@@ -208,7 +221,7 @@ export default function PaymentLinkModal({
         {zeroAmount && <p className="text-[12px] text-state-error">최종 결제 금액이 0원입니다. 무료 등록 플로우를 이용하세요.</p>}
         {noPhone && !zeroAmount && <p className="text-[12px] text-state-error">연락처를 확인해주세요.</p>}
         {target.inactive && <p className="text-[12px] text-state-error">결제 가능한 회원이 아닙니다.</p>}
-        {!canSend && <p className="text-[12px] text-state-error">결제링크 발송 권한이 없습니다. 매니저에게 요청하세요.</p>}
+        {!v2Only && !canSend && <p className="text-[12px] text-state-error">결제링크 발송 권한이 없습니다. 매니저에게 요청하세요.</p>}
       </div>
     </Modal>
   );

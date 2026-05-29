@@ -248,7 +248,7 @@ export default function SeasonalPricingPage() {
             onClick={() => void reload(true)}
             type="button"
           >
-            <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} /> seed 갱신
+            <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} /> 자료 새로고침
           </button>
           <button onClick={openCreate} type="button" className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700">
             <Plus className="w-4 h-4" /> 시즌 특가 등록
@@ -257,8 +257,8 @@ export default function SeasonalPricingPage() {
       } />
 
       <div className="mb-4 rounded-xl border border-blue-100 bg-blue-50 px-4 py-3 text-xs text-blue-700">
-        Supabase snapshot · 지점 {branchId} · 기준일 {snapshotDate ?? '-'}
-        {error && <span className="ml-2 text-red-600">Fallback 사용: {error}</span>}
+        지점 {branchId} · 기준일 {snapshotDate ?? '-'}
+        {error && <span className="ml-2 text-red-600">임시 자료 사용: {error}</span>}
       </div>
 
       {/* 진행 중 시즌 배너 */}

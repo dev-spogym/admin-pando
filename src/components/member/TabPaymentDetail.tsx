@@ -1,12 +1,11 @@
 // 결제내역 탭 — BROJ CRM 스타일 (통계카드 + 상세 테이블)
-import React, { useState } from "react";
-import { toast } from "sonner";
+import React, { useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import { X } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import StatusBadge from "@/components/common/StatusBadge";
 import StatCard from "@/components/common/StatCard";
 import DataTable from "@/components/common/DataTable";
-import ConfirmDialog from "@/components/ui/ConfirmDialog";
 import { CreditCard, Receipt, AlertCircle, RefreshCcw } from "lucide-react";
 
 type SaleRecord = {
@@ -15,6 +14,13 @@ type SaleRecord = {
   itemName: string | null;
   productName?: string | null;
   type?: string | null;
+  paymentType?: string | null;
+  saleCategory?: string | null;
+  approvalNo?: string | null;
+  memo?: string | null;
+  staffName?: string | null;
+  cardCompany?: string | null;
+  cardNumber?: string | null;
   amount: number;
   salePrice: number;
   originalPrice: number;
@@ -34,21 +40,187 @@ interface Props {
   onRefresh?: () => void;
 }
 
-export default function TabPaymentDetail({ sales, memberId, memberName, onRefresh }: Props) {
+type PaymentLine = {
+  id: number;
+  saleId: number;
+  productName: string;
+  method: string;
+  amount: number;
+  refundedAmount: number;
+  approvalNo: string | null;
+  terminalId: string | null;
+  externalTransactionId: string | null;
+  bankPayerName: string | null;
+  transferConfirmNo: string | null;
+  cashReceiptIssued: boolean | null;
+  cashReceiptType: string | null;
+  cashReceiptIdentifier: string | null;
+  memo: string | null;
+  lineType: string | null;
+};
+
+const METHOD_KO: Record<string, string> = {
+  CARD: "카드",
+  CASH: "현금",
+  TRANSFER: "계좌이체",
+  MILEAGE: "포인트",
+  MIXED: "혼합결제",
+};
+
+const isRefundHistoryRow = (row: SaleRecord) => {
+  const status = String(row.status ?? "").trim().toUpperCase();
+  const text = [
+    row.status,
+    row.type,
+    row.paymentType,
+    row.saleCategory,
+  ].map((value) => String(value ?? ""));
+
+  return status.startsWith("REFUND")
+    || status === "REFUNDED"
+    || text.some((value) => value.includes("환불") || value.includes("취소"));
+};
+
+const isRefundablePaymentRow = (row: SaleRecord) => {
+  const status = String(row.status ?? "").trim();
+  const statusKey = status.toUpperCase();
+
+  if (Number(row.salePrice) <= 0) return false;
+  if (isRefundHistoryRow(row)) return false;
+  if (statusKey === "UNPAID" || statusKey === "PENDING" || status.includes("미납") || status.includes("대기")) return false;
+  if (status && statusKey !== "COMPLETED" && status !== "완료") return false;
+
+  return true;
+};
+
+const formatKRW = (value: number) => `${Number(value || 0).toLocaleString()}원`;
+
+const fallbackInternalApprovalNo = (sale: SaleRecord) => {
+  const memoMatch = String(sale.memo ?? "").match(/CRM 내부 승인번호:\s*([^\n]+)/);
+  if (memoMatch?.[1]) return memoMatch[1].trim();
+  return sale.approvalNo || `SALE-${sale.id}`;
+};
+
+const extractReceiptUrl = (memo?: string | null) => {
+  const match = String(memo ?? "").match(/영수증:\s*.+?\((https?:\/\/[^)\s]+)\)/);
+  return match?.[1] ?? null;
+};
+
+export default function TabPaymentDetail({ sales }: Props) {
+  const router = useRouter();
   const [page, setPage] = useState(1);
-  const [refundTarget, setRefundTarget] = useState<SaleRecord | null>(null);
   const [detailTarget, setDetailTarget] = useState<SaleRecord | null>(null);
+  const [paymentLinesBySaleId, setPaymentLinesBySaleId] = useState<Record<number, PaymentLine[]>>({});
   const PAGE_SIZE = 10;
   const paged = sales.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
+  useEffect(() => {
+    const saleIds = sales.map((sale) => sale.id).filter((id) => Number.isFinite(id));
+    if (saleIds.length === 0) {
+      setPaymentLinesBySaleId({});
+      return;
+    }
+
+    let cancelled = false;
+
+    const fetchPaymentLines = async () => {
+      const { data, error } = await supabase
+        .from("sale_payment_lines")
+        .select("id, saleId, productName, method, amount, refundedAmount, approvalNo, terminalId, externalTransactionId, bankPayerName, transferConfirmNo, cashReceiptIssued, cashReceiptType, cashReceiptIdentifier, memo, lineType")
+        .in("saleId", saleIds)
+        .order("id", { ascending: true });
+
+      if (cancelled) return;
+
+      if (error) {
+        console.warn("상품별 수납 행 조회 실패:", error.message);
+        setPaymentLinesBySaleId({});
+        return;
+      }
+
+      const grouped = (data ?? []).reduce<Record<number, PaymentLine[]>>((acc, row: Record<string, unknown>) => {
+        const saleId = Number(row.saleId);
+        if (!Number.isFinite(saleId)) return acc;
+        const line: PaymentLine = {
+          id: Number(row.id),
+          saleId,
+          productName: String(row.productName ?? "상품 미지정"),
+          method: String(row.method ?? "CARD"),
+          amount: Number(row.amount) || 0,
+          refundedAmount: Number(row.refundedAmount) || 0,
+          approvalNo: row.approvalNo == null ? null : String(row.approvalNo),
+          terminalId: row.terminalId == null ? null : String(row.terminalId),
+          externalTransactionId: row.externalTransactionId == null ? null : String(row.externalTransactionId),
+          bankPayerName: row.bankPayerName == null ? null : String(row.bankPayerName),
+          transferConfirmNo: row.transferConfirmNo == null ? null : String(row.transferConfirmNo),
+          cashReceiptIssued: row.cashReceiptIssued == null ? null : Boolean(row.cashReceiptIssued),
+          cashReceiptType: row.cashReceiptType == null ? null : String(row.cashReceiptType),
+          cashReceiptIdentifier: row.cashReceiptIdentifier == null ? null : String(row.cashReceiptIdentifier),
+          memo: row.memo == null ? null : String(row.memo),
+          lineType: row.lineType == null ? null : String(row.lineType),
+        };
+        acc[saleId] = [...(acc[saleId] ?? []), line];
+        return acc;
+      }, {});
+
+      setPaymentLinesBySaleId(grouped);
+    };
+
+    fetchPaymentLines();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [sales]);
+
+  const detailPaymentLines = useMemo(() => {
+    if (!detailTarget) return [];
+    const lines = paymentLinesBySaleId[detailTarget.id] ?? [];
+    if (lines.length > 0) return lines;
+
+    const fallbackLines = [
+      { method: "CARD", amount: Number(detailTarget.card) || 0, productName: "카드 수납" },
+      { method: "CASH", amount: Number(detailTarget.cash) || 0, productName: "현금/계좌 수납" },
+      { method: "MILEAGE", amount: Number(detailTarget.mileageUsed) || 0, productName: "포인트 사용" },
+    ].filter((line) => line.amount > 0);
+
+    const baseLines = fallbackLines.length > 0
+      ? fallbackLines
+      : [{ method: detailTarget.paymentMethod || "CARD", amount: Number(detailTarget.salePrice) || 0, productName: detailTarget.productName || detailTarget.itemName || "상품 미지정" }];
+
+    return baseLines.map((line, index): PaymentLine => ({
+      id: -index - 1,
+      saleId: detailTarget.id,
+      productName: line.productName,
+      method: line.method,
+      amount: line.amount,
+      refundedAmount: 0,
+      approvalNo: detailTarget.approvalNo ?? null,
+      terminalId: null,
+      externalTransactionId: null,
+      bankPayerName: null,
+      transferConfirmNo: null,
+      cashReceiptIssued: null,
+      cashReceiptType: null,
+      cashReceiptIdentifier: null,
+      memo: null,
+      lineType: "PAYMENT",
+    }));
+  }, [detailTarget, paymentLinesBySaleId]);
+
+  const detailReceiptUrl = useMemo(() => {
+    if (!detailTarget) return null;
+    return extractReceiptUrl(detailTarget.memo);
+  }, [detailTarget]);
+
   // 통계 계산
-  const totalCount = sales.filter(s => s.status !== 'REFUNDED' && Number(s.salePrice) > 0).length;
+  const totalCount = sales.filter(isRefundablePaymentRow).length;
   const totalAmount = sales
-    .filter(s => s.status !== 'REFUNDED' && Number(s.salePrice) > 0)
+    .filter(isRefundablePaymentRow)
     .reduce((acc, s) => acc + Number(s.salePrice), 0);
   const totalUnpaid = sales.reduce((acc, s) => acc + Number(s.unpaid), 0);
   const totalRefund = sales
-    .filter(s => s.status === 'REFUNDED' || Number(s.salePrice) < 0)
+    .filter(s => isRefundHistoryRow(s) || Number(s.salePrice) < 0)
     .reduce((acc, s) => acc + Math.abs(Number(s.salePrice)), 0);
 
   // 분류 레이블 매핑
@@ -68,6 +240,13 @@ export default function TabPaymentDetail({ sales, memberId, memberName, onRefres
       key: "saleDate",
       header: "결제일",
       render: (v: string) => <span className="font-mono text-[12px]">{v ? v.slice(0, 10) : "-"}</span>,
+    },
+    {
+      key: "approvalNo",
+      header: "내부 승인번호",
+      render: (_: string, row: SaleRecord) => (
+        <span className="font-mono text-[12px] text-blue-700">{fallbackInternalApprovalNo(row)}</span>
+      ),
     },
     {
       key: "itemName",
@@ -123,8 +302,8 @@ export default function TabPaymentDetail({ sales, memberId, memberName, onRefres
       header: "상태",
       align: "center" as const,
       render: (v: string) => (
-        <StatusBadge variant={v === "REFUNDED" ? "error" : "success"} dot>
-          {v === "REFUNDED" ? "환불" : "완료"}
+        <StatusBadge variant={String(v).startsWith("REFUND") || v === "REFUNDED" ? "error" : v === "UNPAID" ? "warning" : "success"} dot>
+          {String(v).startsWith("REFUND") || v === "REFUNDED" ? "환불" : v === "UNPAID" ? "미납" : "완료"}
         </StatusBadge>
       ),
     },
@@ -140,10 +319,10 @@ export default function TabPaymentDetail({ sales, memberId, memberName, onRefres
           >
             상세
           </button>
-          {row.status !== "REFUNDED" && Number(row.salePrice) > 0 && (
+          {isRefundablePaymentRow(row) && (
             <button
               className="text-[11px] px-sm py-xs rounded border border-state-error/40 text-state-error hover:bg-red-50 transition-colors"
-              onClick={() => setRefundTarget(row)}
+              onClick={() => router.push(`/sales/cancel-refund?saleId=${row.id}`)}
             >
               환불
             </button>
@@ -193,46 +372,10 @@ export default function TabPaymentDetail({ sales, memberId, memberName, onRefres
         emptyMessage="결제 이력이 없습니다."
       />
 
-      {/* 환불 확인 다이얼로그 */}
-      <ConfirmDialog
-        open={refundTarget !== null}
-        title="환불 처리"
-        description={`[${refundTarget?.productName || refundTarget?.itemName}] ${Number(refundTarget?.salePrice).toLocaleString()}원 결제 건을 환불 처리하시겠습니까?`}
-        confirmLabel="환불 처리"
-        variant="danger"
-        onConfirm={async () => {
-          if (!refundTarget) return;
-          const { error } = await supabase.from("sale").insert({
-            branchId: Number(localStorage.getItem("branchId") || "1"),
-            memberId: Number(memberId),
-            memberName,
-            productName: refundTarget.productName || refundTarget.itemName,
-            type: "환불",
-            amount: -Math.abs(Number(refundTarget.salePrice)),
-            salePrice: -Math.abs(Number(refundTarget.salePrice)),
-            originalPrice: Number(refundTarget.originalPrice),
-            discountPrice: 0,
-            paymentMethod: (refundTarget.paymentMethod as "CARD" | "CASH" | "TRANSFER" | "MILEAGE") ?? "CARD",
-            status: "REFUNDED",
-            saleDate: new Date().toISOString(),
-            memo: `환불: ${refundTarget.productName || refundTarget.itemName}`,
-          });
-          if (error) {
-            toast.error(`환불 처리 실패: ${error.message}`);
-            return;
-          }
-          await supabase.from("sale").update({ status: "REFUNDED" }).eq("id", refundTarget.id);
-          toast.success("환불 처리가 완료되었습니다.");
-          setRefundTarget(null);
-          onRefresh?.();
-        }}
-        onCancel={() => setRefundTarget(null)}
-      />
-
       {/* 결제 상세 모달 */}
       {detailTarget && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
-          <div className="bg-surface rounded-xl border border-line shadow-lg w-full max-w-[400px] mx-md overflow-hidden">
+          <div className="bg-surface rounded-xl border border-line shadow-lg w-full max-w-[780px] mx-md max-h-[86vh] overflow-hidden flex flex-col">
             <div className="flex items-center justify-between px-lg py-md border-b border-line">
               <h2 className="text-Section-Title text-content font-bold">결제 상세</h2>
               <button
@@ -242,28 +385,104 @@ export default function TabPaymentDetail({ sales, memberId, memberName, onRefres
                 <X size={18} />
               </button>
             </div>
-            <div className="p-lg space-y-sm">
-              {[
-                { label: "상품명", value: detailTarget.productName || detailTarget.itemName || "-" },
-                { label: "분류", value: typeLabel(detailTarget.type) },
-                { label: "결제일", value: detailTarget.saleDate ? detailTarget.saleDate.slice(0, 10) : "-" },
-                { label: "정가", value: `${Number(detailTarget.originalPrice).toLocaleString()}원` },
-                { label: "할인금액", value: `${Number(detailTarget.discountPrice).toLocaleString()}원` },
-                { label: "결제금액", value: `${Number(detailTarget.salePrice).toLocaleString()}원` },
-                { label: "카드", value: `${Number(detailTarget.card).toLocaleString()}원` },
-                { label: "현금", value: `${Number(detailTarget.cash).toLocaleString()}원` },
-                { label: "미수금", value: `${Number(detailTarget.unpaid).toLocaleString()}원` },
-                { label: "결제방법", value: detailTarget.paymentMethod || "-" },
-                { label: "상태", value: detailTarget.status === "REFUNDED" ? "환불" : "완료" },
-              ].map(item => (
-                <div
-                  key={item.label}
-                  className="flex items-center justify-between py-xs border-b border-line last:border-0"
-                >
-                  <span className="text-[13px] text-content-secondary">{item.label}</span>
-                  <span className="text-[13px] font-semibold text-content">{item.value}</span>
+            <div className="p-lg space-y-lg overflow-y-auto">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-x-lg gap-y-xs">
+                {[
+                  { label: "CRM 내부 승인번호", value: fallbackInternalApprovalNo(detailTarget) },
+                  { label: "결제번호", value: `SALE-${detailTarget.id}` },
+                  { label: "상품명", value: detailTarget.productName || detailTarget.itemName || "-" },
+                  { label: "분류", value: typeLabel(detailTarget.type) },
+                  { label: "결제일", value: detailTarget.saleDate ? detailTarget.saleDate.slice(0, 10) : "-" },
+                  { label: "판매 담당자", value: detailTarget.staffName || "-" },
+                  { label: "정가", value: formatKRW(Number(detailTarget.originalPrice)) },
+                  { label: "할인금액", value: formatKRW(Number(detailTarget.discountPrice)) },
+                  { label: "포인트 사용", value: formatKRW(Number(detailTarget.mileageUsed)) },
+                  { label: "실결제 금액", value: formatKRW(Number(detailTarget.salePrice)) },
+                  { label: "카드", value: formatKRW(Number(detailTarget.card)) },
+                  { label: "현금/계좌", value: formatKRW(Number(detailTarget.cash)) },
+                  { label: "미수잔액", value: formatKRW(Number(detailTarget.unpaid)) },
+                  { label: "결제방법", value: METHOD_KO[detailTarget.paymentMethod ?? ""] ?? detailTarget.paymentMethod ?? "-" },
+                  { label: "상태", value: isRefundHistoryRow(detailTarget) ? "환불" : detailTarget.status === "UNPAID" ? "미납" : "완료" },
+                ].map(item => (
+                  <div
+                    key={item.label}
+                    className="flex items-center justify-between gap-md py-xs border-b border-line last:border-0"
+                  >
+                    <span className="text-[13px] text-content-secondary">{item.label}</span>
+                    <span className="text-[13px] font-semibold text-content text-right">{item.value}</span>
+                  </div>
+                ))}
+              </div>
+
+              {detailReceiptUrl && (
+                <div className="rounded-lg border border-line bg-surface-secondary px-md py-sm text-[13px]">
+                  <span className="text-content-secondary">영수증 첨부</span>
+                  <a
+                    className="ml-sm font-semibold text-primary underline underline-offset-2"
+                    href={detailReceiptUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    보기
+                  </a>
                 </div>
-              ))}
+              )}
+
+              <div className="space-y-sm">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-[14px] font-bold text-content">상품별 수납 행</h3>
+                  <span className="text-[12px] text-content-secondary">
+                    {detailPaymentLines.length}개 행
+                  </span>
+                </div>
+                <div className="overflow-x-auto rounded-lg border border-line">
+                  <table className="w-full min-w-[720px] border-collapse text-[12px]">
+                    <thead className="bg-surface-secondary text-content-secondary">
+                      <tr>
+                        <th className="px-sm py-sm text-left font-semibold">상품명</th>
+                        <th className="px-sm py-sm text-center font-semibold">결제수단</th>
+                        <th className="px-sm py-sm text-right font-semibold">수납금액</th>
+                        <th className="px-sm py-sm text-right font-semibold">기환불액</th>
+                        <th className="px-sm py-sm text-left font-semibold">승인/확인번호</th>
+                        <th className="px-sm py-sm text-left font-semibold">현금영수증</th>
+                        <th className="px-sm py-sm text-left font-semibold">영수증</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-line">
+                      {detailPaymentLines.map((line) => {
+                        const confirmNo = line.approvalNo || line.transferConfirmNo || line.externalTransactionId || "-";
+                        const cashReceipt = line.cashReceiptIssued
+                          ? [line.cashReceiptType, line.cashReceiptIdentifier].filter(Boolean).join(" / ") || "발행"
+                          : line.method === "CASH" || line.method === "TRANSFER" ? "미발행/미입력" : "-";
+
+                        return (
+                          <tr key={line.id} className="bg-surface">
+                            <td className="px-sm py-sm text-content">{line.productName}</td>
+                            <td className="px-sm py-sm text-center text-content-secondary">{METHOD_KO[line.method] ?? line.method}</td>
+                            <td className="px-sm py-sm text-right font-semibold text-content">{formatKRW(line.amount)}</td>
+                            <td className="px-sm py-sm text-right text-state-error">{line.refundedAmount > 0 ? formatKRW(line.refundedAmount) : "-"}</td>
+                            <td className="px-sm py-sm text-content-secondary">
+                              <div>{confirmNo}</div>
+                              {line.terminalId && <div className="text-[11px] text-content-tertiary">단말 {line.terminalId}</div>}
+                              {line.bankPayerName && <div className="text-[11px] text-content-tertiary">입금자 {line.bankPayerName}</div>}
+                            </td>
+                            <td className="px-sm py-sm text-content-secondary">{cashReceipt}</td>
+                            <td className="px-sm py-sm">
+                              {detailReceiptUrl ? (
+                                <a className="text-primary underline underline-offset-2" href={detailReceiptUrl} target="_blank" rel="noreferrer">
+                                  보기
+                                </a>
+                              ) : (
+                                <span className="text-content-tertiary">-</span>
+                              )}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
             </div>
             <div className="px-lg py-md border-t border-line flex justify-end">
               <button

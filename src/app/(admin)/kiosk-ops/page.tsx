@@ -68,19 +68,7 @@ export default function KioskOpsPage() {
 
   const handleRestart = () => {
     if (!deviceToRestart) return;
-    setDevices((prev) =>
-      prev.map((device) =>
-        device.name === deviceToRestart.name && device.branch === deviceToRestart.branch
-          ? { ...device, status: '정상', issue: '-', lastSeen: '방금 전' }
-          : device
-      )
-    );
-    setSelectedDevice((prev) =>
-      prev && prev.name === deviceToRestart.name && prev.branch === deviceToRestart.branch
-        ? { ...prev, status: '정상', issue: '-', lastSeen: '방금 전' }
-        : prev
-    );
-    toast.success(`${deviceToRestart.name} 원격 재시작을 완료했습니다.`);
+    toast.info(`${deviceToRestart.name} 원격 재시작은 KIOSK/V2 범위로 표시만 합니다.`);
     setDeviceToRestart(null);
   };
 
@@ -90,14 +78,19 @@ export default function KioskOpsPage() {
         title="키오스크 운영 현황"
         description="현장 키오스크와 태블릿의 온라인 상태, 오류, 운영 모드를 확인합니다"
         actions={
-          <Button variant="outline" size="sm" icon={<RefreshCw className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />} onClick={refreshStatuses}>
+          <Button variant="danger" size="sm" icon={<RefreshCw className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />} onClick={refreshStatuses}>
             상태 새로고침
           </Button>
         }
       />
 
-      <div className="mb-5 rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
-        퍼블리싱 완료 / 데이터 미연동: 실제 기기 heartbeat와 장애 이벤트는 후속 연동 대상입니다.
+      <div className="mb-5 rounded-xl border border-red-200 bg-red-50 px-4 py-3">
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="rounded-full bg-red-100 px-2.5 py-1 text-[11px] font-bold text-red-700">KIOSK/V2 범위</span>
+          <p className="text-sm font-medium text-red-700">
+            관리자 D11 V1 확정 화면이 아닙니다. 퍼블리싱 비교용으로 화면을 유지하며 실제 기기 heartbeat, 원격 재시작, 로그 다운로드는 KIOSK 후속 범위입니다.
+          </p>
+        </div>
       </div>
 
       <div className="mb-6 grid grid-cols-4 gap-4">
@@ -158,8 +151,8 @@ export default function KioskOpsPage() {
                 <td className="px-5 py-4 text-gray-700">{kiosk.mode}</td>
                 <td className="px-5 py-4 text-gray-500">{kiosk.lastSeen}</td>
                 <td className="px-5 py-4">
-                  <button type="button" onClick={() => setDeviceToRestart(kiosk)} className="inline-flex items-center gap-1 rounded-lg border border-gray-200 px-3 py-1.5 text-xs text-gray-700 hover:bg-gray-50">
-                    <Power className="h-3.5 w-3.5" /> 원격 재시작
+                  <button type="button" onClick={() => setDeviceToRestart(kiosk)} className="inline-flex items-center gap-1 rounded-lg border border-red-200 bg-red-50 px-3 py-1.5 text-xs font-semibold text-red-700 hover:bg-red-100">
+                    <Power className="h-3.5 w-3.5" /> V2 원격 재시작
                   </button>
                 </td>
               </tr>
@@ -177,7 +170,7 @@ export default function KioskOpsPage() {
           selectedDevice ? (
             <div className="flex justify-end gap-sm">
               <Button variant="outline" onClick={() => setSelectedDevice(null)}>닫기</Button>
-              <Button icon={<Power className="h-4 w-4" />} onClick={() => setDeviceToRestart(selectedDevice)}>원격 재시작</Button>
+              <Button variant="danger" icon={<Power className="h-4 w-4" />} onClick={() => setDeviceToRestart(selectedDevice)}>V2 원격 재시작</Button>
             </div>
           ) : null
         }
@@ -222,7 +215,7 @@ export default function KioskOpsPage() {
         }
       >
         <p className="text-sm text-content-secondary">
-          {deviceToRestart ? `${deviceToRestart.branch} ${deviceToRestart.name} 기기를 원격 재시작합니다. 재시작 후 상태는 정상으로 갱신됩니다.` : ''}
+          {deviceToRestart ? `${deviceToRestart.branch} ${deviceToRestart.name} 원격 재시작은 KIOSK/V2 범위입니다. 현재 화면에서는 실제 기기 제어 없이 퍼블리싱 표시만 확인합니다.` : ''}
         </p>
       </Modal>
     </AppLayout>

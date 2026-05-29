@@ -317,7 +317,7 @@ async function main() {
   //            status,staffId,staffName,branchId
   // ============================================================
   type SaleStatus = 'COMPLETED' | 'UNPAID' | 'REFUNDED';
-  type PaymentMethod = 'CARD' | 'CASH' | 'TRANSFER';
+  type PaymentMethod = 'CARD' | 'CASH' | 'TRANSFER' | 'MILEAGE' | 'MIXED';
 
   const salesRows: {
     id: number; memberId: number; memberName: string; productId: number; productName: string;

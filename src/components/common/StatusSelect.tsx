@@ -21,6 +21,9 @@ const STATUS_OPTIONS: Record<StatusType, StatusOption[]> = {
     { value: 'COMPLETED', label: '완료' },
     { value: 'UNPAID', label: '미납' },
     { value: 'REFUNDED', label: '환불' },
+    { value: 'REFUND_REQUESTED', label: '환불 요청' },
+    { value: 'REFUND_PENDING', label: '환불 승인대기' },
+    { value: 'REFUND_REJECTED', label: '환불 반려·거절' },
     { value: 'PENDING', label: '대기' },
   ],
   locker: [

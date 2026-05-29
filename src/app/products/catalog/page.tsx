@@ -97,14 +97,14 @@ export default function ProductCatalogPage() {
 
   return (
     <AppLayout>
-      <PageHeader title="상품 카탈로그" description="고객에게 제공하는 상품 목록을 카탈로그 형태로 확인합니다" actions={
+      <PageHeader title="상품 카탈로그 (V2/후속)" description="고객에게 제공하는 상품 목록을 카탈로그 형태로 확인합니다" actions={
         <div className="flex flex-wrap gap-2">
           <button
             className="flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
             onClick={() => void reload(true)}
             type="button"
           >
-            <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} /> seed 갱신
+            <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} /> 자료 새로고침
           </button>
           <button
             type="button"
@@ -133,9 +133,13 @@ export default function ProductCatalogPage() {
         </div>
       } />
 
+      <div className="mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-xs font-semibold text-red-700">
+        docs4 V2/후속 화면입니다. V1 확정 범위가 아니므로 카탈로그 노출·편집·PDF 내보내기 실행 기능은 후속 확정 후 운영 원장에 연결해야 합니다.
+      </div>
+
       <div className="mb-4 rounded-xl border border-blue-100 bg-blue-50 px-4 py-3 text-xs text-blue-700">
-        Supabase snapshot · 지점 {branchId} · 기준일 {snapshotDate ?? '-'}
-        {error && <span className="ml-2 text-red-600">Fallback 사용: {error}</span>}
+        지점 {branchId} · 기준일 {snapshotDate ?? '-'}
+        {error && <span className="ml-2 text-red-600">임시 자료 사용: {error}</span>}
       </div>
 
       <div className="flex items-center justify-between mb-4">

@@ -75,7 +75,8 @@ export const ROUTE_PERMISSIONS: Record<string, UserRole[]> = {
   '/instructor-status': ['primary', 'owner', 'manager', 'fc'],
   '/class-waitlist': ['primary', 'owner', 'manager', 'fc'],
   '/class-feedback': ['primary', 'owner', 'manager', 'fc'],
-  '/attendance/qr': ['primary', 'owner', 'manager', 'fc'],
+  '/attendance/lesson-completion': ['primary', 'owner', 'manager', 'fc', 'staff'],
+  '/attendance/qr': ['primary', 'owner', 'manager', 'fc', 'staff'],
   '/class-recording': ['primary', 'owner', 'manager', 'fc'],
 
   // 매출
@@ -87,6 +88,7 @@ export const ROUTE_PERMISSIONS: Record<string, UserRole[]> = {
   '/deferred-revenue': ['primary', 'owner', 'manager'],
   '/pos': ['primary', 'owner', 'manager', 'staff'],
   '/pos/payment': ['primary', 'owner', 'manager', 'staff'],
+  '/sales/cancel-refund': ['primary', 'owner', 'manager', 'fc'],
   '/refunds': ['primary', 'owner'],
   '/unpaid': ['primary', 'owner', 'manager'],
 
@@ -105,6 +107,7 @@ export const ROUTE_PERMISSIONS: Record<string, UserRole[]> = {
   '/locker/management': ['primary', 'owner'],
   '/rfid': ['primary', 'owner', 'staff'],
   '/rooms': ['primary', 'owner', 'manager'],
+  '/facility/inventory': ['primary', 'owner', 'manager', 'staff'],
   '/clothing': ['primary', 'owner', 'manager', 'staff'],
   '/golf-bays': ['primary', 'owner', 'manager', 'staff'],
   '/clothing-locker': ['primary', 'owner', 'manager', 'staff'],
@@ -168,7 +171,7 @@ export const MENU_PERMISSIONS: Record<string, UserRole[]> = {
   'Today Tasks': ['primary', 'owner', 'manager', 'fc', 'staff'],
   '회원': ['primary', 'owner', 'manager', 'fc', 'staff'],
   '수업/캘린더': ['primary', 'owner', 'manager', 'fc'],
-  '매출': ['primary', 'owner', 'manager', 'staff'],
+  '매출': ['primary', 'owner', 'manager', 'fc', 'staff'],
   '상품': ['primary', 'owner', 'manager', 'staff'],
   '시설': ['primary', 'owner', 'manager', 'staff'],
   '급여': ['primary', 'owner', 'manager', 'fc', 'staff', 'readonly'],

@@ -60,7 +60,18 @@ interface Installment {
   refundInProgress?: boolean; // 환불 진행 중 → 납입 처리 차단
 }
 
-const todayStr = '2026-05-29';
+const fmtLocal = (date: Date) => {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const d = String(date.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+};
+
+const getNextMonthValue = () => {
+  const next = new Date();
+  next.setMonth(next.getMonth() + 1);
+  return `${next.getFullYear()}-${String(next.getMonth() + 1).padStart(2, '0')}`;
+};
 
 // 회차 배열로 파생값 계산
 const paidCount = (i: Installment) => i.rounds.filter(r => r.status === '완료').length;
@@ -141,7 +152,8 @@ export default function InstallmentPage() {
   const [payModal, setPayModal] = useState<{ contract: Installment; round: InstallmentRound } | null>(null);
   const [payAmount, setPayAmount] = useState(0);
   const [registerOpen, setRegisterOpen] = useState(false);
-  const [regForm, setRegForm] = useState({ memberName: '', product: '', prepaid: 0, totalAmount: 0, rounds: 3, startDue: '2026-06' });
+  const [regForm, setRegForm] = useState({ memberName: '', product: '', prepaid: 0, totalAmount: 0, rounds: 3, startDue: getNextMonthValue() });
+  const todayStr = fmtLocal(new Date());
 
   // 요약 지표 (SAL-EXT-01-01)
   const stats = useMemo(() => {
@@ -226,7 +238,7 @@ export default function InstallmentPage() {
       ...prev,
     ]);
     setRegisterOpen(false);
-    setRegForm({ memberName: '', product: '', prepaid: 0, totalAmount: 0, rounds: 3, startDue: '2026-06' });
+    setRegForm({ memberName: '', product: '', prepaid: 0, totalAmount: 0, rounds: 3, startDue: getNextMonthValue() });
     toast.success('등록되었습니다.');
   };
 

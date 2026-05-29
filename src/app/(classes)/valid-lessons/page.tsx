@@ -11,6 +11,7 @@ import {
   CalendarDays,
   PenLine,
   Search,
+  RefreshCw,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import AppLayout from '@/components/layout/AppLayout';
@@ -22,19 +23,34 @@ import TabNav from '@/components/common/TabNav';
 import EmptyState from '@/components/common/EmptyState';
 import Button from '@/components/ui/Button';
 import Modal from '@/components/ui/Modal';
+import { getBranchId } from '@/lib/getBranchId';
+import { supabase } from '@/lib/supabase';
 import { useAuthStore } from '@/stores/authStore';
 import { isRoleAtLeast, normalizeRole } from '@/lib/permissions';
-import {
-  MOCK_VALID_LESSONS,
-  CLASS_TODAY,
-  type ValidLesson,
-  type AttendanceStatus,
-} from '@/mocks/class';
+import { deriveLessonSessionType } from '@/lib/lessonSessionTypes';
 
-// ─── SCR-C011 유효 수업 목록 (CLS-11) ─────────────────────────────────────────
-// docs4/V1+V2/D04-수업관리/수업관리.md ## SCR-C011
-// 이용권 유효·예약 확정된 진행 가능 수업만 필터링 → 출석/결석/노쇼 처리, PT 서명 요청.
-// 날짜 필터(오늘/이번 주/지정) · 출석 상태 탭 · 잔여 0/만료 출석 차단 · 미처리 강조 · 4축 상태.
+type RawRecord = Record<string, any>;
+type AttendanceStatus = '미처리' | '출석' | '결석' | '노쇼';
+
+interface ValidLesson {
+  id: string;
+  bookingId: number;
+  scheduleId: number | null;
+  className: string;
+  sessionType: string;
+  instructor: string;
+  date: string;
+  startTime: string;
+  endTime: string;
+  room: string;
+  memberId: number | null;
+  memberName: string;
+  memberPhone: string;
+  remainingCount: number;
+  attendance: AttendanceStatus;
+  signatureRequired: boolean;
+  signatureReceived: boolean;
+}
 
 const DATE_FILTERS = [
   { key: 'TODAY', label: '오늘' },
@@ -64,25 +80,59 @@ const SESSION_VARIANT: Record<string, BadgeVariant> = {
   기타: 'default',
 };
 
-// 이번 주(월~일) 범위 계산 (기준일 CLASS_TODAY)
-const weekRange = (() => {
-  const [y, m, d] = CLASS_TODAY.split('-').map(Number);
-  const base = new Date(y, m - 1, d);
-  const day = base.getDay(); // 0=일
+const pad = (value: number) => String(value).padStart(2, '0');
+const fmtDate = (date: Date) => `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+const fmtTime = (date: Date) => `${pad(date.getHours())}:${pad(date.getMinutes())}`;
+
+const getDateKey = (value: string | null | undefined) => {
+  if (!value) return '';
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? value.slice(0, 10) : fmtDate(date);
+};
+
+const getWeekRange = () => {
+  const base = new Date();
+  const day = base.getDay();
   const diffToMon = (day + 6) % 7;
-  const mon = new Date(base);
-  mon.setDate(base.getDate() - diffToMon);
-  const sun = new Date(mon);
-  sun.setDate(mon.getDate() + 6);
-  const fmt = (dt: Date) => `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}-${String(dt.getDate()).padStart(2, '0')}`;
-  return { start: fmt(mon), end: fmt(sun) };
-})();
+  const start = new Date(base);
+  start.setDate(base.getDate() - diffToMon);
+  const end = new Date(start);
+  end.setDate(start.getDate() + 6);
+  return { start: fmtDate(start), end: fmtDate(end) };
+};
+
+const normalizeAttendance = (status: string | null | undefined): AttendanceStatus => {
+  const normalized = (status ?? '').trim().toUpperCase().replace(/[-\s]/g, '_');
+  if (normalized === 'ATTENDED' || normalized === 'SHOW') return '출석';
+  if (normalized === 'NOSHOW' || normalized === 'NO_SHOW') return '노쇼';
+  if (normalized === 'CANCELLED' || normalized === 'CANCELED') return '결석';
+  return '미처리';
+};
+
+const statusForAttendance = (status: AttendanceStatus) => {
+  if (status === '출석') return 'ATTENDED';
+  if (status === '노쇼') return 'NOSHOW';
+  if (status === '결석') return 'CANCELLED';
+  return 'BOOKED';
+};
+
+const isMemberPassValid = (member: RawRecord | undefined) => {
+  if (!member) return true;
+  const status = String(member.status ?? '').toUpperCase();
+  if (['WITHDRAWN', 'INACTIVE', 'EXPIRED', 'SUSPENDED'].includes(status)) return false;
+  if (!member.membershipExpiry) return true;
+  return new Date(member.membershipExpiry).getTime() >= Date.now();
+};
+
+const uniqueNumbers = (values: Array<number | null | undefined>) =>
+  Array.from(new Set(values.filter((value): value is number => Number.isFinite(value ?? NaN))));
 
 export default function ValidLessonsPage() {
+  const branchId = getBranchId();
   const authUser = useAuthStore((s) => s.user);
   const role = normalizeRole(authUser?.role ?? '');
-  // CLS-11-04 서명 요청은 트레이너(fc) 이상 — FC 서명은 hidden 규칙이나 본 목업은 manager+/fc 노출
-  const canSign = authUser?.isSuperAdmin || isRoleAtLeast(role, 'fc');
+  const canSign = authUser?.isSuperAdmin || isRoleAtLeast(role, 'manager') || role === 'fc';
+  const canProcess = authUser?.isSuperAdmin || isRoleAtLeast(role, 'fc') || role === 'staff';
 
   const [loading, setLoading] = useState(true);
   const [lessons, setLessons] = useState<ValidLesson[]>([]);
@@ -90,68 +140,162 @@ export default function ValidLessonsPage() {
   const [activeTab, setActiveTab] = useState<'ALL' | AttendanceStatus>('ALL');
   const [search, setSearch] = useState('');
   const [signTarget, setSignTarget] = useState<ValidLesson | null>(null);
+  const [savingId, setSavingId] = useState<number | null>(null);
 
-  // 로딩 상태 (목업 지연)
-  useEffect(() => {
-    const t = setTimeout(() => {
-      setLessons(MOCK_VALID_LESSONS);
+  const loadLessons = async () => {
+    setLoading(true);
+    try {
+      const { data: bookingRows, error: bookingError } = await supabase
+        .from('lesson_bookings')
+        .select('*')
+        .eq('branchId', branchId)
+        .in('status', ['BOOKED', 'ATTENDED', 'NOSHOW'])
+        .order('createdAt', { ascending: false })
+        .limit(1000);
+
+      if (bookingError) throw bookingError;
+
+      const bookings = (bookingRows ?? []) as RawRecord[];
+      const scheduleIds = uniqueNumbers(bookings.map((row) => Number(row.scheduleId)));
+      const memberIds = uniqueNumbers(bookings.map((row) => Number(row.memberId)));
+
+      const [{ data: classRows }, { data: memberRows }] = await Promise.all([
+        scheduleIds.length
+          ? supabase.from('classes').select('*').in('id', scheduleIds)
+          : Promise.resolve({ data: [] as RawRecord[] }),
+        memberIds.length
+          ? supabase.from('members').select('id, phone, status, membershipExpiry').in('id', memberIds)
+          : Promise.resolve({ data: [] as RawRecord[] }),
+      ]);
+
+      const classMap = new Map((classRows ?? []).map((row: RawRecord) => [Number(row.id), row]));
+      const memberMap = new Map((memberRows ?? []).map((row: RawRecord) => [Number(row.id), row]));
+
+      const mapped: ValidLesson[] = bookings
+        .flatMap((booking): ValidLesson[] => {
+          const scheduleId = Number(booking.scheduleId);
+          const memberId = Number(booking.memberId);
+          const lesson = classMap.get(scheduleId);
+          if (!lesson) return [];
+          const member = memberMap.get(memberId);
+          const start = new Date(lesson.startTime);
+          const end = new Date(lesson.endTime);
+          const attendance = normalizeAttendance(booking.status);
+          const sessionType = deriveLessonSessionType(lesson);
+          const passValid = isMemberPassValid(member);
+          return [{
+            id: String(booking.id),
+            bookingId: Number(booking.id),
+            scheduleId,
+            className: lesson.title ?? `수업 ${scheduleId}`,
+            sessionType,
+            instructor: lesson.staffName ?? '-',
+            date: fmtDate(start),
+            startTime: fmtTime(start),
+            endTime: Number.isNaN(end.getTime()) ? '-' : fmtTime(end),
+            room: lesson.room ?? '-',
+            memberId: Number.isFinite(memberId) ? memberId : null,
+            memberName: booking.memberName ?? lesson.member_name ?? '-',
+            memberPhone: member?.phone ?? '-',
+            remainingCount: passValid ? 1 : 0,
+            attendance,
+            signatureRequired: sessionType === 'PT',
+            signatureReceived: Boolean(lesson.signature_at),
+          }];
+        });
+
+      setLessons(mapped);
+    } catch (error) {
+      console.error(error);
+      toast.error('유효 수업 목록을 불러오지 못했습니다.');
+      setLessons([]);
+    } finally {
       setLoading(false);
-    }, 300);
-    return () => clearTimeout(t);
-  }, []);
+    }
+  };
 
-  // 날짜 필터 적용
+  useEffect(() => {
+    loadLessons();
+  }, [branchId]);
+
+  const weekRange = useMemo(getWeekRange, []);
+  const todayKey = useMemo(() => fmtDate(new Date()), []);
+
   const dateFiltered = useMemo(() => {
-    return lessons.filter((l) => {
-      if (dateFilter === 'TODAY') return l.date === CLASS_TODAY;
-      return l.date >= weekRange.start && l.date <= weekRange.end;
+    return lessons.filter((lesson) => {
+      if (dateFilter === 'TODAY') return lesson.date === todayKey;
+      return lesson.date >= weekRange.start && lesson.date <= weekRange.end;
     });
-  }, [lessons, dateFilter]);
+  }, [lessons, dateFilter, todayKey, weekRange]);
 
   const stats = useMemo(() => {
     const total = dateFiltered.length;
-    const done = dateFiltered.filter((l) => l.attendance !== '미처리').length;
+    const done = dateFiltered.filter((lesson) => lesson.attendance !== '미처리').length;
     const unprocessed = total - done;
-    const signPending = dateFiltered.filter((l) => l.signatureRequired && l.attendance === '출석' && !l.signatureReceived).length;
+    const signPending = dateFiltered.filter((lesson) => lesson.signatureRequired && lesson.attendance === '출석' && !lesson.signatureReceived).length;
     return { total, done, unprocessed, signPending };
   }, [dateFiltered]);
 
   const tabsWithCount = useMemo(
     () =>
-      ATTENDANCE_TABS.map((t) => ({
-        ...t,
-        count: t.key === 'ALL' ? dateFiltered.length : dateFiltered.filter((l) => l.attendance === t.key).length,
+      ATTENDANCE_TABS.map((tab) => ({
+        ...tab,
+        count: tab.key === 'ALL' ? dateFiltered.length : dateFiltered.filter((lesson) => lesson.attendance === tab.key).length,
       })),
     [dateFiltered]
   );
 
   const filtered = useMemo(() => {
     const q = search.trim();
-    return dateFiltered.filter((l) => {
-      const matchTab = activeTab === 'ALL' || l.attendance === activeTab;
-      const matchSearch = !q || l.memberName.includes(q) || l.className.includes(q) || l.instructor.includes(q);
+    const phoneQuery = q.replace(/\D/g, '');
+    return dateFiltered.filter((lesson) => {
+      const matchTab = activeTab === 'ALL' || lesson.attendance === activeTab;
+      const matchSearch =
+        !q ||
+        lesson.memberName.includes(q) ||
+        lesson.className.includes(q) ||
+        lesson.instructor.includes(q) ||
+        lesson.memberPhone.replace(/\D/g, '').includes(phoneQuery);
       return matchTab && matchSearch;
     });
   }, [dateFiltered, activeTab, search]);
 
-  // CLS-11-03 출석 처리: 잔여 0/만료 회원 출석 차단
-  const setAttendance = (id: string, next: AttendanceStatus) => {
-    const target = lessons.find((l) => l.id === id);
-    if (!target) return;
-    if (next === '출석' && target.remainingCount <= 0) {
+  const setAttendance = async (lesson: ValidLesson, next: AttendanceStatus) => {
+    if (!canProcess) return;
+    if (next === '출석' && lesson.remainingCount <= 0) {
       toast.error('유효한 잔여 횟수가 없어 출석 처리할 수 없습니다');
       return;
     }
-    setLessons((prev) => prev.map((l) => (l.id === id ? { ...l, attendance: next } : l)));
+    setSavingId(lesson.bookingId);
+    const { error } = await supabase
+      .from('lesson_bookings')
+      .update({ status: statusForAttendance(next) })
+      .eq('id', lesson.bookingId);
+    setSavingId(null);
+
+    if (error) {
+      toast.error('출석 상태를 저장하지 못했습니다.');
+      return;
+    }
     toast.success('처리되었습니다.');
+    loadLessons();
   };
 
-  // CLS-11-04 서명 요청 (DLG-C006)
-  const handleSign = () => {
-    if (!signTarget) return;
-    setLessons((prev) => prev.map((l) => (l.id === signTarget.id ? { ...l, signatureReceived: true } : l)));
+  const handleSign = async () => {
+    if (!signTarget?.scheduleId) return;
+    setSavingId(signTarget.bookingId);
+    const { error } = await supabase
+      .from('classes')
+      .update({ signature_at: new Date().toISOString() })
+      .eq('id', signTarget.scheduleId);
+    setSavingId(null);
+    if (error) {
+      toast.error('서명 상태를 저장하지 못했습니다.');
+      return;
+    }
     setSignTarget(null);
     toast.success('서명이 저장되었습니다.');
+    loadLessons();
   };
 
   const allDone = dateFiltered.length > 0 && stats.unprocessed === 0;
@@ -163,26 +307,28 @@ export default function ValidLessonsPage() {
         description="이용권이 유효하고 예약이 확정된 진행 가능 수업만 모아 출석 처리와 서명을 진행합니다."
         actions={
           <div className="flex items-center gap-xs">
-            {DATE_FILTERS.map((f) => (
+            {DATE_FILTERS.map((filter) => (
               <button
-                key={f.key}
+                key={filter.key}
                 type="button"
-                onClick={() => setDateFilter(f.key)}
+                onClick={() => setDateFilter(filter.key)}
                 className={cn(
                   'rounded-lg px-3 py-[7px] text-[13px] font-semibold transition-colors',
-                  dateFilter === f.key
+                  dateFilter === filter.key
                     ? 'bg-primary text-white'
                     : 'border border-line bg-surface text-content-secondary hover:bg-surface-secondary'
                 )}
               >
-                {f.label}
+                {filter.label}
               </button>
             ))}
+            <Button variant="outline" size="sm" icon={<RefreshCw size={13} />} loading={loading} onClick={loadLessons}>
+              새로고침
+            </Button>
           </div>
         }
       />
 
-      {/* 요약 카드 */}
       <StatCardGrid cols={4} className="mb-xl">
         <StatCard label="유효 수업" value={`${stats.total}건`} icon={<CalendarCheck />} variant="peach" loading={loading} />
         <StatCard label="출석 미처리" value={`${stats.unprocessed}건`} icon={<Clock />} loading={loading} className={stats.unprocessed > 0 ? 'border-amber-200' : ''} />
@@ -192,8 +338,8 @@ export default function ValidLessonsPage() {
 
       <div className="bg-surface rounded-xl border border-line shadow-card overflow-hidden">
         <div className="flex flex-col gap-md border-b border-line p-lg lg:flex-row lg:items-center lg:justify-between">
-          <TabNav tabs={tabsWithCount} activeTab={activeTab} onTabChange={(k) => setActiveTab(k as 'ALL' | AttendanceStatus)} />
-          <div className="relative w-full lg:w-[240px]">
+          <TabNav tabs={tabsWithCount} activeTab={activeTab} onTabChange={(key) => setActiveTab(key as 'ALL' | AttendanceStatus)} />
+          <div className="relative w-full lg:w-[260px]">
             <Search className="absolute left-[10px] top-1/2 -translate-y-1/2 text-content-tertiary" size={15} />
             <input
               type="text"
@@ -205,7 +351,6 @@ export default function ValidLessonsPage() {
           </div>
         </div>
 
-        {/* 전체 처리 완료 안내 */}
         {allDone && (
           <div className="flex items-center gap-xs border-b border-line bg-emerald-50 px-lg py-sm text-[12px] font-semibold text-state-success">
             <CheckCircle2 size={14} />
@@ -213,7 +358,6 @@ export default function ValidLessonsPage() {
           </div>
         )}
 
-        {/* 4축 상태: 로딩 / 빈 / 정상 */}
         {loading ? (
           <div className="space-y-px">
             {Array.from({ length: 5 }).map((_, i) => (
@@ -244,39 +388,39 @@ export default function ValidLessonsPage() {
                 <th className="px-3 py-3 text-left">수업 · 유형</th>
                 <th className="px-3 py-3 text-left">일시 · 장소</th>
                 <th className="px-3 py-3 text-left">회원</th>
-                <th className="px-3 py-3 text-center">잔여</th>
+                <th className="px-3 py-3 text-center">유효</th>
                 <th className="px-3 py-3 text-center">상태</th>
                 <th className="px-3 py-3 text-center">처리</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-line/60">
-              {filtered.map((l) => {
-                const noPass = l.remainingCount <= 0;
-                const unprocessed = l.attendance === '미처리';
+              {filtered.map((lesson) => {
+                const noPass = lesson.remainingCount <= 0;
+                const unprocessed = lesson.attendance === '미처리';
                 return (
-                  <tr key={l.id} className={cn('transition-colors hover:bg-surface-secondary/70', unprocessed && 'bg-amber-50/40')}>
+                  <tr key={lesson.id} className={cn('transition-colors hover:bg-surface-secondary/70', unprocessed && 'bg-amber-50/40')}>
                     <td className="px-3 py-3">
                       <div className="flex items-center gap-xs">
-                        <span className="font-semibold text-content">{l.className}</span>
-                        <StatusBadge variant={SESSION_VARIANT[l.sessionType]}>{l.sessionType}</StatusBadge>
+                        <span className="font-semibold text-content">{lesson.className}</span>
+                        <StatusBadge variant={SESSION_VARIANT[lesson.sessionType] ?? 'default'}>{lesson.sessionType}</StatusBadge>
                       </div>
-                      <div className="mt-[2px] text-[11px] text-content-tertiary">{l.instructor}</div>
+                      <div className="mt-[2px] text-[11px] text-content-tertiary">{lesson.instructor}</div>
                     </td>
                     <td className="px-3 py-3">
-                      <div className="text-content tabular-nums">{l.date} {l.startTime}~{l.endTime}</div>
-                      <div className="mt-[2px] text-[11px] text-content-tertiary">{l.room}</div>
+                      <div className="text-content tabular-nums">{lesson.date} {lesson.startTime}~{lesson.endTime}</div>
+                      <div className="mt-[2px] text-[11px] text-content-tertiary">{lesson.room}</div>
                     </td>
                     <td className="px-3 py-3">
-                      <div className="font-medium text-content">{l.memberName}</div>
-                      <div className="mt-[2px] text-[11px] text-content-tertiary tabular-nums">{l.memberPhone}</div>
+                      <div className="font-medium text-content">{lesson.memberName}</div>
+                      <div className="mt-[2px] text-[11px] text-content-tertiary tabular-nums">{lesson.memberPhone}</div>
                     </td>
                     <td className="px-3 py-3 text-center tabular-nums">
-                      <span className={cn(noPass ? 'font-semibold text-state-error' : 'text-content')}>{l.remainingCount}회</span>
+                      <span className={cn(noPass ? 'font-semibold text-state-error' : 'text-content')}>{noPass ? '만료' : '유효'}</span>
                     </td>
                     <td className="px-3 py-3 text-center">
                       <div className="inline-flex flex-col items-center gap-[3px]">
-                        <StatusBadge variant={ATTENDANCE_VARIANT[l.attendance]} dot>{l.attendance}</StatusBadge>
-                        {l.signatureRequired && l.attendance === '출석' && !l.signatureReceived && (
+                        <StatusBadge variant={ATTENDANCE_VARIANT[lesson.attendance]} dot>{lesson.attendance}</StatusBadge>
+                        {lesson.signatureRequired && lesson.attendance === '출석' && !lesson.signatureReceived && (
                           <span className="rounded-full bg-amber-50 px-2 py-[1px] text-[10px] font-semibold text-amber-600 border border-amber-200">서명 미수령</span>
                         )}
                       </div>
@@ -284,27 +428,29 @@ export default function ValidLessonsPage() {
                     <td className="px-3 py-3">
                       <div className="flex items-center justify-center gap-xs">
                         <button
-                          onClick={() => setAttendance(l.id, '출석')}
-                          disabled={noPass}
+                          onClick={() => setAttendance(lesson, '출석')}
+                          disabled={!canProcess || noPass || savingId === lesson.bookingId}
                           className="rounded-md border border-line px-2 py-[3px] text-[11px] font-semibold text-content-secondary hover:bg-emerald-50 hover:text-state-success hover:border-emerald-200 transition-colors disabled:cursor-not-allowed disabled:opacity-40"
                           title={noPass ? '잔여 횟수 없음' : '출석 처리'}
                         >
                           출석
                         </button>
                         <button
-                          onClick={() => setAttendance(l.id, '결석')}
-                          className="rounded-md border border-line px-2 py-[3px] text-[11px] font-semibold text-content-secondary hover:bg-surface-tertiary transition-colors"
+                          onClick={() => setAttendance(lesson, '결석')}
+                          disabled={!canProcess || savingId === lesson.bookingId}
+                          className="rounded-md border border-line px-2 py-[3px] text-[11px] font-semibold text-content-secondary hover:bg-surface-tertiary transition-colors disabled:cursor-not-allowed disabled:opacity-40"
                         >
                           결석
                         </button>
                         <button
-                          onClick={() => setAttendance(l.id, '노쇼')}
-                          className="rounded-md border border-line px-2 py-[3px] text-[11px] font-semibold text-content-secondary hover:bg-red-50 hover:text-state-error hover:border-red-200 transition-colors"
+                          onClick={() => setAttendance(lesson, '노쇼')}
+                          disabled={!canProcess || savingId === lesson.bookingId}
+                          className="rounded-md border border-line px-2 py-[3px] text-[11px] font-semibold text-content-secondary hover:bg-red-50 hover:text-state-error hover:border-red-200 transition-colors disabled:cursor-not-allowed disabled:opacity-40"
                         >
                           노쇼
                         </button>
-                        {canSign && l.signatureRequired && l.attendance === '출석' && !l.signatureReceived && (
-                          <Button variant="outline" size="sm" icon={<PenLine size={13} />} onClick={() => setSignTarget(l)}>
+                        {canSign && lesson.signatureRequired && lesson.attendance === '출석' && !lesson.signatureReceived && (
+                          <Button variant="outline" size="sm" icon={<PenLine size={13} />} onClick={() => setSignTarget(lesson)}>
                             서명
                           </Button>
                         )}
@@ -318,7 +464,6 @@ export default function ValidLessonsPage() {
         )}
       </div>
 
-      {/* DLG-C006 서명 요청 */}
       <Modal
         isOpen={signTarget !== null}
         onClose={() => setSignTarget(null)}
@@ -327,7 +472,7 @@ export default function ValidLessonsPage() {
         footer={
           <div className="flex justify-end gap-sm">
             <Button variant="outline" size="sm" onClick={() => setSignTarget(null)}>취소</Button>
-            <Button variant="primary" size="sm" onClick={handleSign}>서명 완료 처리</Button>
+            <Button variant="primary" size="sm" onClick={handleSign} loading={savingId === signTarget?.bookingId}>서명 완료 처리</Button>
           </div>
         }
       >
@@ -341,7 +486,7 @@ export default function ValidLessonsPage() {
               회원 서명 영역 (PT 수업 완료 확인)
             </div>
             <p className="flex items-center gap-xs text-[11px] text-content-tertiary">
-              <AlertTriangle size={12} /> 서명 미수령 상태로 두면 노란 배지로 재요청 안내가 표시됩니다.
+              <AlertTriangle size={12} /> 현재 DB에는 예약별 서명 이미지 원장이 없어 수업 단위 서명 완료 시각만 저장합니다.
             </p>
           </div>
         )}

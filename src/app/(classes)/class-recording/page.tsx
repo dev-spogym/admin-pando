@@ -132,16 +132,20 @@ export default function ClassRecordingPage() {
   return (
     <AppLayout>
       <PageHeader
-        title="수업 녹화 관리"
+        title="수업 녹화 관리 (V2/후속)"
         description="완료된 수업 녹화 파일을 업로드하고 회원에게 공유 범위와 기간을 설정해 제공합니다."
         actions={
           canManage && (
-            <Button variant="primary" size="sm" icon={<Upload size={15} />} onClick={handleUpload}>
-              파일 업로드
+            <Button variant="danger" size="sm" icon={<Upload size={15} />} disabled onClick={handleUpload}>
+              파일 업로드 V2/후속
             </Button>
           )
         }
       />
+
+      <div className="mb-lg rounded-xl border border-red-200 bg-red-50 px-md py-sm text-[12px] font-semibold text-red-700">
+        이 화면은 docs4 V2/SCR-C015 후속 범위입니다. V1 운영 화면에서는 범위 식별용으로만 노출하며, 실제 업로드·공유·삭제 처리는 활성화하지 않습니다.
+      </div>
 
       {storageWarning && (
         <div className="mb-lg flex items-center gap-xs rounded-xl border border-state-error/30 bg-red-50 px-md py-sm text-[12px] font-semibold text-state-error">
@@ -246,17 +250,17 @@ export default function ClassRecordingPage() {
                 </div>
                 <div className="flex items-center gap-xs">
                   {rec.status !== '업로드중' && (
-                    <button className="rounded-md p-1.5 text-content-secondary hover:bg-primary-light hover:text-primary transition-colors" title="재생" onClick={() => toast.success('영상 재생을 시작합니다.')}>
+                    <button className="rounded-md p-1.5 text-content-secondary opacity-50" title="V2/후속" disabled>
                       <Play size={16} />
                     </button>
                   )}
                   {canManage && rec.status !== '업로드중' && (
-                    <Button variant="outline" size="sm" icon={<Share2 size={13} />} onClick={() => openShare(rec)}>
-                      공유 설정
+                    <Button variant="outline" size="sm" icon={<Share2 size={13} />} disabled onClick={() => openShare(rec)}>
+                      공유 설정 V2
                     </Button>
                   )}
                   {canManage && (
-                    <button className="rounded-md p-1.5 text-content-secondary hover:bg-red-50 hover:text-state-error transition-colors" title="삭제" onClick={() => setDeleteTarget(rec)}>
+                    <button className="rounded-md p-1.5 text-content-secondary opacity-50" title="V2/후속" disabled onClick={() => setDeleteTarget(rec)}>
                       <Trash2 size={16} />
                     </button>
                   )}

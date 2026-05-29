@@ -354,7 +354,7 @@ export default function UnpaidManagement() {
               <Pencil size={11} />
               메모
             </button>
-            {/* DLG-S016 결제링크 발송: 미결제/일부결제/연체 건에만 노출 */}
+            {/* DLG-S016 결제링크 발송: V2/후속 범위 식별용 */}
             {row.status !== '완료' && (
               <button
                 onClick={() =>
@@ -366,10 +366,10 @@ export default function UnpaidManagement() {
                     amount: row.amount,
                   })
                 }
-                className="flex items-center gap-[4px] px-sm py-[3px] bg-surface border border-line text-content-secondary rounded-md text-[11px] font-semibold hover:bg-surface-tertiary transition-colors"
+                className="flex items-center gap-[4px] px-sm py-[3px] rounded-md border border-red-200 bg-red-50 text-red-700 text-[11px] font-semibold hover:bg-red-100 transition-colors"
               >
                 <Link2 size={11} />
-                결제링크
+                결제링크 V2/후속
               </button>
             )}
           </div>
@@ -485,6 +485,7 @@ export default function UnpaidManagement() {
         onClose={() => setLinkTarget(null)}
         target={linkTarget}
         canSend={canSendLink}
+        v2Only
       />
     </AppLayout>
   );

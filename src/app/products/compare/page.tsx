@@ -78,7 +78,7 @@ export default function ProductComparePage() {
   return (
     <AppLayout>
       <PageHeader
-        title="상품 비교"
+        title="상품 비교 (V2/후속)"
         description="최대 3개 상품을 나란히 비교하여 최적의 상품을 안내합니다"
         actions={
           <div className="flex flex-wrap items-center gap-2">
@@ -107,15 +107,19 @@ export default function ProductComparePage() {
               onClick={() => void reload(true)}
               type="button"
             >
-              <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} /> seed 갱신
+              <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} /> 자료 새로고침
             </button>
           </div>
         }
       />
 
+      <div className="mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-xs font-semibold text-red-700">
+        docs4 V2/후속 화면입니다. V1 상품관리 범위에는 포함하지 않고, 현재는 후속 범위 식별용으로 유지합니다.
+      </div>
+
       <div className="mb-4 rounded-xl border border-blue-100 bg-blue-50 px-4 py-3 text-xs text-blue-700">
-        Supabase snapshot · 지점 {branchId} · 기준일 {snapshotDate ?? '-'}
-        {error && <span className="ml-2 text-red-600">Fallback 사용: {error}</span>}
+        지점 {branchId} · 기준일 {snapshotDate ?? '-'}
+        {error && <span className="ml-2 text-red-600">임시 자료 사용: {error}</span>}
       </div>
 
       {selected.length === 0 ? (

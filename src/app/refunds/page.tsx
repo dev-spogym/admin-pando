@@ -71,7 +71,7 @@ const getBranchId = (): number => {
 // 상태별 배지 variant
 const statusVariant = (status: string) => {
   if (status === '완료') return 'success' as const;
-  if (status === '거절') return 'error' as const;
+  if (status === '거절' || status === '반려·거절') return 'error' as const;
   if (status === '처리중' || status === '승인대기' || status === '요청') return 'warning' as const;
   return 'default' as const;
 };
@@ -81,6 +81,7 @@ const refundStatusLabel = (status: unknown) => {
   if (value === 'REFUNDED') return '완료';
   if (value === 'REFUND_PENDING') return '승인대기';
   if (value === 'REFUND_REQUESTED') return '요청';
+  if (value === 'REFUND_REJECTED') return '반려·거절';
   return String(status ?? '처리중');
 };
 
@@ -149,7 +150,7 @@ export default function RefundManagement() {
       .from('sales')
       .select('id, memberId, memberName, productName, amount, saleDate, paymentMethod, paymentType, staffName, originalSaleId, approvalNo, penaltyAmount, status, branchId, refundReason, refundProcessedBy, refundProcessedAt, memo')
       .eq('branchId', getBranchId())
-      .in('status', ['REFUNDED', 'REFUND_PENDING', 'REFUND_REQUESTED'])
+      .in('status', ['REFUNDED', 'REFUND_PENDING', 'REFUND_REQUESTED', 'REFUND_REJECTED'])
       .order('saleDate', { ascending: false });
 
     if (dateStart) query = query.gte('saleDate', dateStart);

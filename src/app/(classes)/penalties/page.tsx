@@ -4,7 +4,7 @@ export const dynamic = 'force-dynamic';
 import { getBranchId } from '@/lib/getBranchId';
 import React, { useState, useEffect, useMemo } from 'react';
 import { toast } from 'sonner';
-import { Plus, Trash2, AlertTriangle, Ban, Minus, Settings, ToggleLeft, ToggleRight } from 'lucide-react';
+import { Plus, Unlock, AlertTriangle, Ban, Minus, Settings, ToggleLeft, ToggleRight } from 'lucide-react';
 import AppLayout from "@/components/layout/AppLayout";
 import PageHeader from "@/components/common/PageHeader";
 import StatCard from "@/components/common/StatCard";
@@ -14,7 +14,6 @@ import StatusBadge from "@/components/common/StatusBadge";
 import Modal from "@/components/ui/Modal";
 import Select from '@/components/ui/Select';
 import Textarea from '@/components/ui/Textarea';
-import ConfirmDialog from "@/components/ui/ConfirmDialog";
 import type { BadgeVariant } from "@/components/common/StatusBadge";
 import { supabase } from '@/lib/supabase';
 import { useAuthStore } from '@/stores/authStore';
@@ -22,11 +21,23 @@ import { useAuthStore } from '@/stores/authStore';
 // 페널티 유형 라벨 — 명세(SCR-C008)상 페널티 유형은 '노쇼'만 존재. 늦은 취소는 페널티 대상 아님
 const PENALTY_TYPE_LABEL: Record<string, string> = {
   NOSHOW: '노쇼',
+  LATE_CANCEL: '정책 제외',
 };
 
 // 페널티 유형 badge variant
 const PENALTY_TYPE_VARIANT: Record<string, BadgeVariant> = {
   NOSHOW: 'error',
+  LATE_CANCEL: 'warning',
+};
+
+const PENALTY_STATUS_LABEL: Record<string, string> = {
+  ACTIVE: '적용 중',
+  RELEASED: '해제',
+};
+
+const PENALTY_STATUS_VARIANT: Record<string, BadgeVariant> = {
+  ACTIVE: 'error',
+  RELEASED: 'default',
 };
 
 interface Penalty {
@@ -39,6 +50,10 @@ interface Penalty {
   appliedAt: string;
   appliedBy: string | null;
   branchId: number;
+  status?: string | null;
+  releasedAt?: string | null;
+  releasedBy?: string | null;
+  releaseReason?: string | null;
 }
 
 interface Member {
@@ -79,9 +94,9 @@ export default function PenaltyManagement() {
   const [form, setForm] = useState<PenaltyForm>(DEFAULT_FORM);
   const [saving, setSaving] = useState(false);
 
-  // 삭제 확인 다이얼로그
-  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-  const [deleteTargetId, setDeleteTargetId] = useState<number | null>(null);
+  // 페널티 해제 모달
+  const [releaseTarget, setReleaseTarget] = useState<Penalty | null>(null);
+  const [releaseReason, setReleaseReason] = useState('');
 
   // 자동 페널티 정책
   const [autoPolicyModalOpen, setAutoPolicyModalOpen] = useState(false);
@@ -122,7 +137,7 @@ export default function PenaltyManagement() {
   const stats = useMemo(() => {
     const now = new Date();
     const thisMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
-    const thisMonthList = penalties.filter((p) => p.appliedAt?.startsWith(thisMonth));
+    const thisMonthList = penalties.filter((p) => p.appliedAt?.startsWith(thisMonth) && (p.status ?? 'ACTIVE') === 'ACTIVE');
     return {
       total: thisMonthList.length,
       noshow: thisMonthList.filter((p) => p.type === 'NOSHOW').length,
@@ -193,21 +208,30 @@ export default function PenaltyManagement() {
     setSaving(false);
   };
 
-  // 페널티 삭제(취소)
-  const handleDelete = async () => {
-    if (!deleteTargetId) return;
+  // 페널티 해제
+  const handleRelease = async () => {
+    if (!releaseTarget) return;
+    if (releaseReason.trim().length < 5) {
+      toast.error('해제 사유를 5자 이상 입력하세요.');
+      return;
+    }
     const { error } = await supabase
       .from('penalties')
-      .delete()
-      .eq('id', deleteTargetId);
+      .update({
+        status: 'RELEASED',
+        releasedAt: new Date().toISOString(),
+        releasedBy: authUser?.name ?? null,
+        releaseReason: releaseReason.trim(),
+      })
+      .eq('id', releaseTarget.id);
     if (error) {
-      toast.error('페널티 삭제에 실패했습니다.');
+      toast.error('페널티 해제에 실패했습니다.');
     } else {
-      toast.success('페널티가 취소되었습니다.');
+      toast.success('페널티가 해제되었습니다.');
       fetchPenalties();
     }
-    setDeleteDialogOpen(false);
-    setDeleteTargetId(null);
+    setReleaseTarget(null);
+    setReleaseReason('');
   };
 
   // 테이블 컬럼 정의
@@ -232,6 +256,14 @@ export default function PenaltyManagement() {
       render: (v: number) => `${v}회`,
     },
     {
+      key: 'status',
+      header: '상태',
+      align: 'center' as const,
+      render: (v: string | null) => (
+        <StatusBadge variant={PENALTY_STATUS_VARIANT[v ?? 'ACTIVE'] ?? 'default'} label={PENALTY_STATUS_LABEL[v ?? 'ACTIVE'] ?? v ?? '적용 중'} />
+      ),
+    },
+    {
       key: 'reason',
       header: '사유',
       render: (v: string | null) => (
@@ -253,14 +285,18 @@ export default function PenaltyManagement() {
       header: '액션',
       align: 'center' as const,
       render: (_: any, row: Penalty) => (
-        <button
-          className="flex items-center gap-1 px-2 py-1 rounded-md text-state-error text-[12px] border border-red-200 hover:bg-red-50 transition-colors"
-          onClick={() => { setDeleteTargetId(row.id); setDeleteDialogOpen(true); }}
-          title="페널티 취소"
-        >
-          <Trash2 size={12} />
-          취소
-        </button>
+        (row.status ?? 'ACTIVE') === 'ACTIVE' ? (
+          <button
+            className="flex items-center gap-1 px-2 py-1 rounded-md text-state-error text-[12px] border border-red-200 hover:bg-red-50 transition-colors"
+            onClick={() => { setReleaseTarget(row); setReleaseReason(''); }}
+            title="페널티 해제"
+          >
+            <Unlock size={12} />
+            해제
+          </button>
+        ) : (
+          <span className="text-[11px] text-content-tertiary">해제 완료</span>
+        )
       ),
     },
   ];
@@ -422,16 +458,46 @@ export default function PenaltyManagement() {
         </div>
       </Modal>
 
-      {/* 삭제(취소) 확인 다이얼로그 */}
-      <ConfirmDialog
-        open={deleteDialogOpen}
-        onCancel={() => setDeleteDialogOpen(false)}
-        onConfirm={handleDelete}
-        title="페널티 취소"
-        description="이 페널티를 취소하시겠습니까? 차감된 횟수가 복원됩니다."
-        confirmLabel="취소 확인"
-        variant="danger"
-      />
+      {/* 페널티 해제 모달 */}
+      <Modal
+        isOpen={releaseTarget !== null}
+        onClose={() => { setReleaseTarget(null); setReleaseReason(''); }}
+        title="페널티 해제"
+        size="md"
+        footer={
+          <div className="flex justify-end gap-sm">
+            <button
+              className="px-4 py-2 rounded-lg border border-line text-[13px] text-content-secondary hover:bg-surface-tertiary transition-colors"
+              onClick={() => { setReleaseTarget(null); setReleaseReason(''); }}
+            >
+              취소
+            </button>
+            <button
+              className="px-4 py-2 rounded-lg bg-state-error text-white text-[13px] font-medium hover:opacity-90 transition-opacity"
+              onClick={handleRelease}
+            >
+              해제
+            </button>
+          </div>
+        }
+      >
+        <div className="space-y-md">
+          <div className="rounded-lg border border-line bg-surface-secondary px-3 py-2 text-[13px] text-content">
+            {releaseTarget?.memberName} · {PENALTY_TYPE_LABEL[releaseTarget?.type ?? ''] ?? releaseTarget?.type}
+          </div>
+          <div>
+            <label className="block text-[12px] font-medium text-content-secondary mb-xs">
+              해제 사유 <span className="text-state-error">*</span>
+            </label>
+            <Textarea
+              rows={3}
+              placeholder="해제 사유를 입력하세요. (5자 이상)"
+              value={releaseReason}
+              onChange={(e) => setReleaseReason(e.target.value)}
+            />
+          </div>
+        </div>
+      </Modal>
 
       {/* 자동 페널티 정책 모달 */}
       <Modal

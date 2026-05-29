@@ -46,6 +46,11 @@ export const ROUTE_TO_DOC: Record<string, RouteDocMapping> = {
     category: '공통',
     screen: { folder: 'D01-공통/SCR-108-에러페이지' },
   },
+  '/error': {
+    title: '에러 페이지',
+    category: '공통',
+    screen: { folder: 'D01-공통/SCR-108-에러페이지' },
+  },
   '/not-found': {
     title: '페이지를 찾을 수 없음',
     category: '공통',
@@ -115,7 +120,8 @@ export const ROUTE_TO_DOC: Record<string, RouteDocMapping> = {
   '/rfid': { title: 'RFID 관리', category: '시설관리', functional: { file: '시설관리.md', keywords: ['밴드/카드', '3. 밴드/카드'] }, screen: { folder: 'D06-시설관리/SCR-052-밴드카드관리' } },
   '/rooms': { title: '운동룸 관리', category: '시설관리', functional: { file: '시설관리.md', keywords: ['운동룸', '4. 운동룸'] }, screen: { folder: 'D06-시설관리/SCR-053-운동룸관리' } },
   '/golf-bays': { title: '골프 타석', category: '시설관리', functional: { file: '시설관리.md', keywords: ['골프 타석', '5. 골프 타석'] }, screen: { folder: 'D06-시설관리/SCR-054-골프타석관리' } },
-  '/clothing': { title: '운동복 관리', category: '시설관리', functional: { file: '시설관리.md', keywords: ['운동복', '6. 운동복'] }, screen: { folder: 'D06-시설관리/SCR-055-운동복관리' } },
+  '/facility/inventory': { title: '상품 재고 관리', category: '시설관리', functional: { file: '시설관리.md', keywords: ['상품 재고', '6. 상품 재고'] }, screen: { folder: 'D06-시설관리/SCR-055-운동복관리' } },
+  '/clothing': { title: '상품 재고 관리', category: '시설관리', functional: { file: '시설관리.md', keywords: ['상품 재고', '6. 상품 재고'] }, screen: { folder: 'D06-시설관리/SCR-055-운동복관리' } },
 
   // ── 설정관리 ──
   '/settings': { title: '센터 설정', category: '설정관리', functional: { file: '설정관리.md', keywords: ['센터 설정', '1. 센터 설정'] }, screen: { folder: 'D09-설정관리/SCR-080-센터설정' } },
@@ -158,7 +164,8 @@ export const ROUTE_TO_DOC: Record<string, RouteDocMapping> = {
   '/products/seasonal-price': { title: '시즌 가격 관리', category: '상품관리', functional: { file: '상품관리.md', keywords: ['시즌 가격', '7. 시즌 가격'] }, screen: { folder: 'D05-상품관리/SCR-P008-시즌가격관리' } },
 
   // ── 수업관리 추가 ──
-  '/attendance/qr': { title: '출석 QR 체크인', category: '수업관리', functional: { file: '수업관리.md', keywords: ['QR 체크인', '14. QR 체크인'] }, screen: { folder: 'D04-수업관리/SCR-C014-출석QR체크인' } },
+  '/attendance/lesson-completion': { title: '수업 출석/완료 확인', category: '수업관리', functional: { file: '수업관리.md', keywords: ['출석/완료', '14. 출석/완료'] }, screen: { folder: 'D04-수업관리/SCR-C014-출석QR체크인' } },
+  '/attendance/qr': { title: '수업 출석/완료 확인', category: '수업관리', functional: { file: '수업관리.md', keywords: ['출석/완료', '14. 출석/완료'] }, screen: { folder: 'D04-수업관리/SCR-C014-출석QR체크인' } },
   '/class-recording': { title: '수업 녹화 관리', category: '수업관리', functional: { file: '수업관리.md', keywords: ['수업 녹화', '15. 수업 녹화'] }, screen: { folder: 'D04-수업관리/SCR-C015-수업녹화관리' } },
 
   // ── 시설관리 추가 ──

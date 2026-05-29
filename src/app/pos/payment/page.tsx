@@ -10,15 +10,11 @@ import {
   Banknote,
   CheckCircle2,
   Printer,
+  ChevronRight,
   RotateCcw,
   Upload,
   Link2,
   FileText,
-  Plus,
-  Trash2,
-  Building2,
-  Hash,
-  ScanLine,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
@@ -55,46 +51,21 @@ const getCurrentStaffName = (): string | null => {
   }
 };
 
-// 수납 방식: 현장 전액 / 계약금 / 잔액 / 결제링크 발송
-type CollectionMode = 'full' | 'deposit' | 'balance' | 'link';
-// 혼합결제 수납행 결제수단: 카드 / 현금 / 계좌이체
-type PayMethod = 'card' | 'cash' | 'transfer';
-// 이용권 개시 옵션
-type MembershipStart = 'immediate' | 'afterPaid';
-// 잔액 처리 방식
-type BalancePlan = 'manual' | 'installment';
+type CollectionMode = 'receipt' | 'link';
+type PaymentMethod = 'card' | 'cash' | 'transfer';
+type CashReceiptType = 'income' | 'expense';
 
-// 혼합결제 수납행 (mock UI — 외부 POS/현금/계좌이체 수납 결과를 직원이 등록)
-interface PaymentRow {
-  rowId: string;
-  method: PayMethod;
-  amount: number;
-  approvalNo: string;   // 카드 외부 승인번호 또는 이체확인번호
-  approvedAt: string;   // 승인·입금 시각
-  depositorName: string; // 계좌이체 입금자명(계좌이체 필수)
-  cashReceipt: boolean;  // 현금영수증 처리 여부
-  memo: string;
-}
-
-const PAY_METHOD_LABEL: Record<PayMethod, string> = {
+const PAYMENT_METHOD_LABEL: Record<PaymentMethod, string> = {
   card: '카드',
   cash: '현금',
   transfer: '계좌이체',
 };
 
-// 지점 귀속 select 옵션 (mock — 실제로는 D10 지점 마스터 연동)
-const BRANCH_OPTIONS = ['강남점', '송도점', '분당점', '마곡점', '수원점', '판교점'];
-
-const newPaymentRow = (method: PayMethod = 'card'): PaymentRow => ({
-  rowId: `row-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
-  method,
-  amount: 0,
-  approvalNo: '',
-  approvedAt: '',
-  depositorName: '',
-  cashReceipt: false,
-  memo: '',
-});
+const PAYMENT_METHOD_CODE: Record<PaymentMethod, string> = {
+  card: 'CARD',
+  cash: 'CASH',
+  transfer: 'TRANSFER',
+};
 
 interface CartItem {
   id: number;
@@ -114,37 +85,50 @@ interface Member {
   mileage: number;
 }
 
+interface PaymentLine {
+  itemKey: string;
+  method: PaymentMethod;
+  amount: number;
+  approvalNo: string;
+  terminalId: string;
+  externalTransactionId: string;
+  bankPayerName: string;
+  transferConfirmNo: string;
+  cashReceiptIssued: boolean;
+  cashReceiptType: CashReceiptType;
+  cashReceiptIdentifier: string;
+}
+
+const getCartLineKey = (item: CartItem, index: number) => `${item.id}-${index}`;
+
+const createPaymentLine = (itemKey: string, amount: number): PaymentLine => ({
+  itemKey,
+  method: 'card',
+  amount,
+  approvalNo: '',
+  terminalId: '',
+  externalTransactionId: '',
+  bankPayerName: '',
+  transferConfirmNo: '',
+  cashReceiptIssued: false,
+  cashReceiptType: 'income',
+  cashReceiptIdentifier: '',
+});
+
 export default function PosPayment() {
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
   const [memberSearch, setMemberSearch] = useState('');
   const [selectedMember, setSelectedMember] = useState<Member | null>(null);
   const [memberResults, setMemberResults] = useState<Member[]>([]);
 
-  const [collectionMode, setCollectionMode] = useState<CollectionMode>('full');
-  // 혼합결제 수납행 (카드 2~3개 + 현금 + 계좌이체 분할 입력)
-  const [paymentRows, setPaymentRows] = useState<PaymentRow[]>([newPaymentRow('card')]);
+  const [collectionMode, setCollectionMode] = useState<CollectionMode>('receipt');
+  const [paymentLines, setPaymentLines] = useState<PaymentLine[]>([]);
   const [pointAmount, setPointAmount] = useState(0);
   const [paidAt, setPaidAt] = useState(toDateTimeLocalValue());
+  const [internalApprovalNo, setInternalApprovalNo] = useState(() => `CRM-${Date.now().toString().slice(-8)}`);
   const [receiptFile, setReceiptFile] = useState<File | null>(null);
   const [receiptUrl, setReceiptUrl] = useState<string | null>(null);
   const [fcMemo, setFcMemo] = useState('');
-
-  // 수동 할인 (v1: 자동 적용 없음, 운영자 수동 확정 금액만 입력)
-  const [discountAmount, setDiscountAmount] = useState(0);
-  // 계약금 등록 시 당일 수납액 (잔액 = 최종금액 - 당일수납 - 포인트)
-  const [depositAmount, setDepositAmount] = useState(0);
-  // 이용권 개시 옵션 / 잔액 처리 방식
-  const [membershipStart, setMembershipStart] = useState<MembershipStart>('immediate');
-  const [balancePlan, setBalancePlan] = useState<BalancePlan>('manual');
-  // 지점 귀속 설정
-  const [paymentBranch, setPaymentBranch] = useState(BRANCH_OPTIONS[0]);
-  const [usageBranch, setUsageBranch] = useState(BRANCH_OPTIONS[0]);
-  const [revenueBranch, setRevenueBranch] = useState(BRANCH_OPTIONS[0]);
-  const [settlementBranch, setSettlementBranch] = useState(BRANCH_OPTIONS[0]);
-  const [incentiveOwner, setIncentiveOwner] = useState('');
-  // VAN/POS 결과 (mock — 수기 입력 또는 연동 조회)
-  const [vanTerminalId, setVanTerminalId] = useState('');
-  const [vanResult, setVanResult] = useState('');
 
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [isComplete, setIsComplete] = useState(false);
@@ -185,39 +169,60 @@ export default function PosPayment() {
     }
   }, []);
 
-  // 내부 승인번호: 한 장바구니 결제그룹을 묶는 CRM 자동 발번 (PAY-01-13)
-  const [internalApprovalNo] = useState(
-    () => `CRM-${new Date().getFullYear()}${String(Date.now()).slice(-8)}`,
+  const subtotal = cartItems.reduce((sum, item) => sum + item.price * item.quantity, 0);
+  const paymentLineByKey = useMemo(
+    () => new Map(paymentLines.map(line => [line.itemKey, line])),
+    [paymentLines],
   );
-
-  const grossSubtotal = cartItems.reduce((sum, item) => sum + item.price * item.quantity, 0);
-  // 정가 - 수동 할인 = 최종 결제 금액
-  const subtotal = Math.max(0, grossSubtotal - discountAmount);
-  // 혼합결제 행 합계 (포인트 제외 실수납액)
-  const paymentRowsTotal = paymentRows.reduce((sum, row) => sum + (row.amount || 0), 0);
-  // 계약금/잔액 등록 시 당일 수납 기준 금액
-  const todayTarget = collectionMode === 'deposit' ? depositAmount : subtotal;
-  // 혼합결제 행 합계 + 포인트 사용액
-  const collectedAmount = paymentRowsTotal + pointAmount;
-  const amountDiff = todayTarget - collectedAmount;
-  // 계약금 등록 시 잔액
-  const balanceAmount = collectionMode === 'deposit' ? Math.max(0, subtotal - collectedAmount) : 0;
+  const cartPaymentLines = useMemo(
+    () => cartItems.map((item, index) => {
+      const itemKey = getCartLineKey(item, index);
+      return {
+        item,
+        itemKey,
+        line: paymentLineByKey.get(itemKey) ?? createPaymentLine(itemKey, item.price * item.quantity),
+      };
+    }),
+    [cartItems, paymentLineByKey],
+  );
+  const paymentAmount = paymentLines.reduce((sum, line) => sum + line.amount, 0);
+  const totalPaymentAmount = paymentAmount + pointAmount;
+  const amountDiff = subtotal - totalPaymentAmount;
   const maxDurationDays = Math.max(0, ...cartItems.map(item => Number(item.durationDays ?? 0)));
+  const paymentBreakdown = paymentLines.reduce(
+    (acc, line) => {
+      acc[line.method] += line.amount;
+      return acc;
+    },
+    { card: 0, cash: 0, transfer: 0 } as Record<PaymentMethod, number>,
+  );
+  const activePaymentMethods = Array.from(new Set(paymentLines.filter(line => line.amount > 0).map(line => line.method)));
+  const paymentMethodSummary = activePaymentMethods.length === 0
+    ? pointAmount > 0 ? '포인트' : '-'
+    : activePaymentMethods.map(method => PAYMENT_METHOD_LABEL[method]).join(' + ');
+  const paymentMethodCode = activePaymentMethods.length === 0 && pointAmount > 0
+    ? 'MILEAGE'
+    : activePaymentMethods.length === 1 && activePaymentMethods[0]
+      ? PAYMENT_METHOD_CODE[activePaymentMethods[0]]
+      : 'MIXED';
+  const anyCashReceiptIssued = paymentLines.some(line => line.cashReceiptIssued);
 
   useEffect(() => {
-    // 장바구니/할인 변경 시 단일 카드 행 금액을 최종 합계로 초기화
-    setPaymentRows([{ ...newPaymentRow('card'), amount: subtotal }]);
+    setPaymentLines(prev => {
+      const previousByKey = new Map(prev.map(line => [line.itemKey, line]));
+      return cartItems.map((item, index) => {
+        const itemKey = getCartLineKey(item, index);
+        return previousByKey.get(itemKey) ?? createPaymentLine(itemKey, item.price * item.quantity);
+      });
+    });
     setPointAmount(0);
-    setDepositAmount(0);
-  }, [subtotal]);
+  }, [cartItems]);
 
-  // 혼합결제 행 조작
-  const addPaymentRow = (method: PayMethod) =>
-    setPaymentRows(rows => [...rows, newPaymentRow(method)]);
-  const removePaymentRow = (rowId: string) =>
-    setPaymentRows(rows => (rows.length <= 1 ? rows : rows.filter(r => r.rowId !== rowId)));
-  const updatePaymentRow = (rowId: string, patch: Partial<PaymentRow>) =>
-    setPaymentRows(rows => rows.map(r => (r.rowId === rowId ? { ...r, ...patch } : r)));
+  const updatePaymentLine = (itemKey: string, patch: Partial<PaymentLine>) => {
+    setPaymentLines(prev => prev.map(line => (
+      line.itemKey === itemKey ? { ...line, ...patch } : line
+    )));
+  };
 
   const handleMemberSearch = async (query: string) => {
     setMemberSearch(query);
@@ -254,26 +259,29 @@ export default function PosPayment() {
 
     if (!receiptFile) messages.push('영수증 파일을 첨부해주세요.');
     if (!paidAt) messages.push('결제일시를 입력해주세요.');
-    if (pointAmount < 0) messages.push('포인트 사용액은 0원 이상이어야 합니다.');
-    // 혼합결제 행 합계 + 포인트 사용액 = 당일 수납 목표 금액
-    if (collectedAmount !== todayTarget) {
-      messages.push(
-        collectionMode === 'deposit'
-          ? '수납행 합계 + 포인트 사용액이 계약금(당일 수납액)과 일치해야 합니다.'
-          : '수납행 합계 + 포인트 사용액이 최종 결제 금액과 일치해야 합니다.',
-      );
-    }
-    // 계좌이체 행 입금자명 필수
-    if (paymentRows.some(r => r.method === 'transfer' && r.amount > 0 && !r.depositorName.trim())) {
-      messages.push('계좌이체 수납행의 입금자명을 입력해주세요.');
-    }
-    if (collectionMode === 'deposit' && depositAmount <= 0) {
-      messages.push('계약금(당일 수납액)을 입력해주세요.');
-    }
+    if (paymentLines.length !== cartItems.length) messages.push('상품별 수납 행을 확인해주세요.');
+    cartPaymentLines.forEach(({ item, line }) => {
+      const rowLabel = item.name;
+      if (line.amount < 0) messages.push(`${rowLabel} 수납금액은 0원 이상이어야 합니다.`);
+      if (line.amount > 0 && line.method === 'card' && !line.approvalNo.trim()) {
+        messages.push(`${rowLabel} 카드 승인번호를 입력해주세요.`);
+      }
+      if (line.amount > 0 && line.method === 'transfer' && !line.bankPayerName.trim()) {
+        messages.push(`${rowLabel} 계좌이체 입금자명을 입력해주세요.`);
+      }
+      if (line.amount > 0 && line.method === 'transfer' && !line.transferConfirmNo.trim()) {
+        messages.push(`${rowLabel} 이체확인번호를 입력해주세요.`);
+      }
+      if (line.amount > 0 && (line.method === 'cash' || line.method === 'transfer') && line.cashReceiptIssued && !line.cashReceiptIdentifier.trim()) {
+        messages.push(`${rowLabel} 현금영수증 식별번호를 입력해주세요.`);
+      }
+    });
+    if (paymentAmount < 0 || pointAmount < 0) messages.push('상품별 수납금액과 포인트 사용액은 0원 이상이어야 합니다.');
+    if (totalPaymentAmount !== subtotal) messages.push('상품별 수납 합계 + 포인트 사용액이 장바구니 합계와 일치해야 합니다.');
     if (pointAmount > 0 && !selectedMember) messages.push('포인트 사용은 회원 선택이 필요합니다.');
     if (selectedMember && pointAmount > selectedMember.mileage) messages.push('보유 포인트가 부족합니다.');
     return messages;
-  }, [cartItems.length, collectionMode, paidAt, pointAmount, receiptFile, selectedMember, collectedAmount, todayTarget, paymentRows, depositAmount]);
+  }, [cartItems.length, cartPaymentLines, collectionMode, paidAt, paymentAmount, paymentLines.length, pointAmount, receiptFile, selectedMember, subtotal, totalPaymentAmount]);
 
   const isValid = validationMessages.length === 0;
 
@@ -350,33 +358,36 @@ export default function PosPayment() {
 
       const staffName = getCurrentStaffName();
       const productName = cartItems.map(i => i.name).join(', ');
-      // 혼합결제 행을 결제수단별로 집계
-      const cardTotal = paymentRows.filter(r => r.method === 'card').reduce((s, r) => s + (r.amount || 0), 0);
-      const cashTotal = paymentRows.filter(r => r.method === 'cash').reduce((s, r) => s + (r.amount || 0), 0);
-      const transferTotal = paymentRows.filter(r => r.method === 'transfer').reduce((s, r) => s + (r.amount || 0), 0);
-      const collectionModeLabel = { full: '현장 전액 등록', deposit: '계약금 등록', balance: '잔액 등록', link: '결제링크 발송' }[collectionMode];
-      const rowsSummary = paymentRows
-        .filter(r => r.amount > 0)
-        .map(r => `  - ${PAY_METHOD_LABEL[r.method]} ${formatNumber(r.amount)}원${r.approvalNo ? ` / 승인 ${r.approvalNo}` : ''}${r.method === 'transfer' && r.depositorName ? ` / 입금자 ${r.depositorName}` : ''}${r.cashReceipt ? ' / 현금영수증' : ''}`)
-        .join('\n');
+      const paymentLineMemo = cartPaymentLines.map(({ item, line }) => {
+        const details = [
+          `${item.name} x${item.quantity}`,
+          PAYMENT_METHOD_LABEL[line.method],
+          `${formatNumber(line.amount)}원`,
+          line.method === 'card' ? `카드 승인번호 ${line.approvalNo.trim()}` : null,
+          line.terminalId.trim() ? `단말 ID ${line.terminalId.trim()}` : null,
+          line.externalTransactionId.trim() ? `외부 거래번호 ${line.externalTransactionId.trim()}` : null,
+          line.method === 'transfer' ? `입금자명 ${line.bankPayerName.trim()}` : null,
+          line.method === 'transfer' ? `이체확인번호 ${line.transferConfirmNo.trim()}` : null,
+          line.method === 'cash' || line.method === 'transfer'
+            ? `현금영수증 ${line.cashReceiptIssued ? `${line.cashReceiptType === 'income' ? '소득공제' : '지출증빙'} / ${line.cashReceiptIdentifier.trim() || '-'}` : '미처리'}`
+            : null,
+        ].filter(Boolean);
+        return details.join(' | ');
+      });
       const receiptMemo = [
         '[현장 영수증 첨부 등록]',
-        `내부 승인번호: ${internalApprovalNo}`,
-        `수납 방식: ${collectionModeLabel}`,
-        `혼합결제 행:\n${rowsSummary || '  - (없음)'}`,
+        `CRM 내부 승인번호: ${internalApprovalNo}`,
+        `결제수단: ${paymentMethodSummary}`,
+        `상품별 수납 합계: ${formatNumber(paymentAmount)}원`,
         `포인트 사용액: ${formatNumber(pointAmount)}P`,
-        discountAmount > 0 ? `수동 할인: ${formatNumber(discountAmount)}원` : null,
-        collectionMode === 'deposit' ? `계약금(당일 수납): ${formatNumber(depositAmount)}원 / 잔액: ${formatNumber(balanceAmount)}원` : null,
-        collectionMode === 'deposit' ? `이용권 개시: ${membershipStart === 'immediate' ? '즉시 개시' : '완납 후 개시'} / 잔액 처리: ${balancePlan === 'manual' ? '수기 분할 미수금' : '정기 할부'}` : null,
+        `상품별 수납: ${paymentLineMemo.join('\n')}`,
         `결제일시: ${new Date(paidAt).toISOString()}`,
-        `지점 귀속: 결제 ${paymentBranch} / 이용 ${usageBranch} / 매출 ${revenueBranch} / 정산 ${settlementBranch}${incentiveOwner ? ` / 인센티브 ${incentiveOwner}` : ''}`,
-        vanResult || vanTerminalId ? `VAN/POS: 단말 ${vanTerminalId || '-'} / 결과 ${vanResult || '-'}` : null,
         `영수증: ${receiptFile?.name ?? '-'} (${uploadedReceiptUrl})`,
         staffName ? `FC: ${staffName}` : null,
         fcMemo.trim() ? `FC 메모: ${fcMemo.trim()}` : null,
       ].filter(Boolean).join('\n');
 
-      const { error } = await supabase.from('sales').insert({
+      const { data: saleRow, error } = await supabase.from('sales').insert({
         branchId: getBranchId(),
         memberId: selectedMember.id,
         memberName: selectedMember.name,
@@ -386,32 +397,95 @@ export default function PosPayment() {
         quantity: cartItems.reduce((sum, item) => sum + item.quantity, 0),
         amount: subtotal,
         salePrice: subtotal,
-        originalPrice: grossSubtotal,
-        discountPrice: discountAmount,
-        paymentMethod: cardTotal > 0 ? 'CARD' : transferTotal > 0 ? 'TRANSFER' : 'CASH',
-        paymentType: collectionModeLabel,
-        card: cardTotal,
-        cash: cashTotal + transferTotal,
+        originalPrice: subtotal,
+        discountPrice: 0,
+        paymentMethod: paymentMethodCode,
+        paymentType: '영수증 첨부 등록',
+        card: paymentBreakdown.card,
+        cash: paymentBreakdown.cash + paymentBreakdown.transfer,
         mileageUsed: pointAmount,
+        approvalNo: internalApprovalNo,
         saleDate: new Date(paidAt).toISOString(),
-        status: collectionMode === 'deposit' && balanceAmount > 0 ? 'PARTIAL' : 'COMPLETED',
-        unpaid: balanceAmount,
+        status: 'COMPLETED',
+        unpaid: 0,
         durationMonths: maxDurationDays > 0 ? Math.ceil(maxDurationDays / 30) : null,
-        receiptIssued: true,
+        receiptIssued: anyCashReceiptIssued,
         staffName,
         memo: receiptMemo,
-      });
+      }).select('id').single();
 
       if (error) {
         toast.error('결제 등록 저장에 실패했습니다.');
         return;
       }
 
+      const saleId = Number(saleRow?.id);
+      if (!saleId) {
+        toast.error('결제 등록 번호를 확인할 수 없습니다.');
+        return;
+      }
+
+      const paymentLineRows: Array<Record<string, string | number | boolean | null>> = cartPaymentLines
+        .filter(({ line }) => line.amount > 0)
+        .map(({ item, itemKey, line }) => ({
+          saleId,
+          branchId: getBranchId(),
+          memberId: selectedMember.id,
+          productId: item.id,
+          productName: item.name,
+          itemKey,
+          lineType: 'PAYMENT',
+          method: PAYMENT_METHOD_CODE[line.method],
+          amount: line.amount,
+          refundedAmount: 0,
+          approvalNo: line.method === 'card' ? line.approvalNo.trim() : null,
+          terminalId: line.terminalId.trim() || null,
+          externalTransactionId: line.externalTransactionId.trim() || null,
+          bankPayerName: line.method === 'transfer' ? line.bankPayerName.trim() || null : null,
+          transferConfirmNo: line.method === 'transfer' ? line.transferConfirmNo.trim() || null : null,
+          cashReceiptIssued: line.cashReceiptIssued,
+          cashReceiptType: line.cashReceiptIssued ? line.cashReceiptType : null,
+          cashReceiptIdentifier: line.cashReceiptIssued ? line.cashReceiptIdentifier.trim() || null : null,
+          memo: `${internalApprovalNo} / ${item.name}`,
+        }));
+
+      if (pointAmount > 0) {
+        paymentLineRows.push({
+          saleId,
+          branchId: getBranchId(),
+          memberId: selectedMember.id,
+          productId: null,
+          productName: '포인트 사용',
+          itemKey: `${internalApprovalNo}-mileage`,
+          lineType: 'PAYMENT',
+          method: 'MILEAGE',
+          amount: pointAmount,
+          refundedAmount: 0,
+          approvalNo: null,
+          terminalId: null,
+          externalTransactionId: null,
+          bankPayerName: null,
+          transferConfirmNo: null,
+          cashReceiptIssued: false,
+          cashReceiptType: null,
+          cashReceiptIdentifier: null,
+          memo: `${internalApprovalNo} / 포인트 사용`,
+        });
+      }
+
+      if (paymentLineRows.length > 0) {
+        const { error: lineError } = await supabase.from('sale_payment_lines').insert(paymentLineRows);
+        if (lineError) {
+          toast.error(`상품별 수납 행 저장에 실패했습니다: ${lineError.message}`);
+          return;
+        }
+      }
+
       const contractRegistered = await registerContractAndMembership();
       if (!contractRegistered) return;
 
-      if (paymentRowsTotal > 0) {
-        const pointResult = await accruePoints(selectedMember.id, paymentRowsTotal);
+      if (paymentAmount > 0) {
+        const pointResult = await accruePoints(selectedMember.id, paymentAmount);
         if (pointResult.success && pointResult.accrued > 0) {
           toast.info(`${pointResult.accrued}P 포인트가 적립되었습니다.`);
         }
@@ -442,7 +516,7 @@ export default function PosPayment() {
     setIsProcessing(true);
     try {
       setLinkSent(true);
-      toast.success(`${selectedMember.name}님에게 결제링크 발송 준비가 완료되었습니다.`);
+      toast.info(`${selectedMember.name}님 결제링크는 V2/후속 발송 준비 상태로 표시되었습니다.`);
     } finally {
       setIsProcessing(false);
     }
@@ -452,17 +526,11 @@ export default function PosPayment() {
     setCartItems([]);
     setSelectedMember(null);
     setMemberSearch('');
-    setCollectionMode('full');
-    setPaymentRows([newPaymentRow('card')]);
+    setCollectionMode('receipt');
+    setPaymentLines([]);
     setPointAmount(0);
-    setDiscountAmount(0);
-    setDepositAmount(0);
-    setMembershipStart('immediate');
-    setBalancePlan('manual');
-    setVanTerminalId('');
-    setVanResult('');
-    setIncentiveOwner('');
     setPaidAt(toDateTimeLocalValue());
+    setInternalApprovalNo(`CRM-${Date.now().toString().slice(-8)}`);
     setReceiptFile(null);
     setReceiptUrl(null);
     setFcMemo('');
@@ -507,17 +575,19 @@ export default function PosPayment() {
             <p className="text-center font-bold text-[14px] mb-2">현장 결제 등록 영수증</p>
             <hr className="mb-2" />
             {selectedMember && <p>회원: {selectedMember.name}</p>}
-            <p>내부 승인번호: {internalApprovalNo}</p>
-            {paymentRows.filter(r => r.amount > 0).map(r => (
-              <p key={r.rowId}>{PAY_METHOD_LABEL[r.method]}: {r.amount.toLocaleString()}원</p>
-            ))}
+            <p>CRM 내부 승인번호: {internalApprovalNo}</p>
+            <p>결제수단: {paymentMethodSummary}</p>
+            <p>상품별 수납 합계: {paymentAmount.toLocaleString()}원</p>
             <p>포인트 사용: {pointAmount.toLocaleString()}P</p>
             <p>결제일시: {paidAt}</p>
             <hr className="my-2" />
-            {cartItems.map(item => (
-              <div key={item.id} className="flex justify-between">
-                <span>{item.name} x{item.quantity}</span>
-                <span>{(item.price * item.quantity).toLocaleString()}원</span>
+            {cartPaymentLines.map(({ item, line, itemKey }) => (
+              <div key={itemKey} className="space-y-1">
+                <div className="flex justify-between">
+                  <span>{item.name} x{item.quantity}</span>
+                  <span>{line.amount.toLocaleString()}원</span>
+                </div>
+                <p>{PAYMENT_METHOD_LABEL[line.method]}{line.method === 'card' ? ` / 승인번호 ${line.approvalNo}` : ''}{line.method === 'transfer' ? ` / ${line.bankPayerName} / ${line.transferConfirmNo}` : ''}</p>
               </div>
             ))}
             <hr className="my-2" />
@@ -675,281 +745,218 @@ export default function PosPayment() {
               </div>
             )}
           </div>
-
-          {/* 수동 할인 입력 (v1: 자동 적용 없음, 운영자 수동 확정 금액만) */}
-          <div className="bg-surface rounded-xl border border-line shadow-card p-lg space-y-md">
-            <h3 className="text-[14px] font-bold text-content">수동 할인</h3>
-            <p className="text-[11px] text-content-tertiary">
-              할인 정책·등급 혜택 자동 적용은 v1 미지원. 운영자가 확정한 할인 금액만 입력합니다.
-            </p>
-            <label className="block">
-              <span className="block text-[12px] font-semibold text-content-secondary mb-xs">할인 금액</span>
-              <input
-                type="number"
-                min={0}
-                max={grossSubtotal}
-                value={discountAmount || ''}
-                onChange={e => setDiscountAmount(Math.min(grossSubtotal, Math.max(0, Number(e.target.value))))}
-                className="w-full px-md py-sm border border-line rounded-button text-[14px] text-right tabular-nums bg-surface focus:border-primary focus:outline-none"
-                placeholder="0"
-              />
-            </label>
-            <div className="flex justify-between text-[12px] text-content-secondary pt-xs border-t border-line">
-              <span>정가 {formatKRW(grossSubtotal)} − 할인 {formatKRW(discountAmount)}</span>
-              <span className="font-bold text-primary">= {formatKRW(subtotal)}</span>
-            </div>
-          </div>
         </div>
 
-        <div className="w-full lg:w-[440px] space-y-lg">
-          {/* 내부 승인번호 (PAY-01-13) */}
-          <div className="bg-surface rounded-xl border border-line shadow-card p-md flex items-center gap-sm">
-            <Hash size={16} className="text-primary" />
-            <span className="text-[12px] text-content-secondary">내부 승인번호</span>
-            <span className="ml-auto text-[13px] font-bold text-content tabular-nums">{internalApprovalNo}</span>
-          </div>
-
+        <div className="w-full lg:w-[420px] space-y-lg">
           <div className="bg-surface rounded-xl border border-line shadow-card p-lg">
             <h3 className="text-[14px] font-bold text-content mb-md">수납 방식</h3>
-            <div className="grid grid-cols-2 gap-sm">
+            <div className="grid grid-cols-2 gap-md">
               {([
-                { key: 'full', label: '현장 전액 등록', icon: <Upload size={20} strokeWidth={1.5} /> },
-                { key: 'deposit', label: '계약금 등록', icon: <CreditCard size={20} strokeWidth={1.5} /> },
-                { key: 'balance', label: '잔액 등록', icon: <Banknote size={20} strokeWidth={1.5} /> },
-                { key: 'link', label: '결제링크 발송', icon: <Link2 size={20} strokeWidth={1.5} /> },
-              ] as { key: CollectionMode; label: string; icon: React.ReactNode }[]).map(opt => (
+                { key: 'receipt', label: '영수증 등록', icon: <Upload size={22} strokeWidth={1.5} /> },
+                { key: 'link', label: '결제링크 발송', icon: <Link2 size={22} strokeWidth={1.5} />, scope: 'V2/후속' },
+              ] as { key: CollectionMode; label: string; icon: React.ReactNode; scope?: string }[]).map(opt => (
                 <button
                   key={opt.key}
                   onClick={() => setCollectionMode(opt.key)}
                   className={cn(
-                    'flex flex-col items-center justify-center gap-xs py-md rounded-xl border-2 transition-all font-semibold text-[12px]',
-                    collectionMode === opt.key
-                      ? 'border-primary bg-primary-light text-primary shadow-sm'
-                      : 'border-line bg-surface text-content-secondary hover:border-primary/40 hover:bg-surface-secondary'
+                    'flex flex-col items-center justify-center gap-sm py-lg rounded-xl border-2 transition-all font-semibold text-[13px]',
+                    opt.scope
+                      ? collectionMode === opt.key
+                        ? 'border-red-400 bg-red-50 text-red-700 shadow-sm'
+                        : 'border-red-200 bg-red-50/50 text-red-600 hover:border-red-300 hover:bg-red-50'
+                      : collectionMode === opt.key
+                        ? 'border-primary bg-primary-light text-primary shadow-sm'
+                        : 'border-line bg-surface text-content-secondary hover:border-primary/40 hover:bg-surface-secondary'
                   )}
                 >
                   {opt.icon}
-                  {opt.label}
+                  <span>{opt.label}</span>
+                  {opt.scope && (
+                    <span className="rounded-full border border-red-200 bg-red-100 px-2 py-0.5 text-[10px] font-bold text-red-700">
+                      {opt.scope}
+                    </span>
+                  )}
                 </button>
               ))}
             </div>
-            {collectionMode === 'link' && (
-              <p className="mt-md text-[11px] text-content-tertiary">
-                결제링크는 전액 결제 전용입니다. 계약금/잔액 결제에는 사용하지 않습니다.
-              </p>
-            )}
           </div>
 
-          {collectionMode !== 'link' ? (
+          {collectionMode === 'receipt' ? (
             <div className="bg-surface rounded-xl border border-line shadow-card p-lg space-y-lg">
-              {/* 혼합결제 입력 그리드 (PAY-01-14) */}
-              <div>
-                <div className="flex items-center justify-between mb-md">
-                  <h3 className="text-[14px] font-bold text-content">현장 결제 등록 정보 (혼합결제)</h3>
-                </div>
-                <p className="text-[11px] text-content-tertiary mb-md">
-                  외부 POS/현금/계좌이체 수납 결과를 결제수단별 행으로 등록합니다. 카드 2~3개 분할도 가능합니다.
-                </p>
+              <div className="space-y-md">
+                <label className="block">
+                  <span className="block text-[12px] font-semibold text-content-secondary mb-xs">CRM 내부 승인번호</span>
+                  <input
+                    type="text"
+                    value={internalApprovalNo}
+                    readOnly
+                    className="w-full px-md py-sm border border-line rounded-button text-[14px] bg-surface-secondary text-content-secondary focus:outline-none"
+                  />
+                </label>
+
                 <div className="space-y-md">
-                  {paymentRows.map((row, idx) => (
-                    <div key={row.rowId} className="rounded-xl border border-line p-md space-y-sm bg-surface-secondary/30">
-                      <div className="flex items-center gap-sm">
-                        <span className="text-[12px] font-bold text-content-tertiary w-6">#{idx + 1}</span>
-                        <select
-                          value={row.method}
-                          onChange={e => updatePaymentRow(row.rowId, { method: e.target.value as PayMethod })}
-                          className="flex-1 px-sm py-xs border border-line rounded-button text-[13px] bg-surface focus:border-primary focus:outline-none"
-                        >
-                          <option value="card">카드</option>
-                          <option value="cash">현금</option>
-                          <option value="transfer">계좌이체</option>
-                        </select>
+                  <div className="flex items-center justify-between gap-md">
+                    <h3 className="text-[14px] font-bold text-content">상품별 수납 정보</h3>
+                    <span className="text-[11px] font-semibold text-content-tertiary">내부 승인번호 1개 기준</span>
+                  </div>
+
+                  {cartPaymentLines.length > 0 ? cartPaymentLines.map(({ item, itemKey, line }) => (
+                    <div key={itemKey} className="rounded-xl border border-line bg-surface-secondary/30 p-md space-y-md">
+                      <div className="flex items-start justify-between gap-md">
+                        <div className="min-w-0">
+                          <p className="truncate text-[13px] font-bold text-content">{item.name}</p>
+                          <p className="text-[11px] text-content-tertiary">
+                            {item.category} · x{item.quantity} · 상품금액 {formatKRW(item.price * item.quantity)}
+                          </p>
+                        </div>
+                        <StatusBadge variant="secondary">{PAYMENT_METHOD_LABEL[line.method]}</StatusBadge>
+                      </div>
+
+                      <label className="block">
+                        <span className="block text-[12px] font-semibold text-content-secondary mb-xs">수납금액</span>
                         <input
                           type="number"
                           min={0}
-                          value={row.amount || ''}
-                          onChange={e => updatePaymentRow(row.rowId, { amount: Math.max(0, Number(e.target.value)) })}
-                          className="w-28 px-sm py-xs border border-line rounded-button text-[13px] text-right tabular-nums bg-surface focus:border-primary focus:outline-none"
-                          placeholder="금액"
+                          value={line.amount || ''}
+                          onChange={e => updatePaymentLine(itemKey, { amount: Math.max(0, Number(e.target.value)) })}
+                          className="w-full px-md py-sm border border-line rounded-button text-[14px] text-right tabular-nums bg-surface focus:border-primary focus:outline-none"
+                          placeholder="0"
                         />
-                        <button
-                          onClick={() => removePaymentRow(row.rowId)}
-                          disabled={paymentRows.length <= 1}
-                          className="text-content-tertiary hover:text-state-error transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
-                        >
-                          <Trash2 size={15} />
-                        </button>
+                      </label>
+
+                      <div className="grid grid-cols-3 gap-sm">
+                        {([
+                          { key: 'card', label: '카드', icon: <CreditCard size={18} strokeWidth={1.5} /> },
+                          { key: 'cash', label: '현금', icon: <Banknote size={18} strokeWidth={1.5} /> },
+                          { key: 'transfer', label: '계좌이체', icon: <Banknote size={18} strokeWidth={1.5} /> },
+                        ] as { key: PaymentMethod; label: string; icon: React.ReactNode }[]).map(opt => (
+                          <button
+                            key={opt.key}
+                            type="button"
+                            onClick={() => updatePaymentLine(itemKey, { method: opt.key })}
+                            className={cn(
+                              'flex min-h-[68px] flex-col items-center justify-center gap-xs rounded-xl border-2 px-2 text-[12px] font-semibold transition-all',
+                              line.method === opt.key
+                                ? 'border-primary bg-primary-light text-primary shadow-sm'
+                                : 'border-line bg-surface text-content-secondary hover:border-primary/40 hover:bg-surface-secondary'
+                            )}
+                          >
+                            {opt.icon}
+                            {opt.label}
+                          </button>
+                        ))}
                       </div>
-                      <div className="grid grid-cols-2 gap-sm">
-                        <input
-                          type="text"
-                          value={row.approvalNo}
-                          onChange={e => updatePaymentRow(row.rowId, { approvalNo: e.target.value })}
-                          className="px-sm py-xs border border-line rounded-button text-[12px] bg-surface focus:border-primary focus:outline-none"
-                          placeholder={row.method === 'transfer' ? '이체확인번호' : '외부 승인번호'}
-                        />
-                        <input
-                          type="datetime-local"
-                          value={row.approvedAt}
-                          onChange={e => updatePaymentRow(row.rowId, { approvedAt: e.target.value })}
-                          className="px-sm py-xs border border-line rounded-button text-[12px] bg-surface focus:border-primary focus:outline-none"
-                        />
-                      </div>
-                      {row.method === 'transfer' && (
-                        <input
-                          type="text"
-                          value={row.depositorName}
-                          onChange={e => updatePaymentRow(row.rowId, { depositorName: e.target.value })}
-                          className={cn(
-                            'w-full px-sm py-xs border rounded-button text-[12px] bg-surface focus:outline-none',
-                            row.amount > 0 && !row.depositorName.trim() ? 'border-state-error' : 'border-line focus:border-primary',
-                          )}
-                          placeholder="입금자명 (회원명과 달라도 허용, 필수)"
-                        />
+
+                      {line.method === 'card' && (
+                        <div className="grid grid-cols-1 gap-md sm:grid-cols-3">
+                          <label className="block">
+                            <span className="block text-[12px] font-semibold text-content-secondary mb-xs">카드 승인번호</span>
+                            <input
+                              type="text"
+                              value={line.approvalNo}
+                              onChange={e => updatePaymentLine(itemKey, { approvalNo: e.target.value })}
+                              className="w-full px-md py-sm border border-line rounded-button text-[14px] bg-surface focus:border-primary focus:outline-none"
+                              placeholder="승인번호"
+                            />
+                          </label>
+                          <label className="block">
+                            <span className="block text-[12px] font-semibold text-content-secondary mb-xs">단말 ID</span>
+                            <input
+                              type="text"
+                              value={line.terminalId}
+                              onChange={e => updatePaymentLine(itemKey, { terminalId: e.target.value })}
+                              className="w-full px-md py-sm border border-line rounded-button text-[14px] bg-surface focus:border-primary focus:outline-none"
+                              placeholder="선택"
+                            />
+                          </label>
+                          <label className="block">
+                            <span className="block text-[12px] font-semibold text-content-secondary mb-xs">외부 거래번호</span>
+                            <input
+                              type="text"
+                              value={line.externalTransactionId}
+                              onChange={e => updatePaymentLine(itemKey, { externalTransactionId: e.target.value })}
+                              className="w-full px-md py-sm border border-line rounded-button text-[14px] bg-surface focus:border-primary focus:outline-none"
+                              placeholder="선택"
+                            />
+                          </label>
+                        </div>
                       )}
-                      {row.method === 'cash' && (
-                        <label className="flex items-center gap-xs text-[12px] text-content-secondary">
-                          <input
-                            type="checkbox"
-                            checked={row.cashReceipt}
-                            onChange={e => updatePaymentRow(row.rowId, { cashReceipt: e.target.checked })}
-                          />
-                          현금영수증 처리
-                        </label>
+
+                      {line.method === 'transfer' && (
+                        <div className="grid grid-cols-1 gap-md sm:grid-cols-2">
+                          <label className="block">
+                            <span className="block text-[12px] font-semibold text-content-secondary mb-xs">계좌이체 입금자명</span>
+                            <input
+                              type="text"
+                              value={line.bankPayerName}
+                              onChange={e => updatePaymentLine(itemKey, { bankPayerName: e.target.value })}
+                              className="w-full px-md py-sm border border-line rounded-button text-[14px] bg-surface focus:border-primary focus:outline-none"
+                              placeholder="실제 입금자명"
+                            />
+                          </label>
+                          <label className="block">
+                            <span className="block text-[12px] font-semibold text-content-secondary mb-xs">이체확인번호</span>
+                            <input
+                              type="text"
+                              value={line.transferConfirmNo}
+                              onChange={e => updatePaymentLine(itemKey, { transferConfirmNo: e.target.value })}
+                              className="w-full px-md py-sm border border-line rounded-button text-[14px] bg-surface focus:border-primary focus:outline-none"
+                              placeholder="이체확인번호"
+                            />
+                          </label>
+                        </div>
+                      )}
+
+                      {(line.method === 'cash' || line.method === 'transfer') && (
+                        <div className="rounded-xl border border-line bg-surface p-md space-y-md">
+                          <label className="flex items-center justify-between gap-md">
+                            <span className="text-[12px] font-semibold text-content-secondary">현금영수증 처리</span>
+                            <button
+                              type="button"
+                              onClick={() => updatePaymentLine(itemKey, { cashReceiptIssued: !line.cashReceiptIssued })}
+                              className={cn(
+                                'rounded-full px-3 py-1 text-[12px] font-bold transition-colors',
+                                line.cashReceiptIssued ? 'bg-primary text-white' : 'bg-surface border border-line text-content-secondary'
+                              )}
+                            >
+                              {line.cashReceiptIssued ? '처리' : '미처리'}
+                            </button>
+                          </label>
+                          {line.cashReceiptIssued && (
+                            <div className="grid grid-cols-1 gap-md sm:grid-cols-2">
+                              <label className="block">
+                                <span className="block text-[12px] font-semibold text-content-secondary mb-xs">발행 유형</span>
+                                <select
+                                  value={line.cashReceiptType}
+                                  onChange={e => updatePaymentLine(itemKey, { cashReceiptType: e.target.value as CashReceiptType })}
+                                  className="w-full px-md py-sm border border-line rounded-button text-[14px] bg-surface focus:border-primary focus:outline-none"
+                                >
+                                  <option value="income">소득공제</option>
+                                  <option value="expense">지출증빙</option>
+                                </select>
+                              </label>
+                              <label className="block">
+                                <span className="block text-[12px] font-semibold text-content-secondary mb-xs">식별번호</span>
+                                <input
+                                  type="text"
+                                  value={line.cashReceiptIdentifier}
+                                  onChange={e => updatePaymentLine(itemKey, { cashReceiptIdentifier: e.target.value })}
+                                  className="w-full px-md py-sm border border-line rounded-button text-[14px] bg-surface focus:border-primary focus:outline-none"
+                                  placeholder="휴대폰/사업자번호"
+                                />
+                              </label>
+                            </div>
+                          )}
+                        </div>
                       )}
                     </div>
-                  ))}
-                </div>
-                <div className="flex gap-sm mt-md">
-                  <button onClick={() => addPaymentRow('card')} className="flex items-center gap-xs px-sm py-xs rounded-button border border-line text-[12px] text-content-secondary hover:bg-surface-secondary transition-colors">
-                    <Plus size={13} /> 카드
-                  </button>
-                  <button onClick={() => addPaymentRow('cash')} className="flex items-center gap-xs px-sm py-xs rounded-button border border-line text-[12px] text-content-secondary hover:bg-surface-secondary transition-colors">
-                    <Plus size={13} /> 현금
-                  </button>
-                  <button onClick={() => addPaymentRow('transfer')} className="flex items-center gap-xs px-sm py-xs rounded-button border border-line text-[12px] text-content-secondary hover:bg-surface-secondary transition-colors">
-                    <Plus size={13} /> 계좌이체
-                  </button>
-                </div>
-              </div>
-
-              {/* VAN/POS 결과 박스 */}
-              <div>
-                <h3 className="text-[13px] font-bold text-content mb-sm flex items-center gap-xs">
-                  <ScanLine size={14} className="text-primary" /> VAN/POS 결과
-                </h3>
-                <div className="grid grid-cols-2 gap-sm">
-                  <input
-                    type="text"
-                    value={vanTerminalId}
-                    onChange={e => setVanTerminalId(e.target.value)}
-                    className="px-sm py-xs border border-line rounded-button text-[12px] bg-surface focus:border-primary focus:outline-none"
-                    placeholder="단말 ID"
-                  />
-                  <input
-                    type="text"
-                    value={vanResult}
-                    onChange={e => setVanResult(e.target.value)}
-                    className="px-sm py-xs border border-line rounded-button text-[12px] bg-surface focus:border-primary focus:outline-none"
-                    placeholder="승인 결과/응답메시지"
-                  />
-                </div>
-              </div>
-
-              {/* 지점 귀속 설정 */}
-              <div>
-                <h3 className="text-[13px] font-bold text-content mb-sm flex items-center gap-xs">
-                  <Building2 size={14} className="text-primary" /> 지점 귀속 설정
-                </h3>
-                <div className="grid grid-cols-2 gap-sm">
-                  {([
-                    ['결제지점', paymentBranch, setPaymentBranch],
-                    ['이용지점', usageBranch, setUsageBranch],
-                    ['매출 귀속', revenueBranch, setRevenueBranch],
-                    ['정산 지점', settlementBranch, setSettlementBranch],
-                  ] as [string, string, (v: string) => void][]).map(([label, value, setter]) => (
-                    <label key={label} className="block">
-                      <span className="block text-[11px] font-semibold text-content-tertiary mb-xs">{label}</span>
-                      <select
-                        value={value}
-                        onChange={e => setter(e.target.value)}
-                        className="w-full px-sm py-xs border border-line rounded-button text-[12px] bg-surface focus:border-primary focus:outline-none"
-                      >
-                        {BRANCH_OPTIONS.map(b => <option key={b} value={b}>{b}</option>)}
-                      </select>
-                    </label>
-                  ))}
-                </div>
-                <label className="block mt-sm">
-                  <span className="block text-[11px] font-semibold text-content-tertiary mb-xs">인센티브 귀속자</span>
-                  <input
-                    type="text"
-                    value={incentiveOwner}
-                    onChange={e => setIncentiveOwner(e.target.value)}
-                    className="w-full px-sm py-xs border border-line rounded-button text-[12px] bg-surface focus:border-primary focus:outline-none"
-                    placeholder="담당 직원명"
-                  />
-                </label>
-              </div>
-
-              {/* 계약금 등록: 당일 수납액 + 이용권 개시 + 잔액 처리 방식 */}
-              {collectionMode === 'deposit' && (
-                <div className="rounded-xl border border-primary/30 bg-primary-light/30 p-md space-y-md">
-                  <h3 className="text-[13px] font-bold text-content">계약금 등록</h3>
-                  <label className="block">
-                    <span className="block text-[12px] font-semibold text-content-secondary mb-xs">계약금 (당일 수납액)</span>
-                    <input
-                      type="number"
-                      min={0}
-                      max={subtotal}
-                      value={depositAmount || ''}
-                      onChange={e => setDepositAmount(Math.min(subtotal, Math.max(0, Number(e.target.value))))}
-                      className="w-full px-md py-sm border border-line rounded-button text-[14px] text-right tabular-nums bg-surface focus:border-primary focus:outline-none"
-                      placeholder="0"
-                    />
-                  </label>
-                  <div className="flex justify-between text-[12px] text-content-secondary">
-                    <span>잔액</span>
-                    <span className="font-bold text-state-error tabular-nums">{formatKRW(balanceAmount)}</span>
-                  </div>
-                  <div>
-                    <span className="block text-[12px] font-semibold text-content-secondary mb-xs">잔액 처리 방식</span>
-                    <div className="grid grid-cols-2 gap-sm">
-                      {([['manual', '수기 분할 미수금'], ['installment', '정기 할부']] as [BalancePlan, string][]).map(([key, label]) => (
-                        <button
-                          key={key}
-                          onClick={() => setBalancePlan(key)}
-                          className={cn(
-                            'py-xs rounded-button border text-[12px] font-semibold transition-colors',
-                            balancePlan === key ? 'border-primary bg-primary-light text-primary' : 'border-line text-content-secondary hover:bg-surface-secondary',
-                          )}
-                        >
-                          {label}
-                        </button>
-                      ))}
+                  )) : (
+                    <div className="rounded-xl border border-line bg-surface-secondary p-md text-center text-[12px] text-content-tertiary">
+                      결제 상품을 먼저 담아주세요.
                     </div>
-                  </div>
-                  <div>
-                    <span className="block text-[12px] font-semibold text-content-secondary mb-xs">이용권 개시 옵션</span>
-                    <div className="grid grid-cols-2 gap-sm">
-                      {([['immediate', '즉시 개시'], ['afterPaid', '완납 후 개시']] as [MembershipStart, string][]).map(([key, label]) => (
-                        <button
-                          key={key}
-                          onClick={() => setMembershipStart(key)}
-                          className={cn(
-                            'py-xs rounded-button border text-[12px] font-semibold transition-colors',
-                            membershipStart === key ? 'border-primary bg-primary-light text-primary' : 'border-line text-content-secondary hover:bg-surface-secondary',
-                          )}
-                        >
-                          {label}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
+                  )}
                 </div>
-              )}
 
-              <div className="space-y-md">
                 <label className="block">
                   <span className="block text-[12px] font-semibold text-content-secondary mb-xs">포인트 사용액</span>
                   <input
@@ -1009,25 +1016,18 @@ export default function PosPayment() {
                 </label>
               </div>
 
-              {/* 잔액 요약 박스 + 금액 일치 검증 */}
               <div className={cn(
                 'rounded-xl border p-md text-[12px] font-semibold',
                 amountDiff === 0 ? 'border-state-success/30 bg-state-success/10 text-state-success' : 'border-state-error/30 bg-state-error/10 text-state-error'
               )}>
                 <div className="flex justify-between">
-                  <span>수납행 합계 + 포인트</span>
-                  <span>{formatKRW(collectedAmount)}</span>
+                  <span>입력 합계</span>
+                  <span>{formatKRW(totalPaymentAmount)}</span>
                 </div>
                 <div className="flex justify-between mt-xs">
-                  <span>{collectionMode === 'deposit' ? '계약금(당일 수납)' : '최종 결제 금액'}</span>
-                  <span>{formatKRW(todayTarget)}</span>
+                  <span>장바구니 합계</span>
+                  <span>{formatKRW(subtotal)}</span>
                 </div>
-                {collectionMode === 'deposit' && (
-                  <div className="flex justify-between mt-xs">
-                    <span>잔액 ({balancePlan === 'manual' ? '수기 분할' : '정기 할부'})</span>
-                    <span>{formatKRW(balanceAmount)}</span>
-                  </div>
-                )}
                 <div className="flex justify-between mt-xs pt-xs border-t border-current/20">
                   <span>검증</span>
                   <span>{amountDiff === 0 ? '금액 일치' : `${formatNumber(Math.abs(amountDiff))}원 ${amountDiff > 0 ? '부족' : '초과'}`}</span>
@@ -1035,21 +1035,29 @@ export default function PosPayment() {
               </div>
             </div>
           ) : (
-            <div className="bg-surface rounded-xl border border-line shadow-card p-lg space-y-md">
-              <h3 className="text-[14px] font-bold text-content">결제링크 발송</h3>
-              <div className="rounded-xl border border-line bg-surface-secondary p-md space-y-xs">
+            <div className="bg-red-50 rounded-xl border border-red-200 shadow-card p-lg space-y-md">
+              <div className="flex items-center justify-between gap-md">
+                <h3 className="text-[14px] font-bold text-red-800">결제링크 발송</h3>
+                <span className="rounded-full bg-red-100 px-2.5 py-1 text-[11px] font-bold text-red-700">
+                  V2/후속
+                </span>
+              </div>
+              <p className="rounded-xl border border-red-200 bg-white/70 p-md text-[12px] font-medium leading-relaxed text-red-700">
+                PG 결제링크, webhook 자동 반영, 자동 만료 알림은 V1 확정 범위가 아닙니다. 현재 화면에서는 퍼블리싱 비교와 발송 준비 상태만 표시합니다.
+              </p>
+              <div className="rounded-xl border border-red-200 bg-white p-md space-y-xs">
                 <div className="flex justify-between text-[13px]">
-                  <span className="text-content-secondary">발송 대상</span>
-                  <span className="font-semibold text-content">{selectedMember ? `${selectedMember.name} (${selectedMember.phone})` : '회원 미선택'}</span>
+                  <span className="text-red-700/80">발송 대상</span>
+                  <span className="font-semibold text-red-950">{selectedMember ? `${selectedMember.name} (${selectedMember.phone})` : '회원 미선택'}</span>
                 </div>
                 <div className="flex justify-between text-[13px]">
-                  <span className="text-content-secondary">고정 금액</span>
-                  <span className="font-bold text-primary">{formatKRW(subtotal)}</span>
+                  <span className="text-red-700/80">고정 금액</span>
+                  <span className="font-bold text-red-700">{formatKRW(subtotal)}</span>
                 </div>
               </div>
               {linkSent && (
-                <div className="rounded-xl border border-state-success/30 bg-state-success/10 p-md text-[12px] font-semibold text-state-success">
-                  결제링크 발송 준비 완료
+                <div className="rounded-xl border border-red-200 bg-white p-md text-[12px] font-semibold text-red-700">
+                  V2/후속 결제링크 발송 준비 상태로 표시되었습니다.
                 </div>
               )}
             </div>
@@ -1076,13 +1084,15 @@ export default function PosPayment() {
               onClick={() => collectionMode === 'link' ? void handlePaymentLinkSend() : setShowConfirmModal(true)}
               className={cn(
                 'w-full py-md rounded-button text-[15px] font-bold transition-all flex items-center justify-center gap-sm shadow-md',
-                isValid && !isProcessing
+                isValid && !isProcessing && collectionMode === 'link'
+                  ? 'bg-red-600 text-white hover:bg-red-700 active:scale-[0.98] shadow-red-600/20'
+                  : isValid && !isProcessing
                   ? 'bg-primary text-surface hover:bg-primary-dark active:scale-[0.98] shadow-primary/20'
                   : 'bg-surface-tertiary text-content-tertiary cursor-not-allowed'
               )}
             >
               {collectionMode === 'link' ? <Link2 size={18} /> : <Upload size={18} />}
-              {collectionMode === 'link' ? '결제링크 발송' : '결제 완료 등록'}
+              {collectionMode === 'link' ? 'V2/후속 결제링크 표시' : '결제 완료 등록'}
             </button>
 
             <button
@@ -1121,10 +1131,20 @@ export default function PosPayment() {
 
             <div className="p-xl space-y-md">
               <div className="bg-surface-secondary rounded-xl p-md space-y-sm">
-                {cartItems.map(item => (
-                  <div key={item.id} className="flex justify-between text-[13px]">
-                    <span className="text-content-secondary">{item.name} x{item.quantity}</span>
-                    <span className="font-semibold text-content tabular-nums">{formatKRW(item.price * item.quantity)}</span>
+                {cartPaymentLines.map(({ item, line, itemKey }) => (
+                  <div key={itemKey} className="space-y-1 text-[13px]">
+                    <div className="flex justify-between gap-md">
+                      <span className="text-content-secondary">{item.name} x{item.quantity}</span>
+                      <span className="font-semibold text-content tabular-nums">{formatKRW(line.amount)}</span>
+                    </div>
+                    <div className="flex justify-between gap-md text-[11px] text-content-tertiary">
+                      <span>{PAYMENT_METHOD_LABEL[line.method]}</span>
+                      <span className="text-right">
+                        {line.method === 'card' && `승인번호 ${line.approvalNo}`}
+                        {line.method === 'transfer' && `${line.bankPayerName} / ${line.transferConfirmNo}`}
+                        {line.method === 'cash' && (line.cashReceiptIssued ? '현금영수증 처리' : '현금영수증 미처리')}
+                      </span>
+                    </div>
                   </div>
                 ))}
                 <div className="pt-sm border-t border-line flex justify-between">
@@ -1135,14 +1155,13 @@ export default function PosPayment() {
 
               {[
                 ['회원', selectedMember?.name ?? '-'],
-                ['내부 승인번호', internalApprovalNo],
-                ['수납 방식', { full: '현장 전액 등록', deposit: '계약금 등록', balance: '잔액 등록', link: '결제링크 발송' }[collectionMode]],
-                ['혼합결제 수납', paymentRows.filter(r => r.amount > 0).map(r => `${PAY_METHOD_LABEL[r.method]} ${formatNumber(r.amount)}`).join(' / ') || '-'],
+                ['CRM 내부 승인번호', internalApprovalNo],
+                ['결제수단', paymentMethodSummary],
+                ['상품별 수납 합계', formatKRW(paymentAmount)],
                 ['포인트 사용액', `${formatNumber(pointAmount)}P`],
-                collectionMode === 'deposit' ? ['잔액', formatKRW(balanceAmount)] : null,
                 ['결제일시', paidAt ? paidAt.replace('T', ' ') : '-'],
                 ['영수증 파일', receiptFile?.name ?? '-'],
-              ].filter((x): x is [string, string] => x !== null).map(([label, value]) => (
+              ].map(([label, value]) => (
                 <div key={label} className="flex justify-between gap-md text-[13px]">
                   <span className="text-content-secondary">{label}</span>
                   <span className="font-semibold text-content text-right break-all">{value}</span>
