@@ -364,8 +364,14 @@ function MemberForm() {
     try {
       if (isPreview) {
         const previewTargetId = isEditMode && urlMemberId ? Number(urlMemberId) : 1001;
-        toast.success(isEditMode ? "프리뷰에서 회원 수정이 완료되었습니다." : "프리뷰에서 신규 회원 등록이 완료되었습니다.");
-        moveToPage(985, { id: previewTargetId, scenario: "active" });
+        if (isEditMode) {
+          toast.success("프리뷰에서 회원 수정이 완료되었습니다.");
+          moveToPage(985, { id: previewTargetId, scenario: "active" });
+        } else {
+          // 신규 등록: 첫 결제 완료=등록 확정. 결제 화면으로 이동(목업)
+          toast.success("임시 저장했습니다. 결제 완료 후 회원 등록이 확정됩니다.");
+          moveToPage(971, { memberId: previewTargetId });
+        }
         return;
       }
 
@@ -394,14 +400,9 @@ function MemberForm() {
             onSuccess: (res) => {
               if (res.success) {
                 const newId = res.data?.id;
-                toast.success("신규 회원이 등록되었습니다.", {
-                  action: {
-                    label: "바로 결제",
-                    onClick: () => moveToPage(971, { memberId: newId }),
-                  },
-                  duration: 5000,
-                });
-                moveToPage(985, { id: newId });
+                // 첫 정상 결제 완료 시점에 회원 등록이 확정된다(docs4 SCR-M002). 결제 화면으로 이동.
+                toast.success("임시 저장했습니다. 결제 완료 후 회원 등록이 확정됩니다.");
+                moveToPage(971, { memberId: newId });
               } else {
                 toast.error(res.message ?? "저장에 실패했습니다.");
               }
@@ -544,7 +545,7 @@ function MemberForm() {
   ]);
 
   const step2Guidance = useMemo(() => {
-    if (step2CanSave) return isEditMode ? "수정 내용을 저장할 수 있습니다." : "등록 정보를 저장할 수 있습니다.";
+    if (step2CanSave) return isEditMode ? "수정 내용을 저장할 수 있습니다." : "결제 화면으로 진행할 수 있습니다. 결제 완료 후 등록이 확정됩니다.";
     if (phoneDuplicate) return "중복된 연락처는 저장할 수 없습니다.";
     if (errors.email?.message) return String(errors.email.message);
     if (errors.notes?.message) return String(errors.notes.message);
@@ -990,6 +991,20 @@ function MemberForm() {
                   </div>
                 </Field>
               </FormSection>
+
+              {/* 결제 진행 안내 (신규 등록 시 — docs4 SCR-M002: 첫 정상 결제 완료=회원등록 확정) */}
+              {!isEditMode && (
+                <div className="flex items-start gap-sm rounded-lg border border-accent/30 bg-accent-light px-md py-md">
+                  <AlertCircle className="text-accent mt-[1px] shrink-0" size={16} />
+                  <div className="text-[12px] text-content-secondary leading-relaxed">
+                    <p className="font-semibold text-content">결제 완료 후 회원 등록이 확정됩니다.</p>
+                    <p className="mt-[2px]">
+                      [결제 진행]을 누르면 결제 화면으로 이동하며, 첫 정상 결제가 완료된 시점을 회원 등록 완료일과 신규 세그먼트 기준일로 봅니다.
+                      결제를 취소하면 작성 내용은 임시 저장 상태로 돌아갑니다.
+                    </p>
+                  </div>
+                </div>
+              )}
             </>
           )}
         </div>
@@ -1060,7 +1075,7 @@ function MemberForm() {
                   ) : (
                     <Save size={18} />
                   )}
-                  {isEditMode ? "정보 수정 완료" : "회원 등록 완료"}
+                  {isEditMode ? "정보 수정 완료" : "결제 진행"}
                 </button>
               )}
             </div>
