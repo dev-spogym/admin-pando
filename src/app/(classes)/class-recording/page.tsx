@@ -1,135 +1,319 @@
 'use client';
 export const dynamic = 'force-dynamic';
 
-import React, { useState } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
+import { toast } from 'sonner';
+import {
+  Video,
+  Play,
+  Share2,
+  Trash2,
+  HardDrive,
+  Eye,
+  Upload,
+  Clock,
+  Search,
+} from 'lucide-react';
+import { cn } from '@/lib/utils';
 import AppLayout from '@/components/layout/AppLayout';
 import PageHeader from '@/components/common/PageHeader';
-import { Video, Play, Download, Trash2, Clock, HardDrive, RefreshCw } from 'lucide-react';
-import { usePageSeed } from '@/hooks';
-import type { ClassRecordingSeedPayload } from '@/lib/publishingPageSeed';
+import StatCard from '@/components/common/StatCard';
+import StatCardGrid from '@/components/common/StatCardGrid';
+import StatusBadge, { type BadgeVariant } from '@/components/common/StatusBadge';
+import EmptyState from '@/components/common/EmptyState';
+import Button from '@/components/ui/Button';
+import Modal from '@/components/ui/Modal';
+import Select from '@/components/ui/Select';
+import ConfirmDialog from '@/components/ui/ConfirmDialog';
+import { useAuthStore } from '@/stores/authStore';
+import { isRoleAtLeast, normalizeRole } from '@/lib/permissions';
+import {
+  MOCK_RECORDINGS,
+  type ClassRecording,
+  type RecordingStatus,
+} from '@/mocks/class';
 
-const FALLBACK_RECORDINGS: ClassRecordingSeedPayload = {
-  recordings: [
-    { id: 1, class: '필라테스 A반', instructor: '이효리', date: '2026-04-26', duration: '55분', size: '2.1GB', status: '완료', viewers: 12 },
-    { id: 2, class: '요가 기초반', instructor: '김태희', date: '2026-04-25', duration: '50분', size: '1.8GB', status: '완료', viewers: 8 },
-    { id: 3, class: '스피닝 B반', instructor: '정지훈', date: '2026-04-25', duration: '45분', size: '1.6GB', status: '처리중', viewers: 0 },
-    { id: 4, class: 'PT 기초반', instructor: '박재범', date: '2026-04-24', duration: '60분', size: '2.4GB', status: '완료', viewers: 5 },
-    { id: 5, class: '필라테스 B반', instructor: '이효리', date: '2026-04-24', duration: '55분', size: '2.0GB', status: '완료', viewers: 9 },
-  ],
-  summary: {
-    monthlyRecordings: 42,
-    totalStorageGb: 87,
-    totalViews: 234,
-    remainingStorageGb: 413,
-  },
+// ─── SCR-C015 수업 녹화 관리 (CLS-15, V2) ─────────────────────────────────────
+// docs4/V2/D04-수업관리/수업관리.md ## SCR-C015
+// 완료 수업 녹화 업로드·공유·삭제. 공유 상태 배지/대상 회원 수/공개 기간.
+// 업로드 진행률, 비공개/공유중/기간만료 상태, 스토리지 한도 경고. 4축 상태.
+
+const STATUS_VARIANT: Record<RecordingStatus, BadgeVariant> = {
+  업로드중: 'info',
+  비공개: 'default',
+  공유중: 'success',
+  기간만료: 'warning',
 };
 
-const statusColor: Record<string, string> = {
-  '완료': 'bg-green-100 text-green-700',
-  '처리중': 'bg-yellow-100 text-yellow-700',
-  '오류': 'bg-red-100 text-red-700',
-};
+const STATUS_TABS: { key: 'ALL' | RecordingStatus; label: string }[] = [
+  { key: 'ALL', label: '전체' },
+  { key: '공유중', label: '공유중' },
+  { key: '비공개', label: '비공개' },
+  { key: '업로드중', label: '업로드중' },
+  { key: '기간만료', label: '기간만료' },
+];
+
+const STORAGE_LIMIT_GB = 500;
 
 export default function ClassRecordingPage() {
-  const [filter, setFilter] = useState('전체');
-  const { data, loading, error, branchId, snapshotDate, reload } = usePageSeed<ClassRecordingSeedPayload>(
-    '/class-recording',
-    FALLBACK_RECORDINGS,
-  );
-  const { recordings } = data;
+  const authUser = useAuthStore((s) => s.user);
+  const role = normalizeRole(authUser?.role ?? '');
+  // 업로드·삭제·공유 설정은 트레이너(fc) 이상. FC/스태프(접수)는 접근 불가 정책.
+  const canManage = authUser?.isSuperAdmin || isRoleAtLeast(role, 'fc');
+
+  const [loading, setLoading] = useState(true);
+  const [recordings, setRecordings] = useState<ClassRecording[]>([]);
+  const [statusTab, setStatusTab] = useState<'ALL' | RecordingStatus>('ALL');
+  const [search, setSearch] = useState('');
+  const [shareTarget, setShareTarget] = useState<ClassRecording | null>(null);
+  const [shareScope, setShareScope] = useState('무기한');
+  const [deleteTarget, setDeleteTarget] = useState<ClassRecording | null>(null);
+
+  useEffect(() => {
+    const t = setTimeout(() => {
+      setRecordings(MOCK_RECORDINGS);
+      setLoading(false);
+    }, 300);
+    return () => clearTimeout(t);
+  }, []);
+
+  const stats = useMemo(() => {
+    const total = recordings.length;
+    const shared = recordings.filter((r) => r.status === '공유중').length;
+    const usedGb = recordings.reduce((s, r) => s + r.fileSizeGb, 0);
+    const views = recordings.reduce((s, r) => s + r.views, 0);
+    return { total, shared, usedGb, remainingGb: Math.max(0, STORAGE_LIMIT_GB - usedGb), views };
+  }, [recordings]);
+
+  const storageWarning = stats.remainingGb < 100;
+
+  const filtered = useMemo(() => {
+    const q = search.trim();
+    return recordings.filter((r) => {
+      const matchTab = statusTab === 'ALL' || r.status === statusTab;
+      const matchSearch = !q || r.className.includes(q) || r.instructor.includes(q) || r.fileName.includes(q);
+      return matchTab && matchSearch;
+    });
+  }, [recordings, statusTab, search]);
+
+  const handleUpload = () => {
+    toast.success('업로드할 영상 파일을 선택하세요. (최대 5GB, mp4/mov)');
+  };
+
+  const openShare = (rec: ClassRecording) => {
+    setShareTarget(rec);
+    setShareScope(rec.expiresAt ? '특정 날짜까지' : '무기한');
+  };
+
+  const handleShare = () => {
+    if (!shareTarget) return;
+    setRecordings((prev) =>
+      prev.map((r) =>
+        r.id === shareTarget.id
+          ? { ...r, status: '공유중' as RecordingStatus, expiresAt: shareScope === '무기한' ? null : '2026-06-30', sharedMemberCount: r.sharedMemberCount || 1 }
+          : r
+      )
+    );
+    setShareTarget(null);
+    toast.success('공유 설정이 저장되었습니다.');
+  };
+
+  const handleDelete = () => {
+    if (!deleteTarget) return;
+    if (deleteTarget.status === '공유중') {
+      toast.success('공유 중인 영상입니다. 대상 회원에게 안내 후 삭제되었습니다.');
+    } else {
+      toast.success('녹화 파일이 삭제되었습니다.');
+    }
+    setRecordings((prev) => prev.filter((r) => r.id !== deleteTarget.id));
+    setDeleteTarget(null);
+  };
 
   return (
     <AppLayout>
       <PageHeader
         title="수업 녹화 관리"
-        description="녹화된 수업 영상을 관리하고 회원에게 제공합니다"
+        description="완료된 수업 녹화 파일을 업로드하고 회원에게 공유 범위와 기간을 설정해 제공합니다."
         actions={
-          <button
-            className="flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
-            onClick={() => void reload(true)}
-            type="button"
-          >
-            <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} /> seed 갱신
-          </button>
+          canManage && (
+            <Button variant="primary" size="sm" icon={<Upload size={15} />} onClick={handleUpload}>
+              파일 업로드
+            </Button>
+          )
         }
       />
 
-      <div className="mb-4 rounded-xl border border-blue-100 bg-blue-50 px-4 py-3 text-xs text-blue-700">
-        Supabase snapshot · 지점 {branchId} · 기준일 {snapshotDate ?? '-'}
-        {error && <span className="ml-2 text-red-600">Fallback 사용: {error}</span>}
-      </div>
+      {storageWarning && (
+        <div className="mb-lg flex items-center gap-xs rounded-xl border border-state-error/30 bg-red-50 px-md py-sm text-[12px] font-semibold text-state-error">
+          <HardDrive size={14} />
+          클라우드 스토리지 잔여 용량이 부족합니다. 만료 영상을 정리해 주세요.
+        </div>
+      )}
 
-      <div className="grid grid-cols-4 gap-4 mb-6">
-        <div className="bg-white rounded-xl border border-gray-200 p-4">
-          <p className="text-xs text-gray-500 mb-1">이번 달 녹화</p>
-          <p className="text-2xl font-bold text-gray-900">{data.summary.monthlyRecordings}건</p>
-        </div>
-        <div className="bg-white rounded-xl border border-gray-200 p-4">
-          <p className="text-xs text-gray-500 mb-1">총 용량 사용</p>
-          <p className="text-2xl font-bold text-blue-600">{data.summary.totalStorageGb}GB</p>
-        </div>
-        <div className="bg-white rounded-xl border border-gray-200 p-4">
-          <p className="text-xs text-gray-500 mb-1">총 시청 횟수</p>
-          <p className="text-2xl font-bold text-green-600">{data.summary.totalViews}회</p>
-        </div>
-        <div className="bg-white rounded-xl border border-gray-200 p-4">
-          <p className="text-xs text-gray-500 mb-1">남은 저장 공간</p>
-          <p className="text-2xl font-bold text-gray-700">{data.summary.remainingStorageGb}GB</p>
-        </div>
-      </div>
+      <StatCardGrid cols={4} className="mb-xl">
+        <StatCard label="전체 녹화" value={`${stats.total}건`} icon={<Video />} variant="peach" loading={loading} />
+        <StatCard label="공유 중" value={`${stats.shared}건`} icon={<Share2 />} variant="mint" loading={loading} />
+        <StatCard label="총 시청" value={`${stats.views}회`} icon={<Eye />} loading={loading} />
+        <StatCard label="잔여 용량" value={`${stats.remainingGb.toFixed(1)}GB`} icon={<HardDrive />} loading={loading} className={storageWarning ? 'border-state-error/20' : ''} />
+      </StatCardGrid>
 
-      <div className="bg-white rounded-xl border border-gray-200">
-        <div className="flex items-center gap-2 p-4 border-b border-gray-100">
-          {['전체', '완료', '처리중'].map(t => (
-            <button key={t} onClick={() => setFilter(t)}
-              className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${filter === t ? 'bg-blue-600 text-white' : 'text-gray-600 hover:bg-gray-100'}`}>
-              {t}
-            </button>
-          ))}
+      <div className="bg-surface rounded-xl border border-line shadow-card overflow-hidden">
+        <div className="flex flex-col gap-md border-b border-line p-lg lg:flex-row lg:items-center lg:justify-between">
+          <div className="flex flex-wrap items-center gap-xs">
+            {STATUS_TABS.map((t) => (
+              <button
+                key={t.key}
+                onClick={() => setStatusTab(t.key)}
+                className={cn(
+                  'rounded-button px-md py-xs text-[12px] font-semibold transition-colors',
+                  statusTab === t.key ? 'bg-primary text-white' : 'border border-line bg-surface text-content-secondary hover:bg-surface-secondary'
+                )}
+              >
+                {t.label}
+              </button>
+            ))}
+          </div>
+          <div className="relative w-full lg:w-[220px]">
+            <Search className="absolute left-[10px] top-1/2 -translate-y-1/2 text-content-tertiary" size={15} />
+            <input
+              type="text"
+              placeholder="수업·강사·파일 검색..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="w-full pl-8 pr-3 py-[6px] bg-surface-secondary border border-line rounded-lg text-[13px] text-content placeholder-content-tertiary focus:outline-none focus:border-primary transition-all"
+            />
+          </div>
         </div>
-        <div className="divide-y divide-gray-100">
-          {recordings.filter(r => filter === '전체' || r.status === filter).map(item => (
-            <div key={item.id} className="flex items-center justify-between px-5 py-4 hover:bg-gray-50">
-              <div className="flex items-center gap-4">
-                <div className="w-10 h-10 bg-gray-100 rounded-xl flex items-center justify-center">
-                  <Video className="w-5 h-5 text-gray-500" />
-                </div>
-                <div>
-                  <p className="text-sm font-semibold text-gray-800">{item.class}</p>
-                  <div className="flex items-center gap-2 mt-0.5">
-                    <span className="text-xs text-gray-500">{item.instructor}</span>
-                    <span className="text-gray-300">·</span>
-                    <span className="text-xs text-gray-500">{item.date}</span>
-                    <span className="text-gray-300">·</span>
-                    <Clock className="w-3 h-3 text-gray-400" />
-                    <span className="text-xs text-gray-500">{item.duration}</span>
-                    <span className="text-gray-300">·</span>
-                    <HardDrive className="w-3 h-3 text-gray-400" />
-                    <span className="text-xs text-gray-500">{item.size}</span>
+
+        {/* 4축 상태 */}
+        {loading ? (
+          <div className="space-y-px">
+            {Array.from({ length: 4 }).map((_, i) => (
+              <div key={i} className="flex items-center gap-md px-lg py-4">
+                <div className="h-10 w-10 animate-pulse rounded-xl bg-surface-tertiary" />
+                <div className="h-4 w-40 animate-pulse rounded bg-surface-tertiary" />
+                <div className="ml-auto h-7 w-32 animate-pulse rounded bg-surface-tertiary" />
+              </div>
+            ))}
+          </div>
+        ) : filtered.length === 0 ? (
+          <EmptyState
+            icon={search ? Search : Video}
+            title={search ? '검색 결과가 없어요' : '업로드된 녹화 파일이 없어요'}
+            description={
+              search
+                ? '수업명·강사명·파일명을 다시 확인해 보세요.'
+                : '상단의 파일 업로드 버튼으로 완료 수업의 녹화 영상을 추가하세요.'
+            }
+            action={search ? { label: '검색 초기화', onClick: () => setSearch('') } : canManage ? { label: '파일 업로드', onClick: handleUpload } : undefined}
+          />
+        ) : (
+          <div className="divide-y divide-line/60">
+            {filtered.map((rec) => (
+              <div key={rec.id} className="flex items-center justify-between gap-md px-lg py-4 hover:bg-surface-secondary/60 transition-colors">
+                <div className="flex items-center gap-md">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-surface-tertiary text-content-secondary">
+                    <Video size={18} />
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-xs">
+                      <span className="text-[14px] font-semibold text-content">{rec.className}</span>
+                      <StatusBadge variant={STATUS_VARIANT[rec.status]} dot>{rec.status}</StatusBadge>
+                      {rec.status === '공유중' && <span className="text-[11px] text-content-tertiary">공유 {rec.sharedMemberCount}명 · {rec.expiresAt ? `~${rec.expiresAt}` : '무기한'}</span>}
+                    </div>
+                    <div className="mt-[2px] flex items-center gap-xs text-[11px] text-content-tertiary">
+                      <span>{rec.instructor}</span>
+                      <span>·</span>
+                      <span>{rec.classDate}</span>
+                      <span>·</span>
+                      <HardDrive size={11} />
+                      <span className="tabular-nums">{rec.fileSizeGb}GB</span>
+                      <span>·</span>
+                      <Eye size={11} />
+                      <span className="tabular-nums">{rec.views}회</span>
+                    </div>
+                    {rec.status === '업로드중' && rec.uploadProgress != null && (
+                      <div className="mt-2 flex items-center gap-xs">
+                        <div className="h-1.5 w-40 overflow-hidden rounded-full bg-surface-tertiary">
+                          <div className="h-full rounded-full bg-state-info transition-all" style={{ width: `${rec.uploadProgress}%` }} />
+                        </div>
+                        <span className="flex items-center gap-[2px] text-[11px] text-state-info tabular-nums">
+                          <Clock size={11} /> {rec.uploadProgress}%
+                        </span>
+                      </div>
+                    )}
                   </div>
                 </div>
-              </div>
-              <div className="flex items-center gap-3">
-                <span className="text-xs text-gray-500">시청 {item.viewers}회</span>
-                <span className={`text-xs px-2.5 py-0.5 rounded-full font-medium ${statusColor[item.status]}`}>{item.status}</span>
-                {item.status === '완료' && (
-                  <>
-                    <button className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg">
-                      <Play className="w-4 h-4" />
+                <div className="flex items-center gap-xs">
+                  {rec.status !== '업로드중' && (
+                    <button className="rounded-md p-1.5 text-content-secondary hover:bg-primary-light hover:text-primary transition-colors" title="재생" onClick={() => toast.success('영상 재생을 시작합니다.')}>
+                      <Play size={16} />
                     </button>
-                    <button className="p-1.5 text-gray-400 hover:text-green-600 hover:bg-green-50 rounded-lg">
-                      <Download className="w-4 h-4" />
+                  )}
+                  {canManage && rec.status !== '업로드중' && (
+                    <Button variant="outline" size="sm" icon={<Share2 size={13} />} onClick={() => openShare(rec)}>
+                      공유 설정
+                    </Button>
+                  )}
+                  {canManage && (
+                    <button className="rounded-md p-1.5 text-content-secondary hover:bg-red-50 hover:text-state-error transition-colors" title="삭제" onClick={() => setDeleteTarget(rec)}>
+                      <Trash2 size={16} />
                     </button>
-                  </>
-                )}
-                <button className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg">
-                  <Trash2 className="w-4 h-4" />
-                </button>
+                  )}
+                </div>
               </div>
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+        )}
       </div>
+
+      {/* 공유 설정 */}
+      <Modal
+        isOpen={shareTarget !== null}
+        onClose={() => setShareTarget(null)}
+        title="공유 설정"
+        size="md"
+        footer={
+          <div className="flex justify-end gap-sm">
+            <Button variant="outline" size="sm" onClick={() => setShareTarget(null)}>취소</Button>
+            <Button variant="primary" size="sm" onClick={handleShare}>공유 시작</Button>
+          </div>
+        }
+      >
+        {shareTarget && (
+          <div className="space-y-md">
+            <div className="rounded-xl border border-line bg-surface-secondary/50 p-md">
+              <p className="text-[13px] font-bold text-content">{shareTarget.className}</p>
+              <p className="mt-[2px] text-[12px] text-content-secondary">{shareTarget.instructor} · {shareTarget.classDate} · {shareTarget.fileName}</p>
+            </div>
+            <Select
+              label="공개 기간"
+              value={shareScope}
+              onChange={setShareScope}
+              options={[
+                { value: '무기한', label: '무기한 공개' },
+                { value: '특정 날짜까지', label: '특정 날짜까지 (2026-06-30)' },
+              ]}
+            />
+            <p className="text-[11px] text-content-tertiary">공개 기간이 만료되면 자동으로 비공개 전환되며 회원 앱에서 열람이 차단됩니다.</p>
+          </div>
+        )}
+      </Modal>
+
+      <ConfirmDialog
+        open={deleteTarget !== null}
+        title="녹화 파일 삭제"
+        description={
+          deleteTarget?.status === '공유중'
+            ? '공유 중인 영상입니다. 삭제 시 대상 회원에게 자동 안내됩니다. 삭제하시겠습니까?'
+            : '이 녹화 파일을 삭제하시겠습니까? 삭제 후 복구할 수 없습니다.'
+        }
+        confirmLabel="삭제"
+        cancelLabel="취소"
+        variant="danger"
+        onConfirm={handleDelete}
+        onCancel={() => setDeleteTarget(null)}
+      />
     </AppLayout>
   );
 }
