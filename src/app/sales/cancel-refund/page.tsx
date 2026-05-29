@@ -1,10 +1,12 @@
 'use client';
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Search, RefreshCcw, AlertTriangle, CheckCircle } from 'lucide-react';
+import { Search, AlertTriangle, CheckCircle } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '@/lib/supabase';
 import ConfirmDialog from '@/components/ui/ConfirmDialog';
+import AppLayout from '@/components/layout/AppLayout';
+import PageHeader from '@/components/common/PageHeader';
 
 interface Payment {
   id: number;
@@ -33,6 +35,17 @@ const METHOD_KO: Record<string, string> = {
 
 type ActionType = 'cancel' | 'partial';
 type RefundMethod = 'ORIGINAL' | 'CARD' | 'CASH' | 'TRANSFER' | 'MILEAGE' | 'MIXED';
+// SAL-EXT-04-11: 수납행 취소(계약 유지·미수 전환) vs 상품 환불/계약 취소(매출·계약 축소)
+type RefundScope = 'receiptCancel' | 'productRefund';
+
+// 혼합결제 환불 분해표 행 (mock — 원수납 결제수단별 분해)
+interface RefundBreakdownRow {
+  method: 'CARD' | 'CASH' | 'TRANSFER' | 'MILEAGE';
+  label: string;
+  originalAmount: number;   // 원수납액
+  previousRefund: number;   // 기환불액
+  thisRefund: number;       // 이번 환불 배분액 (수기 입력)
+}
 type ProcessStatus = '요청' | '승인대기' | '완료';
 type ResultStatus = 'success' | null;
 
@@ -92,6 +105,23 @@ const getBranchId = () => {
 
 const approvalNo = () => `RF${Date.now().toString().slice(-6)}${Math.floor(Math.random() * 9000) + 1000}`;
 
+// 원결제 수단을 기준으로 혼합결제 환불 분해표 mock 생성.
+// 수단별 자동 분해 정책 확정 전에는 원수납액을 단일 수단에 배치하고 운영자가 수기 조정한다.
+const buildBreakdownRows = (payment: Payment): RefundBreakdownRow[] => {
+  const total = payment.amount;
+  const base = {
+    CARD: { method: 'CARD' as const, label: '카드', originalAmount: 0, previousRefund: 0, thisRefund: 0 },
+    CASH: { method: 'CASH' as const, label: '현금', originalAmount: 0, previousRefund: 0, thisRefund: 0 },
+    TRANSFER: { method: 'TRANSFER' as const, label: '계좌이체', originalAmount: 0, previousRefund: 0, thisRefund: 0 },
+    MILEAGE: { method: 'MILEAGE' as const, label: '마일리지(포인트)', originalAmount: 0, previousRefund: 0, thisRefund: 0 },
+  };
+  if (payment.method === 'CASH') base.CASH.originalAmount = total;
+  else if (payment.method === 'TRANSFER') base.TRANSFER.originalAmount = total;
+  else if (payment.method === 'MILEAGE') base.MILEAGE.originalAmount = total;
+  else base.CARD.originalAmount = total; // CARD/MIXED/기타 기본은 카드 행으로 배치
+  return [base.CARD, base.CASH, base.TRANSFER, base.MILEAGE];
+};
+
 export default function CancelRefundPage() {
   const router = useRouter();
   const [query, setQuery] = useState('');
@@ -99,6 +129,8 @@ export default function CancelRefundPage() {
   const [loading, setLoading] = useState(false);
   const [selected, setSelected] = useState<Payment | null>(null);
   const [action, setAction] = useState<ActionType>('cancel');
+  const [refundScope, setRefundScope] = useState<RefundScope>('productRefund');
+  const [breakdownRows, setBreakdownRows] = useState<RefundBreakdownRow[]>([]);
   const [partialAmount, setPartialAmount] = useState('');
   const [reason, setReason] = useState(cancelReasons[0]);
   const [manualPolicy, setManualPolicy] = useState<ManualPolicyForm>(initialManualPolicyForm);
@@ -159,10 +191,24 @@ export default function CancelRefundPage() {
     setPartialAmount('');
     setReason(cancelReasons[0]);
     setAction('cancel');
+    setRefundScope('productRefund');
+    setBreakdownRows([]);
     setManualPolicy(initialManualPolicyForm);
     setConfirmOpen(false);
     setIsSubmitting(false);
   }, []);
+
+  // 분해표 이번 환불 배분액 합계 + 마일리지 복원 요약
+  const breakdownThisRefundTotal = useMemo(
+    () => breakdownRows.reduce((sum, row) => sum + (row.thisRefund || 0), 0),
+    [breakdownRows],
+  );
+  const mileageRestoreAmount = useMemo(
+    () => breakdownRows.find(r => r.method === 'MILEAGE')?.thisRefund ?? 0,
+    [breakdownRows],
+  );
+  const updateBreakdownRow = (method: RefundBreakdownRow['method'], thisRefund: number) =>
+    setBreakdownRows(rows => rows.map(r => (r.method === method ? { ...r, thisRefund: Math.max(0, thisRefund) } : r)));
 
   const usedDeductionAmount = parseMoney(manualPolicy.usedDeductionAmount);
   const penaltyAmountValue = parseMoney(manualPolicy.penaltyAmount);
@@ -229,8 +275,15 @@ export default function CancelRefundPage() {
     setIsSubmitting(true);
     const now = new Date().toISOString();
     const refundStatus = processStatusToDbStatus[manualPolicy.processStatus];
+    const breakdownSummary = breakdownRows
+      .filter(r => r.originalAmount > 0 || r.thisRefund > 0)
+      .map(r => `${r.label} 원수납 ${r.originalAmount.toLocaleString()} / 기환불 ${r.previousRefund.toLocaleString()} / 이번환불 ${r.thisRefund.toLocaleString()} / 잔여 ${(r.originalAmount - r.previousRefund - r.thisRefund).toLocaleString()}`)
+      .join(' | ');
     const manualMemo = [
       `${action === 'cancel' ? '전체 취소' : '부분 환불'}: 원매출 #${selected.id}`,
+      `[처리구분] ${refundScope === 'receiptCancel' ? '수납행 취소(계약 유지·미수 전환)' : '상품 환불/계약 취소'}`,
+      breakdownSummary ? `[혼합결제 분해] ${breakdownSummary}` : '',
+      `[복원] 마일리지 ${mileageRestoreAmount.toLocaleString()}P 우선 복원 + 사용 쿠폰 미사용 복원`,
       `[수기계산] 기사용 차감금 ${usedDeductionAmount.toLocaleString()}원 / 위약금 ${penaltyAmountValue.toLocaleString()}원 / 기환불 누계 ${previousRefundAmount.toLocaleString()}원 / 환불 가능액 ${confirmedAvailableAmount.toLocaleString()}원`,
       manualPolicy.adjustmentReason.trim() ? `[조정사유] ${manualPolicy.adjustmentReason.trim()}` : '',
       `[환불수단] ${manualPolicy.refundMethod === 'ORIGINAL' ? `원결제 수단(${METHOD_KO[selected.method] ?? selected.method})` : METHOD_KO[manualPolicy.refundMethod] ?? manualPolicy.refundMethod}`,
@@ -296,16 +349,13 @@ export default function CancelRefundPage() {
   }
 
   return (
-    <div className="max-w-5xl mx-auto space-y-6 p-6">
-      {/* 헤더 */}
-      <div className="flex items-center gap-3">
-        <RefreshCcw className="w-6 h-6 text-red-500" />
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">결제 취소 / 부분 환불</h1>
-          <p className="text-sm text-gray-500">결제 내역을 조회하고 취소 또는 부분 환불을 처리합니다.</p>
-        </div>
-      </div>
+    <AppLayout>
+      <PageHeader
+        title="결제 취소 / 부분 환불"
+        description="결제 내역을 조회하고 혼합결제 환불 분해와 함께 취소 또는 부분 환불을 처리합니다."
+      />
 
+      <div className="space-y-6">
       {/* 결제 조회 */}
       <div className="bg-white border rounded-xl p-5 space-y-4">
         <h2 className="text-base font-semibold text-gray-800">1. 결제 조회</h2>
@@ -314,7 +364,7 @@ export default function CancelRefundPage() {
           <input
             type="text"
             value={query}
-            onChange={(e) => { setQuery(e.target.value); setSelected(null); setResult(null); setConfirmOpen(false); }}
+            onChange={(e) => { setQuery(e.target.value); setSelected(null); setBreakdownRows([]); setResult(null); setConfirmOpen(false); }}
             placeholder="회원명, 결제번호, 상품명으로 검색"
             className="w-full pl-9 pr-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
@@ -352,6 +402,8 @@ export default function CancelRefundPage() {
                           setResult(null);
                           setConfirmOpen(false);
                           setAction('cancel');
+                          setRefundScope('productRefund');
+                          setBreakdownRows(buildBreakdownRows(p));
                           setPartialAmount('');
                           setReason(cancelReasons[0]);
                           setManualPolicy(initialManualPolicyForm);
@@ -467,6 +519,99 @@ export default function CancelRefundPage() {
                 className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm font-normal text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
             </label>
+          </div>
+
+          {/* SAL-EXT-04-11: 수납행 취소 / 상품 환불 구분 */}
+          <div className="space-y-2">
+            <p className="text-sm font-medium text-gray-700">처리 구분</p>
+            <div className="grid gap-3 md:grid-cols-2">
+              {([
+                ['receiptCancel', '수납행 취소', '결제수단 변경·승인 취소 등 상품 계약은 유지. 취소 배분액을 즉시 미수금으로 전환합니다.'],
+                ['productRefund', '상품 환불 / 계약 취소', '상품 해지·이용권 환불. 매출과 계약을 줄이고 자동 미수금을 만들지 않습니다.'],
+              ] as [RefundScope, string, string][]).map(([val, label, desc]) => (
+                <button
+                  key={val}
+                  onClick={() => setRefundScope(val)}
+                  className={`text-left rounded-lg border p-3 transition-colors ${
+                    refundScope === val
+                      ? 'border-blue-600 bg-blue-50'
+                      : 'border-gray-200 bg-white hover:border-gray-300'
+                  }`}
+                >
+                  <p className={`text-sm font-semibold ${refundScope === val ? 'text-blue-700' : 'text-gray-700'}`}>{label}</p>
+                  <p className="mt-1 text-xs text-gray-500">{desc}</p>
+                </button>
+              ))}
+            </div>
+            {refundScope === 'receiptCancel' && (
+              <p className="text-xs text-amber-700 flex items-center gap-1">
+                <AlertTriangle className="w-3 h-3" /> 취소 금액은 미수금으로 남습니다. 재결제 시 완납 처리됩니다.
+              </p>
+            )}
+          </div>
+
+          {/* 혼합결제 환불 분해표 */}
+          <div className="space-y-2 rounded-lg border border-gray-200 p-4">
+            <p className="text-sm font-semibold text-gray-800">혼합결제 환불 분해표</p>
+            <p className="text-xs text-gray-500">
+              내부 승인번호 기준 결제수단별 원수납액·기환불액·이번 환불 배분액·잔여 환불 가능액을 확인합니다. 자동 분해 정책 확정 전에는 수기로 배분합니다.
+            </p>
+            <div className="overflow-hidden rounded-lg border border-gray-100">
+              <table className="w-full text-xs">
+                <thead className="bg-gray-50 text-gray-600">
+                  <tr>
+                    <th className="px-3 py-2 text-left font-medium">수단</th>
+                    <th className="px-3 py-2 text-right font-medium">원수납액</th>
+                    <th className="px-3 py-2 text-right font-medium">기환불액</th>
+                    <th className="px-3 py-2 text-right font-medium">이번 환불 배분</th>
+                    <th className="px-3 py-2 text-right font-medium">잔여 가능액</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100">
+                  {breakdownRows.map((row) => {
+                    const remaining = row.originalAmount - row.previousRefund - row.thisRefund;
+                    return (
+                      <tr key={row.method} className={row.originalAmount === 0 ? 'text-gray-300' : ''}>
+                        <td className="px-3 py-2 text-gray-700">{row.label}</td>
+                        <td className="px-3 py-2 text-right tabular-nums">{row.originalAmount.toLocaleString()}</td>
+                        <td className="px-3 py-2 text-right tabular-nums">{row.previousRefund.toLocaleString()}</td>
+                        <td className="px-3 py-2 text-right">
+                          <input
+                            type="number"
+                            min={0}
+                            max={row.originalAmount - row.previousRefund}
+                            value={row.thisRefund || ''}
+                            onChange={(e) => updateBreakdownRow(row.method, Number(e.target.value))}
+                            disabled={row.originalAmount === 0}
+                            placeholder="0"
+                            className="w-24 rounded border border-gray-200 px-2 py-1 text-right tabular-nums focus:outline-none focus:ring-1 focus:ring-blue-500 disabled:bg-gray-50 disabled:cursor-not-allowed"
+                          />
+                        </td>
+                        <td className={`px-3 py-2 text-right tabular-nums ${remaining < 0 ? 'text-red-500 font-semibold' : ''}`}>{remaining.toLocaleString()}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+                <tfoot className="bg-gray-50 font-semibold text-gray-800">
+                  <tr>
+                    <td className="px-3 py-2">합계 (이번 환불 배분)</td>
+                    <td colSpan={2}></td>
+                    <td className="px-3 py-2 text-right tabular-nums">{breakdownThisRefundTotal.toLocaleString()}</td>
+                    <td></td>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+          </div>
+
+          {/* 쿠폰/마일리지 복원 요약 */}
+          <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-4 text-sm">
+            <p className="font-semibold text-emerald-900">쿠폰/마일리지 복원 요약</p>
+            <ul className="mt-2 space-y-1 text-xs text-emerald-800">
+              <li>· 사용 마일리지(포인트) 우선 복원: <span className="font-semibold">{mileageRestoreAmount.toLocaleString()}P</span></li>
+              <li>· 사용 쿠폰: 미사용 상태로 복원</li>
+              <li>· 복원 대상·금액·상태는 처리 전 최종 확인 팝업에서 확인합니다.</li>
+            </ul>
           </div>
 
           {/* 처리 유형 선택 */}
@@ -694,6 +839,14 @@ export default function CancelRefundPage() {
                 <p className="mt-1 font-semibold text-gray-900">{action === 'cancel' ? '전체 취소' : '부분 환불'}</p>
               </div>
               <div className="rounded-lg border border-gray-100 p-3">
+                <p className="text-gray-500">처리 구분</p>
+                <p className="mt-1 font-semibold text-gray-900">{refundScope === 'receiptCancel' ? '수납행 취소' : '상품 환불/계약 취소'}</p>
+              </div>
+              <div className="rounded-lg border border-gray-100 p-3">
+                <p className="text-gray-500">마일리지 복원</p>
+                <p className="mt-1 font-semibold text-gray-900">{mileageRestoreAmount.toLocaleString()}P</p>
+              </div>
+              <div className="rounded-lg border border-gray-100 p-3">
                 <p className="text-gray-500">환불 금액</p>
                 <p className="mt-1 font-semibold text-gray-900">{refundAmount.toLocaleString()}원</p>
               </div>
@@ -723,6 +876,7 @@ export default function CancelRefundPage() {
           </div>
         )}
       </ConfirmDialog>
-    </div>
+      </div>
+    </AppLayout>
   );
 }
