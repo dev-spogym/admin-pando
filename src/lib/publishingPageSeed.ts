@@ -326,12 +326,15 @@ const productTemplates = [
   { name: '요가 10회권', category: 'GX', price: 80000, desc: '요가 그룹 수업 10회 이용권', stockMin: 50, stockMax: 95 },
 ];
 const familyRelations = ['배우자', '자녀', '부모', '형제/자매'];
+// docs4 SCR-M010 / MBR-EXT-04 "자동 7종" 세그먼트 (시스템 정의, 수정·삭제 불가)
 const segmentTemplates = [
-  { name: '만료 임박 회원', desc: '30일 이내 이용권 만료 예정', color: 'text-red-600 bg-red-50 border-red-200' },
-  { name: '장기 미방문', desc: '30일 이상 방문 없는 회원', color: 'text-orange-600 bg-orange-50 border-orange-200' },
-  { name: '신규 가입 (30일)', desc: '최근 30일 이내 등록 회원', color: 'text-blue-600 bg-blue-50 border-blue-200' },
-  { name: 'PT 미구매 회원', desc: 'PT 이용권 미보유 활성 회원', color: 'text-purple-600 bg-purple-50 border-purple-200' },
-  { name: '생일 회원 (이번달)', desc: '이번 달 생일인 회원', color: 'text-pink-600 bg-pink-50 border-pink-200' },
+  { name: '신규', desc: '첫 정상 결제 완료일로부터 30일 이내', color: 'text-blue-600 bg-blue-50 border-blue-200' },
+  { name: '만료후미등록', desc: '마지막 이용권 만료일 +60일 경과, 재등록 결제 없음', color: 'text-rose-600 bg-rose-50 border-rose-200' },
+  { name: '이탈위험', desc: '활성 회원이 최근 30일 이상 방문/출석 없음', color: 'text-red-600 bg-red-50 border-red-200' },
+  { name: '만료임박', desc: '본사/지점 만료 알림 step 대상 회원', color: 'text-orange-600 bg-orange-50 border-orange-200' },
+  { name: '관심필요', desc: '최근 90일 이내 종합평가·상담 기록 없음', color: 'text-amber-600 bg-amber-50 border-amber-200' },
+  { name: '충성', desc: '누적 결제 기간 12개월 이상 + 골드 이상 등급', color: 'text-purple-600 bg-purple-50 border-purple-200' },
+  { name: '활발', desc: '최근 30일 이내 방문/출석 8회 이상', color: 'text-emerald-600 bg-emerald-50 border-emerald-200' },
 ];
 
 export function isPublishingSeedRoute(route: string): route is PublishingSeedRoute {
@@ -737,7 +740,7 @@ function memberSegmentPayload(snapshotDate: string, branchId: number): MemberSeg
     segments: segmentTemplates.map((segment, index) => ({
       id: branchId * 1000 + index + 1,
       ...segment,
-      count: int(rng, index === 3 ? 80 : 8, index === 3 ? 180 : 58),
+      count: int(rng, 8, 180),
       auto: true,
     })),
   };
