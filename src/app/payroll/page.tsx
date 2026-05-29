@@ -19,6 +19,7 @@ import {
 import { cn } from "@/lib/utils";
 import Button from "@/components/ui/Button";
 import Select from '@/components/ui/Select';
+import ConfirmDialog from "@/components/ui/ConfirmDialog";
 import { moveToPage } from "@/internal";
 import AppLayout from "@/components/layout/AppLayout";
 import PageHeader from "@/components/common/PageHeader";
@@ -80,6 +81,7 @@ export default function Payroll() {
   const [sortDir, setSortDir] = useState<SortDir>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const PAGE_SIZE = 10;
+  const [isConfirmOpen, setIsConfirmOpen] = useState(false);
 
   useEffect(() => {
     async function fetchPayroll() {
@@ -259,16 +261,7 @@ export default function Payroll() {
               <Button
                 variant="primary"
                 icon={<CheckCircle2 size={16} />}
-                onClick={async () => {
-                  if (!window.confirm("전 직원 급여를 확정하시겠습니까?")) return;
-                  const unpaid = payrollData.filter(r => r.status !== "paid");
-                  if (unpaid.length === 0) { toast.success("이미 모든 급여가 확정되었습니다."); return; }
-                  const ids = unpaid.map(r => r.id);
-                  const { error } = await supabase.from("payroll").update({ status: "paid" }).in("id", ids);
-                  if (error) { toast.error("급여 확정에 실패했습니다."); return; }
-                  toast.success("급여가 확정되었습니다");
-                  setPayrollData(prev => prev.map(r => ids.includes(r.id) ? { ...r, status: "paid" } : r));
-                }}
+                onClick={() => setIsConfirmOpen(true)}
               >
                 급여 확정
               </Button>
@@ -409,6 +402,33 @@ export default function Payroll() {
           <Button variant="primary" size="sm" onClick={() => moveToPage(989)}>명세서 바로가기</Button>
         </div>
       </div>
+
+      {/* DLG-064-002 급여 확정 확인 */}
+      <ConfirmDialog
+        open={isConfirmOpen}
+        title="급여를 확정하시겠습니까?"
+        description={`확정된 급여는 급여 명세서로 생성되며, 직원에게 발송할 수 있습니다.\n${payrollData.filter(r => r.status !== "paid").length}명의 급여를 확정하시겠습니까?`}
+        confirmLabel="확정"
+        cancelLabel="취소"
+        onConfirm={async () => {
+          const unpaid = payrollData.filter(r => r.status !== "paid");
+          if (unpaid.length === 0) {
+            toast.success("이미 모든 급여가 확정되었습니다.");
+            setIsConfirmOpen(false);
+            return;
+          }
+          const ids = unpaid.map(r => r.id);
+          const { error } = await supabase.from("payroll").update({ status: "paid" }).in("id", ids);
+          if (error) {
+            toast.error("급여 확정에 실패했습니다.");
+            return;
+          }
+          toast.success(`${ids.length}명의 급여가 확정되었습니다.`);
+          setPayrollData(prev => prev.map(r => ids.includes(r.id) ? { ...r, status: "paid" } : r));
+          setIsConfirmOpen(false);
+        }}
+        onCancel={() => setIsConfirmOpen(false)}
+      />
     </AppLayout>
   );
 }
