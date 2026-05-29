@@ -6,7 +6,19 @@ const getBranchId = (): number => { if (typeof window === "undefined") return 1;
   return stored ? Number(stored) : 1;
 };
 
-export type AttendanceStatus = '정상' | '지각' | '조퇴' | '결근' | '연차' | '휴무';
+export type AttendanceStatus = '정상' | '지각' | '결근' | '조퇴' | '외근' | '휴가';
+
+// 근태 출처 배지 4종 (PAY-STF-01-06)
+export type AttendanceSource = '키오스크' | 'IoT' | '수동 보정' | '누락 추가';
+
+// 보정 이력 항목
+export interface AttendanceCorrection {
+  at: string;       // 보정 일시
+  by: string;       // 보정자
+  reason: string;   // 보정 사유
+  before: string;   // 변경 전 요약
+  after: string;    // 변경 후 요약
+}
 
 export interface StaffAttendanceItem {
   id: number;
@@ -17,6 +29,8 @@ export interface StaffAttendanceItem {
   clockOut: string | null;
   workMinutes: number | null;
   status: AttendanceStatus;
+  source: AttendanceSource;
+  corrections: AttendanceCorrection[];
   memo: string;
   branchId: number;
 }
@@ -44,6 +58,9 @@ export async function getStaffAttendance(branchId?: number, date?: string): Prom
       clockOut: row.clockOut ? (row.clockOut as string).slice(11, 16) : null,
       workMinutes: row.workMinutes != null ? Number(row.workMinutes) : null,
       status: (row.status as AttendanceStatus) ?? '정상',
+      // source/corrections 컬럼이 DB에 없으면 기본값(키오스크·이력 없음)으로 매핑
+      source: ((row.source as AttendanceSource) ?? '키오스크'),
+      corrections: Array.isArray(row.corrections) ? (row.corrections as AttendanceCorrection[]) : [],
       memo: (row.memo as string) ?? '',
       branchId: row.branchId as number,
     })),
