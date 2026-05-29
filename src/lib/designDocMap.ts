@@ -165,6 +165,7 @@ export const ROUTE_TO_DOC: Record<string, RouteDocMapping> = {
   '/equipment-check': { title: '장비 점검 일정', category: '시설관리', functional: { file: '시설관리.md', keywords: ['장비 점검', '7. 장비 점검'] }, screen: { folder: 'D06-시설관리/SCR-056-장비점검일정' } },
   '/consumables': { title: '소모품 재고 관리', category: '시설관리', functional: { file: '시설관리.md', keywords: ['소모품', '8. 소모품'] }, screen: { folder: 'D06-시설관리/SCR-057-소모품재고관리' } },
   '/cleaning-schedule': { title: '청소 스케줄', category: '시설관리', functional: { file: '시설관리.md', keywords: ['청소', '9. 청소'] }, screen: { folder: 'D06-시설관리/SCR-058-청소스케줄' } },
+  '/asset-management': { title: '공간 자산 관리', category: '시설관리', functional: { file: '시설관리.md', keywords: ['공간 자산', '공간자산', '자산 관리'] }, screen: { folder: 'D06-시설관리/SCR-059-공간자산관리' } },
   '/clothing-locker': { title: '옷 보관함 운영', category: '시설관리', functional: { file: '통합운영_IOT_헬스.md', keywords: ['옷락커', '4. 옷락커'] }, screen: { folder: 'D11-통합운영/SCR-I004-옷락커운영관리' } },
 
   // ── 마케팅 추가 ──

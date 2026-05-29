@@ -199,8 +199,8 @@ export const DOCS4_SCREENS: Docs4Entry[] = [
   // ── D11 통합운영 ──
   { code: "SCR-I001", kind: "SCR", domain: "D11", title: "통합 출석 관리", version: "both", route: "/attendance", status: "done" },
   { code: "SCR-I003", kind: "SCR", domain: "D11", title: "IoT 연동 관리", version: "V1", route: "/settings/iot", status: "done" },
-  { code: "SCR-I004", kind: "SCR", domain: "D11", title: "옷 락커 운영 관리", version: "both", route: "/clothing", status: "done" },
-  { code: "SCR-I005", kind: "SCR", domain: "D11", title: "고정 물품 락커 관리", version: "both", route: "/clothing-locker", status: "done" },
+  { code: "SCR-I004", kind: "SCR", domain: "D11", title: "옷 락커 운영 관리", version: "both", route: "/clothing-locker", status: "done" },
+  { code: "SCR-I005", kind: "SCR", domain: "D11", title: "고정 물품 락커 관리", version: "both", route: "/locker/management", status: "done" },
   { code: "SCR-I006", kind: "SCR", domain: "D11", title: "체성분 통합 관리", version: "V1", route: "/body-composition", status: "done" },
   { code: "SCR-I007", kind: "SCR", domain: "D11", title: "회원 건강 연동 요약", version: "both", route: "/members/health", status: "done" },
   { code: "SCR-I008", kind: "SCR", domain: "D11", title: "키오스크 운영 현황", version: "V1", route: "/kiosk-ops", status: "done" },
