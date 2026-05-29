@@ -22,6 +22,7 @@ interface Payment {
   staffId: number | null;
   staffName: string | null;
   durationMonths: number | null;
+  paymentRoute: '현장(POS)' | '결제링크'; // 환불 수단 확인을 위한 결제경로
 }
 
 const cancelReasons = ['단순 변심', '서비스 불만족', '중복 결제', '회원 요청', '결제 오류', '기타'];
@@ -146,7 +147,7 @@ export default function CancelRefundPage() {
     setLoading(true);
     const { data, error } = await supabase
       .from('sales')
-      .select('id, memberId, memberName, productId, productName, amount, saleDate, paymentMethod, type, round, staffId, staffName, durationMonths')
+      .select('id, memberId, memberName, productId, productName, amount, saleDate, paymentMethod, paymentType, type, round, staffId, staffName, durationMonths')
       .eq('branchId', getBranchId())
       .eq('status', 'COMPLETED')
       .gt('amount', 0)
@@ -174,6 +175,7 @@ export default function CancelRefundPage() {
       staffId: row.staffId == null ? null : Number(row.staffId),
       staffName: row.staffName == null ? null : String(row.staffName),
       durationMonths: row.durationMonths == null ? null : Number(row.durationMonths),
+      paymentRoute: String(row.paymentType ?? '').includes('결제링크') ? '결제링크' : '현장(POS)',
     })));
   }, []);
 
@@ -456,7 +458,21 @@ export default function CancelRefundPage() {
                 <p className="font-medium text-gray-500">담당자</p>
                 <p className="mt-1 text-gray-800">{selected.staffName || '-'}</p>
               </div>
+              <div>
+                <p className="font-medium text-gray-500">결제경로</p>
+                <p className="mt-1 text-gray-800">{selected.paymentRoute}</p>
+              </div>
             </div>
+          </div>
+
+          {/* 환불 수단 확인 (결제경로별 안내) */}
+          <div className="rounded-lg border border-sky-200 bg-sky-50 p-4 text-sm">
+            <p className="font-medium text-sky-900">환불 수단 확인</p>
+            <p className="mt-1 text-xs text-sky-800">
+              {selected.paymentRoute === '결제링크'
+                ? '결제링크 건은 PG 환불 상태를 확인합니다. 결제되지 않은 링크는 환불 대상이 아니므로 결제링크 무효화로 안내합니다.'
+                : '현장 등록 건은 외부 POS/현금/계좌이체 환불 완료 증빙을 확인합니다. 카드 수납행 취소는 외부 승인금액 단위 전체 취소를 원칙으로 안내합니다.'}
+            </p>
           </div>
 
           <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm">
