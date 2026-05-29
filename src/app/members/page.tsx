@@ -56,14 +56,55 @@ const SAVED_VIEW_TABS = [
   { key: 'legacy-customers', label: '(구)고객관리' },
 ] as const;
 
+/**
+ * 상태 필터 탭 (docs4 SCR-M001 / MBR-01-05 기준)
+ * 전체(집계) + 7개 실제 회원 상태값: 활성·만료·예정·임박·홀딩·미등록·탈퇴.
+ * `정지`(SUSPENDED)는 상태값이 아니라 현재 상태 위에 적용되는 이용 제한 플래그이므로
+ * 탭이 아니라 별도 토글 필터(정지 회원만 보기)로 제공한다.
+ * `예정`/`임박`/`탈퇴`는 DB status 컬럼이 없어 클라이언트에서 파생 판정한다(목업).
+ */
 const STATUS_TABS = [
   { key: 'all', label: '전체' },
   { key: 'ACTIVE', label: '활성' },
   { key: 'EXPIRED', label: '만료' },
-  { key: 'INACTIVE', label: '미등록' },
+  { key: 'SCHEDULED', label: '예정' },
+  { key: 'IMMINENT', label: '임박' },
   { key: 'HOLDING', label: '홀딩' },
-  { key: 'SUSPENDED', label: '정지' },
+  { key: 'INACTIVE', label: '미등록' },
+  { key: 'WITHDRAWN', label: '탈퇴' },
 ];
+
+/** API status 파라미터로 그대로 보낼 수 있는 실제 DB 상태값 탭 */
+const DB_STATUS_TAB_KEYS = new Set(['ACTIVE', 'EXPIRED', 'HOLDING', 'INACTIVE']);
+
+/**
+ * 파생 상태 탭 클라이언트 판정 (목업).
+ * - 예정(SCHEDULED): 이용권 시작일이 아직 도래하지 않은 활성 회원
+ * - 임박(IMMINENT): 활성 회원 중 만료일 D-30 이내
+ * - 탈퇴(WITHDRAWN): 탈퇴/삭제 처리(deletedAt) 회원
+ */
+function matchesDerivedStatusTab(
+  tab: string,
+  member: { status?: string; membershipStart?: string; membershipExpiry?: string; deletedAt?: string }
+): boolean {
+  const now = Date.now();
+  const dayMs = 86400000;
+  switch (tab) {
+    case 'WITHDRAWN':
+      return Boolean(member.deletedAt);
+    case 'SCHEDULED': {
+      if (member.status !== 'ACTIVE' || !member.membershipStart) return false;
+      return new Date(member.membershipStart).getTime() > now;
+    }
+    case 'IMMINENT': {
+      if (member.status !== 'ACTIVE' || !member.membershipExpiry) return false;
+      const days = Math.ceil((new Date(member.membershipExpiry).getTime() - now) / dayMs);
+      return days >= 0 && days <= 30;
+    }
+    default:
+      return true;
+  }
+}
 
 const FILTER_CONFIG = [
   { key: 'product', label: '계약상품', type: 'select' as const, options: [{ value: 'all', label: '전체' }, { value: 'pt', label: 'PT' }, { value: 'health', label: '헬스' }, { value: 'yoga', label: '요가' }, { value: 'pilates', label: '필라테스' }] },
@@ -72,8 +113,42 @@ const FILTER_CONFIG = [
   { key: 'visitDate', label: '최근방문일', type: 'dateRange' as const },
 ];
 
-/** 회원 세그먼트 판정 (문서 섹션 28) */
-function getMemberSegment(member: { registeredAt?: string; status?: string; membershipExpiry?: string; lastVisitAt?: string }): { label: string; color: string } {
+/**
+ * 회원 자동 세그먼트 판정 (docs4 SCR-M010 / MBR-EXT-04 "자동 7종" 기준).
+ *
+ * 자동 7종 라벨과 판정 기준(목업):
+ * - 신규: 첫 정상 결제 완료일(=등록 기준일)로부터 30일 이내
+ * - 만료후미등록: 마지막 이용권 만료일 +60일 경과, 재등록 결제 없음(EXPIRED 60일 경과)
+ * - 이탈위험: 활성 회원이 최근 30일 이상 방문/출석 없음
+ * - 만료임박: 활성 회원의 이용권 만료가 HQ-09 만료 step 대상(여기서는 D-30 이내로 근사)
+ * - 관심필요: 최근 90일 이내 종합평가/상담 기록이 없는 회원(여기서는 미방문 90일로 근사)
+ * - 충성: 누적 결제 기간 12개월 이상 + 골드 이상 등급(여기서는 등록 12개월 이상으로 근사) — 보조 라벨
+ * - 활발: 최근 30일 이내 방문/출석 8회 이상(여기서는 최근 7일 내 방문으로 근사)
+ *
+ * 기본 자동 라벨 우선순위: 이탈위험 > 만료임박 > 신규 > 활발 > 관심필요 > 만료후미등록 (회원당 1개).
+ * `충성`은 보조 라벨로 별도 판정해 기본 라벨과 함께 표시할 수 있다.
+ *
+ * 실데이터(첫 결제일·방문 횟수·등급)는 백엔드 범위이므로 가용한 필드로 근사 판정한다(목업).
+ */
+type MemberSegment = { label: string; color: string };
+
+function getMemberSegment(member: {
+  registeredAt?: string;
+  status?: string;
+  membershipExpiry?: string;
+  lastVisitAt?: string;
+}): MemberSegment {
+  const seg = getMemberSegments(member);
+  return seg.primary ?? seg.loyalty ?? { label: '-', color: 'bg-surface-secondary text-content-secondary' };
+}
+
+/** 기본 자동 라벨 + 충성(보조) 라벨을 분리해 반환 */
+function getMemberSegments(member: {
+  registeredAt?: string;
+  status?: string;
+  membershipExpiry?: string;
+  lastVisitAt?: string;
+}): { primary: MemberSegment | null; loyalty: MemberSegment | null } {
   const now = Date.now();
   const dayMs = 86400000;
 
@@ -85,40 +160,32 @@ function getMemberSegment(member: { registeredAt?: string; status?: string; memb
   const isActive = status === 'ACTIVE';
   const isExpired = status === 'EXPIRED';
 
-  // 신규: 등록 30일 이내
-  if (registeredAt && now - registeredAt <= 30 * dayMs) {
-    return { label: '신규', color: 'bg-blue-100 text-blue-700' };
-  }
-  // 만료 후 미등록
-  if (isExpired) {
-    return { label: '만료 후 미등록', color: 'bg-red-100 text-red-700' };
-  }
-  if (isActive) {
-    const daysSinceVisit = lastVisitAt ? (now - lastVisitAt) / dayMs : Infinity;
-    const daysToExpiry = membershipExpiry ? (membershipExpiry - now) / dayMs : Infinity;
+  const daysSinceVisit = lastVisitAt ? (now - lastVisitAt) / dayMs : Infinity;
+  const daysToExpiry = membershipExpiry ? (membershipExpiry - now) / dayMs : Infinity;
+  const daysSinceRegister = registeredAt ? (now - registeredAt) / dayMs : Infinity;
+  const daysSinceExpiry = membershipExpiry ? (now - membershipExpiry) / dayMs : -Infinity;
 
-    // 이탈 위험: 30일+ 미방문
-    if (daysSinceVisit >= 30) {
-      return { label: '이탈 위험', color: 'bg-red-100 text-red-700' };
-    }
-    // 만료 임박: D-30 이내
-    if (daysToExpiry <= 30) {
-      return { label: '만료 임박', color: 'bg-yellow-100 text-yellow-700' };
-    }
-    // 관심 필요: 14일+ 미방문
-    if (daysSinceVisit >= 14) {
-      return { label: '관심 필요', color: 'bg-yellow-100 text-yellow-700' };
-    }
-    // 충성 회원: 6개월+ 유지 + 최근 7일 내 방문
-    if (registeredAt && now - registeredAt >= 180 * dayMs && daysSinceVisit <= 7) {
-      return { label: '충성 회원', color: 'bg-green-100 text-green-700' };
-    }
-    // 활발한 회원: 최근 14일 내 방문
-    if (daysSinceVisit <= 14) {
-      return { label: '활발한 회원', color: 'bg-green-100 text-green-700' };
-    }
+  // 보조 라벨: 충성 (등록 12개월 이상 — 등급 데이터 부재로 근사)
+  const loyalty: MemberSegment | null =
+    daysSinceRegister >= 365 ? { label: '충성', color: 'bg-purple-100 text-purple-700' } : null;
+
+  // 기본 자동 라벨 우선순위: 이탈위험 > 만료임박 > 신규 > 활발 > 관심필요 > 만료후미등록
+  let primary: MemberSegment | null = null;
+  if (isActive && daysSinceVisit >= 30) {
+    primary = { label: '이탈위험', color: 'bg-red-100 text-red-700' };
+  } else if (isActive && daysToExpiry >= 0 && daysToExpiry <= 30) {
+    primary = { label: '만료임박', color: 'bg-yellow-100 text-yellow-700' };
+  } else if (daysSinceRegister <= 30) {
+    primary = { label: '신규', color: 'bg-blue-100 text-blue-700' };
+  } else if (isActive && daysSinceVisit <= 7) {
+    primary = { label: '활발', color: 'bg-green-100 text-green-700' };
+  } else if (daysSinceVisit >= 90) {
+    primary = { label: '관심필요', color: 'bg-amber-100 text-amber-700' };
+  } else if (isExpired && daysSinceExpiry >= 60) {
+    primary = { label: '만료후미등록', color: 'bg-rose-100 text-rose-700' };
   }
-  return { label: '-', color: 'bg-surface-secondary text-content-secondary' };
+
+  return { primary, loyalty };
 }
 
 /** DB status → 표시 레이블 */
@@ -156,6 +223,8 @@ function MemberList() {
   const [hideExpired, setHideExpired] = useState(false);
   // 관심회원만 보기
   const [onlyFavorite, setOnlyFavorite] = useState(false);
+  // 정지 회원만 보기 (정지는 상태값이 아니라 이용 제한 플래그)
+  const [onlySuspended, setOnlySuspended] = useState(false);
   const [activeSavedView, setActiveSavedView] = useState<(typeof SAVED_VIEW_TABS)[number]['key']>('consultation-history');
   const [detailPanelEnabled, setDetailPanelEnabled] = useState(true);
   const [selectedPanelMemberId, setSelectedPanelMemberId] = useState<number | null>(null);
@@ -200,7 +269,8 @@ function MemberList() {
     page: currentPage,
     size: pageSize,
     search: debouncedSearch || undefined,
-    status: activeStatusTab !== 'all' ? activeStatusTab : undefined,
+    // 실제 DB 상태값 탭만 서버 필터로 전달. 예정/임박/탈퇴는 클라이언트 파생 판정.
+    status: DB_STATUS_TAB_KEYS.has(activeStatusTab) ? activeStatusTab : undefined,
     gender: filterValues.gender || undefined,
     product: filterValues.product || undefined,
     sortKey: sortKey || undefined,
@@ -213,8 +283,16 @@ function MemberList() {
   const statsQuery = useMemberStats();
 
   const rawMembers = membersQuery.data?.data?.data ?? [];
-  // 만료 상품 숨기기 필터 적용
-  const members = hideExpired ? rawMembers.filter((m) => m.status !== 'EXPIRED') : rawMembers;
+  // 클라이언트 파생 필터 적용: 만료 숨기기 / 파생 상태 탭(예정·임박·탈퇴) / 정지 플래그
+  const members = useMemo(() => {
+    let list = rawMembers;
+    if (hideExpired) list = list.filter((m) => m.status !== 'EXPIRED');
+    if (!DB_STATUS_TAB_KEYS.has(activeStatusTab) && activeStatusTab !== 'all') {
+      list = list.filter((m) => matchesDerivedStatusTab(activeStatusTab, m));
+    }
+    if (onlySuspended) list = list.filter((m) => m.status === 'SUSPENDED');
+    return list;
+  }, [rawMembers, hideExpired, activeStatusTab, onlySuspended]);
   const pagination = membersQuery.data?.data?.pagination;
   const stats = statsQuery.data?.data;
   const expiringSoonCount = useMemo(() => members.filter((member) => {
@@ -231,7 +309,7 @@ function MemberList() {
   const savedViewMembers = useMemo(() => {
     switch (activeSavedView) {
       case 'consultation-scheduled':
-        return members.filter((member) => member.isFavorite || getMemberSegment(member).label === '관심 필요');
+        return members.filter((member) => member.isFavorite || getMemberSegment(member).label === '관심필요');
       case 'renewal-target':
         return members.filter((member) => {
           if (member.status === 'EXPIRED') return true;
@@ -331,11 +409,16 @@ function MemberList() {
       ),
     },
     {
-      key: 'segment', header: '세그먼트', width: 110, align: 'center' as const,
+      key: 'segment', header: '세그먼트', width: 140, align: 'center' as const,
       render: (_: unknown, row: Member) => {
-        const seg = getMemberSegment(row);
-        if (seg.label === '-') return <span className="text-content-tertiary text-[12px]">-</span>;
-        return <span className={`inline-block px-2 py-0.5 rounded text-[11px] font-medium ${seg.color}`}>{seg.label}</span>;
+        const { primary, loyalty } = getMemberSegments(row);
+        if (!primary && !loyalty) return <span className="text-content-tertiary text-[12px]">-</span>;
+        return (
+          <span className="inline-flex items-center justify-center gap-[3px] flex-wrap">
+            {primary && <span className={`inline-block px-2 py-0.5 rounded text-[11px] font-medium ${primary.color}`}>{primary.label}</span>}
+            {loyalty && <span className={`inline-block px-2 py-0.5 rounded text-[11px] font-medium ${loyalty.color}`}>{loyalty.label}</span>}
+          </span>
+        );
       },
     },
     {
@@ -820,7 +903,7 @@ function MemberList() {
               const count = tab.key === 'consultation-history'
                 ? members.length
                 : tab.key === 'consultation-scheduled'
-                ? members.filter((member) => member.isFavorite || getMemberSegment(member).label === '관심 필요').length
+                ? members.filter((member) => member.isFavorite || getMemberSegment(member).label === '관심필요').length
                 : tab.key === 'renewal-target'
                 ? members.filter((member) => {
                     if (member.status === 'EXPIRED') return true;
@@ -889,7 +972,10 @@ function MemberList() {
                    tab.key === 'EXPIRED' ? (stats?.expired ?? '') :
                    tab.key === 'INACTIVE' ? (stats?.inactive ?? '') :
                    tab.key === 'HOLDING' ? (stats?.holding ?? '') :
-                   tab.key === 'SUSPENDED' ? (stats?.suspended ?? '') : ''}
+                   /* 예정·임박·탈퇴는 서버 집계가 없어 현재 페이지 파생 건수로 표시(목업) */
+                   tab.key === 'SCHEDULED' ? rawMembers.filter((m) => matchesDerivedStatusTab('SCHEDULED', m)).length :
+                   tab.key === 'IMMINENT' ? rawMembers.filter((m) => matchesDerivedStatusTab('IMMINENT', m)).length :
+                   tab.key === 'WITHDRAWN' ? rawMembers.filter((m) => matchesDerivedStatusTab('WITHDRAWN', m)).length : ''}
                 </span>
                 {activeStatusTab === tab.key && <div className="absolute bottom-0 left-0 right-0 h-[2px] bg-primary rounded-t-full" />}
               </button>
@@ -993,6 +1079,19 @@ function MemberList() {
                 onChange={(e) => { setHideExpired(e.target.checked); setCurrentPage(1); }}
               />
               <span className="text-[13px] text-content-secondary">만료 숨기기</span>
+            </label>
+
+            <div className="h-4 w-px bg-line" />
+
+            {/* 정지 회원만 보기 (정지는 상태값이 아니라 이용 제한 플래그) */}
+            <label className="flex items-center gap-xs cursor-pointer select-none">
+              <input
+                type="checkbox"
+                className="w-4 h-4 rounded accent-primary cursor-pointer"
+                checked={onlySuspended}
+                onChange={(e) => { setOnlySuspended(e.target.checked); setCurrentPage(1); }}
+              />
+              <span className="text-[13px] text-content-secondary">정지만 보기</span>
             </label>
           </div>
         </div>
