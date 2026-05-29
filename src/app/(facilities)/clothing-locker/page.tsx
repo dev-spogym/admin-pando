@@ -1,158 +1,407 @@
 'use client';
 export const dynamic = 'force-dynamic';
 
-import React, { useState } from 'react';
+// SCR-I005 고정 물품 락커 관리 (docs4 V1/V2 D11-통합운영)
+// 개인 물품 / 골프 / 프리미엄 계약 기반 고정 락커 배정·연장·회수·상태동기화.
+// 데이터 미연동: 인라인 mock 기준 기능형 목업.
+
+import React, { useMemo, useState } from 'react';
 import AppLayout from '@/components/layout/AppLayout';
 import PageHeader from '@/components/common/PageHeader';
-import { Shirt, Plus, Package, RefreshCw, AlertTriangle } from 'lucide-react';
+import StatCard from '@/components/common/StatCard';
+import StatCardGrid from '@/components/common/StatCardGrid';
+import DataTable from '@/components/common/DataTable';
+import StatusBadge, { type BadgeVariant } from '@/components/common/StatusBadge';
+import TabNav from '@/components/common/TabNav';
+import EmptyState from '@/components/common/EmptyState';
+import Modal from '@/components/ui/Modal';
+import Button from '@/components/ui/Button';
+import Select from '@/components/ui/Select';
+import { toast } from 'sonner';
+import { Package, AlertTriangle, RefreshCw, Plus, Search } from 'lucide-react';
+import { useAuthStore } from '@/stores/authStore';
+import { isRoleAtLeast } from '@/lib/permissions';
 
-const lockers = [
-  { id: 'A-01', member: '김민준', size: 'M', assignedDate: '2026-04-01', returnDate: '2026-04-30', status: '대여중' },
-  { id: 'A-02', member: '이서연', size: 'S', assignedDate: '2026-04-05', returnDate: '2026-04-30', status: '대여중' },
-  { id: 'A-03', member: null, size: '-', assignedDate: '-', returnDate: '-', status: '비어있음' },
-  { id: 'A-04', member: '박지훈', size: 'L', assignedDate: '2026-03-15', returnDate: '2026-04-15', status: '반납지연' },
-  { id: 'A-05', member: null, size: '-', assignedDate: '-', returnDate: '-', status: '비어있음' },
-  { id: 'A-06', member: '최유리', size: 'S', assignedDate: '2026-04-10', returnDate: '2026-04-30', status: '대여중' },
-  { id: 'B-01', member: '정현우', size: 'XL', assignedDate: '2026-04-12', returnDate: '2026-04-30', status: '대여중' },
-  { id: 'B-02', member: null, size: '-', assignedDate: '-', returnDate: '-', status: '점검중' },
+// ─── 타입 ──────────────────────────────────────────────────────────────────
+
+type LockerCategory = 'personal' | 'golf' | 'premium';
+type LockerStatus = '사용중' | '만료예정' | '만료' | '회수대기';
+
+interface FixedLocker {
+  id: string;
+  category: LockerCategory;
+  member: string;
+  product: string;
+  assignedDate: string;
+  expireDate: string;
+  status: LockerStatus;
+}
+
+const CATEGORY_TABS = [
+  { key: 'personal', label: '개인 물품' },
+  { key: 'golf', label: '골프' },
+  { key: 'premium', label: '프리미엄' },
 ];
 
-const statusColor: Record<string, string> = {
-  '대여중': 'bg-blue-100 text-blue-700',
-  '비어있음': 'bg-green-100 text-green-700',
-  '반납지연': 'bg-red-100 text-red-700',
-  '점검중': 'bg-amber-100 text-amber-700',
+const STATUS_VARIANT: Record<LockerStatus, BadgeVariant> = {
+  사용중: 'info',
+  만료예정: 'warning',
+  만료: 'error',
+  회수대기: 'error',
 };
 
-const inventory = [
-  { size: 'S', total: 20, inUse: 8, available: 12 },
-  { size: 'M', total: 25, inUse: 15, available: 10 },
-  { size: 'L', total: 20, inUse: 12, available: 8 },
-  { size: 'XL', total: 10, inUse: 6, available: 4 },
+const STATUS_OPTIONS = [
+  { value: '전체', label: '전체 상태' },
+  { value: '사용중', label: '사용 중' },
+  { value: '만료예정', label: '만료 예정' },
+  { value: '만료', label: '만료' },
+  { value: '회수대기', label: '회수 대기' },
 ];
 
+// ─── 인라인 mock ──────────────────────────────────────────────────────────
+
+const MOCK_LOCKERS: FixedLocker[] = [
+  { id: 'P-01', category: 'personal', member: '김민준', product: '개인 물품 락커(소)', assignedDate: '2026-01-05', expireDate: '2026-07-05', status: '사용중' },
+  { id: 'P-02', category: 'personal', member: '이서연', product: '개인 물품 락커(소)', assignedDate: '2025-11-20', expireDate: '2026-06-03', status: '만료예정' },
+  { id: 'P-03', category: 'personal', member: '박지훈', product: '개인 물품 락커(중)', assignedDate: '2025-10-10', expireDate: '2026-04-10', status: '만료' },
+  { id: 'G-01', category: 'golf', member: '정현우', product: '골프백 보관 락커', assignedDate: '2026-02-01', expireDate: '2027-02-01', status: '사용중' },
+  { id: 'G-02', category: 'golf', member: '최유리', product: '골프백 보관 락커', assignedDate: '2025-12-15', expireDate: '2026-03-15', status: '회수대기' },
+  { id: 'V-01', category: 'premium', member: '한지민', product: '프리미엄 라운지 락커', assignedDate: '2026-03-01', expireDate: '2026-09-01', status: '사용중' },
+  { id: 'V-02', category: 'premium', member: '오세훈', product: '프리미엄 라운지 락커', assignedDate: '2025-12-01', expireDate: '2026-06-05', status: '만료예정' },
+];
+
+// ─── 메인 컴포넌트 ─────────────────────────────────────────────────────────
+
 export default function ClothingLockerPage() {
-  const [tab, setTab] = useState<'보관함현황' | '재고현황'>('보관함현황');
+  const [lockers, setLockers] = useState<FixedLocker[]>(MOCK_LOCKERS);
+  const [tab, setTab] = useState<LockerCategory>('personal');
+  const [statusFilter, setStatusFilter] = useState('전체');
+  const [search, setSearch] = useState('');
+
+  // 배정 모달
   const [showAssign, setShowAssign] = useState(false);
+  const [assignForm, setAssignForm] = useState({ member: '', product: '개인 물품 락커(소)', expireDate: '' });
+
+  // 연장 모달
+  const [extendTarget, setExtendTarget] = useState<FixedLocker | null>(null);
+  const [extendDate, setExtendDate] = useState('');
+
+  // 회수 확인 모달
+  const [recoverTarget, setRecoverTarget] = useState<FixedLocker | null>(null);
+
+  // 권한: 트레이너(readonly) 조회만, 스태프 회수 제한
+  const authUser = useAuthStore((s) => s.user);
+  const role = authUser?.role ?? '';
+  const canManage = isRoleAtLeast(role, 'staff'); // 스태프 이상 배정/연장 가능
+  const canRecover = isRoleAtLeast(role, 'manager'); // 회수는 매니저 이상 (스태프는 승인 필요)
+
+  // ─── 통계 ─────────────────────────────────────────────────────────────────
+
+  const stats = useMemo(() => ({
+    total: lockers.length,
+    inUse: lockers.filter((l) => l.status === '사용중').length,
+    expiring: lockers.filter((l) => l.status === '만료예정').length,
+    recovering: lockers.filter((l) => l.status === '회수대기').length,
+  }), [lockers]);
+
+  // ─── 필터링 ───────────────────────────────────────────────────────────────
+
+  const filtered = useMemo(() => lockers.filter((l) => {
+    if (l.category !== tab) return false;
+    if (statusFilter !== '전체' && l.status !== statusFilter) return false;
+    if (search) {
+      const q = search.trim();
+      if (!l.member.includes(q) && !l.id.includes(q) && !l.product.includes(q)) return false;
+    }
+    return true;
+  }), [lockers, tab, statusFilter, search]);
+
+  // ─── 액션 ─────────────────────────────────────────────────────────────────
+
+  const handleAssign = () => {
+    if (!assignForm.member.trim()) {
+      toast.error('회원을 선택해 주세요.');
+      return;
+    }
+    if (!assignForm.expireDate) {
+      toast.error('계약 기간을 선택해 주세요.');
+      return;
+    }
+    if (assignForm.expireDate < new Date().toISOString().slice(0, 10)) {
+      toast.error('만료일은 과거 일자로 지정할 수 없습니다.');
+      return;
+    }
+    const nextNo = `${tab === 'personal' ? 'P' : tab === 'golf' ? 'G' : 'V'}-${String(lockers.length + 1).padStart(2, '0')}`;
+    setLockers((prev) => [
+      ...prev,
+      {
+        id: nextNo,
+        category: tab,
+        member: assignForm.member.trim(),
+        product: assignForm.product,
+        assignedDate: new Date().toISOString().slice(0, 10),
+        expireDate: assignForm.expireDate,
+        status: '사용중',
+      },
+    ]);
+    toast.success('고정 락커를 배정했습니다.');
+    setShowAssign(false);
+    setAssignForm({ member: '', product: '개인 물품 락커(소)', expireDate: '' });
+  };
+
+  const handleExtend = () => {
+    if (!extendTarget) return;
+    if (!extendDate) {
+      toast.error('연장할 만료일을 선택해 주세요.');
+      return;
+    }
+    if (extendDate < new Date().toISOString().slice(0, 10)) {
+      toast.error('만료일은 과거 일자로 지정할 수 없습니다.');
+      return;
+    }
+    setLockers((prev) => prev.map((l) => (l.id === extendTarget.id ? { ...l, expireDate: extendDate, status: '사용중' } : l)));
+    toast.success('계약 만료일을 연장했습니다.');
+    setExtendTarget(null);
+    setExtendDate('');
+  };
+
+  const handleRecover = () => {
+    if (!recoverTarget) return;
+    // 회수 = 회원 연결 제거, 이력 보존 (mock에서는 목록에서 제거)
+    setLockers((prev) => prev.filter((l) => l.id !== recoverTarget.id));
+    toast.success('고정 락커를 회수했습니다.');
+    setRecoverTarget(null);
+  };
+
+  const handleSync = () => {
+    // 만료일 기준 상태 재계산
+    const today = new Date().toISOString().slice(0, 10);
+    const soon = new Date(Date.now() + 14 * 86400000).toISOString().slice(0, 10);
+    setLockers((prev) => prev.map((l) => {
+      if (l.status === '회수대기') return l;
+      if (l.expireDate < today) return { ...l, status: '만료' };
+      if (l.expireDate <= soon) return { ...l, status: '만료예정' };
+      return { ...l, status: '사용중' };
+    }));
+    toast.success('고정 락커 상태를 동기화했습니다.');
+  };
+
+  // ─── 테이블 컬럼 ──────────────────────────────────────────────────────────
+
+  const columns = [
+    { key: 'id', header: '락커 번호', width: 100 },
+    { key: 'member', header: '회원명', width: 120 },
+    { key: 'product', header: '상품명' },
+    { key: 'assignedDate', header: '배정일', width: 120 },
+    { key: 'expireDate', header: '만료일', width: 120 },
+    {
+      key: 'status', header: '상태', width: 110,
+      render: (v: LockerStatus) => <StatusBadge variant={STATUS_VARIANT[v]} label={v} />,
+    },
+    {
+      key: 'actions', header: '관리', width: 160, align: 'right' as const,
+      render: (_: unknown, row: FixedLocker) => (
+        <div className="flex justify-end gap-xs">
+          {canManage && (
+            <button
+              className="text-[11px] px-sm py-[3px] rounded bg-blue-50 text-blue-700 hover:bg-blue-100"
+              onClick={() => { setExtendTarget(row); setExtendDate(row.expireDate); }}
+            >
+              연장
+            </button>
+          )}
+          {canRecover ? (
+            <button
+              className="text-[11px] px-sm py-[3px] rounded bg-red-50 text-red-600 hover:bg-red-100"
+              onClick={() => setRecoverTarget(row)}
+            >
+              회수
+            </button>
+          ) : canManage ? (
+            <button
+              className="text-[11px] px-sm py-[3px] rounded bg-surface-tertiary text-content-tertiary cursor-not-allowed"
+              onClick={() => toast.error('회수는 관리자 승인이 필요합니다.')}
+            >
+              회수
+            </button>
+          ) : null}
+        </div>
+      ),
+    },
+  ];
 
   return (
     <AppLayout>
-      <PageHeader title="옷 보관함 운영 관리" description="운동복 보관함 배정 현황과 재고를 관리합니다" actions={
-        <button onClick={() => setShowAssign(true)} className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700">
-          <Plus className="w-4 h-4" /> 배정
-        </button>
-      } />
-
-      <div className="grid grid-cols-4 gap-4 mb-6">
-        <div className="bg-white rounded-xl border border-gray-200 p-4">
-          <p className="text-xs text-gray-500 mb-1">전체 보관함</p>
-          <p className="text-2xl font-bold text-gray-900">8개</p>
-        </div>
-        <div className="bg-blue-50 rounded-xl border border-blue-200 p-4">
-          <p className="text-xs text-blue-700 mb-1">대여 중</p>
-          <p className="text-2xl font-bold text-blue-600">5개</p>
-        </div>
-        <div className="bg-green-50 rounded-xl border border-green-200 p-4">
-          <p className="text-xs text-green-700 mb-1">비어 있음</p>
-          <p className="text-2xl font-bold text-green-600">2개</p>
-        </div>
-        <div className="bg-red-50 rounded-xl border border-red-200 p-4">
-          <div className="flex items-center gap-1 mb-1">
-            <AlertTriangle className="w-3.5 h-3.5 text-red-500" />
-            <p className="text-xs text-red-700">반납 지연</p>
+      <PageHeader
+        title="고정 물품 락커 관리"
+        description="개인 물품·골프·프리미엄 고정 락커의 계약 배정 현황을 관리합니다."
+        actions={
+          <div className="flex gap-sm">
+            <Button variant="outline" size="sm" icon={<RefreshCw className="h-4 w-4" />} onClick={handleSync}>
+              상태 동기화
+            </Button>
+            {canManage && (
+              <Button size="sm" icon={<Plus className="h-4 w-4" />} onClick={() => setShowAssign(true)}>
+                배정하기
+              </Button>
+            )}
           </div>
-          <p className="text-2xl font-bold text-red-600">1개</p>
+        }
+      />
+
+      {/* 상단 현황 카드 */}
+      <StatCardGrid cols={4} className="mb-lg">
+        <StatCard label="전체 고정 락커" value={`${stats.total}개`} icon={<Package />} />
+        <StatCard label="사용 중" value={`${stats.inUse}개`} icon={<Package />} variant="mint" />
+        <StatCard
+          label="만료 예정"
+          value={`${stats.expiring}개`}
+          icon={<AlertTriangle />}
+          variant="peach"
+          onClick={() => setStatusFilter('만료예정')}
+        />
+        <StatCard
+          label="회수 대기"
+          value={`${stats.recovering}개`}
+          icon={<AlertTriangle />}
+          onClick={() => setStatusFilter('회수대기')}
+        />
+      </StatCardGrid>
+
+      {/* 락커 유형 탭 */}
+      <TabNav
+        tabs={CATEGORY_TABS.map((t) => ({
+          ...t,
+          label: `${t.label} ${lockers.filter((l) => l.category === t.key).length}`,
+        }))}
+        activeTab={tab}
+        onTabChange={(k) => setTab(k as LockerCategory)}
+      />
+
+      {/* 검색·필터 */}
+      <div className="my-md flex items-center gap-sm">
+        <div className="relative max-w-sm flex-1">
+          <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-content-tertiary" />
+          <input
+            className="w-full h-9 pl-9 pr-4 rounded-lg border border-line bg-surface-secondary text-[13px] focus:border-primary outline-none"
+            placeholder="회원명, 락커 번호, 상품명 검색..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
+        </div>
+        <div className="w-40">
+          <Select value={statusFilter} onChange={setStatusFilter} options={STATUS_OPTIONS} />
         </div>
       </div>
 
-      <div className="flex gap-2 mb-4">
-        {(['보관함현황', '재고현황'] as const).map(t => (
-          <button key={t} onClick={() => setTab(t)}
-            className={`px-4 py-2 rounded-lg text-sm font-medium ${tab === t ? 'bg-blue-600 text-white' : 'text-gray-600 hover:bg-gray-100'}`}>
-            {t}
-          </button>
-        ))}
-      </div>
-
-      {tab === '보관함현황' ? (
-        <div className="grid grid-cols-4 gap-3">
-          {lockers.map(locker => (
-            <div key={locker.id} className={`rounded-xl border-2 p-4 ${locker.status === '비어있음' ? 'border-green-200 bg-green-50' : locker.status === '반납지연' ? 'border-red-200 bg-red-50' : locker.status === '점검중' ? 'border-amber-200 bg-amber-50' : 'border-blue-200 bg-blue-50'}`}>
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-xs font-bold text-gray-600">{locker.id}</span>
-                <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${statusColor[locker.status]}`}>{locker.status}</span>
-              </div>
-              {locker.member ? (
-                <>
-                  <p className="text-sm font-semibold text-gray-800">{locker.member}</p>
-                  <p className="text-xs text-gray-500 mt-0.5">사이즈 {locker.size}</p>
-                  <p className="text-xs text-gray-400 mt-1">반납 {locker.returnDate}</p>
-                </>
-              ) : (
-                <div className="flex items-center justify-center h-12">
-                  <Shirt className="w-6 h-6 text-gray-300" />
-                </div>
-              )}
-            </div>
-          ))}
-        </div>
+      {/* 배정 현황 테이블 */}
+      {lockers.length === 0 ? (
+        <EmptyState
+          icon={Package}
+          title="등록된 고정 물품 락커가 없습니다"
+          description="고정 락커를 등록한 후 회원에게 배정할 수 있습니다."
+          action={canManage ? { label: '배정하기', onClick: () => setShowAssign(true) } : undefined}
+        />
+      ) : filtered.length === 0 ? (
+        <EmptyState
+          icon={Package}
+          title="배정된 락커가 없습니다"
+          description="선택한 유형/상태에 해당하는 배정 내역이 없습니다."
+        />
       ) : (
-        <div className="bg-white rounded-xl border border-gray-200 divide-y divide-gray-100">
-          {inventory.map(inv => (
-            <div key={inv.size} className="flex items-center justify-between px-5 py-4">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-gray-100 rounded-xl flex items-center justify-center font-bold text-gray-600">{inv.size}</div>
-                <div>
-                  <p className="text-sm font-semibold text-gray-800">사이즈 {inv.size}</p>
-                  <p className="text-xs text-gray-500">전체 {inv.total}벌</p>
-                </div>
-              </div>
-              <div className="flex items-center gap-8">
-                <div className="text-center">
-                  <p className="text-xs text-gray-400">대여 중</p>
-                  <p className="text-sm font-bold text-blue-600">{inv.inUse}벌</p>
-                </div>
-                <div className="text-center">
-                  <p className="text-xs text-gray-400">이용 가능</p>
-                  <p className="text-sm font-bold text-green-600">{inv.available}벌</p>
-                </div>
-                <div className="w-28">
-                  <div className="w-full bg-gray-100 rounded-full h-2">
-                    <div className="h-2 rounded-full bg-blue-500" style={{ width: `${(inv.inUse / inv.total) * 100}%` }} />
-                  </div>
-                  <p className="text-xs text-gray-400 text-right mt-0.5">{Math.round((inv.inUse / inv.total) * 100)}% 사용</p>
-                </div>
-              </div>
+        <>
+          {filtered.some((l) => l.status === '회수대기') && (
+            <div className="mb-sm flex items-center gap-xs rounded-lg border border-red-200 bg-red-50 px-md py-sm text-[12px] text-red-600">
+              <AlertTriangle className="h-4 w-4" />
+              회수 대기 락커가 있습니다. 회수 처리를 진행해 주세요.
             </div>
-          ))}
-        </div>
+          )}
+          <DataTable columns={columns} data={filtered} />
+        </>
       )}
 
-      {showAssign && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-          <div className="bg-white rounded-2xl shadow-2xl p-6 w-full max-w-md space-y-4">
-            <h2 className="text-base font-bold text-gray-900">옷 보관함 배정</h2>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">회원 검색</label>
-              <input className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="회원명 입력" />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">운동복 사이즈</label>
-              <select className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
-                <option>S</option><option>M</option><option>L</option><option>XL</option>
-              </select>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">반납 예정일</label>
-              <input type="date" className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
-            </div>
-            <div className="flex gap-3 pt-2">
-              <button onClick={() => setShowAssign(false)} className="flex-1 py-2.5 border border-gray-300 text-gray-700 text-sm font-medium rounded-lg">취소</button>
-              <button onClick={() => setShowAssign(false)} className="flex-1 py-2.5 bg-blue-600 text-white text-sm font-medium rounded-lg">배정</button>
-            </div>
+      {/* 배정 모달 */}
+      <Modal isOpen={showAssign} onClose={() => setShowAssign(false)} title="고정 락커 배정">
+        <div className="space-y-md">
+          <div>
+            <label className="text-[12px] font-medium text-content-secondary mb-[4px] block">회원 검색 *</label>
+            <input
+              className="w-full h-[40px] px-md bg-surface-secondary rounded-lg text-[13px] border border-line focus:border-primary outline-none"
+              placeholder="회원명 입력"
+              value={assignForm.member}
+              onChange={(e) => setAssignForm({ ...assignForm, member: e.target.value })}
+            />
+            <p className="mt-[4px] text-[11px] text-content-tertiary">락커 상품 미보유 회원은 배정할 수 없습니다.</p>
+          </div>
+          <div>
+            <label className="text-[12px] font-medium text-content-secondary mb-[4px] block">락커 상품</label>
+            <Select
+              value={assignForm.product}
+              onChange={(v) => setAssignForm({ ...assignForm, product: v })}
+              options={[
+                { value: '개인 물품 락커(소)', label: '개인 물품 락커(소)' },
+                { value: '개인 물품 락커(중)', label: '개인 물품 락커(중)' },
+                { value: '골프백 보관 락커', label: '골프백 보관 락커' },
+                { value: '프리미엄 라운지 락커', label: '프리미엄 라운지 락커' },
+              ]}
+            />
+          </div>
+          <div>
+            <label className="text-[12px] font-medium text-content-secondary mb-[4px] block">계약 만료일 *</label>
+            <input
+              type="date"
+              className="w-full h-[40px] px-md bg-surface-secondary rounded-lg text-[13px] border border-line focus:border-primary outline-none"
+              value={assignForm.expireDate}
+              onChange={(e) => setAssignForm({ ...assignForm, expireDate: e.target.value })}
+            />
+          </div>
+          <div className="flex gap-sm pt-sm">
+            <Button variant="outline" className="flex-1" onClick={() => setShowAssign(false)}>취소</Button>
+            <Button className="flex-1" onClick={handleAssign}>배정</Button>
           </div>
         </div>
-      )}
+      </Modal>
+
+      {/* 연장 모달 */}
+      <Modal isOpen={extendTarget !== null} onClose={() => setExtendTarget(null)} title="계약 만료일 연장">
+        <div className="space-y-md">
+          <p className="text-[13px] text-content-secondary">
+            {extendTarget ? `${extendTarget.id} (${extendTarget.member}) 락커의 계약 만료일을 연장합니다.` : ''}
+          </p>
+          <div>
+            <label className="text-[12px] font-medium text-content-secondary mb-[4px] block">새 만료일 *</label>
+            <input
+              type="date"
+              className="w-full h-[40px] px-md bg-surface-secondary rounded-lg text-[13px] border border-line focus:border-primary outline-none"
+              value={extendDate}
+              onChange={(e) => setExtendDate(e.target.value)}
+            />
+          </div>
+          <div className="flex gap-sm pt-sm">
+            <Button variant="outline" className="flex-1" onClick={() => setExtendTarget(null)}>취소</Button>
+            <Button className="flex-1" onClick={handleExtend}>연장</Button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* 회수 확인 모달 */}
+      <Modal
+        isOpen={recoverTarget !== null}
+        onClose={() => setRecoverTarget(null)}
+        title="고정 락커 회수"
+        footer={
+          <div className="flex justify-end gap-sm">
+            <Button variant="outline" onClick={() => setRecoverTarget(null)}>취소</Button>
+            <Button onClick={handleRecover}>회수 실행</Button>
+          </div>
+        }
+      >
+        <p className="text-[13px] text-content-secondary">
+          {recoverTarget
+            ? `${recoverTarget.id} (${recoverTarget.member}) 락커의 회원 연결을 제거합니다. 배정 이력은 보존됩니다.`
+            : ''}
+        </p>
+      </Modal>
     </AppLayout>
   );
 }
