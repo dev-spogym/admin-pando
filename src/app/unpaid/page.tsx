@@ -11,6 +11,7 @@ import {
   Clock,
   TrendingDown,
   Pencil,
+  Link2,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { moveToPage } from '@/internal';
@@ -25,6 +26,9 @@ import StatusBadge from "@/components/common/StatusBadge";
 import AppLayout from "@/components/layout/AppLayout";
 import Select from '@/components/ui/Select';
 import Textarea from '@/components/ui/Textarea';
+import PaymentLinkModal, { type PaymentLinkTarget } from '@/components/common/PaymentLinkModal';
+import { useAuthStore } from '@/stores/authStore';
+import { hasPermission } from '@/lib/permissions';
 import { supabase } from '@/lib/supabase';
 import { exportToExcel } from '@/lib/exportExcel';
 
@@ -124,7 +128,13 @@ export default function UnpaidManagement() {
   const [memoModal, setMemoModal] = useState<{ open: boolean; id: number; memo: string }>({
     open: false, id: 0, memo: '',
   });
+  // DLG-S016 결제링크 발송 모달 상태
+  const [linkTarget, setLinkTarget] = useState<PaymentLinkTarget | null>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // 결제링크 발송 권한 (Owner/manager 이상)
+  const authUser = useAuthStore((s) => s.user);
+  const canSendLink = hasPermission(authUser?.role ?? '', '/unpaid', authUser?.isSuperAdmin);
 
   // 미수금 데이터 조회
   const fetchUnpaid = useCallback(async () => {
@@ -324,7 +334,7 @@ export default function UnpaidManagement() {
     },
     { key: 'createdAt', header: '등록일', width: 120 },
     {
-      key: 'id', header: '액션', width: 220, align: 'center' as const,
+      key: 'id', header: '액션', width: 300, align: 'center' as const,
       render: (_val: unknown, row: UnpaidItem) => {
         const nextStatuses = getNextStatuses(row.status);
         return (
@@ -344,6 +354,24 @@ export default function UnpaidManagement() {
               <Pencil size={11} />
               메모
             </button>
+            {/* DLG-S016 결제링크 발송: 미결제/일부결제/연체 건에만 노출 */}
+            {row.status !== '완료' && (
+              <button
+                onClick={() =>
+                  setLinkTarget({
+                    memberName: row.memberName,
+                    phone: '010-0000-0000',
+                    appLinked: row.memberId % 2 === 0,
+                    productName: row.productName,
+                    amount: row.amount,
+                  })
+                }
+                className="flex items-center gap-[4px] px-sm py-[3px] bg-surface border border-line text-content-secondary rounded-md text-[11px] font-semibold hover:bg-surface-tertiary transition-colors"
+              >
+                <Link2 size={11} />
+                결제링크
+              </button>
+            )}
           </div>
         );
       },
@@ -450,6 +478,14 @@ export default function UnpaidManagement() {
           </div>
         </div>
       )}
+
+      {/* DLG-S016 결제링크 발송 모달 */}
+      <PaymentLinkModal
+        isOpen={linkTarget !== null}
+        onClose={() => setLinkTarget(null)}
+        target={linkTarget}
+        canSend={canSendLink}
+      />
     </AppLayout>
   );
 }

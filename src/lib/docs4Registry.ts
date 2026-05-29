@@ -100,12 +100,12 @@ export const DOCS4_SCREENS: Docs4Entry[] = [
   { code: "SCR-S003", kind: "SCR", domain: "D03", title: "결제 처리", version: "both", route: "/pos/payment", status: "done" },
   { code: "SCR-S004", kind: "SCR", domain: "D03", title: "매출 통계", version: "both", route: "/sales/stats", status: "done" },
   { code: "SCR-S005", kind: "SCR", domain: "D03", title: "통계 관리", version: "both", route: "/sales/statistics-management", status: "done" },
-  { code: "SCR-S006", kind: "SCR", domain: "D03", title: "선수익금 조회", version: "both", route: "/deferred-revenue", status: "stub" },
+  { code: "SCR-S006", kind: "SCR", domain: "D03", title: "선수익금 조회", version: "both", route: "/deferred-revenue", status: "done" },
   { code: "SCR-S007", kind: "SCR", domain: "D03", title: "환불 관리", version: "both", route: "/refunds", status: "done" },
   { code: "SCR-S008", kind: "SCR", domain: "D03", title: "미수금 관리", version: "both", route: "/unpaid", status: "done" },
-  { code: "SCR-S009", kind: "SCR", domain: "D03", title: "할부결제 관리", version: "both", route: "/sales/installment", status: "stub" },
-  { code: "SCR-S010", kind: "SCR", domain: "D03", title: "세금계산서 발행", version: "both", route: "/sales/invoice", status: "stub" },
-  { code: "SCR-S011", kind: "SCR", domain: "D03", title: "매출 예측", version: "both", route: "/sales/forecast", status: "stub" },
+  { code: "SCR-S009", kind: "SCR", domain: "D03", title: "할부결제 관리", version: "both", route: "/sales/installment", status: "done" },
+  { code: "SCR-S010", kind: "SCR", domain: "D03", title: "세금계산서 발행", version: "both", route: "/sales/invoice", status: "done" },
+  { code: "SCR-S011", kind: "SCR", domain: "D03", title: "매출 예측", version: "both", route: "/sales/forecast", status: "done" },
   { code: "SCR-S012", kind: "SCR", domain: "D03", title: "결제 취소 / 부분 환불", version: "both", route: "/sales/cancel-refund", status: "done" },
 
   // ── D04 수업관리 ──
@@ -215,7 +215,7 @@ export const DOCS4_DIALOGS: Docs4Entry[] = [
   { code: "DLG-M025", kind: "DLG", domain: "D02", title: "운동 프로그램 배정", version: "V2", hostRoute: "/members/detail", status: "done" },
 
   // ── D03 매출관리 (V2 신규) ──
-  { code: "DLG-S016", kind: "DLG", domain: "D03", title: "결제링크 발송", version: "V2", hostRoute: "/unpaid", status: "dialog-pending" },
+  { code: "DLG-S016", kind: "DLG", domain: "D03", title: "결제링크 발송", version: "V2", hostRoute: "/unpaid", status: "done" },
 
   // ── D05 상품관리 (V2 신규) ──
   { code: "DLG-P016", kind: "DLG", domain: "D05", title: "카탈로그 미리보기", version: "V2", hostRoute: "/products/catalog", status: "dialog-pending" },

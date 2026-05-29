@@ -12,6 +12,7 @@ import {
   Repeat,
   BadgePercent,
   ChevronRight,
+  Link2,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { moveToPage } from '@/internal';
@@ -27,6 +28,9 @@ import StatusBadge from "@/components/common/StatusBadge";
 import AppLayout from "@/components/layout/AppLayout";
 import Modal from "@/components/ui/Modal";
 import Button from "@/components/ui/Button";
+import PaymentLinkModal, { type PaymentLinkTarget } from "@/components/common/PaymentLinkModal";
+import { useAuthStore } from '@/stores/authStore';
+import { hasPermission } from '@/lib/permissions';
 import { supabase } from '@/lib/supabase';
 import { exportToExcel } from '@/lib/exportExcel';
 import { formatKRW, formatNumber } from '@/lib/format';
@@ -473,6 +477,10 @@ export default function Sales() {
   // 매출 상세 모달 상태
   const [selectedSale, setSelectedSale] = useState<SaleItem | null>(null);
   const [showDetailModal, setShowDetailModal] = useState(false);
+  // DLG-S016 결제링크 발송 모달 상태
+  const [linkTarget, setLinkTarget] = useState<PaymentLinkTarget | null>(null);
+  const authUser = useAuthStore((s) => s.user);
+  const canSendLink = hasPermission(authUser?.role ?? '', '/sales', authUser?.isSuperAdmin);
 
   const handleRowClick = (row: SaleItem) => {
     if (!['TAB-002', 'TAB-003', 'TAB-004', 'TAB-005'].includes(activeTab)) {
@@ -909,6 +917,26 @@ export default function Sales() {
           size="lg"
           footer={
             <div className="flex justify-end gap-sm">
+              {/* DLG-S016 결제링크 발송: 전액 결제 전용. 결제 미완료 건에만 노출 */}
+              {selectedSale.status !== '완료' && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  icon={<Link2 size={14} />}
+                  onClick={() => {
+                    setShowDetailModal(false);
+                    setLinkTarget({
+                      memberName: selectedSale.buyer,
+                      phone: '010-0000-0000',
+                      appLinked: selectedSale.buyerId % 2 === 0,
+                      productName: selectedSale.productName,
+                      amount: selectedSale.salePrice,
+                    });
+                  }}
+                >
+                  결제링크 발송
+                </Button>
+              )}
               <button
                 onClick={() => {
                   setShowDetailModal(false);
@@ -1078,6 +1106,14 @@ export default function Sales() {
           </div>
         </Modal>
       )}
+
+      {/* DLG-S016 결제링크 발송 모달 */}
+      <PaymentLinkModal
+        isOpen={linkTarget !== null}
+        onClose={() => setLinkTarget(null)}
+        target={linkTarget}
+        canSend={canSendLink}
+      />
     </AppLayout>
   );
 }
