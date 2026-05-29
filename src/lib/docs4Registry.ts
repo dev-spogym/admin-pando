@@ -169,16 +169,16 @@ export const DOCS4_SCREENS: Docs4Entry[] = [
 
   // ── D09 설정관리 ──
   { code: "SCR-080", kind: "SCR", domain: "D09", title: "센터 설정", version: "V1", route: "/settings", status: "done" },
-  { code: "SCR-080A", kind: "SCR", domain: "D09", title: "지점 자동화 적용", version: "both", route: "/settings/automation", status: "stub" },
+  { code: "SCR-080A", kind: "SCR", domain: "D09", title: "지점 자동화 적용", version: "both", route: "/settings/automation", status: "done" },
   { code: "SCR-081", kind: "SCR", domain: "D09", title: "권한 설정", version: "both", route: "/settings/permissions", status: "done" },
   { code: "SCR-082", kind: "SCR", domain: "D09", title: "키오스크 설정", version: "both", route: "/settings/kiosk", status: "done" },
   { code: "SCR-083", kind: "SCR", domain: "D09", title: "IoT 출입 관리", version: "both", route: "/settings/iot", status: "done" },
   { code: "SCR-084", kind: "SCR", domain: "D09", title: "구독 결제 관리", version: "both", route: "/subscription", status: "done" },
   { code: "SCR-085", kind: "SCR", domain: "D09", title: "공지사항 관리", version: "both", route: "/notices", status: "done" },
-  { code: "SCR-086", kind: "SCR", domain: "D09", title: "출석 관리 설정", version: "V1", route: "/settings/attendance", status: "stub" },
-  { code: "SCR-087", kind: "SCR", domain: "D09", title: "커스텀 역할 생성", version: "V1", route: "/settings/custom-role", status: "stub" },
-  { code: "SCR-088", kind: "SCR", domain: "D09", title: "다국어 설정", version: "V2", route: "/settings/language", status: "stub" },
-  { code: "SCR-089", kind: "SCR", domain: "D09", title: "데이터 백업·복원", version: "both", route: "/settings/backup", status: "stub" },
+  { code: "SCR-086", kind: "SCR", domain: "D09", title: "출석 관리 설정", version: "V1", route: "/settings/attendance", status: "done" },
+  { code: "SCR-087", kind: "SCR", domain: "D09", title: "커스텀 역할 생성", version: "V1", route: "/settings/custom-role", status: "done" },
+  { code: "SCR-088", kind: "SCR", domain: "D09", title: "다국어 설정", version: "V2", route: "/settings/language", status: "done" },
+  { code: "SCR-089", kind: "SCR", domain: "D09", title: "데이터 백업·복원", version: "both", route: "/settings/backup", status: "done" },
 
   // ── D10 본사관리 ──
   { code: "SCR-090", kind: "SCR", domain: "D10", title: "지점 대시보드", version: "V2", route: "/", status: "done" },

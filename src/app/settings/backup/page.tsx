@@ -4,166 +4,374 @@ export const dynamic = 'force-dynamic';
 import React, { useState } from 'react';
 import AppLayout from '@/components/layout/AppLayout';
 import PageHeader from '@/components/common/PageHeader';
-import { HardDrive, Download, Upload, RefreshCw, CheckCircle, Clock, AlertTriangle } from 'lucide-react';
+import StatCard from '@/components/common/StatCard';
+import StatusBadge from '@/components/common/StatusBadge';
+import EmptyState from '@/components/common/EmptyState';
+import TabNav from '@/components/common/TabNav';
+import Modal from '@/components/ui/Modal';
+import Input from '@/components/ui/Input';
+import Select from '@/components/ui/Select';
+import Switch from '@/components/ui/Switch';
+import ConfirmDialog from '@/components/ui/ConfirmDialog';
+import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
+import {
+  HardDrive, Download, RotateCcw, Settings2, AlertTriangle, CheckCircle, ShieldAlert,
+} from 'lucide-react';
+import {
+  BACKUP_RECORDS, RESTORE_RECORDS, type BackupRecord, type BackupStatus,
+} from '@/mocks/settings';
 
-const backups = [
-  { id: 1, name: '자동 백업 — 2026-04-27 03:00', size: '2.8GB', type: '자동', status: '완료', date: '2026-04-27 03:00' },
-  { id: 2, name: '자동 백업 — 2026-04-26 03:00', size: '2.7GB', type: '자동', status: '완료', date: '2026-04-26 03:00' },
-  { id: 3, name: '수동 백업 — 배포 전', size: '2.6GB', type: '수동', status: '완료', date: '2026-04-25 14:30' },
-  { id: 4, name: '자동 백업 — 2026-04-25 03:00', size: '2.6GB', type: '자동', status: '완료', date: '2026-04-25 03:00' },
-  { id: 5, name: '자동 백업 — 2026-04-24 03:00', size: '2.5GB', type: '자동', status: '완료', date: '2026-04-24 03:00' },
+// 권한 데모: 슈퍼관리자는 복원·다운로드, owner는 백업만(복원은 승인 필요)
+type ViewerRole = 'super' | 'owner';
+
+const STATUS_META: Record<BackupStatus, { label: string; variant: 'success' | 'warning' | 'error' | 'info' }> = {
+  completed: { label: '완료', variant: 'success' },
+  running: { label: '진행 중', variant: 'info' },
+  failed: { label: '실패', variant: 'error' },
+  corrupted: { label: '손상', variant: 'warning' },
+};
+
+const HISTORY_TABS = [
+  { key: 'backup', label: '백업 이력' },
+  { key: 'restore', label: '복원 이력' },
+];
+const PERIOD_TABS = [
+  { key: 'today', label: '오늘' },
+  { key: 'week', label: '이번 주' },
+  { key: 'month', label: '이번 달' },
+  { key: 'custom', label: '사용자 지정' },
 ];
 
 export default function BackupPage() {
-  const [showRestore, setShowRestore] = useState(false);
+  const [viewerRole, setViewerRole] = useState<ViewerRole>('super');
+  const [loadState, setLoadState] = useState<'loading' | 'ready' | 'error'>('ready');
+  const [historyTab, setHistoryTab] = useState('backup');
+  const [period, setPeriod] = useState('month');
+  const [backingUp, setBackingUp] = useState(false);
+
+  // 백업 설정 (DLG-089-002)
+  const [showSettings, setShowSettings] = useState(false);
   const [autoBackup, setAutoBackup] = useState(true);
-  const [frequency, setFrequency] = useState('매일');
-  const [retentionDays, setRetentionDays] = useState(30);
-  const [selectedBackupName, setSelectedBackupName] = useState('');
+  const [frequency, setFrequency] = useState('daily');
+  const [runTime, setRunTime] = useState('03:30');
+  const [retention, setRetention] = useState('90');
+  const [autoOffConfirm, setAutoOffConfirm] = useState(false);
+
+  // 복원 (DLG-089-001)
+  const [restoreTarget, setRestoreTarget] = useState<BackupRecord | null>(null);
+  const [restoreReason, setRestoreReason] = useState('');
+
+  const isSuper = viewerRole === 'super';
+  const storageOver = false; // 100GB 초과 데모
 
   const handleBackupNow = () => {
-    toast.success('수동 백업을 시작했습니다. 완료 후 목록에 반영됩니다.');
+    setBackingUp(true);
+    toast.success('수동 백업을 시작했습니다. 완료되면 이력에 반영됩니다');
+    setTimeout(() => setBackingUp(false), 1500);
   };
 
-  const handleSaveBackupSettings = () => {
-    toast.success(`백업 설정을 저장했습니다. 자동 백업: ${autoBackup ? '사용' : '중지'}, 주기: ${frequency}, 보관: ${retentionDays}일`);
+  const handleDownload = (rec: BackupRecord) => {
+    if (!isSuper) {
+      toast.error('백업 다운로드는 슈퍼관리자만 가능합니다');
+      return;
+    }
+    toast.success('다운로드 링크를 발급했습니다. 1시간 후 만료됩니다');
   };
 
-  const handleDownloadBackup = (name: string) => {
-    toast.info(`${name} 백업 파일 다운로드를 준비 중입니다.`);
+  const openRestore = (rec: BackupRecord) => {
+    if (rec.status === 'corrupted') {
+      toast.error('손상된 백업입니다. 다른 시점을 사용하세요');
+      return;
+    }
+    if (!isSuper) {
+      toast.info('복원은 슈퍼관리자 승인이 필요합니다. 승인 요청을 보냈습니다');
+      return;
+    }
+    setRestoreReason('');
+    setRestoreTarget(rec);
   };
 
-  const handleOpenRestore = (name: string) => {
-    setSelectedBackupName(name);
-    setShowRestore(true);
+  const confirmRestore = () => {
+    if (!restoreReason.trim()) {
+      toast.error('복원 사유를 입력해주세요');
+      return;
+    }
+    toast.success('복원을 시작했습니다. 완료 후 자동으로 재시작됩니다');
+    setRestoreTarget(null);
   };
 
-  const handleConfirmRestore = () => {
-    toast.warning(`${selectedBackupName} 기준 복원 시뮬레이션을 시작했습니다.`);
-    setShowRestore(false);
+  const saveSettings = () => {
+    setShowSettings(false);
+    toast.success('백업 설정을 저장했습니다');
   };
 
   return (
     <AppLayout>
-      <PageHeader title="데이터 백업 / 복원" description="데이터를 안전하게 보호하고 필요 시 복원합니다" actions={
-        <button onClick={handleBackupNow} className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700">
-          <HardDrive className="w-4 h-4" /> 지금 백업
-        </button>
-      } />
-
-      <div className="grid grid-cols-4 gap-4 mb-6">
-        <div className="bg-green-50 rounded-xl border border-green-200 p-4">
-          <div className="flex items-center gap-2 mb-1">
-            <CheckCircle className="w-4 h-4 text-green-600" />
-            <p className="text-xs text-green-700">마지막 백업</p>
-          </div>
-          <p className="text-sm font-bold text-green-700">오늘 03:00</p>
-        </div>
-        <div className="bg-white rounded-xl border border-gray-200 p-4">
-          <p className="text-xs text-gray-500 mb-1">백업 파일 수</p>
-          <p className="text-2xl font-bold text-gray-900">30개</p>
-        </div>
-        <div className="bg-white rounded-xl border border-gray-200 p-4">
-          <p className="text-xs text-gray-500 mb-1">총 백업 용량</p>
-          <p className="text-2xl font-bold text-gray-900">82GB</p>
-        </div>
-        <div className="bg-white rounded-xl border border-gray-200 p-4">
-          <p className="text-xs text-gray-500 mb-1">보관 기간</p>
-          <p className="text-2xl font-bold text-blue-600">30일</p>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-3 gap-6">
-        {/* 백업 설정 */}
-        <div className="col-span-1 space-y-4">
-          <div className="bg-white rounded-xl border border-gray-200 p-5">
-            <h3 className="text-sm font-semibold text-gray-800 mb-4">백업 설정</h3>
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-gray-700">자동 백업</span>
-                <button onClick={() => setAutoBackup(!autoBackup)}
-                  className={`relative w-10 h-5 rounded-full transition-colors ${autoBackup ? 'bg-blue-600' : 'bg-gray-300'}`}>
-                  <span className={`absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform ${autoBackup ? 'left-5' : 'left-0.5'}`} />
-                </button>
+      <div className="flex flex-col gap-lg">
+        <PageHeader
+          title="데이터 백업·복원"
+          description="센터 운영 데이터를 안전하게 보관하고 필요 시 이전 시점으로 복원합니다."
+          actions={
+            <div className="flex items-center gap-sm">
+              <div className="flex items-center rounded-full border border-line/70 bg-white/70 p-[3px] text-[12px]">
+                {(['super', 'owner'] as ViewerRole[]).map((r) => (
+                  <button
+                    key={r}
+                    onClick={() => setViewerRole(r)}
+                    className={cn(
+                      'rounded-full px-3 py-1 font-semibold transition-all',
+                      viewerRole === r ? 'bg-primary text-white' : 'text-content-secondary'
+                    )}
+                  >
+                    {r === 'super' ? '슈퍼관리자' : 'Owner(지점장)'}
+                  </button>
+                ))}
               </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1.5">백업 주기</label>
-                <select value={frequency} onChange={e => setFrequency(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
-                  <option>매일</option><option>주 1회</option><option>월 1회</option>
-                </select>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1.5">보관 기간</label>
-                <div className="flex items-center gap-2">
-                  <input type="number" value={retentionDays} onChange={e => setRetentionDays(Number(e.target.value))}
-                    className="w-20 px-2 py-2 border border-gray-300 rounded-lg text-sm text-center focus:outline-none focus:ring-2 focus:ring-blue-500" />
-                  <span className="text-sm text-gray-500">일</span>
-                </div>
-              </div>
-              <button onClick={handleSaveBackupSettings} className="w-full py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg">설정 저장</button>
+              <button
+                onClick={() => setShowSettings(true)}
+                className="flex items-center gap-xs rounded-button border border-line px-md py-sm text-[13px] text-content-secondary hover:bg-surface-secondary"
+              >
+                <Settings2 size={15} /> 백업 설정
+              </button>
+              <button
+                onClick={handleBackupNow}
+                disabled={backingUp}
+                className="flex items-center gap-xs rounded-button bg-primary px-lg py-sm text-[13px] font-bold text-white transition-all hover:opacity-90 disabled:opacity-50"
+              >
+                <HardDrive size={15} /> {backingUp ? '백업 중...' : '지금 백업'}
+              </button>
             </div>
-          </div>
+          }
+        />
 
-          <div className="bg-amber-50 border border-amber-200 rounded-xl p-4">
-            <div className="flex items-start gap-2">
-              <AlertTriangle className="w-4 h-4 text-amber-600 mt-0.5" />
-              <p className="text-xs text-amber-700">복원은 현재 데이터를 덮어씁니다. 신중히 진행하세요.</p>
-            </div>
+        {!isSuper && (
+          <div className="flex items-center gap-sm rounded-2xl border border-amber-200 bg-amber-50 px-lg py-md text-[13px] text-amber-700">
+            <ShieldAlert size={16} /> Owner(지점장)은 백업 조회·수동 백업만 가능합니다. 복원과 다운로드는 슈퍼관리자 승인이 필요합니다.
           </div>
+        )}
+
+        {storageOver && (
+          <div className="flex items-center gap-sm rounded-2xl border border-red-200 bg-red-50 px-lg py-md text-[13px] text-state-error">
+            <AlertTriangle size={16} /> 스토리지 용량 경고: 100GB를 초과했습니다. 보관 기간을 단축하거나 불필요한 파일을 삭제하세요.
+          </div>
+        )}
+
+        {!autoBackup && (
+          <div className="flex items-center gap-sm rounded-2xl border border-line/70 bg-surface-secondary px-lg py-md text-[13px] text-content-secondary">
+            자동 백업이 꺼져 있습니다. 수동 백업과 복원 이력은 유지되지만 자동 실행 예정 정보는 표시되지 않습니다.
+          </div>
+        )}
+
+        <div className="grid grid-cols-2 gap-md lg:grid-cols-4">
+          <StatCard label="마지막 백업" value="오늘 03:30" icon={<CheckCircle />} variant="mint" />
+          <StatCard label="백업 파일 수" value="30개" icon={<HardDrive />} />
+          <StatCard label="총 백업 용량" value="82GB" icon={<HardDrive />} variant="peach" />
+          <StatCard label="보관 기간" value={`${retention}일`} icon={<RotateCcw />} />
         </div>
 
-        {/* 백업 목록 */}
-        <div className="col-span-2 bg-white rounded-xl border border-gray-200">
-          <div className="p-4 border-b border-gray-100 flex items-center justify-between">
-            <h3 className="text-sm font-semibold text-gray-800">백업 목록</h3>
-            <span className="text-xs text-gray-400">최근 30일</span>
+        {/* 이력 */}
+        <section className="relative overflow-hidden rounded-[24px] border border-line/70 bg-white/82 shadow-card">
+          <div className="flex flex-wrap items-center justify-between gap-sm border-b border-line/70 px-lg py-md">
+            <TabNav tabs={HISTORY_TABS} activeTab={historyTab} onTabChange={setHistoryTab} className="border-0 bg-transparent p-0 shadow-none" />
+            <TabNav tabs={PERIOD_TABS} activeTab={period} onTabChange={setPeriod} className="border-0 bg-surface-secondary p-1" />
           </div>
-          <div className="divide-y divide-gray-100">
-            {backups.map(b => (
-              <div key={b.id} className="flex items-center justify-between px-5 py-3.5 hover:bg-gray-50">
-                <div className="flex items-center gap-3">
-                  <CheckCircle className="w-4 h-4 text-green-500" />
-                  <div>
-                    <p className="text-sm font-medium text-gray-800">{b.name}</p>
-                    <div className="flex items-center gap-2 mt-0.5">
-                      <span className={`text-xs px-1.5 py-0.5 rounded ${b.type === '자동' ? 'bg-gray-100 text-gray-500' : 'bg-blue-100 text-blue-600'}`}>{b.type}</span>
-                      <span className="text-xs text-gray-400">{b.size}</span>
+
+          {loadState === 'loading' ? (
+            <div className="space-y-sm p-lg">
+              {Array.from({ length: 4 }).map((_, i) => (
+                <div key={i} className="h-12 animate-pulse rounded-xl bg-surface-secondary" />
+              ))}
+            </div>
+          ) : loadState === 'error' ? (
+            <EmptyState
+              icon={AlertTriangle}
+              title="이력을 불러오지 못했습니다"
+              description="일시적으로 처리하지 못했습니다. 다시 시도해주세요."
+              action={{ label: '다시 시도', onClick: () => setLoadState('ready') }}
+            />
+          ) : historyTab === 'backup' ? (
+            BACKUP_RECORDS.length === 0 ? (
+              <EmptyState
+                icon={HardDrive}
+                title="백업 이력이 없습니다"
+                description="첫 백업을 실행해 데이터를 안전하게 보관하세요."
+                action={{ label: '지금 백업 실행', onClick: handleBackupNow }}
+              />
+            ) : (
+              <div className="divide-y divide-line/50">
+                {BACKUP_RECORDS.map((rec) => {
+                  const meta = STATUS_META[rec.status];
+                  const restorable = rec.status === 'completed';
+                  return (
+                    <div key={rec.id} className="flex items-center justify-between gap-md px-lg py-md">
+                      <div className="flex items-center gap-md">
+                        <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-surface-tertiary text-content-secondary">
+                          <HardDrive size={16} />
+                        </div>
+                        <div>
+                          <div className="flex items-center gap-xs">
+                            <p className="font-semibold text-content">{rec.name}</p>
+                            <StatusBadge variant={rec.type === 'auto' ? 'default' : 'info'} label={rec.type === 'auto' ? '자동' : '수동'} />
+                            <StatusBadge variant={meta.variant} label={meta.label} />
+                          </div>
+                          <p className="mt-xs text-[12px] text-content-secondary">{rec.createdAt} · {rec.size}</p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-xs">
+                        <button
+                          onClick={() => handleDownload(rec)}
+                          className="flex items-center gap-xs rounded-button px-sm py-xs text-[12px] text-content-secondary hover:bg-surface-secondary hover:text-primary"
+                        >
+                          <Download size={14} /> 다운로드
+                        </button>
+                        <button
+                          onClick={() => openRestore(rec)}
+                          disabled={!restorable}
+                          className="flex items-center gap-xs rounded-button px-sm py-xs text-[12px] text-content-secondary hover:bg-amber-50 hover:text-amber-600 disabled:cursor-not-allowed disabled:opacity-40"
+                          title={rec.status === 'corrupted' ? '손상된 백업은 복원할 수 없습니다' : undefined}
+                        >
+                          <RotateCcw size={14} /> 복원
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )
+          ) : RESTORE_RECORDS.length === 0 ? (
+            <EmptyState icon={RotateCcw} title="복원 이력이 없습니다" description="과거 복원 실행 내역이 여기에 표시됩니다." />
+          ) : (
+            <div className="divide-y divide-line/50">
+              {RESTORE_RECORDS.map((rec) => (
+                <div key={rec.id} className="flex items-center justify-between gap-md px-lg py-md">
+                  <div className="flex items-center gap-md">
+                    <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-surface-tertiary text-content-secondary">
+                      <RotateCcw size={16} />
+                    </div>
+                    <div>
+                      <p className="font-semibold text-content">복원 실행 · {rec.restoredAt}</p>
+                      <p className="mt-xs text-[12px] text-content-secondary">복원 시점: {rec.backupPoint} · 실행자: {rec.executor}</p>
                     </div>
                   </div>
                 </div>
-                <div className="flex gap-2">
-                  <button onClick={() => handleDownloadBackup(b.name)} className="flex items-center gap-1 text-xs text-gray-500 hover:text-blue-600 px-2.5 py-1.5 rounded-lg hover:bg-blue-50">
-                    <Download className="w-3.5 h-3.5" /> 다운로드
-                  </button>
-                  <button onClick={() => handleOpenRestore(b.name)} className="flex items-center gap-1 text-xs text-gray-500 hover:text-amber-600 px-2.5 py-1.5 rounded-lg hover:bg-amber-50">
-                    <RefreshCw className="w-3.5 h-3.5" /> 복원
-                  </button>
-                </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
+        </section>
+
+        <div className="flex items-start gap-xs rounded-2xl border border-amber-200 bg-amber-50 px-lg py-md text-[12px] text-amber-700">
+          <AlertTriangle size={14} className="mt-[2px] shrink-0" />
+          복원은 현재 데이터를 덮어쓰는 되돌릴 수 없는 작업입니다. 진행 중 트랜잭션이 있으면 취소될 수 있습니다.
         </div>
       </div>
 
-      {showRestore && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-          <div className="bg-white rounded-2xl shadow-2xl p-6 w-full max-w-sm space-y-4">
-            <div className="flex items-center gap-3">
-              <div className="p-3 bg-amber-100 rounded-xl"><AlertTriangle className="w-5 h-5 text-amber-600" /></div>
-              <h2 className="text-base font-bold text-gray-900">데이터 복원</h2>
-            </div>
-            <p className="text-sm text-gray-600">
-              {selectedBackupName || '선택한 백업'} 시점으로 복원하면 이후 데이터가 모두 삭제됩니다. 복원을 진행하시겠습니까?
-            </p>
-            <div className="flex gap-3 pt-2">
-              <button onClick={() => setShowRestore(false)} className="flex-1 py-2.5 border border-gray-300 text-gray-700 text-sm font-medium rounded-lg">취소</button>
-              <button onClick={handleConfirmRestore} className="flex-1 py-2.5 bg-amber-600 hover:bg-amber-700 text-white text-sm font-medium rounded-lg">복원 진행</button>
-            </div>
+      {/* DLG-089-002 백업 설정 */}
+      <Modal
+        isOpen={showSettings}
+        onClose={() => setShowSettings(false)}
+        title="백업 설정"
+        size="md"
+        footer={
+          <div className="flex justify-end gap-sm">
+            <button onClick={() => setShowSettings(false)} className="rounded-button border border-line px-md py-sm text-[13px] text-content-secondary hover:bg-surface-secondary">
+              취소
+            </button>
+            <button onClick={saveSettings} className="rounded-button bg-primary px-lg py-sm text-[13px] font-bold text-white hover:opacity-90">
+              저장
+            </button>
           </div>
+        }
+      >
+        <div className="space-y-md">
+          <div className="flex items-center justify-between rounded-2xl bg-surface-secondary px-md py-sm">
+            <div>
+              <p className="text-[13px] font-medium text-content">자동 백업</p>
+              <p className="text-[12px] text-content-secondary">정해진 주기에 자동으로 백업을 실행합니다.</p>
+            </div>
+            <Switch
+              checked={autoBackup}
+              onChange={(v) => {
+                if (!v) setAutoOffConfirm(true);
+                else setAutoBackup(true);
+              }}
+            />
+          </div>
+          <Select
+            label="백업 주기"
+            options={[
+              { value: 'daily', label: '매일' },
+              { value: 'weekly', label: '매주' },
+              { value: 'monthly', label: '매월' },
+            ]}
+            value={frequency}
+            onChange={setFrequency}
+            disabled={!autoBackup}
+          />
+          <Input label="백업 실행 시각" type="time" value={runTime} onChange={(e) => setRunTime(e.target.value)} disabled={!autoBackup} />
+          <Select
+            label="보관 기간"
+            options={[
+              { value: '30', label: '30일' },
+              { value: '90', label: '90일' },
+              { value: '180', label: '180일' },
+              { value: '0', label: '무제한' },
+            ]}
+            value={retention}
+            onChange={(v) => {
+              if (Number(v) > 0 && Number(v) < Number(retention)) {
+                toast.warning('보관 기간 단축 시 초과 백업 파일이 즉시 삭제됩니다');
+              }
+              setRetention(v);
+            }}
+          />
         </div>
-      )}
+      </Modal>
+
+      {/* 자동 백업 OFF 경고 */}
+      <ConfirmDialog
+        open={autoOffConfirm}
+        title="자동 백업을 끄시겠습니까?"
+        description="자동 백업을 끄면 데이터 손실 위험이 커집니다. 계속하시겠습니까?"
+        confirmLabel="끄기"
+        cancelLabel="취소"
+        variant="danger"
+        onConfirm={() => { setAutoBackup(false); setAutoOffConfirm(false); }}
+        onCancel={() => setAutoOffConfirm(false)}
+      />
+
+      {/* DLG-089-001 데이터 복원 확인 */}
+      <Modal
+        isOpen={!!restoreTarget}
+        onClose={() => setRestoreTarget(null)}
+        title="데이터를 복원하시겠습니까?"
+        size="md"
+        footer={
+          <div className="flex justify-end gap-sm">
+            <button onClick={() => setRestoreTarget(null)} className="rounded-button border border-line px-md py-sm text-[13px] text-content-secondary hover:bg-surface-secondary">
+              취소
+            </button>
+            <button onClick={confirmRestore} className="rounded-button bg-state-error px-lg py-sm text-[13px] font-bold text-white hover:opacity-90">
+              복원 진행
+            </button>
+          </div>
+        }
+      >
+        {restoreTarget && (
+          <div className="space-y-md">
+            <div className="rounded-2xl border border-amber-200 bg-amber-50 px-md py-sm text-[12px] text-amber-700">
+              <p className="font-semibold">복원 대상: {restoreTarget.createdAt}</p>
+              <p className="mt-xs">복원하면 현재 데이터를 덮어쓰며 되돌릴 수 없습니다. 진행 중인 트랜잭션이 있으면 취소됩니다.</p>
+            </div>
+            <Input
+              label="복원 사유 (필수)"
+              value={restoreReason}
+              onChange={(e) => setRestoreReason(e.target.value)}
+              placeholder="복원 사유를 입력하세요"
+            />
+          </div>
+        )}
+      </Modal>
     </AppLayout>
   );
 }

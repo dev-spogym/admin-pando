@@ -4,135 +4,365 @@ export const dynamic = 'force-dynamic';
 import React, { useState } from 'react';
 import AppLayout from '@/components/layout/AppLayout';
 import PageHeader from '@/components/common/PageHeader';
-import { Bell, CheckCircle2, RotateCcw, Send, ToggleLeft, ToggleRight } from 'lucide-react';
+import StatCard from '@/components/common/StatCard';
+import TabNav from '@/components/common/TabNav';
+import StatusBadge from '@/components/common/StatusBadge';
+import EmptyState from '@/components/common/EmptyState';
+import Switch from '@/components/ui/Switch';
+import Modal from '@/components/ui/Modal';
+import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
+import {
+  CheckCircle2,
+  History,
+  Layers,
+  Lock,
+  Plus,
+  RotateCcw,
+  Save,
+  Send,
+  ShieldAlert,
+  AlertTriangle,
+  RefreshCw,
+} from 'lucide-react';
+import {
+  AUTOMATION_POLICY_LABELS,
+  AUTOMATION_STEPS,
+  ASSET_RECOVERY_POLICIES,
+  type AutomationPolicyType,
+  type AutomationStep,
+} from '@/mocks/settings';
 
-const scopes = ['회원권 만료', '락커 만료', '미수금 독촉', '휴면 회원'] as const;
+type LoadState = 'loading' | 'ready' | 'error';
+// 권한 데모: owner만 변경 가능, manager는 조회 전용
+type ViewerRole = 'owner' | 'manager';
 
-const policySteps = [
-  { day: 'D-30', channel: '카카오', title: '만료 예정 1차 안내', required: true, enabled: true },
-  { day: 'D-14', channel: 'SMS', title: '재등록 혜택 안내', required: false, enabled: true },
-  { day: 'D-7', channel: 'FC 액션 큐', title: '전화 상담 요청', required: true, enabled: true },
-  { day: 'D+1', channel: '앱 푸시', title: '만료 후 복귀 안내', required: false, enabled: false },
+const TABS = [
+  { key: 'membership_expiry', label: '회원 이용권 만료' },
+  { key: 'payment_due_expiry', label: '결제기한 만료' },
+  { key: 'locker_expiry', label: '락커 만료' },
+  { key: 'asset_recovery', label: '실물 자산 자동 회수' },
 ];
 
 export default function SettingsAutomationPage() {
-  const [activeScope, setActiveScope] = useState<(typeof scopes)[number]>('회원권 만료');
-  const [steps, setSteps] = useState(policySteps);
+  const [loadState, setLoadState] = useState<LoadState>('ready');
+  const [viewerRole, setViewerRole] = useState<ViewerRole>('owner');
+  const [activeTab, setActiveTab] = useState<string>('membership_expiry');
+  const [steps, setSteps] = useState<AutomationStep[]>(AUTOMATION_STEPS);
+  const [assets, setAssets] = useState(ASSET_RECOVERY_POLICIES);
+  const [dirty, setDirty] = useState(false);
+  const [showConfirm, setShowConfirm] = useState(false);
 
-  const handleTestSend = () => {
-    const enabledSteps = steps.filter((step) => step.enabled).length;
-    toast.success(`${activeScope} 정책 기준으로 ${enabledSteps}개 스텝 테스트 발송을 예약했습니다.`);
+  const canEdit = viewerRole === 'owner';
+  const policyType = activeTab as AutomationPolicyType;
+  const isPolicyTab = activeTab !== 'asset_recovery';
+  const tabSteps = steps.filter((s) => s.policyType === policyType);
+
+  const summary = {
+    hqPolicies: 3,
+    activeHqSteps: steps.filter((s) => s.scope === 'hq' && s.enabled).length,
+    branchSteps: steps.filter((s) => s.scope === 'branch').length,
+    recoveryOn: assets.filter((a) => a.enabled).length,
+    recentFailures: 1,
   };
 
-  const handleSave = () => {
-    toast.success(`${activeScope} 정책의 지점 적용 설정을 저장했습니다.`);
+  const toggleStep = (id: string) => {
+    if (!canEdit) {
+      toast.error('이 작업을 수행할 권한이 없습니다');
+      return;
+    }
+    setSteps((prev) => prev.map((s) => (s.id === id ? { ...s, enabled: !s.enabled } : s)));
+    setDirty(true);
+  };
+
+  const toggleAsset = (id: string) => {
+    const target = assets.find((a) => a.id === id);
+    if (!target) return;
+    if (target.fixed) {
+      toast.error('상태 갱신은 고정 ON입니다');
+      return;
+    }
+    if (!canEdit) {
+      toast.error('이 작업을 수행할 권한이 없습니다');
+      return;
+    }
+    setAssets((prev) => prev.map((a) => (a.id === id ? { ...a, enabled: !a.enabled } : a)));
+    setDirty(true);
+  };
+
+  const handleAddBranchStep = () => {
+    if (policyType === 'payment_due_expiry') {
+      toast.error('결제기한 만료는 본사 정책 step만 사용할 수 있습니다');
+      return;
+    }
+    toast.success('지점 추가 step 입력 폼을 준비 중입니다');
+  };
+
+  const handleTestSend = () => {
+    toast.success(`${AUTOMATION_POLICY_LABELS[policyType] ?? '선택 정책'} 기준 테스트 발송을 예약했습니다`);
   };
 
   const handleRestoreDefaults = () => {
-    setSteps(policySteps);
-    toast.success('본사 기본값으로 복원했습니다.');
+    setSteps(AUTOMATION_STEPS);
+    setAssets(ASSET_RECOVERY_POLICIES);
+    setDirty(false);
+    toast.success('본사 기본값으로 복원했습니다');
+  };
+
+  const handleConfirmApply = () => {
+    setShowConfirm(false);
+    setDirty(false);
+    toast.success('지점 자동화 적용 설정을 저장했습니다');
   };
 
   return (
     <AppLayout>
-      <PageHeader
-        title="지점 자동화 적용"
-        description="본사에서 배포한 자동화 정책 세트를 지점 운영 범위 안에서 선택·적용합니다"
-        actions={
-          <div className="flex gap-2">
-            <button onClick={handleTestSend} className="flex items-center gap-2 rounded-lg border border-gray-200 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50">
-              <Send className="h-4 w-4" /> 테스트 발송
+      <div className="flex flex-col gap-lg">
+        <PageHeader
+          title="지점 자동화 적용"
+          description="본사에서 배포한 자동화 정책 세트를 지점 운영 범위 안에서 선택·적용합니다."
+          actions={
+            <div className="flex items-center gap-sm">
+              {/* 권한 데모 토글 (목업) */}
+              <div className="flex items-center rounded-full border border-line/70 bg-white/70 p-[3px] text-[12px]">
+                {(['owner', 'manager'] as ViewerRole[]).map((r) => (
+                  <button
+                    key={r}
+                    onClick={() => setViewerRole(r)}
+                    className={cn(
+                      'rounded-full px-3 py-1 font-semibold transition-all',
+                      viewerRole === r ? 'bg-primary text-white' : 'text-content-secondary'
+                    )}
+                  >
+                    {r === 'owner' ? 'Owner(지점장)' : 'manager'}
+                  </button>
+                ))}
+              </div>
+              <button className="flex items-center gap-xs rounded-button border border-line px-md py-sm text-[13px] text-content-secondary hover:bg-surface-secondary">
+                <History size={15} /> 변경 이력
+              </button>
+              <button
+                onClick={handleTestSend}
+                className="flex items-center gap-xs rounded-button border border-line px-md py-sm text-[13px] text-content-secondary hover:bg-surface-secondary"
+              >
+                <Send size={15} /> 테스트 발송
+              </button>
+              <button
+                onClick={() => setShowConfirm(true)}
+                disabled={!canEdit || !dirty}
+                className="flex items-center gap-xs rounded-button bg-primary px-lg py-sm text-[13px] font-bold text-white transition-all hover:opacity-90 disabled:opacity-50"
+              >
+                <Save size={15} /> 적용 저장
+              </button>
+            </div>
+          }
+        />
+
+        <div className="rounded-2xl border border-line/70 bg-white/70 px-lg py-md text-[13px] text-content-secondary">
+          퍼블리싱 완료 / 데이터 미연동 · 현재 지점: 강남점 · 마지막 저장 2026-05-25 11:30 · 변경자 김지점 ·{' '}
+          <span className="font-semibold text-state-success">본사 정책 동기화됨</span>
+        </div>
+
+        {!canEdit && (
+          <div className="flex items-center gap-sm rounded-2xl border border-amber-200 bg-amber-50 px-lg py-md text-[13px] text-amber-700">
+            <ShieldAlert size={16} /> manager는 적용 상태 조회만 가능합니다. 정책/스텝 ON/OFF, 지점 추가 step 관리, 롤백은 Owner(지점장)만 변경할 수 있습니다.
+          </div>
+        )}
+
+        {loadState === 'loading' ? (
+          <div className="grid grid-cols-2 gap-md lg:grid-cols-5">
+            {Array.from({ length: 5 }).map((_, i) => (
+              <StatCard key={i} label="" value="" loading />
+            ))}
+          </div>
+        ) : loadState === 'error' ? (
+          <EmptyState
+            icon={AlertTriangle}
+            title="정책 적용 현황을 불러오지 못했습니다"
+            description="일시적으로 처리하지 못했습니다. 다시 시도해주세요."
+            action={{ label: '다시 시도', onClick: () => setLoadState('ready') }}
+          />
+        ) : (
+          <>
+            <div className="grid grid-cols-2 gap-md lg:grid-cols-5">
+              <StatCard label="적용 중 본사 정책" value={`${summary.hqPolicies}개`} icon={<Layers />} variant="peach" />
+              <StatCard label="활성 본사 step" value={`${summary.activeHqSteps}개`} icon={<CheckCircle2 />} variant="mint" />
+              <StatCard label="지점 추가 step" value={`${summary.branchSteps}개`} icon={<Plus />} />
+              <StatCard label="자동 회수 ON" value={`${summary.recoveryOn}개`} icon={<RefreshCw />} />
+              <StatCard label="최근 실패 알림" value={`${summary.recentFailures}건`} icon={<AlertTriangle />} />
+            </div>
+
+            <TabNav tabs={TABS} activeTab={activeTab} onTabChange={setActiveTab} />
+
+            {isPolicyTab ? (
+              <section className="relative overflow-hidden rounded-[24px] border border-line/70 bg-white/82 shadow-card">
+                <div className="flex items-center justify-between border-b border-line/70 px-lg py-md">
+                  <div>
+                    <h2 className="text-Section-Title font-bold text-content">{AUTOMATION_POLICY_LABELS[policyType]} 정책 step</h2>
+                    <p className="mt-xs text-[12px] text-content-secondary">
+                      본사 step 기준일은 읽기 전용입니다. Owner(지점장)만 허용 step을 켜거나 끌 수 있습니다.
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-sm">
+                    {policyType !== 'payment_due_expiry' && (
+                      <button
+                        onClick={handleAddBranchStep}
+                        disabled={!canEdit}
+                        className="flex items-center gap-xs rounded-button border border-line px-md py-sm text-[13px] text-content-secondary hover:bg-surface-secondary disabled:opacity-50"
+                      >
+                        <Plus size={15} /> 지점 step 추가
+                      </button>
+                    )}
+                    <button
+                      onClick={handleRestoreDefaults}
+                      disabled={!canEdit}
+                      className="flex items-center gap-xs rounded-button border border-line px-md py-sm text-[13px] text-content-secondary hover:bg-surface-secondary disabled:opacity-50"
+                    >
+                      <RotateCcw size={15} /> 본사 기본값 복원
+                    </button>
+                  </div>
+                </div>
+
+                {policyType === 'payment_due_expiry' && (
+                  <div className="border-b border-line/70 bg-surface-secondary px-lg py-sm text-[12px] text-content-secondary">
+                    결제기한 만료는 본사 정책 step만 사용할 수 있습니다.
+                  </div>
+                )}
+
+                {tabSteps.length === 0 ? (
+                  <EmptyState icon={Layers} title="등록된 step이 없습니다" description="본사 관리자에게 정책 세트 배포를 요청하세요." />
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-[13px]">
+                      <thead>
+                        <tr className="border-b border-line/70 text-left text-[12px] text-content-secondary">
+                          <th className="px-lg py-sm font-medium">기준일</th>
+                          <th className="px-md py-sm font-medium">구분</th>
+                          <th className="px-md py-sm font-medium">발송 시각</th>
+                          <th className="px-md py-sm font-medium">반복</th>
+                          <th className="px-md py-sm font-medium">채널</th>
+                          <th className="px-md py-sm font-medium">템플릿</th>
+                          <th className="px-md py-sm font-medium">마지막 변경</th>
+                          <th className="px-lg py-sm text-right font-medium">지점 ON/OFF</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {tabSteps.map((step) => (
+                          <tr
+                            key={step.id}
+                            className={cn('border-b border-line/50 last:border-0', step.conflict && 'bg-red-50/60')}
+                          >
+                            <td className="px-lg py-md font-bold text-content">{step.baseDay}</td>
+                            <td className="px-md py-md">
+                              <StatusBadge variant={step.scope === 'hq' ? 'info' : 'peach'} label={step.scope === 'hq' ? '본사' : '지점 추가'} />
+                              {step.conflict && <StatusBadge className="ml-xs" variant="error" label="충돌" />}
+                            </td>
+                            <td className="px-md py-md text-content-secondary">{step.sendTime}</td>
+                            <td className="px-md py-md text-content-secondary">{step.repeat}</td>
+                            <td className="px-md py-md text-content-secondary">{step.channel}</td>
+                            <td className="px-md py-md text-content-secondary">{step.template}</td>
+                            <td className="px-md py-md text-[12px] text-content-tertiary">
+                              {step.updatedBy} · {step.updatedAt}
+                            </td>
+                            <td className="px-lg py-md">
+                              <div className="flex items-center justify-end gap-xs">
+                                {step.forcedOn ? (
+                                  <span className="flex items-center gap-xs text-[12px] text-content-tertiary" title="본사 강제 ON 항목입니다">
+                                    <Lock size={13} /> 강제 ON
+                                  </span>
+                                ) : (
+                                  <Switch
+                                    checked={step.enabled}
+                                    onChange={() => toggleStep(step.id)}
+                                    disabled={!canEdit}
+                                    aria-label={`${step.template} ON/OFF`}
+                                  />
+                                )}
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </section>
+            ) : (
+              <section className="relative overflow-hidden rounded-[24px] border border-line/70 bg-white/82 shadow-card">
+                <div className="border-b border-line/70 px-lg py-md">
+                  <h2 className="text-Section-Title font-bold text-content">실물 자산 자동 회수 정책</h2>
+                  <p className="mt-xs text-[12px] text-content-secondary">
+                    락커 만료 알림과 실물 자동 회수 실행은 분리됩니다. 회수 실행 정책은 Owner(지점장)이 ON/OFF합니다. (적용 화면: D06)
+                  </p>
+                </div>
+                <div className="divide-y divide-line/50">
+                  {assets.map((a) => (
+                    <div key={a.id} className="flex items-center justify-between gap-md px-lg py-md">
+                      <div>
+                        <div className="flex items-center gap-xs">
+                          <p className="font-semibold text-content">{a.name}</p>
+                          <StatusBadge variant="default" label={`기본 ${a.defaultValue}`} />
+                          {a.fixed && <StatusBadge variant="warning" label="고정" />}
+                        </div>
+                        <p className="mt-xs text-[12px] text-content-secondary">{a.basis}</p>
+                        <p className="mt-[2px] text-[11px] text-content-tertiary">
+                          제어: {a.control} · 적용 화면: {a.appliedScreen} · 변경자: {a.updatedBy}
+                        </p>
+                      </div>
+                      {a.fixed ? (
+                        <span className="flex items-center gap-xs text-[12px] text-content-tertiary" title="상태 갱신은 고정 ON입니다">
+                          <Lock size={13} /> 고정 ON
+                        </span>
+                      ) : (
+                        <Switch checked={a.enabled} onChange={() => toggleAsset(a.id)} disabled={!canEdit} aria-label={`${a.name} ON/OFF`} />
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </section>
+            )}
+          </>
+        )}
+      </div>
+
+      {/* DLG-080A-001 정책 적용 확인 */}
+      <Modal
+        isOpen={showConfirm}
+        onClose={() => setShowConfirm(false)}
+        title="정책 적용 확인"
+        size="md"
+        footer={
+          <div className="flex justify-end gap-sm">
+            <button
+              onClick={() => setShowConfirm(false)}
+              className="rounded-button border border-line px-md py-sm text-[13px] text-content-secondary hover:bg-surface-secondary"
+            >
+              취소
             </button>
-            <button onClick={handleSave} className="flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700">
-              <CheckCircle2 className="h-4 w-4" /> 적용 저장
+            <button onClick={handleConfirmApply} className="rounded-button bg-primary px-lg py-sm text-[13px] font-bold text-white hover:opacity-90">
+              저장
             </button>
           </div>
         }
-      />
-
-      <div className="mb-5 rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
-        퍼블리싱 완료 / 데이터 미연동: 본사 정책 세트 선택과 허용 스텝 on/off 화면을 목업 데이터로 표시합니다.
-      </div>
-
-      <div className="mb-6 grid grid-cols-4 gap-4">
-        {[
-          ['적용 중 정책', '표준 만료 알림'],
-          ['활성 스텝', `${steps.filter((step) => step.enabled).length}개`],
-          ['필수 스텝', `${steps.filter((step) => step.required).length}개`],
-          ['최근 테스트', '04/29 14:20'],
-        ].map(([label, value]) => (
-          <div key={label} className="rounded-xl border border-gray-200 bg-white p-4">
-            <p className="text-xs text-gray-500">{label}</p>
-            <p className="mt-2 text-xl font-bold text-gray-900">{value}</p>
+      >
+        <div className="space-y-md">
+          <div>
+            <p className="text-[12px] text-content-secondary">적용 대상 정책 유형</p>
+            <p className="font-semibold text-content">{AUTOMATION_POLICY_LABELS[policyType] ?? '실물 자산 자동 회수'}</p>
           </div>
-        ))}
-      </div>
-
-      <div className="grid grid-cols-[260px_1fr] gap-6">
-        <section className="rounded-xl border border-gray-200 bg-white p-3">
-          <p className="px-2 pb-3 text-xs font-semibold uppercase tracking-wide text-gray-500">적용 범위</p>
-          <div className="space-y-1">
-            {scopes.map((scope) => (
-              <button
-                key={scope}
-                type="button"
-                onClick={() => setActiveScope(scope)}
-                className={`flex w-full items-center justify-between rounded-lg px-3 py-2 text-sm transition-colors ${
-                  activeScope === scope ? 'bg-blue-50 font-semibold text-blue-700' : 'text-gray-700 hover:bg-gray-50'
-                }`}
-              >
-                {scope}
-                {activeScope === scope && <Bell className="h-4 w-4" />}
-              </button>
-            ))}
+          <div className="rounded-2xl border border-line/70 bg-surface-secondary px-md py-sm text-[13px]">
+            <p className="mb-xs font-semibold text-content">변경 요약</p>
+            <ul className="list-disc space-y-xs pl-md text-content-secondary">
+              <li>비활성화한 스텝 {steps.filter((s) => !s.enabled && !s.forcedOn).length}개</li>
+              <li>지점 추가 step {steps.filter((s) => s.scope === 'branch').length}개</li>
+              <li>자동 회수 ON {assets.filter((a) => a.enabled).length}개</li>
+            </ul>
           </div>
-        </section>
-
-        <section className="rounded-xl border border-gray-200 bg-white">
-          <div className="flex items-center justify-between border-b border-gray-100 px-5 py-4">
-            <div>
-              <h2 className="text-sm font-semibold text-gray-900">{activeScope} 정책</h2>
-              <p className="mt-1 text-xs text-gray-500">지점은 본사가 허용한 선택 스텝만 끄거나 켤 수 있습니다.</p>
-            </div>
-            <button onClick={handleRestoreDefaults} className="flex items-center gap-2 rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50">
-              <RotateCcw className="h-4 w-4" /> 본사 기본값 복원
-            </button>
-          </div>
-
-          <div className="divide-y divide-gray-100">
-            {steps.map((step, index) => (
-              <div key={`${step.day}-${step.channel}`} className="flex items-center justify-between px-5 py-4">
-                <div className="flex items-center gap-4">
-                  <div className="flex h-11 w-14 items-center justify-center rounded-xl bg-slate-100 text-sm font-bold text-slate-700">
-                    {step.day}
-                  </div>
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <p className="font-semibold text-gray-900">{step.title}</p>
-                      {step.required && <span className="rounded-full bg-red-100 px-2 py-0.5 text-xs font-medium text-red-700">필수</span>}
-                    </div>
-                    <p className="mt-1 text-xs text-gray-500">{step.channel} 발송 · 본사 템플릿 사용</p>
-                  </div>
-                </div>
-                <button
-                  type="button"
-                  disabled={step.required}
-                  onClick={() =>
-                    setSteps((prev) => prev.map((item, i) => (i === index ? { ...item, enabled: !item.enabled } : item)))
-                  }
-                  className={`flex items-center gap-2 rounded-lg px-3 py-2 text-sm ${
-                    step.required ? 'cursor-not-allowed bg-gray-100 text-gray-400' : 'text-gray-700 hover:bg-gray-50'
-                  }`}
-                >
-                  {step.enabled ? <ToggleRight className="h-5 w-5 text-blue-600" /> : <ToggleLeft className="h-5 w-5 text-gray-400" />}
-                  {step.enabled ? '활성' : '비활성'}
-                </button>
-              </div>
-            ))}
-          </div>
-        </section>
-      </div>
+          <p className="text-[12px] text-content-tertiary">
+            저장 후 24시간 내 롤백할 수 있습니다. 플랫폼 예상 발송 비용은 적용 직후 산정됩니다.
+          </p>
+        </div>
+      </Modal>
     </AppLayout>
   );
 }
