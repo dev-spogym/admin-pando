@@ -4,7 +4,7 @@ export const dynamic = 'force-dynamic';
 import { getBranchId } from '@/lib/getBranchId';
 import React, { useState, useEffect, useMemo } from 'react';
 import { toast } from 'sonner';
-import { Plus, Trash2, AlertTriangle, Ban, Clock, Minus, Settings, ToggleLeft, ToggleRight } from 'lucide-react';
+import { Plus, Trash2, AlertTriangle, Ban, Minus, Settings, ToggleLeft, ToggleRight } from 'lucide-react';
 import AppLayout from "@/components/layout/AppLayout";
 import PageHeader from "@/components/common/PageHeader";
 import StatCard from "@/components/common/StatCard";
@@ -19,18 +19,14 @@ import type { BadgeVariant } from "@/components/common/StatusBadge";
 import { supabase } from '@/lib/supabase';
 import { useAuthStore } from '@/stores/authStore';
 
-// 페널티 유형 라벨
+// 페널티 유형 라벨 — 명세(SCR-C008)상 페널티 유형은 '노쇼'만 존재. 늦은 취소는 페널티 대상 아님
 const PENALTY_TYPE_LABEL: Record<string, string> = {
   NOSHOW: '노쇼',
-  LATE_CANCEL: '지각취소',
-  LATE: '지각',
 };
 
 // 페널티 유형 badge variant
 const PENALTY_TYPE_VARIANT: Record<string, BadgeVariant> = {
   NOSHOW: 'error',
-  LATE_CANCEL: 'warning',
-  LATE: 'info',
 };
 
 interface Penalty {
@@ -130,7 +126,6 @@ export default function PenaltyManagement() {
     return {
       total: thisMonthList.length,
       noshow: thisMonthList.filter((p) => p.type === 'NOSHOW').length,
-      lateCancel: thisMonthList.filter((p) => p.type === 'LATE_CANCEL').length,
       totalDeduct: thisMonthList.reduce((sum, p) => sum + (p.deductCount ?? 0), 0),
     };
   }, [penalties]);
@@ -274,7 +269,7 @@ export default function PenaltyManagement() {
     <AppLayout>
       <PageHeader
         title="페널티 관리"
-        description="노쇼, 지각 등 페널티를 관리합니다."
+        description="노쇼 페널티 현황을 관리하고 자동 페널티 정책을 설정합니다."
         actions={
           <div className="flex gap-sm">
             <button
@@ -296,10 +291,9 @@ export default function PenaltyManagement() {
       />
 
       {/* 통계 카드 */}
-      <StatCardGrid cols={4} className="mb-lg">
+      <StatCardGrid cols={3} className="mb-lg">
         <StatCard label="이번달 페널티" value={stats.total} icon={<AlertTriangle />} />
         <StatCard label="노쇼 건수" value={stats.noshow} icon={<Ban />} variant="peach" />
-        <StatCard label="지각취소 건수" value={stats.lateCancel} icon={<Clock />} variant="mint" />
         <StatCard label="차감 총 횟수" value={`${stats.totalDeduct}회`} icon={<Minus />} />
       </StatCardGrid>
 
@@ -395,10 +389,9 @@ export default function PenaltyManagement() {
               onChange={(v) => setForm((f) => ({ ...f, type: v }))}
               options={[
                 { value: 'NOSHOW', label: '노쇼' },
-                { value: 'LATE_CANCEL', label: '지각취소' },
-                { value: 'LATE', label: '지각' },
               ]}
             />
+            <p className="mt-xs text-[11px] text-content-tertiary">늦은 취소는 페널티 대상이 아니며, 페널티 유형은 노쇼만 존재합니다.</p>
           </div>
 
           {/* 차감 횟수 */}
