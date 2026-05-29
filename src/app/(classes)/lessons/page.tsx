@@ -191,6 +191,8 @@ export default function LessonManagement() {
   // ── 수업 기록(classes) 상세 모달 ──────────────────────────────
   const [classRecords, setClassRecords] = useState<ClassRecord[]>([]);
   const [classLoading, setClassLoading] = useState(false);
+  // 수업 목록 상태 필터 (CLS-02-02): 전체/예정/진행중/완료/취소
+  const [recordStatusFilter, setRecordStatusFilter] = useState<'all' | LessonStatus>('all');
   const [classDetailOpen, setClassDetailOpen] = useState(false);
   const [selectedClass, setSelectedClass] = useState<ClassRecord | null>(null);
 
@@ -319,6 +321,21 @@ export default function LessonManagement() {
     }).length;
     return { total, active, instructors, completedToday, sessionCounts };
   }, [lessons, classRecords]);
+
+  // 수업 목록(기록) 상태 필터링 (CLS-02-02)
+  const filteredRecords = useMemo(() => {
+    if (recordStatusFilter === 'all') return classRecords;
+    if (recordStatusFilter === 'no_show') return classRecords.filter(c => c.lesson_status === 'no_show');
+    return classRecords.filter(c => c.lesson_status === recordStatusFilter);
+  }, [classRecords, recordStatusFilter]);
+
+  const recordStatusCounts = useMemo(() => {
+    const counts: Record<string, number> = { all: classRecords.length, scheduled: 0, in_progress: 0, completed: 0, cancelled: 0 };
+    classRecords.forEach(c => {
+      if (counts[c.lesson_status] !== undefined) counts[c.lesson_status] += 1;
+    });
+    return counts;
+  }, [classRecords]);
 
   // 검색 필터
   const filtered = useMemo(() => {
@@ -702,15 +719,30 @@ export default function LessonManagement() {
     },
     {
       key: 'sessionType',
-      header: '강습유형',
-      render: (_: unknown, row: ClassRecord) => formatLessonSessionType(deriveLessonSessionType(row.type, row.title)),
+      header: '강습 세션 유형',
+      render: (_: unknown, row: ClassRecord) => {
+        const t = deriveLessonSessionType(row.type, row.title);
+        return <StatusBadge variant={LESSON_TYPE_VARIANT[t] ?? 'info'} label={formatLessonSessionType(t)} />;
+      },
     },
+    { key: 'staffName', header: '강사' },
+    { key: 'room', header: '장소', render: (v: string | null) => v ?? '-' },
     {
-      key: 'startTime', header: '일시', render: (v: string) => (
+      key: 'startTime', header: '날짜·시간', render: (v: string) => (
         <span className="text-[12px] tabular-nums">{fmtDateTime(v)}</span>
       ),
     },
-    { key: 'staffName', header: '강사' },
+    {
+      key: 'booked', header: '예약 현황', align: 'center' as const,
+      render: (_: unknown, row: ClassRecord) => {
+        const full = (row.booked ?? 0) >= (row.capacity ?? 0) && (row.capacity ?? 0) > 0;
+        return (
+          <span className={`text-[12px] tabular-nums font-semibold ${full ? 'text-state-error' : 'text-content'}`}>
+            {row.booked ?? 0}/{row.capacity ?? 0}{full ? ' (마감)' : ''}
+          </span>
+        );
+      },
+    },
     { key: 'member_name', header: '회원', render: (v: string | null) => v ?? '-' },
     {
       key: 'lesson_status', header: '상태', render: (v: LessonStatus) => (
@@ -794,9 +826,9 @@ export default function LessonManagement() {
         ))}
       </div>
 
-      {/* 수업 정의 목록 */}
+      {/* 수업 정의 목록 (lessons 테이블) */}
       <DataTable
-        title="수업 목록"
+        title="수업 정의"
         columns={lessonColumns}
         data={filtered}
         loading={loading}
@@ -806,14 +838,38 @@ export default function LessonManagement() {
         searchPlaceholder="수업명, 강사명 검색..."
       />
 
-      {/* 수업 기록 (classes 테이블) */}
+      {/* 수업 목록 (개별 세션 — classes 테이블) */}
       <div className="mt-lg">
+        {/* 상태 필터 버튼 (CLS-02-02) */}
+        <div className="flex flex-wrap items-center gap-xs mb-sm">
+          {([
+            { key: 'all', label: '전체' },
+            { key: 'scheduled', label: '예정' },
+            { key: 'in_progress', label: '진행중' },
+            { key: 'completed', label: '완료' },
+            { key: 'cancelled', label: '취소' },
+          ] as { key: 'all' | LessonStatus; label: string }[]).map(opt => (
+            <button
+              key={opt.key}
+              type="button"
+              onClick={() => setRecordStatusFilter(opt.key)}
+              className={`h-8 px-3 rounded-lg text-[12px] font-semibold border transition-colors ${
+                recordStatusFilter === opt.key
+                  ? 'bg-primary text-white border-primary'
+                  : 'bg-surface-secondary text-content-secondary border-line hover:border-primary hover:text-primary'
+              }`}
+            >
+              {opt.label}
+              <span className="ml-1 opacity-70">{recordStatusCounts[opt.key] ?? 0}</span>
+            </button>
+          ))}
+        </div>
         <DataTable
-          title="수업 기록"
+          title="수업 목록"
           columns={classColumns}
-          data={classRecords}
+          data={filteredRecords}
           loading={classLoading}
-          emptyMessage="수업 기록이 없습니다."
+          emptyMessage="해당 상태의 수업이 없습니다."
         />
       </div>
 
