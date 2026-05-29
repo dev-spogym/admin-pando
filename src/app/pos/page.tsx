@@ -44,12 +44,32 @@ interface Product {
   stock: number | null;
 }
 
-// DB 카테고리 영문 → 한글 매핑
-const CATEGORY_KO: Record<string, string> = {
-  MEMBERSHIP: '이용권', PT: 'PT', GX: 'GX', ETC: '기타',
-  '이용권': '이용권', '기타': '기타',
+// DB 카테고리 → docs4 5개 대분류 매핑 (SCR-S002: 회원권/수강권/락커/운동복/일반)
+// POS 판매와 상품관리의 상품 대분류는 이 5개로 통일한다.
+const toCategoryKo = (cat: string, name = ''): string => {
+  switch (cat) {
+    case 'MEMBERSHIP':
+      return '회원권';
+    case 'PT':
+    case 'GX':
+    case 'LESSON':
+      return '수강권';
+    case 'SERVICE':
+      // SERVICE에는 락커·운동복·타월 등이 섞여있어 상품명으로 세분화한다.
+      if (name.includes('락커') || name.includes('라커') || name.includes('locker')) return '락커';
+      if (name.includes('운동복') || name.includes('타월') || name.includes('수건')) return '운동복';
+      return '일반';
+    case 'RENTAL':
+      return name.includes('운동복') ? '운동복' : '락커';
+    case 'PRODUCT':
+    case 'GENERAL':
+    case 'ETC':
+    default:
+      // 이미 한글 대분류로 들어온 경우 그대로 통과
+      if (['회원권', '수강권', '락커', '운동복', '일반'].includes(cat)) return cat;
+      return '일반';
+  }
 };
-const toCategoryKo = (cat: string) => CATEGORY_KO[cat] ?? cat;
 
 // 상품 타입 배지 색상 매핑
 const PRODUCT_TYPE_BADGE: Record<string, { label: string; className: string }> = {
@@ -60,10 +80,11 @@ const PRODUCT_TYPE_BADGE: Record<string, { label: string; className: string }> =
 };
 
 const CATEGORY_TABS = [
-  { key: '이용권', label: '이용권' },
-  { key: 'PT', label: 'PT' },
-  { key: 'GX', label: 'GX' },
-  { key: '기타', label: '기타' },
+  { key: '회원권', label: '회원권' },
+  { key: '수강권', label: '수강권' },
+  { key: '락커', label: '락커' },
+  { key: '운동복', label: '운동복' },
+  { key: '일반', label: '일반' },
 ];
 
 interface CartItem extends Product {
@@ -162,7 +183,7 @@ interface Member {
 function SalesPos() {
   const searchParams = useSearchParams();
   const preselectedMemberId = searchParams?.get('memberId');
-  const [activeTab, setActiveTab] = useState('이용권');
+  const [activeTab, setActiveTab] = useState('회원권');
   const [searchQuery, setSearchQuery] = useState('');
   const [cart, setCart] = useState<CartItem[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
@@ -187,7 +208,7 @@ function SalesPos() {
           data.map((p: Record<string, unknown>) => ({
             id: p.id as number,
             name: p.name as string,
-            category: toCategoryKo(p.category as string),
+            category: toCategoryKo(p.category as string, p.name as string),
             // DB의 cashPrice/cardPrice를 우선 사용, 없으면 price로 폴백
             cashPrice: Number(p.cashPrice ?? p.price ?? 0),
             cardPrice: Number(p.cardPrice ?? p.price ?? 0),
