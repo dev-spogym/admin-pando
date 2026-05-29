@@ -25,6 +25,7 @@ import ConfirmDialog from "@/components/ui/ConfirmDialog";
 import { supabase } from "@/lib/supabase";
 import { exportToExcel } from "@/lib/exportExcel";
 import { toast } from "sonner";
+import FixedLockerSection from "@/components/facilities/FixedLockerSection";
 
 const getBranchId = (): number => {
   if (typeof window === 'undefined') return 1;
@@ -94,6 +95,8 @@ const LOCKER_CELL_STYLES: Record<LockerStatus, string> = {
 };
 
 export default function LockerManagement() {
+  // 최상위 섹션 탭: 사물함 배정 운영(SCR-051) / 고정 물품 락커(SCR-I005)
+  const [section, setSection] = useState<"assign" | "fixed">("assign");
   const [activeTab, setActiveTab] = useState<LockerType>("daily");
   const [dailyLockers,    setDailyLockers]    = useState<Locker[]>([]);
   const [personalLockers, setPersonalLockers] = useState<Locker[]>([]);
@@ -398,7 +401,7 @@ export default function LockerManagement() {
       <PageHeader
         title="사물함 배정 관리"
         description="시설 내 일일, 개인, 골프 사물함의 이용 현황을 실시간으로 관리합니다."
-        actions={
+        actions={section === "assign" && (
           <div className="flex items-center gap-sm">
             <button
               className="flex items-center gap-xs px-md py-sm rounded-lg bg-primary text-white hover:opacity-90 transition-opacity text-[13px] font-semibold"
@@ -425,9 +428,32 @@ export default function LockerManagement() {
               <Download size={15} /> 엑셀 다운로드
             </button>
           </div>
-        }
+        )}
       />
 
+      {/* 최상위 섹션 탭: 사물함 배정 운영(SCR-051) / 고정 물품 락커(SCR-I005) */}
+      <div className="mb-lg flex items-center gap-[2px] bg-surface-tertiary rounded-lg p-[3px] w-fit">
+        {([
+          { key: "assign", label: "사물함 배정 운영" },
+          { key: "fixed",  label: "고정 물품 락커" },
+        ] as const).map(s => (
+          <button
+            key={s.key}
+            className={cn(
+              "px-lg py-sm rounded-md text-[13px] font-semibold transition-colors",
+              section === s.key ? "bg-surface text-primary shadow-sm" : "text-content-secondary hover:text-content"
+            )}
+            onClick={() => setSection(s.key)}
+          >
+            {s.label}
+          </button>
+        ))}
+      </div>
+
+      {section === "fixed" ? (
+        <FixedLockerSection embedded />
+      ) : (
+      <>
       {/* 통계 카드 */}
       <StatCardGrid cols={5} className="mb-xl">
         <StatCard label="총 사물함"     value={stats.total}     icon={<User />} />
@@ -773,6 +799,8 @@ export default function LockerManagement() {
         onConfirm={handleBulkRelease}
         onCancel={() => setIsBulkDialogOpen(false)}
       />
+      </>
+      )}
     </AppLayout>
   );
 }
