@@ -4,9 +4,16 @@ export const dynamic = 'force-dynamic';
 import React, { useState } from 'react';
 import AppLayout from '@/components/layout/AppLayout';
 import PageHeader from '@/components/common/PageHeader';
-import { Download, Grid, List, RefreshCw } from 'lucide-react';
+import { Download, Eye, Grid, List, Pencil, RefreshCw, SlidersHorizontal } from 'lucide-react';
 import { usePageSeed } from '@/hooks';
 import type { ProductCatalogSeedPayload } from '@/lib/publishingPageSeed';
+import {
+  CatalogPreviewModal,
+  CatalogDisplayOptionsModal,
+  CatalogEditModal,
+  DEFAULT_CATALOG_OPTIONS,
+  type CatalogDisplayOptions,
+} from '@/components/common/CatalogModals';
 
 const FALLBACK_CATALOG: ProductCatalogSeedPayload = {
   products: [
@@ -28,6 +35,11 @@ const catColor: Record<string, string> = {
 export default function ProductCatalogPage() {
   const [view, setView] = useState<'grid' | 'list'>('grid');
   const [cat, setCat] = useState('전체');
+  // DLG-P016~P018 모달 상태
+  const [previewOpen, setPreviewOpen] = useState(false);
+  const [optionsOpen, setOptionsOpen] = useState(false);
+  const [editOpen, setEditOpen] = useState(false);
+  const [options, setOptions] = useState<CatalogDisplayOptions>(DEFAULT_CATALOG_OPTIONS);
   const { data, loading, error, branchId, snapshotDate, reload } = usePageSeed<ProductCatalogSeedPayload>(
     '/products/catalog',
     FALLBACK_CATALOG,
@@ -46,6 +58,27 @@ export default function ProductCatalogPage() {
             type="button"
           >
             <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} /> seed 갱신
+          </button>
+          <button
+            type="button"
+            onClick={() => setPreviewOpen(true)}
+            className="flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+          >
+            <Eye className="w-4 h-4" /> 미리보기
+          </button>
+          <button
+            type="button"
+            onClick={() => setOptionsOpen(true)}
+            className="flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+          >
+            <SlidersHorizontal className="w-4 h-4" /> 표시 옵션
+          </button>
+          <button
+            type="button"
+            onClick={() => setEditOpen(true)}
+            className="flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+          >
+            <Pencil className="w-4 h-4" /> 내용 편집
           </button>
           <button className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700">
             <Download className="w-4 h-4" /> PDF 내보내기
@@ -106,6 +139,13 @@ export default function ProductCatalogPage() {
           ))}
         </div>
       )}
+
+      {/* DLG-P016 카탈로그 미리보기 */}
+      <CatalogPreviewModal isOpen={previewOpen} onClose={() => setPreviewOpen(false)} products={products} showPrice={options.showPrice} />
+      {/* DLG-P017 카탈로그 표시 옵션 설정 */}
+      <CatalogDisplayOptionsModal isOpen={optionsOpen} onClose={() => setOptionsOpen(false)} value={options} onSave={setOptions} />
+      {/* DLG-P018 카탈로그 내용 편집 */}
+      <CatalogEditModal isOpen={editOpen} onClose={() => setEditOpen(false)} products={products} onSave={() => void reload(true)} />
     </AppLayout>
   );
 }

@@ -4,9 +4,17 @@ export const dynamic = 'force-dynamic';
 import React, { useState } from 'react';
 import AppLayout from '@/components/layout/AppLayout';
 import PageHeader from '@/components/common/PageHeader';
-import { Plus, AlertTriangle, ArrowUp, ArrowDown, RefreshCw } from 'lucide-react';
+import { Plus, AlertTriangle, ArrowUp, ArrowDown, RefreshCw, Settings2, History } from 'lucide-react';
 import { usePageSeed } from '@/hooks';
 import type { ProductInventorySeedPayload } from '@/lib/publishingPageSeed';
+import {
+  StockInModal,
+  StockOutModal,
+  StockAdjustModal,
+  StockHistoryModal,
+  type InventoryItem,
+  type InventoryHistoryRow,
+} from '@/components/common/InventoryModals';
 
 const FALLBACK_PRODUCT_INVENTORY: ProductInventorySeedPayload = {
   inventory: [
@@ -27,6 +35,12 @@ const FALLBACK_PRODUCT_INVENTORY: ProductInventorySeedPayload = {
 
 export default function ProductInventoryPage() {
   const [tab, setTab] = useState<'재고현황' | '입출고이력'>('재고현황');
+  // DLG-P019~P022 모달 상태 (대상 행 보관)
+  const [stockInTarget, setStockInTarget] = useState<InventoryItem | null>(null);
+  const [stockOutTarget, setStockOutTarget] = useState<InventoryItem | null>(null);
+  const [adjustTarget, setAdjustTarget] = useState<InventoryItem | null>(null);
+  const [historyTarget, setHistoryTarget] = useState<InventoryItem | null>(null);
+  const [historyAllOpen, setHistoryAllOpen] = useState(false);
   const { data, loading, error, branchId, snapshotDate, reload } = usePageSeed<ProductInventorySeedPayload>(
     '/products/inventory',
     FALLBACK_PRODUCT_INVENTORY,
@@ -34,6 +48,14 @@ export default function ProductInventoryPage() {
   const { inventory, history } = data;
   const alertCount = inventory.filter(item => item.alert).length;
   const totalSold = inventory.reduce((sum, item) => sum + item.sold, 0);
+  // DLG-P022 이력 모달용 행 (seed history → 이력 행 형태)
+  const historyRows: InventoryHistoryRow[] = history.map(h => ({
+    date: h.date,
+    product: h.product,
+    type: h.type,
+    qty: h.qty,
+    balance: h.balance,
+  }));
 
   return (
     <AppLayout>
@@ -46,7 +68,19 @@ export default function ProductInventoryPage() {
           >
             <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} /> seed 갱신
           </button>
-          <button className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700">
+          <button
+            type="button"
+            onClick={() => setHistoryAllOpen(true)}
+            className="flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+          >
+            <History className="w-4 h-4" /> 입출고 이력
+          </button>
+          <button
+            type="button"
+            onClick={() => setStockInTarget(inventory[0] ?? null)}
+            disabled={inventory.length === 0}
+            className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 disabled:opacity-50"
+          >
             <Plus className="w-4 h-4" /> 입고 등록
           </button>
         </div>
@@ -112,6 +146,36 @@ export default function ProductInventoryPage() {
                   <div className={`h-2 rounded-full ${item.alert ? 'bg-red-400' : 'bg-blue-500'}`}
                     style={{ width: `${(item.remaining / item.stock) * 100}%` }} />
                 </div>
+                <div className="flex items-center gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() => setStockInTarget(item)}
+                    className="flex items-center gap-1 rounded-lg border border-gray-200 px-2.5 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50"
+                  >
+                    <ArrowDown className="w-3.5 h-3.5 text-green-600" /> 입고
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setStockOutTarget(item)}
+                    className="flex items-center gap-1 rounded-lg border border-gray-200 px-2.5 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50"
+                  >
+                    <ArrowUp className="w-3.5 h-3.5 text-blue-600" /> 출고
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setAdjustTarget(item)}
+                    className="flex items-center gap-1 rounded-lg border border-gray-200 px-2.5 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50"
+                  >
+                    <Settings2 className="w-3.5 h-3.5 text-amber-600" /> 조정
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setHistoryTarget(item)}
+                    className="flex items-center gap-1 rounded-lg border border-gray-200 px-2.5 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50"
+                  >
+                    <History className="w-3.5 h-3.5 text-gray-500" /> 이력
+                  </button>
+                </div>
               </div>
             </div>
           ))}
@@ -139,6 +203,16 @@ export default function ProductInventoryPage() {
           ))}
         </div>
       )}
+
+      {/* DLG-P019 입고 등록 */}
+      <StockInModal isOpen={stockInTarget !== null} onClose={() => setStockInTarget(null)} target={stockInTarget} onSubmit={() => void reload(true)} />
+      {/* DLG-P020 출고 등록 */}
+      <StockOutModal isOpen={stockOutTarget !== null} onClose={() => setStockOutTarget(null)} target={stockOutTarget} onSubmit={() => void reload(true)} />
+      {/* DLG-P021 재고 수동 조정 */}
+      <StockAdjustModal isOpen={adjustTarget !== null} onClose={() => setAdjustTarget(null)} target={adjustTarget} onSubmit={() => void reload(true)} />
+      {/* DLG-P022 입출고 이력 조회 (행별: 상품명 필터 / 상단: 전체) */}
+      <StockHistoryModal isOpen={historyTarget !== null} onClose={() => setHistoryTarget(null)} productName={historyTarget?.name} rows={historyRows} />
+      <StockHistoryModal isOpen={historyAllOpen} onClose={() => setHistoryAllOpen(false)} rows={historyRows} />
     </AppLayout>
   );
 }

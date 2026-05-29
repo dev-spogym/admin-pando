@@ -218,13 +218,13 @@ export const DOCS4_DIALOGS: Docs4Entry[] = [
   { code: "DLG-S016", kind: "DLG", domain: "D03", title: "결제링크 발송", version: "V2", hostRoute: "/unpaid", status: "done" },
 
   // ── D05 상품관리 (V2 신규) ──
-  { code: "DLG-P016", kind: "DLG", domain: "D05", title: "카탈로그 미리보기", version: "V2", hostRoute: "/products/catalog", status: "dialog-pending" },
-  { code: "DLG-P017", kind: "DLG", domain: "D05", title: "카탈로그 표시 옵션 설정", version: "V2", hostRoute: "/products/catalog", status: "dialog-pending" },
-  { code: "DLG-P018", kind: "DLG", domain: "D05", title: "카탈로그 내용 편집", version: "V2", hostRoute: "/products/catalog", status: "dialog-pending" },
-  { code: "DLG-P019", kind: "DLG", domain: "D05", title: "입고 등록", version: "V2", hostRoute: "/products/inventory", status: "dialog-pending" },
-  { code: "DLG-P020", kind: "DLG", domain: "D05", title: "출고 등록", version: "V2", hostRoute: "/products/inventory", status: "dialog-pending" },
-  { code: "DLG-P021", kind: "DLG", domain: "D05", title: "재고 수동 조정", version: "V2", hostRoute: "/products/inventory", status: "dialog-pending" },
-  { code: "DLG-P022", kind: "DLG", domain: "D05", title: "입출고 이력 조회", version: "V2", hostRoute: "/products/inventory", status: "dialog-pending" },
+  { code: "DLG-P016", kind: "DLG", domain: "D05", title: "카탈로그 미리보기", version: "V2", hostRoute: "/products/catalog", status: "done" },
+  { code: "DLG-P017", kind: "DLG", domain: "D05", title: "카탈로그 표시 옵션 설정", version: "V2", hostRoute: "/products/catalog", status: "done" },
+  { code: "DLG-P018", kind: "DLG", domain: "D05", title: "카탈로그 내용 편집", version: "V2", hostRoute: "/products/catalog", status: "done" },
+  { code: "DLG-P019", kind: "DLG", domain: "D05", title: "입고 등록", version: "V2", hostRoute: "/products/inventory", status: "done" },
+  { code: "DLG-P020", kind: "DLG", domain: "D05", title: "출고 등록", version: "V2", hostRoute: "/products/inventory", status: "done" },
+  { code: "DLG-P021", kind: "DLG", domain: "D05", title: "재고 수동 조정", version: "V2", hostRoute: "/products/inventory", status: "done" },
+  { code: "DLG-P022", kind: "DLG", domain: "D05", title: "입출고 이력 조회", version: "V2", hostRoute: "/products/inventory", status: "done" },
 
   // ── D06 시설관리 (V2 신규) ──
   { code: "DLG-056-001", kind: "DLG", domain: "D06", title: "장비 등록", version: "V2", hostRoute: "/equipment-check", status: "dialog-pending" },
