@@ -1,631 +1,525 @@
 'use client';
 export const dynamic = 'force-dynamic';
 
-﻿import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useMemo } from "react";
 import {
   Bell,
   Plus,
   X,
-  CheckCircle2,
+  Lock,
   Smartphone,
   MessageSquare,
-  ChevronRight,
-  MoreHorizontal,
   User,
-  Gift,
-  UserPlus,
-  RefreshCw,
-  PauseCircle,
-  Timer,
-  Clock,
-  ShieldCheck,
-  Ticket
+  Ticket,
+  CreditCard,
+  Settings2,
+  BarChart3,
+  AlertTriangle,
+  CheckCircle2,
+  Trash2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import AppLayout from "@/components/layout/AppLayout";
 import PageHeader from "@/components/common/PageHeader";
 import StatCard from "@/components/common/StatCard";
 import StatusBadge from "@/components/common/StatusBadge";
-import FormSection from "@/components/common/FormSection";
 import { moveToPage } from "@/internal";
 import Select from "@/components/ui/Select";
 import Textarea from "@/components/ui/Textarea";
 import Button from "@/components/ui/Button";
-import { supabase } from "@/lib/supabase";
+import Input from "@/components/ui/Input";
+import { useAuthStore } from "@/stores/authStore";
+import { isRoleAtLeast, normalizeRole } from "@/lib/permissions";
 import { toast } from "sonner";
 
 /**
- * SCR-071: 자동 알림 설정 (UI-101 ~ UI-102)
- * 13종 알림 규칙 카드 + 규칙 설정 모달
+ * SCR-072 자동 알림 설정 + SCR-072A 자동알림 운영현황
+ * - 본사 step / 지점 추가 step 구조 (본사 필수 ON 잠금)
+ * - 만료 정책 3탭: 회원 이용권 만료 / 결제기한 만료 / 락커 만료
+ * - 권한 분기: Owner(지점장)만 ON/OFF·step 추가·전체 ON/OFF, 매니저는 조회·상세 편집만
  */
 
-interface AlarmRule {
+type ExpiryPolicy = "membership" | "payment" | "locker";
+type StepOrigin = "hq" | "branch";
+type Channel = "talk" | "sms" | "lms" | "push";
+
+interface AlarmStep {
+  id: string;
+  policy: ExpiryPolicy;      // 만료 정책 분류
+  origin: StepOrigin;        // 본사 step | 지점 추가 step
+  label: string;             // 표시명 (예: "만료 D-7")
+  baseDay: number;           // 기준일 (만료 N일 전)
+  channel: Channel;
+  enabled: boolean;
+  hqRequired?: boolean;      // 본사 필수 (ON 고정 잠금)
+  template: { timing: string; target: string; content: string };
+}
+
+interface EventRule {
   id: string;
   name: string;
   description: string;
-  channel: "talk" | "sms" | "push";
-  type: "customer" | "product";
+  channel: Channel;
   enabled: boolean;
-  hasNumberInput?: boolean;
-  numberValue?: number;
-  numberLabel?: string;
-  template?: {
-    timing: string;
-    target: string;
-    content: string;
-  };
+  template: { timing: string; target: string; content: string };
 }
 
-const INITIAL_RULES: AlarmRule[] = [
-  // 고객 관련 7종
-  {
-    id: "expire-d7",    name: "만료 D-7 알림",      description: "회원권 만료 7일 전 안내 발송",
-    channel: "talk", type: "customer", enabled: true,
-    hasNumberInput: true, numberValue: 7, numberLabel: "일 전",
-    template: { timing: "만료 7일 전", target: "전체 회원", content: "안녕하세요 {이름}님! 회원권이 7일 후 만료됩니다. 재등록 시 특별 혜택을 드립니다." }
-  },
-  {
-    id: "expire-d3",    name: "만료 D-3 알림",      description: "회원권 만료 3일 전 안내 발송",
-    channel: "talk", type: "customer", enabled: true,
-    hasNumberInput: true, numberValue: 3, numberLabel: "일 전",
-    template: { timing: "만료 3일 전", target: "전체 회원", content: "안녕하세요 {이름}님! 회원권이 3일 후 만료됩니다." }
-  },
-  {
-    id: "expire-d1",    name: "만료 D-1 알림",      description: "회원권 만료 1일 전 최종 안내",
-    channel: "sms", type: "customer", enabled: false,
-    hasNumberInput: true, numberValue: 1, numberLabel: "일 전",
-    template: { timing: "만료 1일 전", target: "전체 회원", content: "내일 {이름}님의 회원권이 만료됩니다." }
-  },
-  {
-    id: "birthday",     name: "생일 축하 알림",      description: "생일 당일 축하 메시지 발송",
-    channel: "talk", type: "customer", enabled: true,
-    template: { timing: "생일 당일 오전 9시", target: "전체 회원", content: "🎉 {이름}님, 생일을 축하합니다! 특별 혜택을 확인해보세요." }
-  },
-  {
-    id: "absence",      name: "장기 미출석 알림",    description: "N일 이상 미출석 회원 안내",
-    channel: "sms", type: "customer", enabled: false,
-    hasNumberInput: true, numberValue: 30, numberLabel: "일 미출석",
-    template: { timing: "미출석 30일 경과", target: "전체 회원", content: "{이름}님, 오랫동안 뵙지 못했어요. 센터에서 기다리고 있습니다." }
-  },
-  {
-    id: "new-member",   name: "신규 회원 환영 알림", description: "첫 등록 시 환영 메시지 발송",
-    channel: "talk", type: "customer", enabled: true,
-    template: { timing: "등록 즉시", target: "신규 등록 회원", content: "환영합니다 {이름}님! {센터명}에 오신 것을 환영합니다." }
-  },
-  {
-    id: "payment",      name: "결제 완료 알림",      description: "결제 완료 시 영수증 발송",
-    channel: "talk", type: "customer", enabled: true,
-    template: { timing: "결제 즉시", target: "결제 완료 회원", content: "{이름}님의 결제가 완료되었습니다. 금액: {금액}원" }
-  },
-
-  // 상품 관련 6종
-  {
-    id: "holding",      name: "상품 홀딩 알림",      description: "이용권 홀딩 처리 시 발송",
-    channel: "talk", type: "product", enabled: false,
-    template: { timing: "홀딩 처리 즉시", target: "홀딩 회원", content: "{이름}님의 이용권이 홀딩 처리되었습니다. 홀딩 기간: {기간}" }
-  },
-  {
-    id: "course-expire", name: "수강권 만료 알림",   description: "수강권 만료 당일 발송",
-    channel: "sms", type: "product", enabled: true,
-    template: { timing: "만료 당일", target: "수강권 보유 회원", content: "{이름}님의 수강권이 오늘 만료됩니다." }
-  },
-  {
-    id: "course-soon",  name: "수강권 만료 임박",    description: "수강권 만료 N일 전 발송",
-    channel: "talk", type: "product", enabled: true,
-    hasNumberInput: true, numberValue: 7, numberLabel: "일 전",
-    template: { timing: "만료 7일 전", target: "수강권 보유 회원", content: "{이름}님의 수강권이 {만료일}에 만료됩니다." }
-  },
-  {
-    id: "holding-soon", name: "홀딩 종료 임박 알림", description: "홀딩 해제 N일 전 발송",
-    channel: "sms", type: "product", enabled: false,
-    hasNumberInput: true, numberValue: 3, numberLabel: "일 전",
-    template: { timing: "홀딩 종료 3일 전", target: "홀딩 회원", content: "{이름}님의 홀딩이 {만료일}에 종료됩니다." }
-  },
-  {
-    id: "member-expire", name: "회원권 만료 알림",   description: "회원권 만료 당일 발송",
-    channel: "talk", type: "product", enabled: true,
-    template: { timing: "만료 당일", target: "전체 회원", content: "{이름}님의 회원권이 오늘 만료됩니다. 재등록을 통해 계속 이용하세요." }
-  },
-  {
-    id: "member-soon",  name: "회원권 만료 임박",    description: "회원권 만료 N일 전 발송",
-    channel: "talk", type: "product", enabled: true,
-    hasNumberInput: true, numberValue: 14, numberLabel: "일 전",
-    template: { timing: "만료 14일 전", target: "전체 회원", content: "{이름}님의 회원권이 {만료일}에 만료됩니다. 지금 재등록하세요!" }
-  },
+const EXPIRY_TABS: { key: ExpiryPolicy; label: string; icon: React.ReactNode; allowBranchStep: boolean }[] = [
+  { key: "membership", label: "회원 이용권 만료", icon: <Ticket size={14} />, allowBranchStep: true },
+  { key: "payment", label: "결제기한 만료", icon: <CreditCard size={14} />, allowBranchStep: false },
+  { key: "locker", label: "락커 만료", icon: <Lock size={14} />, allowBranchStep: true },
 ];
 
-const CHANNEL_ICON: Record<string, React.ReactNode> = {
-  talk: <MessageSquare size={12} />,
-  sms:  <Smartphone    size={12} />,
-  push: <Bell          size={12} />,
+const INITIAL_STEPS: AlarmStep[] = [
+  // 회원 이용권 만료 — 본사 step + 지점 추가 step
+  { id: "ms-hq-7", policy: "membership", origin: "hq", label: "만료 D-7", baseDay: 7, channel: "talk", enabled: true, hqRequired: true, template: { timing: "만료 7일 전 09:00", target: "이용권 보유 회원", content: "{이름}님, 회원권이 7일 후 만료됩니다. 재등록 시 특별 혜택을 드립니다." } },
+  { id: "ms-hq-3", policy: "membership", origin: "hq", label: "만료 D-3", baseDay: 3, channel: "talk", enabled: true, template: { timing: "만료 3일 전 09:00", target: "이용권 보유 회원", content: "{이름}님, 회원권이 3일 후 만료됩니다." } },
+  { id: "ms-branch-1", policy: "membership", origin: "branch", label: "만료 D-1", baseDay: 1, channel: "sms", enabled: false, template: { timing: "만료 1일 전 18:00", target: "이용권 보유 회원", content: "내일 {이름}님의 회원권이 만료됩니다." } },
+  // 결제기한 만료 — 본사 step만 (지점 추가 불가)
+  { id: "pay-hq-3", policy: "payment", origin: "hq", label: "납입기한 D-3", baseDay: 3, channel: "talk", enabled: true, hqRequired: true, template: { timing: "납입기한 3일 전 10:00", target: "미수금/분할 회원", content: "{이름}님, 결제 납입기한이 3일 남았습니다." } },
+  { id: "pay-hq-0", policy: "payment", origin: "hq", label: "납입기한 당일", baseDay: 0, channel: "sms", enabled: true, template: { timing: "납입기한 당일 10:00", target: "미수금/분할 회원", content: "{이름}님, 오늘이 결제 납입기한입니다." } },
+  // 락커 만료 — 본사 step + 지점 추가 step
+  { id: "lk-hq-3", policy: "locker", origin: "hq", label: "락커 만료 D-3", baseDay: 3, channel: "talk", enabled: true, hqRequired: true, template: { timing: "락커 만료 3일 전 09:00", target: "락커 이용 회원", content: "{이름}님, 락커 이용이 3일 후 종료됩니다." } },
+  { id: "lk-branch-7", policy: "locker", origin: "branch", label: "락커 만료 D-7", baseDay: 7, channel: "talk", enabled: true, template: { timing: "락커 만료 7일 전 09:00", target: "락커 이용 회원", content: "{이름}님, 락커 이용이 7일 후 종료됩니다." } },
+];
+
+const INITIAL_EVENTS: EventRule[] = [
+  { id: "birthday", name: "생일 축하", description: "생일 당일 축하 메시지", channel: "talk", enabled: true, template: { timing: "생일 당일 09:00", target: "전체 회원", content: "🎉 {이름}님, 생일을 축하합니다!" } },
+  { id: "absence", name: "장기 미방문", description: "30/60/90일 미방문 회원 안내", channel: "sms", enabled: false, template: { timing: "미방문 30일 경과", target: "전체 회원", content: "{이름}님, 오랫동안 뵙지 못했어요. 센터에서 기다리고 있습니다." } },
+  { id: "register-thanks", name: "등록 감사", description: "회원 등록 즉시 감사 메시지", channel: "talk", enabled: true, template: { timing: "등록 즉시", target: "신규 등록 회원", content: "{이름}님, 등록해 주셔서 감사합니다!" } },
+  { id: "first-visit", name: "첫 방문 환영", description: "첫 방문 시 환영 메시지", channel: "talk", enabled: true, template: { timing: "첫 방문 즉시", target: "첫 방문 회원", content: "환영합니다 {이름}님! {센터명}에 오신 것을 환영합니다." } },
+];
+
+const CHANNEL_LABEL: Record<Channel, string> = { talk: "알림톡", sms: "SMS", lms: "LMS", push: "앱 푸시" };
+const CHANNEL_ICON: Record<Channel, React.ReactNode> = {
+  talk: <MessageSquare size={11} />, sms: <Smartphone size={11} />, lms: <Smartphone size={11} />, push: <Bell size={11} />,
 };
 
-const CHANNEL_LABEL: Record<string, string> = {
-  talk: "알림톡",
-  sms:  "SMS",
-  push: "앱 푸시",
-};
+// --- 운영현황(SCR-072A) 목업 데이터 ---
+const OPS_SUMMARY = [
+  { policy: "회원 이용권 만료", sent: 1240, success: 1198, fail: 42 },
+  { policy: "결제기한 만료", sent: 380, success: 366, fail: 14 },
+  { policy: "락커 만료", sent: 210, success: 205, fail: 5 },
+  { policy: "생일/이벤트", sent: 520, success: 511, fail: 9 },
+];
+const OPS_FAIL_REASONS = [
+  { reason: "수신 거부", count: 34 },
+  { reason: "발신 번호 미인증", count: 18 },
+  { reason: "잔여 캐시 부족", count: 12 },
+  { reason: "변수 데이터 누락", count: 6 },
+];
 
-// --- 토글 컴포넌트 ---
-const Toggle = ({ checked, onChange }: { checked: boolean; onChange: () => void }) => (
+// --- 토글 ---
+const Toggle = ({ checked, onChange, disabled }: { checked: boolean; onChange: () => void; disabled?: boolean }) => (
   <button
+    type="button"
+    disabled={disabled}
     className={cn(
       "relative inline-flex h-6 w-11 flex-shrink-0 items-center rounded-full transition-colors focus:outline-none",
-      checked ? "bg-accent" : "bg-content-secondary/30"
+      checked ? "bg-accent" : "bg-content-secondary/30",
+      disabled && "opacity-60 cursor-not-allowed"
     )}
-    onClick={onChange}
+    onClick={() => { if (!disabled) onChange(); }}
   >
-    <span className={cn(
-      "inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform",
-      checked ? "translate-x-6" : "translate-x-1"
-    )} />
+    <span className={cn("inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform", checked ? "translate-x-6" : "translate-x-1")} />
   </button>
 );
 
-// --- 알림 규칙 카드 (UI-101) ---
-function RuleCard({
-  rule,
-  onToggle,
-  onEdit,
-  onNumberChange,
-}: {
-  rule: AlarmRule;
-  onToggle: () => void;
-  onEdit: () => void;
-  onNumberChange?: (val: number) => void;
-}) {
-  const [numVal, setNumVal] = useState(rule.numberValue ?? 0);
-
-  return (
-    <div className={cn(
-      "relative group flex items-start gap-md p-lg rounded-xl border transition-all",
-      rule.enabled
-        ? "bg-surface border-accent/40 shadow-sm"
-        : "bg-surface-secondary/40 border-line opacity-75"
-    )}>
-      {/* 아이콘 */}
-      <div className={cn(
-        "flex-shrink-0 w-11 h-11 rounded-full flex items-center justify-center transition-colors",
-        rule.enabled ? "bg-accent-light text-accent" : "bg-surface text-content-secondary"
-      )}>
-        {rule.type === "customer" ? <User size={20} /> : <Ticket size={20} />}
-      </div>
-
-      {/* 내용 */}
-      <div className="flex-1 min-w-0">
-        <div className="flex items-start justify-between gap-sm mb-xs">
-          <h3 className="text-Body-2 font-bold text-content truncate">{rule.name}</h3>
-          <div className="flex items-center gap-sm flex-shrink-0">
-            <button
-              className="p-xs text-content-secondary hover:text-primary transition-colors opacity-0 group-hover:opacity-100"
-              onClick={onEdit}
-              title="편집"
-            >
-              <MoreHorizontal size={16} />
-            </button>
-            <Toggle checked={rule.enabled} onChange={onToggle} />
-          </div>
-        </div>
-
-        <p className="text-Label text-content-secondary mb-sm line-clamp-1">{rule.description}</p>
-
-        {/* 발송 채널 + 숫자 입력 */}
-        <div className="flex items-center gap-sm flex-wrap">
-          <span className={cn(
-            "inline-flex items-center gap-[3px] px-sm py-[2px] rounded-full text-[11px] font-semibold border",
-            rule.enabled
-              ? "bg-primary-light text-primary border-primary/20"
-              : "bg-surface text-content-secondary border-line"
-          )}>
-            {CHANNEL_ICON[rule.channel]}
-            {CHANNEL_LABEL[rule.channel]}
-          </span>
-
-          {rule.hasNumberInput && onNumberChange && (
-            <div className="flex items-center bg-surface border border-line rounded-button px-sm gap-xs">
-              <input
-                type="number"
-                min={1}
-                className="w-10 bg-transparent border-none py-[2px] text-center text-Label font-bold text-content focus:ring-0 outline-none"
-                value={numVal}
-                onChange={e => {
-                  const v = Number(e.target.value);
-                  setNumVal(v);
-                  onNumberChange(v);
-                }}
-              />
-              <span className="text-[11px] text-content-secondary">{rule.numberLabel}</span>
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* 활성 표시 dot */}
-      {rule.enabled && (
-        <span className="absolute -top-1 -right-1 flex h-3 w-3">
-          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-accent opacity-75" />
-          <span className="relative inline-flex h-3 w-3 rounded-full bg-accent" />
-        </span>
-      )}
-    </div>
-  );
-}
-
-// --- settings 저장/불러오기 헬퍼 ---
-const ALARM_SETTINGS_KEY = "auto_alarm";
+// --- 저장 헬퍼 (localStorage 목업) ---
+const ALARM_SETTINGS_KEY = "auto_alarm_v2";
 function getBranchId() { if (typeof window === "undefined") return "1"; return localStorage.getItem("branchId") || "1"; }
 function getAlarmStorageKey() { return `settings_${getBranchId()}_${ALARM_SETTINGS_KEY}`; }
 
 interface AlarmSettingsData {
-  rules: AlarmRule[];
+  steps: AlarmStep[];
+  events: EventRule[];
+  masterEnabled: boolean;
   senderNumber: string;
 }
 
-async function loadAlarmSettings(): Promise<AlarmSettingsData | null> {
-  // settings 테이블에 key/value 컬럼 없음 → localStorage만 사용
+function loadSettings(): AlarmSettingsData | null {
   const saved = localStorage.getItem(getAlarmStorageKey());
   if (saved) {
     try {
       const parsed = JSON.parse(saved);
-      if (parsed?.rules) return parsed;
-    } catch {}
+      if (parsed?.steps && parsed?.events) return parsed;
+    } catch { /* ignore */ }
   }
   return null;
 }
-
-async function saveAlarmSettings(data: AlarmSettingsData): Promise<boolean> {
-  const jsonValue = JSON.stringify(data);
-  localStorage.setItem(getAlarmStorageKey(), jsonValue);
-  return true;
+function persist(data: AlarmSettingsData) {
+  localStorage.setItem(getAlarmStorageKey(), JSON.stringify(data));
 }
 
 export default function AutoAlarm() {
-  const [rules, setRules] = useState<AlarmRule[]>(INITIAL_RULES);
-  const [isModalOpen, setIsModalOpen]     = useState(false);
-  const [editingRule, setEditingRule]     = useState<AlarmRule | null>(null);
-  const [senderNumber, setSenderNumber]   = useState("02-1234-5678");
-  const [loading, setLoading]             = useState(true);
+  const authUser = useAuthStore((s) => s.user);
+  // Owner(지점장) 이상만 ON/OFF·step 추가·전체 ON/OFF 가능. 매니저는 조회·상세 편집만.
+  const canControl = authUser?.isSuperAdmin || isRoleAtLeast(normalizeRole(authUser?.role ?? ""), "owner");
 
-  // 모달 편집 상태
-  const [modalData, setModalData] = useState({
-    channel: "talk",
-    timing:  "즉시",
-    target:  "전체 회원",
-    content: "",
-  });
+  const [mainTab, setMainTab] = useState<"settings" | "ops">("settings");
+  const [expiryTab, setExpiryTab] = useState<ExpiryPolicy>("membership");
+  const [steps, setSteps] = useState<AlarmStep[]>(INITIAL_STEPS);
+  const [events, setEvents] = useState<EventRule[]>(INITIAL_EVENTS);
+  const [masterEnabled, setMasterEnabled] = useState(true);
+  const [senderNumber, setSenderNumber] = useState("02-1234-5678");
+  const [loading, setLoading] = useState(true);
 
-  // 초기 로딩
+  // step 상세 편집 모달
+  const [editStep, setEditStep] = useState<AlarmStep | null>(null);
+  const [editEvent, setEditEvent] = useState<EventRule | null>(null);
+  const [modalData, setModalData] = useState({ channel: "talk" as Channel, timing: "즉시", target: "전체 회원", content: "" });
+
+  // 지점 step 추가 모달
+  const [addStepOpen, setAddStepOpen] = useState(false);
+  const [newStep, setNewStep] = useState({ baseDay: 5, channel: "talk" as Channel });
+
   useEffect(() => {
-    (async () => {
-      setLoading(true);
-      const saved = await loadAlarmSettings();
-      if (saved) {
-        setRules(saved.rules);
-        if (saved.senderNumber) setSenderNumber(saved.senderNumber);
-      }
-      setLoading(false);
-    })();
+    setLoading(true);
+    const saved = loadSettings();
+    if (saved) {
+      setSteps(saved.steps);
+      setEvents(saved.events);
+      setMasterEnabled(saved.masterEnabled);
+      if (saved.senderNumber) setSenderNumber(saved.senderNumber);
+    }
+    setLoading(false);
   }, []);
 
-  // 저장 헬퍼
-  const persistAlarm = useCallback(async (newRules: AlarmRule[], newSender?: string) => {
-    const ok = await saveAlarmSettings({
-      rules: newRules,
-      senderNumber: newSender ?? senderNumber,
-    });
-    if (!ok) toast.error("저장에 실패했습니다. 로컬에 임시 저장되었습니다.");
-  }, [senderNumber]);
+  const save = useCallback((next: Partial<AlarmSettingsData>) => {
+    const data: AlarmSettingsData = {
+      steps: next.steps ?? steps,
+      events: next.events ?? events,
+      masterEnabled: next.masterEnabled ?? masterEnabled,
+      senderNumber: next.senderNumber ?? senderNumber,
+    };
+    persist(data);
+  }, [steps, events, masterEnabled, senderNumber]);
 
-  const handleToggle = (id: string) => {
-    const newRules = rules.map(r => r.id === id ? { ...r, enabled: !r.enabled } : r);
-    setRules(newRules);
-    persistAlarm(newRules);
+  const currentSteps = useMemo(() => steps.filter((s) => s.policy === expiryTab), [steps, expiryTab]);
+  const enabledCount = steps.filter((s) => s.enabled).length + events.filter((e) => e.enabled).length;
+  const totalCount = steps.length + events.length;
+
+  const toggleStep = (id: string) => {
+    if (!canControl) { toast.error("Owner(지점장) 권한이 필요합니다."); return; }
+    const target = steps.find((s) => s.id === id);
+    if (target?.hqRequired) { toast.error("본사 필수 알림은 지점에서 끌 수 없습니다."); return; }
+    const next = steps.map((s) => (s.id === id ? { ...s, enabled: !s.enabled } : s));
+    setSteps(next);
+    save({ steps: next });
   };
 
-  const handleNumberChange = (id: string, val: number) => {
-    const newRules = rules.map(r => r.id === id ? { ...r, numberValue: val } : r);
-    setRules(newRules);
-    persistAlarm(newRules);
+  const toggleEvent = (id: string) => {
+    if (!canControl) { toast.error("Owner(지점장) 권한이 필요합니다."); return; }
+    const next = events.map((e) => (e.id === id ? { ...e, enabled: !e.enabled } : e));
+    setEvents(next);
+    save({ events: next });
   };
 
-  const handleEdit = (rule: AlarmRule) => {
-    setEditingRule(rule);
-    setModalData({
-      channel: rule.channel,
-      timing:  rule.template?.timing  ?? "즉시",
-      target:  rule.template?.target  ?? "전체 회원",
-      content: rule.template?.content ?? `안녕하세요 {이름}님! ${rule.name} 안내 드립니다.`,
-    });
-    setIsModalOpen(true);
+  const toggleMaster = () => {
+    if (!canControl) { toast.error("전체 ON/OFF는 Owner(지점장)만 변경할 수 있습니다."); return; }
+    const next = !masterEnabled;
+    setMasterEnabled(next);
+    save({ masterEnabled: next });
+    toast.success(next ? "전체 자동 알림을 활성화했습니다." : "전체 자동 알림을 비활성화했습니다. (해당 지점만 중단)");
   };
 
-  const handleSave = () => {
-    if (!editingRule) return;
-    const newRules = rules.map(r => r.id === editingRule.id ? {
-      ...r,
-      channel: modalData.channel as AlarmRule["channel"],
-      template: { timing: modalData.timing, target: modalData.target, content: modalData.content },
-    } : r);
-    setRules(newRules);
-    persistAlarm(newRules);
+  const openStepEdit = (s: AlarmStep) => {
+    setEditStep(s);
+    setEditEvent(null);
+    setModalData({ channel: s.channel, timing: s.template.timing, target: s.template.target, content: s.template.content });
+  };
+  const openEventEdit = (e: EventRule) => {
+    setEditEvent(e);
+    setEditStep(null);
+    setModalData({ channel: e.channel, timing: e.template.timing, target: e.template.target, content: e.template.content });
+  };
+
+  const saveModal = () => {
+    if (editStep) {
+      // 본사 step은 기준일 수정 불가 — 채널/메시지/발송 시각만 조정
+      const next = steps.map((s) => (s.id === editStep.id ? { ...s, channel: modalData.channel, template: { ...modalData } } : s));
+      setSteps(next);
+      save({ steps: next });
+    } else if (editEvent) {
+      const next = events.map((e) => (e.id === editEvent.id ? { ...e, channel: modalData.channel, template: { ...modalData } } : e));
+      setEvents(next);
+      save({ events: next });
+    }
     toast.success("알림 규칙이 저장되었습니다.");
-    setIsModalOpen(false);
-    setEditingRule(null);
+    setEditStep(null);
+    setEditEvent(null);
   };
 
-  const enabledCount   = rules.filter(r => r.enabled).length;
-  const customerRules  = rules.filter(r => r.type === "customer");
-  const productRules   = rules.filter(r => r.type === "product");
+  const handleAddBranchStep = () => {
+    if (!canControl) { toast.error("Owner(지점장) 권한이 필요합니다."); return; }
+    const tab = EXPIRY_TABS.find((t) => t.key === expiryTab);
+    if (!tab?.allowBranchStep) { toast.error("결제기한 만료는 본사 정책 step만 사용할 수 있습니다."); return; }
+    // 기준일 중복 차단
+    if (currentSteps.some((s) => s.baseDay === newStep.baseDay)) {
+      toast.error("동일 기준일 step이 이미 있습니다.");
+      return;
+    }
+    const created: AlarmStep = {
+      id: `${expiryTab}-branch-${Date.now()}`,
+      policy: expiryTab,
+      origin: "branch",
+      label: newStep.baseDay === 0 ? "만료 당일" : `만료 D-${newStep.baseDay}`,
+      baseDay: newStep.baseDay,
+      channel: newStep.channel,
+      enabled: false,
+      template: { timing: `만료 ${newStep.baseDay}일 전`, target: tab.label + " 대상", content: "" },
+    };
+    const next = [...steps, created];
+    setSteps(next);
+    save({ steps: next });
+    setAddStepOpen(false);
+    setNewStep({ baseDay: 5, channel: "talk" });
+    toast.success("지점 추가 step이 등록되었습니다. (비활성 상태)");
+  };
 
-  // 로딩 중 스켈레톤
+  const handleDeleteBranchStep = (id: string) => {
+    if (!canControl) { toast.error("Owner(지점장) 권한이 필요합니다."); return; }
+    const next = steps.filter((s) => s.id !== id);
+    setSteps(next);
+    save({ steps: next });
+    toast.success("지점 추가 step이 삭제되었습니다.");
+  };
+
   if (loading) {
     return (
       <AppLayout>
         <div className="flex flex-col gap-xl animate-pulse">
           <div className="h-20 bg-surface rounded-xl border border-line" />
           <div className="grid grid-cols-1 md:grid-cols-3 gap-lg">
-            {[1,2,3].map(i => <div key={i} className="h-28 bg-surface rounded-xl border border-line" />)}
-          </div>
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-md">
-            {[1,2,3,4].map(i => <div key={i} className="h-24 bg-surface rounded-xl border border-line" />)}
+            {[1, 2, 3].map((i) => <div key={i} className="h-28 bg-surface rounded-xl border border-line" />)}
           </div>
         </div>
       </AppLayout>
     );
   }
 
+  const activeExpiryTab = EXPIRY_TABS.find((t) => t.key === expiryTab);
+
   return (
     <AppLayout>
       <PageHeader
         title="자동 알림 설정"
-        description="회원 이벤트 발생 시 자동으로 메시지를 발송하는 알림 규칙을 관리합니다."
+        description="본사 정책 step과 지점 운영 이벤트 알림을 관리하고 운영현황을 확인합니다."
         actions={
-          <div className="flex gap-sm">
-            <button
-              className="flex items-center gap-xs rounded-button border border-line bg-surface px-md py-sm text-Body-2 font-medium text-content hover:bg-primary-light hover:text-primary transition-colors"
-              onClick={() => moveToPage(980)}
-            >
-              <MessageSquare size={16} />메시지 발송
-            </button>
-            <button
-              className="flex items-center gap-xs rounded-button border border-line bg-surface px-md py-sm text-Body-2 font-medium text-content hover:bg-primary-light hover:text-primary transition-colors"
-              onClick={() => {
-                const newRules = rules.map(r => ({ ...r, enabled: true }));
-                setRules(newRules);
-                persistAlarm(newRules);
-                toast.success("모든 알림 규칙이 활성화되었습니다.");
-              }}
-            >
-              <CheckCircle2 size={16} />모두 사용
-            </button>
-            <button
-              className="flex items-center gap-xs rounded-button bg-primary px-md py-sm text-Body-2 font-bold text-white shadow-sm hover:opacity-90 transition-opacity"
-              onClick={() => {
-                const newRule: AlarmRule = {
-                  id: `custom-${Date.now()}`,
-                  name: "새 알림 규칙",
-                  description: "새로운 알림 규칙을 설정하세요.",
-                  channel: "talk",
-                  type: "customer",
-                  enabled: false,
-                  template: { timing: "즉시", target: "전체 회원", content: "" },
-                };
-                const newRules = [...rules, newRule];
-                setRules(newRules);
-                persistAlarm(newRules);
-                // 바로 편집 모달 열기
-                handleEdit(newRule);
-                toast.success("새 알림 규칙이 추가되었습니다.");
-              }}
-            >
-              <Plus size={16} />설정 추가
-            </button>
-          </div>
+          <button
+            className="flex items-center gap-xs rounded-button border border-line bg-surface px-md py-sm text-Body-2 font-medium text-content hover:bg-primary-light hover:text-primary transition-colors"
+            onClick={() => moveToPage(980)}
+          >
+            <MessageSquare size={16} />메시지 발송
+          </button>
         }
       />
 
-      {/* 상단 카드 */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-lg mb-xl">
-        {/* 발신 번호 */}
-        <div className="bg-surface p-lg rounded-xl border border-line shadow-card">
-          <Select
-            label="발신 번호"
-            value={senderNumber}
-            onChange={v => setSenderNumber(v)}
-            options={[
-              { value: "02-1234-5678", label: "02-1234-5678 (대표번호)" },
-              { value: "010-9876-5432", label: "010-9876-5432 (김매니저)" },
-            ]}
-          />
-        </div>
-
-        <StatCard
-          label="보유 포인트"
-          value="125,400 P"
-          icon={<MessageSquare />}
-          description="약 8,360건 발송 가능 (단문 기준)"
-          variant="peach"
-        />
-
-        {/* 활성 트리거 현황 */}
-        <div className="bg-accent-light p-lg rounded-xl border border-accent/20 flex flex-col justify-between">
-          <div className="flex items-center justify-between">
-            <span className="text-Label text-content-secondary">활성화된 알림 규칙</span>
-            <StatusBadge variant="success" dot={true}>정상 작동 중</StatusBadge>
-          </div>
-          <div className="mt-sm">
-            <span className="text-Heading-1 text-accent font-bold">{enabledCount}</span>
-            <span className="text-Body-1 text-content ml-xs">/ {rules.length}종</span>
-          </div>
-        </div>
+      {/* 상단 탭: 설정(SCR-072) / 운영현황(SCR-072A) */}
+      <div className="flex items-center gap-xs border-b border-line mb-xl">
+        {([
+          { key: "settings" as const, label: "설정", icon: <Settings2 size={14} /> },
+          { key: "ops" as const, label: "운영현황", icon: <BarChart3 size={14} /> },
+        ]).map((t) => (
+          <button
+            key={t.key}
+            className={cn(
+              "flex items-center gap-xs px-md py-sm text-Body-2 font-semibold border-b-2 -mb-[1px] transition-colors",
+              mainTab === t.key ? "border-primary text-primary" : "border-transparent text-content-secondary hover:text-content"
+            )}
+            onClick={() => setMainTab(t.key)}
+          >
+            {t.icon}{t.label}
+          </button>
+        ))}
       </div>
 
-      {/* UI-101 알림 규칙 리스트 */}
-      <div className="space-y-xl">
-        {/* 고객 관련 7종 */}
-        <FormSection
-          title="고객 관련 자동 알림 (7종)"
-          description="회원 계약, 생일, 출석 등 고객 이벤트 기반 알림"
-          columns={1}
-        >
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-md">
-            {customerRules.map(rule => (
-              <RuleCard
-                key={rule.id}
-                rule={rule}
-                onToggle={() => handleToggle(rule.id)}
-                onEdit={() => handleEdit(rule)}
-                onNumberChange={rule.hasNumberInput ? (val) => handleNumberChange(rule.id, val) : undefined}
+      {mainTab === "settings" && (
+        <>
+          {/* 상단 카드 */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-lg mb-xl">
+            <div className="bg-surface p-lg rounded-xl border border-line shadow-card">
+              <Select
+                label="발신 번호"
+                value={senderNumber}
+                onChange={(v) => { setSenderNumber(v); save({ senderNumber: v }); }}
+                options={[
+                  { value: "02-1234-5678", label: "02-1234-5678 (대표번호)" },
+                  { value: "010-9876-5432", label: "010-9876-5432 (김매니저)" },
+                ]}
               />
-            ))}
-          </div>
-        </FormSection>
-
-        {/* 상품 관련 6종 */}
-        <FormSection
-          title="상품 관련 자동 알림 (6종)"
-          description="이용권 만료, 홀딩 해제 등 상품 상태 기반 알림"
-          columns={1}
-        >
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-md">
-            {productRules.map(rule => (
-              <RuleCard
-                key={rule.id}
-                rule={rule}
-                onToggle={() => handleToggle(rule.id)}
-                onEdit={() => handleEdit(rule)}
-                onNumberChange={rule.hasNumberInput ? (val) => handleNumberChange(rule.id, val) : undefined}
-              />
-            ))}
-          </div>
-        </FormSection>
-      </div>
-
-      {/* UI-102 규칙 설정 모달 */}
-      {isModalOpen && editingRule && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 backdrop-blur-sm p-lg">
-          <div className="w-full max-w-[820px] bg-surface rounded-modal shadow-xl overflow-hidden animate-in fade-in zoom-in duration-200">
-            {/* 모달 헤더 */}
-            <div className="flex items-center justify-between border-b border-line px-xl py-lg">
-              <div className="flex items-center gap-sm">
-                <div className="rounded-full bg-primary-light p-sm">
-                  <Bell className="text-primary" size={20} />
-                </div>
-                <div>
-                  <h2 className="text-Heading-2 text-content font-bold">{editingRule.name}</h2>
-                  <p className="text-Body-2 text-content-secondary">자동 알림 템플릿 편집</p>
-                </div>
+            </div>
+            <StatCard label="보유 포인트" value="125,400 P" icon={<MessageSquare />} description="약 8,360건 발송 가능 (단문 기준)" variant="peach" />
+            <div className={cn("p-lg rounded-xl border flex flex-col justify-between", masterEnabled ? "bg-accent-light border-accent/20" : "bg-surface-secondary/40 border-line")}>
+              <div className="flex items-center justify-between">
+                <span className="text-Label text-content-secondary">전체 자동 알림</span>
+                <Toggle checked={masterEnabled} onChange={toggleMaster} disabled={!canControl} />
               </div>
-              <Button variant="ghost" size="sm" icon={<X size={24} />} onClick={() => setIsModalOpen(false)} />
+              <div className="mt-sm flex items-baseline gap-xs">
+                <span className={cn("text-Heading-1 font-bold", masterEnabled ? "text-accent" : "text-content-secondary")}>{enabledCount}</span>
+                <span className="text-Body-1 text-content">/ {totalCount}종 활성</span>
+              </div>
+              {!masterEnabled && <p className="text-[11px] text-content-secondary mt-xs">전체 OFF — 해당 지점 발송 일시 중단</p>}
+              {!canControl && <p className="text-[11px] text-content-secondary mt-xs">전체 ON/OFF는 Owner(지점장)만 변경 가능</p>}
+            </div>
+          </div>
+
+          {/* 만료 정책 3탭 */}
+          <div className="bg-surface rounded-xl border border-line shadow-card mb-xl overflow-hidden">
+            <div className="flex items-center gap-xs border-b border-line px-md pt-md">
+              {EXPIRY_TABS.map((t) => (
+                <button
+                  key={t.key}
+                  className={cn(
+                    "flex items-center gap-xs px-md py-sm text-Body-2 font-semibold border-b-2 -mb-[1px] transition-colors",
+                    expiryTab === t.key ? "border-primary text-primary" : "border-transparent text-content-secondary hover:text-content"
+                  )}
+                  onClick={() => setExpiryTab(t.key)}
+                >
+                  {t.icon}{t.label}
+                </button>
+              ))}
             </div>
 
-            {/* 모달 본문 */}
+            <div className="p-lg space-y-md">
+              <div className="flex items-center justify-between">
+                <p className="text-Label text-content-secondary">
+                  {activeExpiryTab?.label} — 본사 step과 지점 추가 step을 관리합니다.
+                </p>
+                {/* 지점 step 추가 — 회원 이용권 만료 / 락커 만료 탭에서만 노출 */}
+                {activeExpiryTab?.allowBranchStep && (
+                  <Button
+                    variant="primary"
+                    size="sm"
+                    icon={<Plus size={14} />}
+                    onClick={() => { if (!canControl) { toast.error("Owner(지점장) 권한이 필요합니다."); return; } setAddStepOpen(true); }}
+                    disabled={!canControl}
+                  >
+                    지점 step 추가
+                  </Button>
+                )}
+              </div>
+
+              {currentSteps.length === 0 ? (
+                <div className="py-xl text-center text-Body-2 text-content-secondary">등록된 step이 없습니다.</div>
+              ) : (
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-md">
+                  {currentSteps.map((s) => (
+                    <StepCard
+                      key={s.id}
+                      step={s}
+                      canControl={!!canControl}
+                      onToggle={() => toggleStep(s.id)}
+                      onEdit={() => openStepEdit(s)}
+                      onDelete={s.origin === "branch" ? () => handleDeleteBranchStep(s.id) : undefined}
+                    />
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* 운영 이벤트 알림 (생일/장기미방문/등록감사/첫방문환영) */}
+          <div className="bg-surface rounded-xl border border-line shadow-card p-lg">
+            <h3 className="text-Body-1 font-bold text-content mb-xs">지점 운영 이벤트 알림</h3>
+            <p className="text-Label text-content-secondary mb-md">생일·장기 미방문·등록 감사·첫 방문 환영 등 지점 운영용 알림입니다.</p>
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-md">
+              {events.map((e) => (
+                <EventCard
+                  key={e.id}
+                  rule={e}
+                  canControl={!!canControl}
+                  onToggle={() => toggleEvent(e.id)}
+                  onEdit={() => openEventEdit(e)}
+                />
+              ))}
+            </div>
+          </div>
+        </>
+      )}
+
+      {mainTab === "ops" && <OpsTab />}
+
+      {/* 상세 설정 모달 (step / event 공용) */}
+      {(editStep || editEvent) && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 backdrop-blur-sm p-lg">
+          <div className="w-full max-w-[820px] bg-surface rounded-modal shadow-xl overflow-hidden">
+            <div className="flex items-center justify-between border-b border-line px-xl py-lg">
+              <div className="flex items-center gap-sm">
+                <div className="rounded-full bg-primary-light p-sm"><Bell className="text-primary" size={20} /></div>
+                <div>
+                  <h2 className="text-Heading-2 text-content font-bold">{editStep?.label ?? editEvent?.name}</h2>
+                  <p className="text-Body-2 text-content-secondary">
+                    {editStep?.hqRequired ? "본사 필수 step — 채널/메시지/발송 시각만 조정 가능" : "자동 알림 템플릿 편집"}
+                  </p>
+                </div>
+              </div>
+              <Button variant="ghost" size="sm" icon={<X size={24} />} onClick={() => { setEditStep(null); setEditEvent(null); }} />
+            </div>
+
             <div className="p-xl grid grid-cols-1 md:grid-cols-2 gap-xl">
-              {/* 편집 폼 */}
               <div className="space-y-lg">
-                {/* 발송 채널 */}
+                {editStep && (
+                  <div className="rounded-lg bg-surface-secondary/50 border border-line p-md text-Label text-content-secondary">
+                    기준일: <span className="font-bold text-content">만료 {editStep.baseDay}일 전</span>
+                    {editStep.origin === "hq" && <span className="ml-xs">(본사 기준일 — 수정 불가)</span>}
+                  </div>
+                )}
                 <div>
                   <label className="block text-Label text-content-secondary mb-sm">발송 채널</label>
                   <div className="grid grid-cols-2 gap-sm">
-                    {["talk", "sms", "lms", "push"].map(ch => (
+                    {(["talk", "sms", "lms", "push"] as Channel[]).map((ch) => (
                       <button
                         key={ch}
                         className={cn(
                           "flex items-center justify-center gap-xs rounded-button border py-sm text-Body-2 transition-all",
-                          modalData.channel === ch
-                            ? "border-accent bg-accent-light text-accent font-bold"
-                            : "border-line bg-surface text-content-secondary hover:bg-surface-secondary"
+                          modalData.channel === ch ? "border-accent bg-accent-light text-accent font-bold" : "border-line bg-surface text-content-secondary hover:bg-surface-secondary"
                         )}
-                        onClick={() => setModalData(prev => ({ ...prev, channel: ch }))}
+                        onClick={() => setModalData((p) => ({ ...p, channel: ch }))}
                       >
-                        {ch === "talk" && "알림톡"}
-                        {ch === "sms"  && "SMS"}
-                        {ch === "lms"  && "LMS"}
-                        {ch === "push" && "앱 푸시"}
+                        {CHANNEL_LABEL[ch]}
                       </button>
                     ))}
                   </div>
                 </div>
-
-                {/* 발송 시점 / 대상 */}
                 <div className="grid grid-cols-2 gap-md">
-                  <div>
-                    <Select
-                      label="발송 시점"
-                      value={modalData.timing}
-                      onChange={v => setModalData(prev => ({ ...prev, timing: v }))}
-                      options={[
-                        { value: "즉시", label: "즉시" },
-                        { value: "1일 전", label: "1일 전" },
-                        { value: "3일 전", label: "3일 전" },
-                        { value: "7일 전", label: "7일 전" },
-                        { value: "14일 전", label: "14일 전" },
-                      ]}
-                    />
-                  </div>
-                  <div>
-                    <Select
-                      label="발송 대상"
-                      value={modalData.target}
-                      onChange={v => setModalData(prev => ({ ...prev, target: v }))}
-                      options={[
-                        { value: "전체 회원", label: "전체 회원" },
-                        { value: "신규 회원", label: "신규 회원" },
-                        { value: "장기 회원", label: "장기 회원" },
-                        { value: "VIP 회원", label: "VIP 회원" },
-                      ]}
-                    />
-                  </div>
+                  <Input label="발송 시각" value={modalData.timing} onChange={(e) => setModalData((p) => ({ ...p, timing: e.target.value }))} />
+                  <Select
+                    label="발송 대상"
+                    value={modalData.target}
+                    onChange={(v) => setModalData((p) => ({ ...p, target: v }))}
+                    options={[
+                      { value: modalData.target, label: modalData.target },
+                      { value: "전체 회원", label: "전체 회원" },
+                      { value: "신규 회원", label: "신규 회원" },
+                    ]}
+                  />
                 </div>
-
-                {/* 메시지 내용 */}
                 <div>
                   <div className="flex items-center justify-between mb-sm">
                     <label className="block text-Label text-content-secondary">메시지 내용</label>
                     <div className="flex gap-xs">
-                      {["{이름}", "{만료일}", "{상품명}"].map(v => (
-                        <button
-                          key={v}
-                          className="rounded-full bg-surface-secondary px-xs py-[2px] text-[10px] font-medium text-content-secondary hover:bg-primary-light hover:text-primary transition-colors"
-                          onClick={() => setModalData(prev => ({ ...prev, content: prev.content + v }))}
-                        >
-                          {v}
-                        </button>
+                      {["{이름}", "{만료일}", "{상품명}"].map((v) => (
+                        <button key={v} className="rounded-full bg-surface-secondary px-xs py-[2px] text-[10px] font-medium text-content-secondary hover:bg-primary-light hover:text-primary transition-colors" onClick={() => setModalData((p) => ({ ...p, content: p.content + v }))}>{v}</button>
                       ))}
                     </div>
                   </div>
-                  <Textarea
-                    value={modalData.content}
-                    onChange={e => setModalData(prev => ({ ...prev, content: e.target.value }))}
-                    placeholder="내용을 입력하세요"
-                    rows={5}
-                    className="h-[140px]"
-                  />
-                  <p className="mt-xs text-right text-Label text-content-secondary">
-                    {modalData.content.length} / 1,000자
-                  </p>
+                  <Textarea value={modalData.content} onChange={(e) => setModalData((p) => ({ ...p, content: e.target.value }))} placeholder="내용을 입력하세요" rows={5} className="h-[140px]" />
                 </div>
               </div>
 
-              {/* 미리보기 */}
               <div className="bg-surface-secondary rounded-xl p-lg flex flex-col items-center border border-line">
                 <p className="text-Label text-content-secondary mb-md">발송 미리보기</p>
                 <div className="relative w-[220px] h-[440px] bg-content rounded-[32px] border-[7px] border-content shadow-xl overflow-hidden">
-                  <div className="absolute top-0 w-full h-7 bg-content flex items-center justify-center">
-                    <div className="w-14 h-3 rounded-full bg-black/30" />
-                  </div>
+                  <div className="absolute top-0 w-full h-7 bg-content flex items-center justify-center"><div className="w-14 h-3 rounded-full bg-black/30" /></div>
                   <div className="mt-7 p-md">
                     <div className="bg-surface rounded-[14px] p-md shadow-sm">
                       <div className="flex items-center gap-xs mb-sm">
-                        <div className="w-5 h-5 rounded-full bg-primary flex items-center justify-center">
-                          <Smartphone className="text-white" size={10} />
-                        </div>
+                        <div className="w-5 h-5 rounded-full bg-primary flex items-center justify-center"><Smartphone className="text-white" size={10} /></div>
                         <span className="text-[9px] font-bold text-content">FitGenie CRM</span>
                         <span className="text-[9px] text-content-secondary ml-auto">방금 전</span>
                       </div>
-                      <p className="text-[11px] text-content whitespace-pre-wrap leading-relaxed">
-                        {modalData.content || "(내용을 입력하세요)"}
-                      </p>
+                      <p className="text-[11px] text-content whitespace-pre-wrap leading-relaxed">{modalData.content || "(내용을 입력하세요)"}</p>
                     </div>
                   </div>
                 </div>
@@ -633,20 +527,40 @@ export default function AutoAlarm() {
               </div>
             </div>
 
-            {/* 모달 푸터 */}
             <div className="flex items-center justify-end gap-sm border-t border-line bg-surface-secondary/30 px-xl py-lg">
-              <button
-                className="rounded-button border border-line bg-surface px-xl py-md text-Body-2 font-medium text-content-secondary hover:bg-surface-secondary transition-colors"
-                onClick={() => setIsModalOpen(false)}
-              >
-                취소
-              </button>
-              <button
-                className="rounded-button bg-accent px-xl py-md text-Body-2 font-bold text-white shadow-sm hover:opacity-90 transition-opacity"
-                onClick={handleSave}
-              >
-                저장하기
-              </button>
+              <button className="rounded-button border border-line bg-surface px-xl py-md text-Body-2 font-medium text-content-secondary hover:bg-surface-secondary transition-colors" onClick={() => { setEditStep(null); setEditEvent(null); }}>취소</button>
+              <button className="rounded-button bg-accent px-xl py-md text-Body-2 font-bold text-white shadow-sm hover:opacity-90 transition-opacity" onClick={saveModal}>저장하기</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 지점 step 추가 모달 */}
+      {addStepOpen && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 backdrop-blur-sm p-lg">
+          <div className="w-full max-w-[420px] bg-surface rounded-modal shadow-xl overflow-hidden">
+            <div className="flex items-center justify-between border-b border-line px-lg py-md">
+              <h2 className="text-Heading-2 text-content font-bold">{activeExpiryTab?.label} 지점 step 추가</h2>
+              <Button variant="ghost" size="sm" icon={<X size={20} />} onClick={() => setAddStepOpen(false)} />
+            </div>
+            <div className="p-lg space-y-md">
+              <Input
+                label="기준일 (만료 N일 전, 0=당일)"
+                type="number"
+                min={0}
+                value={String(newStep.baseDay)}
+                onChange={(e) => setNewStep((p) => ({ ...p, baseDay: Number(e.target.value) }))}
+              />
+              <Select
+                label="발송 채널"
+                value={newStep.channel}
+                onChange={(v) => setNewStep((p) => ({ ...p, channel: v as Channel }))}
+                options={(["talk", "sms", "lms", "push"] as Channel[]).map((c) => ({ value: c, label: CHANNEL_LABEL[c] }))}
+              />
+            </div>
+            <div className="flex justify-end gap-sm border-t border-line px-lg py-md">
+              <Button variant="outline" onClick={() => setAddStepOpen(false)}>취소</Button>
+              <Button variant="primary" onClick={handleAddBranchStep}>추가</Button>
             </div>
           </div>
         </div>
@@ -655,4 +569,126 @@ export default function AutoAlarm() {
   );
 }
 
+// --- step 카드 ---
+function StepCard({ step, canControl, onToggle, onEdit, onDelete }: { step: AlarmStep; canControl: boolean; onToggle: () => void; onEdit: () => void; onDelete?: () => void }) {
+  return (
+    <div className={cn("relative flex items-start gap-md p-lg rounded-xl border transition-all", step.enabled ? "bg-surface border-accent/40 shadow-sm" : "bg-surface-secondary/40 border-line opacity-80")}>
+      <div className={cn("flex-shrink-0 w-11 h-11 rounded-full flex items-center justify-center", step.enabled ? "bg-accent-light text-accent" : "bg-surface text-content-secondary")}>
+        {step.origin === "hq" ? <Lock size={18} /> : <User size={18} />}
+      </div>
+      <div className="flex-1 min-w-0">
+        <div className="flex items-start justify-between gap-sm mb-xs">
+          <div className="flex items-center gap-xs flex-wrap">
+            <h3 className="text-Body-2 font-bold text-content">{step.label}</h3>
+            {step.origin === "hq" ? (
+              <StatusBadge variant="info">본사 step</StatusBadge>
+            ) : (
+              <StatusBadge variant="default">지점 step</StatusBadge>
+            )}
+            {step.hqRequired && <StatusBadge variant="warning">본사 필수</StatusBadge>}
+          </div>
+          <div className="flex items-center gap-sm flex-shrink-0">
+            <button className="p-xs text-content-secondary hover:text-primary transition-colors" onClick={onEdit} title="상세 설정"><Settings2 size={15} /></button>
+            {onDelete && canControl && (
+              <button className="p-xs text-content-secondary hover:text-state-error transition-colors" onClick={onDelete} title="삭제"><Trash2 size={15} /></button>
+            )}
+            <Toggle checked={step.enabled} onChange={onToggle} disabled={!canControl || step.hqRequired} />
+          </div>
+        </div>
+        <p className="text-Label text-content-secondary mb-sm line-clamp-1">{step.template.timing} · {step.template.target}</p>
+        <div className="flex items-center gap-sm flex-wrap">
+          <span className={cn("inline-flex items-center gap-[3px] px-sm py-[2px] rounded-full text-[11px] font-semibold border", step.enabled ? "bg-primary-light text-primary border-primary/20" : "bg-surface text-content-secondary border-line")}>
+            {CHANNEL_ICON[step.channel]}{CHANNEL_LABEL[step.channel]}
+          </span>
+          {step.hqRequired && <span className="text-[11px] text-amber-600">본사 필수 알림은 지점에서 끌 수 없습니다</span>}
+        </div>
+      </div>
+    </div>
+  );
+}
 
+// --- 운영 이벤트 카드 ---
+function EventCard({ rule, canControl, onToggle, onEdit }: { rule: EventRule; canControl: boolean; onToggle: () => void; onEdit: () => void }) {
+  return (
+    <div className={cn("relative flex items-start gap-md p-lg rounded-xl border transition-all", rule.enabled ? "bg-surface border-accent/40 shadow-sm" : "bg-surface-secondary/40 border-line opacity-80")}>
+      <div className={cn("flex-shrink-0 w-11 h-11 rounded-full flex items-center justify-center", rule.enabled ? "bg-accent-light text-accent" : "bg-surface text-content-secondary")}>
+        <User size={18} />
+      </div>
+      <div className="flex-1 min-w-0">
+        <div className="flex items-start justify-between gap-sm mb-xs">
+          <h3 className="text-Body-2 font-bold text-content truncate">{rule.name}</h3>
+          <div className="flex items-center gap-sm flex-shrink-0">
+            <button className="p-xs text-content-secondary hover:text-primary transition-colors" onClick={onEdit} title="상세 설정"><Settings2 size={15} /></button>
+            <Toggle checked={rule.enabled} onChange={onToggle} disabled={!canControl} />
+          </div>
+        </div>
+        <p className="text-Label text-content-secondary mb-sm line-clamp-1">{rule.description}</p>
+        <span className={cn("inline-flex items-center gap-[3px] px-sm py-[2px] rounded-full text-[11px] font-semibold border", rule.enabled ? "bg-primary-light text-primary border-primary/20" : "bg-surface text-content-secondary border-line")}>
+          {CHANNEL_ICON[rule.channel]}{CHANNEL_LABEL[rule.channel]}
+        </span>
+      </div>
+    </div>
+  );
+}
+
+// --- 운영현황 탭 (SCR-072A) ---
+function OpsTab() {
+  const totalSent = OPS_SUMMARY.reduce((a, b) => a + b.sent, 0);
+  const totalSuccess = OPS_SUMMARY.reduce((a, b) => a + b.success, 0);
+  const totalFail = OPS_SUMMARY.reduce((a, b) => a + b.fail, 0);
+  const successRate = totalSent > 0 ? Math.round((totalSuccess / totalSent) * 1000) / 10 : 0;
+
+  return (
+    <div className="space-y-xl">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-lg">
+        <StatCard label="총 발송 건수" value={`${totalSent.toLocaleString()}건`} icon={<MessageSquare />} description="최근 30일 기준" />
+        <StatCard label="성공률" value={`${successRate}%`} icon={<CheckCircle2 />} variant="mint" description={`성공 ${totalSuccess.toLocaleString()}건`} />
+        <StatCard label="실패 건수" value={`${totalFail.toLocaleString()}건`} icon={<AlertTriangle />} variant="peach" description="후속 액션 필요" />
+      </div>
+
+      {/* 정책별 발송 현황 */}
+      <div className="bg-surface rounded-xl border border-line shadow-card overflow-hidden">
+        <div className="px-lg py-md border-b border-line"><h3 className="text-Body-1 font-bold text-content">정책별 발송 현황</h3></div>
+        <table className="w-full text-sm">
+          <thead className="bg-surface-secondary/50">
+            <tr className="text-content-secondary text-Label">
+              <th className="px-lg py-sm text-left font-medium">정책</th>
+              <th className="px-lg py-sm text-right font-medium">발송</th>
+              <th className="px-lg py-sm text-right font-medium">성공</th>
+              <th className="px-lg py-sm text-right font-medium">실패</th>
+              <th className="px-lg py-sm text-right font-medium">성공률</th>
+            </tr>
+          </thead>
+          <tbody>
+            {OPS_SUMMARY.map((row) => {
+              const rate = row.sent > 0 ? Math.round((row.success / row.sent) * 1000) / 10 : 0;
+              return (
+                <tr key={row.policy} className="border-t border-line">
+                  <td className="px-lg py-sm font-semibold text-content">{row.policy}</td>
+                  <td className="px-lg py-sm text-right text-content">{row.sent.toLocaleString()}</td>
+                  <td className="px-lg py-sm text-right text-content">{row.success.toLocaleString()}</td>
+                  <td className="px-lg py-sm text-right text-state-error">{row.fail.toLocaleString()}</td>
+                  <td className="px-lg py-sm text-right font-bold text-primary">{rate}%</td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+
+      {/* 실패 사유 */}
+      <div className="bg-surface rounded-xl border border-line shadow-card p-lg">
+        <h3 className="text-Body-1 font-bold text-content mb-md">실패 사유</h3>
+        <div className="space-y-sm">
+          {OPS_FAIL_REASONS.map((r) => (
+            <div key={r.reason} className="flex items-center justify-between text-Body-2">
+              <span className="text-content">{r.reason}</span>
+              <span className="font-bold text-state-error">{r.count}건</span>
+            </div>
+          ))}
+        </div>
+        <p className="mt-md text-Label text-content-secondary">실패·미응답·상담 필요 대상자는 FC 후속 액션으로 연결됩니다. (집계: 매시간 배치)</p>
+      </div>
+    </div>
+  );
+}
