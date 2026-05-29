@@ -69,7 +69,33 @@ interface Member {
   memberNo: string;
 }
 
-// --- 카드 초기 데이터 (rfid 테이블 없으므로 로컬 상태 유지) ---
+// --- 카드 목록 localStorage persist (rfid 테이블 없으므로 목업으로 로컬 영속) ---
+const CARDS_STORAGE_KEY = 'rfidCards';
+
+// 카드 번호 형식: RF-XXXXXXXX(스캔 시뮬) 또는 16자리 HEX 허용
+const CARD_NO_PATTERN = /^(RF-\d{8}|[0-9A-Fa-f]{16})$/;
+
+const loadCards = (initial: RfidCard[]): RfidCard[] => {
+  if (typeof window === 'undefined') return initial;
+  try {
+    const raw = localStorage.getItem(CARDS_STORAGE_KEY);
+    if (raw) return JSON.parse(raw) as RfidCard[];
+  } catch {
+    /* 손상된 저장값 무시 */
+  }
+  return initial;
+};
+
+const saveCards = (cards: RfidCard[]) => {
+  if (typeof window === 'undefined') return;
+  try {
+    localStorage.setItem(CARDS_STORAGE_KEY, JSON.stringify(cards));
+  } catch {
+    /* 저장 실패 무시 */
+  }
+};
+
+// --- 카드 초기 데이터 (저장값 없을 때 seed) ---
 const INITIAL_CARDS: RfidCard[] = [
   { no: 1, cardNo: "RF-10293847", memberName: "홍길동",  memberId: 10234, status: "활성", registeredAt: "2026-01-10", issuedAt: "2026-02-01", lockerNo: "A-102", userType: "회원" },
   { no: 2, cardNo: "RF-55667788", memberName: "김민수",  memberId: null,  status: "활성", registeredAt: "2026-01-12", issuedAt: "2026-02-05", lockerNo: null,    userType: "직원" },
@@ -143,11 +169,13 @@ const CardModal = ({
   onClose,
   onSave,
   memberList = [],
+  existingCards = [],
 }: {
   card: Partial<RfidCard> | null;
   onClose: () => void;
   onSave: (data: { cardNo: string; memberName: string; userType: "회원" | "직원"; lockerNo: string }) => void;
   memberList?: Member[];
+  existingCards?: RfidCard[];
 }) => {
   const [cardNo,     setCardNo]     = useState(card?.cardNo || "");
   const [memberSearch, setMemberSearch] = useState(card?.memberName || "");
@@ -170,7 +198,20 @@ const CardModal = ({
     setIsScanning(false);
   };
 
-  const isValid = cardNo.trim() && selectedMember;
+  // 카드 번호 형식·중복 검증 (자기 자신 수정은 제외)
+  const trimmedNo = cardNo.trim();
+  const duplicateCard = trimmedNo
+    ? existingCards.find(c => c.cardNo === trimmedNo && c.cardNo !== card?.cardNo)
+    : undefined;
+  const formatError = trimmedNo && !CARD_NO_PATTERN.test(trimmedNo)
+    ? "올바른 형식이 아닙니다 (16자리 HEX)"
+    : null;
+  const duplicateError = duplicateCard
+    ? `동일 카드 번호가 이미 등록됨${duplicateCard.memberName ? ` (${duplicateCard.memberName})` : ""}`
+    : null;
+  const cardNoError = formatError || duplicateError;
+
+  const isValid = trimmedNo && selectedMember && !cardNoError;
 
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 p-md">
@@ -221,7 +262,12 @@ const CardModal = ({
               />
               <Button variant="primary" onClick={handleScan}>스캔</Button>
             </div>
-            {cardNo && (
+            {cardNoError ? (
+              <div className="mt-xs flex items-center gap-xs text-state-error">
+                <AlertCircle size={13} />
+                <span className="text-[12px] font-semibold">{cardNoError}</span>
+              </div>
+            ) : cardNo && (
               <div className="mt-xs flex items-center gap-xs text-state-success">
                 <CheckCircle2 size={13} />
                 <span className="text-[12px] font-semibold">카드 번호 입력됨: <span className="font-mono">{cardNo}</span></span>
@@ -326,6 +372,16 @@ const CardModal = ({
 export default function RfidManagement() {
   const [cards, setCards]         = useState<RfidCard[]>(INITIAL_CARDS);
   const [memberList, setMemberList] = useState<Member[]>([]);
+
+  // 최초 마운트 시 localStorage 에서 카드 목록 복원
+  useEffect(() => {
+    setCards(loadCards(INITIAL_CARDS));
+  }, []);
+
+  // 카드 목록 변경 시 localStorage 에 영속
+  useEffect(() => {
+    saveCards(cards);
+  }, [cards]);
 
   useEffect(() => {
     const fetchMembers = async () => {
@@ -518,6 +574,7 @@ export default function RfidManagement() {
           onClose={() => { setAddModal(false); setSelectedCard(null); }}
           onSave={handleSave}
           memberList={memberList}
+          existingCards={cards}
         />
       )}
 
