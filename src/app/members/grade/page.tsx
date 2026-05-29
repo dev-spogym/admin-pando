@@ -24,20 +24,21 @@ interface GradeItem {
   benefits: string[];
 }
 
+// docs4 SCR-M009 기준 등급 체계: 브론즈·실버·골드·플래티넘·다이아몬드
 const INITIAL_GRADES: GradeItem[] = [
-  { name: 'VVIP', color: 'bg-purple-100 text-purple-700 border-purple-200', count: 12, minVisit: 200, mileageRate: 5, discountRate: 15, benefits: ['전용 라커', '무료 PT 2회/월', '생일 혜택'] },
-  { name: 'VIP', color: 'bg-amber-100 text-amber-700 border-amber-200', count: 48, minVisit: 100, mileageRate: 3, discountRate: 10, benefits: ['우선 예약', '10% 할인', '생일 혜택'] },
-  { name: 'GOLD', color: 'bg-yellow-100 text-yellow-700 border-yellow-200', count: 127, minVisit: 50, mileageRate: 2, discountRate: 5, benefits: ['5% 할인', '생일 혜택'] },
-  { name: 'SILVER', color: 'bg-gray-100 text-gray-600 border-gray-200', count: 234, minVisit: 20, mileageRate: 1, discountRate: 0, benefits: ['생일 혜택'] },
-  { name: 'BRONZE', color: 'bg-orange-50 text-orange-600 border-orange-200', count: 456, minVisit: 0, mileageRate: 0.5, discountRate: 0, benefits: ['기본 서비스'] },
+  { name: '다이아몬드', color: 'bg-sky-100 text-sky-700 border-sky-200', count: 12, minVisit: 200, mileageRate: 5, discountRate: 15, benefits: ['전용 라커', '무료 PT 2회/월', '생일 혜택'] },
+  { name: '플래티넘', color: 'bg-purple-100 text-purple-700 border-purple-200', count: 48, minVisit: 100, mileageRate: 3, discountRate: 10, benefits: ['우선 예약', '10% 할인', '생일 혜택'] },
+  { name: '골드', color: 'bg-yellow-100 text-yellow-700 border-yellow-200', count: 127, minVisit: 50, mileageRate: 2, discountRate: 5, benefits: ['5% 할인', '생일 혜택'] },
+  { name: '실버', color: 'bg-gray-100 text-gray-600 border-gray-200', count: 234, minVisit: 20, mileageRate: 1, discountRate: 0, benefits: ['생일 혜택'] },
+  { name: '브론즈', color: 'bg-orange-50 text-orange-600 border-orange-200', count: 456, minVisit: 0, mileageRate: 0.5, discountRate: 0, benefits: ['기본 서비스'] },
 ];
 
 const gradeMembers: Record<string, Array<{ name: string; visits: number; contract: string }>> = {
-  VVIP: [{ name: '김민준', visits: 244, contract: 'VIP PT 12개월' }, { name: '정서윤', visits: 228, contract: '골프+PT 패키지' }],
-  VIP: [{ name: '이서연', visits: 164, contract: 'PT 24회' }, { name: '박현우', visits: 121, contract: '헬스 12개월' }],
-  GOLD: [{ name: '최유리', visits: 88, contract: '헬스 6개월' }, { name: '장도윤', visits: 71, contract: '요가 48회' }],
-  SILVER: [{ name: '한지민', visits: 36, contract: '필라테스 24회' }, { name: '오지훈', visits: 24, contract: '헬스 3개월' }],
-  BRONZE: [{ name: '문서아', visits: 8, contract: '체험권' }, { name: '임민재', visits: 3, contract: '헬스 1개월' }],
+  다이아몬드: [{ name: '김민준', visits: 244, contract: '프리미엄 PT 12개월' }, { name: '정서윤', visits: 228, contract: '골프+PT 패키지' }],
+  플래티넘: [{ name: '이서연', visits: 164, contract: 'PT 24회' }, { name: '박현우', visits: 121, contract: '헬스 12개월' }],
+  골드: [{ name: '최유리', visits: 88, contract: '헬스 6개월' }, { name: '장도윤', visits: 71, contract: '요가 48회' }],
+  실버: [{ name: '한지민', visits: 36, contract: '필라테스 24회' }, { name: '오지훈', visits: 24, contract: '헬스 3개월' }],
+  브론즈: [{ name: '문서아', visits: 8, contract: '체험권' }, { name: '임민재', visits: 3, contract: '헬스 1개월' }],
 };
 
 export default function GradeManagePage() {
