@@ -21,6 +21,7 @@ import Input from "@/components/ui/Input";
 import { cn } from '@/lib/utils';
 import { supabase } from '@/lib/supabase';
 import Select from '@/components/ui/Select';
+import GolfReservationViews from '@/components/facilities/GolfReservationViews';
 
 // ─── 타입 정의 ─────────────────────────────────────────────────
 type BayStatus = 'available' | 'in_use' | 'reserved' | 'maintenance';
@@ -631,6 +632,9 @@ export default function GolfBayManagement() {
         <StatCard label="예약" value={`${stats.reserved}석`} icon={<UserCheck />} variant="mint" />
         <StatCard label="대기열" value={`${stats.waitCount}명`} icon={<Users />} variant={stats.waitCount > 0 ? 'peach' : undefined} />
       </StatCardGrid>
+
+      {/* 예약 운영 뷰 (일간 타임테이블 / 월간 캘린더 / 예약 상세) — SCR-054 */}
+      <GolfReservationViews />
 
       <div className="grid grid-cols-1 gap-lg xl:grid-cols-[minmax(0,1fr)_320px]">
         {/* ── 좌측: 타석 현황 보드 ── */}
