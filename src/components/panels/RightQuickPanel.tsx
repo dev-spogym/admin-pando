@@ -82,7 +82,7 @@ function getContextShortcuts(pathname: string | null): { title: string; shortcut
     return {
       title: "매출 처리 바로가기",
       shortcuts: [
-        { label: "신규 결제", description: "현장 결제 바로 시작", viewId: 982 },
+        { label: "신규 결제", description: "상품 선택부터 결제 시작", viewId: 971 },
         { label: "매출 현황", description: "환불·미수 거래 점검", viewId: 970 },
         { label: "자동 알림", description: "미수·만료 추적 알림 관리", viewId: 992 },
         { label: "회원 목록", description: "구매 회원 문맥으로 이동", viewId: 967 },

@@ -161,7 +161,7 @@ function getContextShortcuts(pathname: string | null): { title: string; shortcut
     return {
       title: "매출 처리 바로가기",
       shortcuts: [
-        { label: "신규 결제", description: "POS 결제", viewId: 982 },
+        { label: "신규 결제", description: "상품 선택부터 결제", viewId: 971 },
         { label: "매출 현황", description: "거래 확인", viewId: 970 },
         { label: "자동 알림", description: "미수/만료", viewId: 992 },
         { label: "회원 목록", description: "구매자 확인", viewId: 967 },

@@ -39,6 +39,8 @@ const toDateTimeLocalValue = (date = new Date()) => {
   return local.toISOString().slice(0, 16);
 };
 
+const createInternalApprovalNo = () => `CRM-${Date.now().toString().slice(-8)}`;
+
 const getCurrentStaffName = (): string | null => {
   if (typeof window === 'undefined') return null;
   try {
@@ -125,7 +127,7 @@ export default function PosPayment() {
   const [paymentLines, setPaymentLines] = useState<PaymentLine[]>([]);
   const [pointAmount, setPointAmount] = useState(0);
   const [paidAt, setPaidAt] = useState(toDateTimeLocalValue());
-  const [internalApprovalNo, setInternalApprovalNo] = useState(() => `CRM-${Date.now().toString().slice(-8)}`);
+  const [internalApprovalNo, setInternalApprovalNo] = useState('');
   const [receiptFile, setReceiptFile] = useState<File | null>(null);
   const [receiptUrl, setReceiptUrl] = useState<string | null>(null);
   const [fcMemo, setFcMemo] = useState('');
@@ -218,6 +220,13 @@ export default function PosPayment() {
     setPointAmount(0);
   }, [cartItems]);
 
+  useEffect(() => {
+    setInternalApprovalNo(prev => {
+      if (cartItems.length === 0) return '';
+      return prev || createInternalApprovalNo();
+    });
+  }, [cartItems.length]);
+
   const updatePaymentLine = (itemKey: string, patch: Partial<PaymentLine>) => {
     setPaymentLines(prev => prev.map(line => (
       line.itemKey === itemKey ? { ...line, ...patch } : line
@@ -257,6 +266,7 @@ export default function PosPayment() {
       return messages;
     }
 
+    if (cartItems.length > 0 && !internalApprovalNo) messages.push('CRM 내부 승인번호를 생성 중입니다.');
     if (!receiptFile) messages.push('영수증 파일을 첨부해주세요.');
     if (!paidAt) messages.push('결제일시를 입력해주세요.');
     if (paymentLines.length !== cartItems.length) messages.push('상품별 수납 행을 확인해주세요.');
@@ -281,7 +291,7 @@ export default function PosPayment() {
     if (pointAmount > 0 && !selectedMember) messages.push('포인트 사용은 회원 선택이 필요합니다.');
     if (selectedMember && pointAmount > selectedMember.mileage) messages.push('보유 포인트가 부족합니다.');
     return messages;
-  }, [cartItems.length, cartPaymentLines, collectionMode, paidAt, paymentAmount, paymentLines.length, pointAmount, receiptFile, selectedMember, subtotal, totalPaymentAmount]);
+  }, [cartItems.length, cartPaymentLines, collectionMode, internalApprovalNo, paidAt, paymentAmount, paymentLines.length, pointAmount, receiptFile, selectedMember, subtotal, totalPaymentAmount]);
 
   const isValid = validationMessages.length === 0;
 
@@ -530,7 +540,7 @@ export default function PosPayment() {
     setPaymentLines([]);
     setPointAmount(0);
     setPaidAt(toDateTimeLocalValue());
-    setInternalApprovalNo(`CRM-${Date.now().toString().slice(-8)}`);
+    setInternalApprovalNo('');
     setReceiptFile(null);
     setReceiptUrl(null);
     setFcMemo('');
@@ -790,6 +800,7 @@ export default function PosPayment() {
                     type="text"
                     value={internalApprovalNo}
                     readOnly
+                    placeholder="상품 선택 후 자동 발급"
                     className="w-full px-md py-sm border border-line rounded-button text-[14px] bg-surface-secondary text-content-secondary focus:outline-none"
                   />
                 </label>
@@ -1155,7 +1166,7 @@ export default function PosPayment() {
 
               {[
                 ['회원', selectedMember?.name ?? '-'],
-                ['CRM 내부 승인번호', internalApprovalNo],
+                ['CRM 내부 승인번호', internalApprovalNo || '-'],
                 ['결제수단', paymentMethodSummary],
                 ['상품별 수납 합계', formatKRW(paymentAmount)],
                 ['포인트 사용액', `${formatNumber(pointAmount)}P`],

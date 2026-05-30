@@ -629,7 +629,7 @@ export default function Sales() {
         description="센터의 매출 거래 전체를 조회하고 분석합니다."
         actions={
           <div className="flex items-center gap-sm">
-            <Button variant="primary" size="sm" icon={<CreditCard size={15} />} onClick={() => moveToPage(982)}>
+            <Button variant="primary" size="sm" icon={<CreditCard size={15} />} onClick={() => moveToPage(971)}>
               신규 결제 (POS)
             </Button>
             <Button variant="outline" size="sm" icon={<Download size={15} />} onClick={handleDownloadExcel}>
@@ -667,7 +667,7 @@ export default function Sales() {
                 미수 추적, 환불 검토, 재등록 성과를 한 화면에서 우선순위대로 확인하고 바로 처리합니다.
               </p>
             </div>
-            <Button variant="outline" size="sm" onClick={() => moveToPage(982)}>
+            <Button variant="outline" size="sm" onClick={() => moveToPage(971)}>
               POS 열기
             </Button>
           </div>

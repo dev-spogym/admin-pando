@@ -111,7 +111,6 @@ export const APP_MENU_ITEMS: NavigationMenuItem[] = [
       { label: "온보딩 현황", path: "/onboarding" },
       { label: "선수익금", path: "/deferred-revenue" },
       { label: "POS 결제", path: "/pos", viewId: 971 },
-      { label: "현장 판매", path: "/pos/payment", viewId: 982 },
       { label: "결제 취소 / 부분 환불", path: "/sales/cancel-refund" },
       { label: "환불 관리", path: "/refunds" },
       { label: "미수금 관리", path: "/unpaid" },
