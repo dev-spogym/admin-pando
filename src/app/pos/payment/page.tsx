@@ -24,7 +24,7 @@ import StatusBadge from "@/components/common/StatusBadge";
 import ConfirmDialog from "@/components/ui/ConfirmDialog";
 import { moveToPage } from '@/internal';
 import { supabase } from '@/lib/supabase';
-import { checkDuplicatePayment, deductPoints, accruePoints, updateMembershipPeriod } from '@/lib/businessLogic';
+import { checkDuplicatePayment, accruePoints, updateMembershipPeriod } from '@/lib/businessLogic';
 import { uploadFile } from '@/lib/uploadFile';
 import { formatKRW, formatNumber } from '@/lib/format';
 
@@ -125,7 +125,6 @@ export default function PosPayment() {
 
   const [collectionMode, setCollectionMode] = useState<CollectionMode>('receipt');
   const [paymentLines, setPaymentLines] = useState<PaymentLine[]>([]);
-  const [pointAmount, setPointAmount] = useState(0);
   const [paidAt, setPaidAt] = useState(toDateTimeLocalValue());
   const [internalApprovalNo, setInternalApprovalNo] = useState('');
   const [receiptFile, setReceiptFile] = useState<File | null>(null);
@@ -179,17 +178,20 @@ export default function PosPayment() {
   const cartPaymentLines = useMemo(
     () => cartItems.map((item, index) => {
       const itemKey = getCartLineKey(item, index);
+      const fixedAmount = item.price * item.quantity;
+      const storedLine = paymentLineByKey.get(itemKey);
       return {
         item,
         itemKey,
-        line: paymentLineByKey.get(itemKey) ?? createPaymentLine(itemKey, item.price * item.quantity),
+        line: storedLine
+          ? { ...storedLine, amount: fixedAmount }
+          : createPaymentLine(itemKey, fixedAmount),
       };
     }),
     [cartItems, paymentLineByKey],
   );
   const paymentAmount = paymentLines.reduce((sum, line) => sum + line.amount, 0);
-  const totalPaymentAmount = paymentAmount + pointAmount;
-  const amountDiff = subtotal - totalPaymentAmount;
+  const amountDiff = subtotal - paymentAmount;
   const maxDurationDays = Math.max(0, ...cartItems.map(item => Number(item.durationDays ?? 0)));
   const paymentBreakdown = paymentLines.reduce(
     (acc, line) => {
@@ -200,11 +202,9 @@ export default function PosPayment() {
   );
   const activePaymentMethods = Array.from(new Set(paymentLines.filter(line => line.amount > 0).map(line => line.method)));
   const paymentMethodSummary = activePaymentMethods.length === 0
-    ? pointAmount > 0 ? '포인트' : '-'
+    ? '-'
     : activePaymentMethods.map(method => PAYMENT_METHOD_LABEL[method]).join(' + ');
-  const paymentMethodCode = activePaymentMethods.length === 0 && pointAmount > 0
-    ? 'MILEAGE'
-    : activePaymentMethods.length === 1 && activePaymentMethods[0]
+  const paymentMethodCode = activePaymentMethods.length === 1 && activePaymentMethods[0]
       ? PAYMENT_METHOD_CODE[activePaymentMethods[0]]
       : 'MIXED';
   const anyCashReceiptIssued = paymentLines.some(line => line.cashReceiptIssued);
@@ -214,10 +214,13 @@ export default function PosPayment() {
       const previousByKey = new Map(prev.map(line => [line.itemKey, line]));
       return cartItems.map((item, index) => {
         const itemKey = getCartLineKey(item, index);
-        return previousByKey.get(itemKey) ?? createPaymentLine(itemKey, item.price * item.quantity);
+        const fixedAmount = item.price * item.quantity;
+        const previous = previousByKey.get(itemKey);
+        return previous
+          ? { ...previous, amount: fixedAmount }
+          : createPaymentLine(itemKey, fixedAmount);
       });
     });
-    setPointAmount(0);
   }, [cartItems]);
 
   useEffect(() => {
@@ -228,8 +231,10 @@ export default function PosPayment() {
   }, [cartItems.length]);
 
   const updatePaymentLine = (itemKey: string, patch: Partial<PaymentLine>) => {
+    const allowedPatch = { ...patch };
+    delete allowedPatch.amount;
     setPaymentLines(prev => prev.map(line => (
-      line.itemKey === itemKey ? { ...line, ...patch } : line
+      line.itemKey === itemKey ? { ...line, ...allowedPatch } : line
     )));
   };
 
@@ -269,10 +274,10 @@ export default function PosPayment() {
     if (cartItems.length > 0 && !internalApprovalNo) messages.push('CRM 내부 승인번호를 생성 중입니다.');
     if (!receiptFile) messages.push('영수증 파일을 첨부해주세요.');
     if (!paidAt) messages.push('결제일시를 입력해주세요.');
-    if (paymentLines.length !== cartItems.length) messages.push('상품별 수납 행을 확인해주세요.');
+    if (paymentLines.length !== cartItems.length) messages.push('상품별 결제 행을 확인해주세요.');
     cartPaymentLines.forEach(({ item, line }) => {
       const rowLabel = item.name;
-      if (line.amount < 0) messages.push(`${rowLabel} 수납금액은 0원 이상이어야 합니다.`);
+      if (line.amount !== item.price * item.quantity) messages.push(`${rowLabel} 결제금액이 상품금액과 일치하지 않습니다.`);
       if (line.amount > 0 && line.method === 'card' && !line.approvalNo.trim()) {
         messages.push(`${rowLabel} 카드 승인번호를 입력해주세요.`);
       }
@@ -286,12 +291,10 @@ export default function PosPayment() {
         messages.push(`${rowLabel} 현금영수증 식별번호를 입력해주세요.`);
       }
     });
-    if (paymentAmount < 0 || pointAmount < 0) messages.push('상품별 수납금액과 포인트 사용액은 0원 이상이어야 합니다.');
-    if (totalPaymentAmount !== subtotal) messages.push('상품별 수납 합계 + 포인트 사용액이 장바구니 합계와 일치해야 합니다.');
-    if (pointAmount > 0 && !selectedMember) messages.push('포인트 사용은 회원 선택이 필요합니다.');
-    if (selectedMember && pointAmount > selectedMember.mileage) messages.push('보유 포인트가 부족합니다.');
+    if (paymentAmount < 0) messages.push('상품별 결제금액은 0원 이상이어야 합니다.');
+    if (paymentAmount !== subtotal) messages.push('상품별 결제금액 합계가 장바구니 합계와 일치해야 합니다.');
     return messages;
-  }, [cartItems.length, cartPaymentLines, collectionMode, internalApprovalNo, paidAt, paymentAmount, paymentLines.length, pointAmount, receiptFile, selectedMember, subtotal, totalPaymentAmount]);
+  }, [cartItems.length, cartPaymentLines, collectionMode, internalApprovalNo, paidAt, paymentAmount, paymentLines.length, receiptFile, selectedMember, subtotal]);
 
   const isValid = validationMessages.length === 0;
 
@@ -358,14 +361,6 @@ export default function PosPayment() {
       const uploadedReceiptUrl = await uploadReceipt();
       if (!uploadedReceiptUrl) return;
 
-      if (pointAmount > 0) {
-        const deductResult = await deductPoints(selectedMember.id, pointAmount);
-        if (!deductResult.success) {
-          toast.error(deductResult.message ?? '포인트 차감에 실패했습니다.');
-          return;
-        }
-      }
-
       const staffName = getCurrentStaffName();
       const productName = cartItems.map(i => i.name).join(', ');
       const paymentLineMemo = cartPaymentLines.map(({ item, line }) => {
@@ -388,9 +383,8 @@ export default function PosPayment() {
         '[현장 영수증 첨부 등록]',
         `CRM 내부 승인번호: ${internalApprovalNo}`,
         `결제수단: ${paymentMethodSummary}`,
-        `상품별 수납 합계: ${formatNumber(paymentAmount)}원`,
-        `포인트 사용액: ${formatNumber(pointAmount)}P`,
-        `상품별 수납: ${paymentLineMemo.join('\n')}`,
+        `상품별 결제금액 합계: ${formatNumber(paymentAmount)}원`,
+        `상품별 결제수단: ${paymentLineMemo.join('\n')}`,
         `결제일시: ${new Date(paidAt).toISOString()}`,
         `영수증: ${receiptFile?.name ?? '-'} (${uploadedReceiptUrl})`,
         staffName ? `FC: ${staffName}` : null,
@@ -413,7 +407,7 @@ export default function PosPayment() {
         paymentType: '영수증 첨부 등록',
         card: paymentBreakdown.card,
         cash: paymentBreakdown.cash + paymentBreakdown.transfer,
-        mileageUsed: pointAmount,
+        mileageUsed: 0,
         approvalNo: internalApprovalNo,
         saleDate: new Date(paidAt).toISOString(),
         status: 'COMPLETED',
@@ -459,34 +453,10 @@ export default function PosPayment() {
           memo: `${internalApprovalNo} / ${item.name}`,
         }));
 
-      if (pointAmount > 0) {
-        paymentLineRows.push({
-          saleId,
-          branchId: getBranchId(),
-          memberId: selectedMember.id,
-          productId: null,
-          productName: '포인트 사용',
-          itemKey: `${internalApprovalNo}-mileage`,
-          lineType: 'PAYMENT',
-          method: 'MILEAGE',
-          amount: pointAmount,
-          refundedAmount: 0,
-          approvalNo: null,
-          terminalId: null,
-          externalTransactionId: null,
-          bankPayerName: null,
-          transferConfirmNo: null,
-          cashReceiptIssued: false,
-          cashReceiptType: null,
-          cashReceiptIdentifier: null,
-          memo: `${internalApprovalNo} / 포인트 사용`,
-        });
-      }
-
       if (paymentLineRows.length > 0) {
         const { error: lineError } = await supabase.from('sale_payment_lines').insert(paymentLineRows);
         if (lineError) {
-          toast.error(`상품별 수납 행 저장에 실패했습니다: ${lineError.message}`);
+          toast.error(`상품별 결제 행 저장에 실패했습니다: ${lineError.message}`);
           return;
         }
       }
@@ -538,7 +508,6 @@ export default function PosPayment() {
     setMemberSearch('');
     setCollectionMode('receipt');
     setPaymentLines([]);
-    setPointAmount(0);
     setPaidAt(toDateTimeLocalValue());
     setInternalApprovalNo('');
     setReceiptFile(null);
@@ -587,8 +556,7 @@ export default function PosPayment() {
             {selectedMember && <p>회원: {selectedMember.name}</p>}
             <p>CRM 내부 승인번호: {internalApprovalNo}</p>
             <p>결제수단: {paymentMethodSummary}</p>
-            <p>상품별 수납 합계: {paymentAmount.toLocaleString()}원</p>
-            <p>포인트 사용: {pointAmount.toLocaleString()}P</p>
+            <p>상품별 결제금액 합계: {paymentAmount.toLocaleString()}원</p>
             <p>결제일시: {paidAt}</p>
             <hr className="my-2" />
             {cartPaymentLines.map(({ item, line, itemKey }) => (
@@ -807,8 +775,8 @@ export default function PosPayment() {
 
                 <div className="space-y-md">
                   <div className="flex items-center justify-between gap-md">
-                    <h3 className="text-[14px] font-bold text-content">상품별 수납 정보</h3>
-                    <span className="text-[11px] font-semibold text-content-tertiary">내부 승인번호 1개 기준</span>
+                    <h3 className="text-[14px] font-bold text-content">상품별 결제수단</h3>
+                    <span className="text-[11px] font-semibold text-content-tertiary">상품 1개당 결제수단 1개</span>
                   </div>
 
                   {cartPaymentLines.length > 0 ? cartPaymentLines.map(({ item, itemKey, line }) => (
@@ -823,17 +791,15 @@ export default function PosPayment() {
                         <StatusBadge variant="secondary">{PAYMENT_METHOD_LABEL[line.method]}</StatusBadge>
                       </div>
 
-                      <label className="block">
-                        <span className="block text-[12px] font-semibold text-content-secondary mb-xs">수납금액</span>
-                        <input
-                          type="number"
-                          min={0}
-                          value={line.amount || ''}
-                          onChange={e => updatePaymentLine(itemKey, { amount: Math.max(0, Number(e.target.value)) })}
-                          className="w-full px-md py-sm border border-line rounded-button text-[14px] text-right tabular-nums bg-surface focus:border-primary focus:outline-none"
-                          placeholder="0"
-                        />
-                      </label>
+                      <div className="rounded-xl border border-line bg-surface p-md">
+                        <div className="flex items-center justify-between gap-md">
+                          <span className="text-[12px] font-semibold text-content-secondary">결제금액</span>
+                          <span className="text-[18px] font-bold text-content tabular-nums">{formatKRW(line.amount)}</span>
+                        </div>
+                        <p className="mt-xs text-[11px] font-medium text-content-tertiary">
+                          상품 행 금액은 고정입니다. 금액을 나누지 않고 결제수단만 선택합니다.
+                        </p>
+                      </div>
 
                       <div className="grid grid-cols-3 gap-sm">
                         {([
@@ -969,19 +935,6 @@ export default function PosPayment() {
                 </div>
 
                 <label className="block">
-                  <span className="block text-[12px] font-semibold text-content-secondary mb-xs">포인트 사용액</span>
-                  <input
-                    type="number"
-                    min={0}
-                    disabled={!selectedMember}
-                    value={pointAmount || ''}
-                    onChange={e => setPointAmount(Math.max(0, Number(e.target.value)))}
-                    className="w-full px-md py-sm border border-line rounded-button text-[14px] text-right tabular-nums bg-surface focus:border-primary focus:outline-none disabled:opacity-40 disabled:cursor-not-allowed"
-                    placeholder="0"
-                  />
-                </label>
-
-                <label className="block">
                   <span className="block text-[12px] font-semibold text-content-secondary mb-xs">결제일시</span>
                   <input
                     type="datetime-local"
@@ -1032,8 +985,8 @@ export default function PosPayment() {
                 amountDiff === 0 ? 'border-state-success/30 bg-state-success/10 text-state-success' : 'border-state-error/30 bg-state-error/10 text-state-error'
               )}>
                 <div className="flex justify-between">
-                  <span>입력 합계</span>
-                  <span>{formatKRW(totalPaymentAmount)}</span>
+                  <span>상품별 결제금액 합계</span>
+                  <span>{formatKRW(paymentAmount)}</span>
                 </div>
                 <div className="flex justify-between mt-xs">
                   <span>장바구니 합계</span>
@@ -1168,8 +1121,7 @@ export default function PosPayment() {
                 ['회원', selectedMember?.name ?? '-'],
                 ['CRM 내부 승인번호', internalApprovalNo || '-'],
                 ['결제수단', paymentMethodSummary],
-                ['상품별 수납 합계', formatKRW(paymentAmount)],
-                ['포인트 사용액', `${formatNumber(pointAmount)}P`],
+                ['상품별 결제금액 합계', formatKRW(paymentAmount)],
                 ['결제일시', paidAt ? paidAt.replace('T', ' ') : '-'],
                 ['영수증 파일', receiptFile?.name ?? '-'],
               ].map(([label, value]) => (

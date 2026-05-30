@@ -50,6 +50,7 @@ scripts/*
 !scripts/scenarios/
 !scripts/scenarios/**
 !scripts/run-scenarios.ts
+!scripts/seed-rich-test-data.ts
 .env.cpgz
 
 # fry cache
