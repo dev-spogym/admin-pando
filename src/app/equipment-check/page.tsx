@@ -101,8 +101,8 @@ export default function EquipmentCheckPage() {
   return (
     <AppLayout>
       <PageHeader
-        title="장비 점검 일정"
-        description="시설 장비의 정기 점검 일정과 수리 이력을 관리합니다."
+        title="장비 점검 일정 (V2/후속)"
+        description="시설 장비의 정기 점검 일정과 수리 이력을 검토합니다."
         actions={
           <div className="flex items-center gap-sm">
             <Button type="button" variant="outline" size="md" icon={<RefreshCw size={14} className={loading ? 'animate-spin' : ''} />}
@@ -115,6 +115,10 @@ export default function EquipmentCheckPage() {
           </div>
         }
       />
+
+      <div className="mb-lg rounded-xl border border-red-200 bg-red-50 px-md py-sm text-[12px] font-semibold text-red-700">
+        docs4 V2/후속 화면입니다. 장비 등록, 점검 등록, 수리 등록 원장은 후속 확정 후 DB에 연결하며 현재 화면의 변경은 퍼블리싱 검토용 상태입니다.
+      </div>
 
       {/* 현황 요약 카드 */}
       <StatCardGrid cols={4} className="mb-lg">

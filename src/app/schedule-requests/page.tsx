@@ -1,7 +1,7 @@
 'use client';
 export const dynamic = 'force-dynamic';
 
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { Suspense, useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import {
   CheckCircle2,
@@ -83,7 +83,7 @@ const isSlaExceeded = (row: ScheduleRequestRow): boolean => {
   return elapsedH > 24;
 };
 
-export default function ScheduleRequests() {
+function ScheduleRequestsContent() {
   const branchId = getBranchId();
   const searchParams = useSearchParams();
   const currentUser = useAuthStore((state) => state.user);
@@ -443,5 +443,21 @@ export default function ScheduleRequests() {
         </div>
       )}
     </AppLayout>
+  );
+}
+
+export default function ScheduleRequests() {
+  return (
+    <Suspense
+      fallback={
+        <AppLayout>
+          <div className="rounded-xl border border-line bg-surface p-lg text-sm text-content-secondary">
+            일정 요청 화면을 불러오는 중입니다.
+          </div>
+        </AppLayout>
+      }
+    >
+      <ScheduleRequestsContent />
+    </Suspense>
   );
 }

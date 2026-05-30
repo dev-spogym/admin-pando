@@ -1,7 +1,7 @@
 'use client';
 export const dynamic = 'force-dynamic';
 
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect } from "react";
 import {
   Plus,
   Settings,
@@ -29,7 +29,6 @@ import Textarea from "@/components/ui/Textarea";
 import SimpleTable from "@/components/common/SimpleTable";
 import Input from "@/components/ui/Input";
 import { toast } from "sonner";
-import { readBranchJson, writeBranchJson } from "@/lib/branchStorage";
 import Button from "@/components/ui/Button";
 
 /**
@@ -53,59 +52,6 @@ interface Room {
   // 예약 슬롯: 시간대 → 예약 비율 (0~1)
   slots: { hour: number; ratio: number; label?: string }[];
 }
-
-// --- Mock 룸 데이터 (GX룸 2개, PT룸 3개) ---
-const INITIAL_ROOMS: Room[] = [
-  {
-    id: 1, name: "GX룸 A", type: "GX", capacity: 20, status: "운영중", gate: "A-1 게이트",
-    description: "그룹 수업 전용 GX룸. 요가, 필라테스, 줌바 수업 진행.",
-    slots: [
-      { hour: 7,  ratio: 0.3 }, { hour: 8,  ratio: 0.7 }, { hour: 9,  ratio: 1.0, label: "만석" },
-      { hour: 10, ratio: 0.8 }, { hour: 11, ratio: 0.5 }, { hour: 12, ratio: 0.2 },
-      { hour: 13, ratio: 0.4 }, { hour: 14, ratio: 0.9 }, { hour: 15, ratio: 0.6 },
-      { hour: 16, ratio: 0.3 }, { hour: 17, ratio: 0.8 }, { hour: 18, ratio: 1.0, label: "만석" },
-      { hour: 19, ratio: 0.9 }, { hour: 20, ratio: 0.5 },
-    ],
-  },
-  {
-    id: 2, name: "GX룸 B", type: "GX", capacity: 16, status: "운영중", gate: "B-1 게이트",
-    description: "스피닝 전용룸. 고정식 사이클 21대 구비.",
-    slots: [
-      { hour: 7,  ratio: 0.1 }, { hour: 8,  ratio: 0.4 }, { hour: 9,  ratio: 0.7 },
-      { hour: 10, ratio: 0.5 }, { hour: 11, ratio: 0.3 }, { hour: 12, ratio: 0.0 },
-      { hour: 13, ratio: 0.2 }, { hour: 14, ratio: 0.8 }, { hour: 15, ratio: 1.0, label: "만석" },
-      { hour: 16, ratio: 0.6 }, { hour: 17, ratio: 0.4 }, { hour: 18, ratio: 0.7 },
-      { hour: 19, ratio: 0.5 }, { hour: 20, ratio: 0.2 },
-    ],
-  },
-  {
-    id: 3, name: "PT룸 1", type: "PT", capacity: 2, status: "운영중", gate: "C-1 게이트",
-    description: "1:1 PT 전용룸. 주요 운동기구 완비.",
-    slots: [
-      { hour: 7,  ratio: 0.5 }, { hour: 8,  ratio: 1.0, label: "예약" }, { hour: 9,  ratio: 1.0, label: "예약" },
-      { hour: 10, ratio: 0.5 }, { hour: 11, ratio: 0.0 }, { hour: 12, ratio: 0.0 },
-      { hour: 13, ratio: 1.0, label: "예약" }, { hour: 14, ratio: 1.0, label: "예약" }, { hour: 15, ratio: 0.5 },
-      { hour: 16, ratio: 0.0 }, { hour: 17, ratio: 1.0, label: "예약" }, { hour: 18, ratio: 1.0, label: "예약" },
-      { hour: 19, ratio: 0.5 }, { hour: 20, ratio: 0.0 },
-    ],
-  },
-  {
-    id: 4, name: "PT룸 2", type: "PT", capacity: 2, status: "점검중", gate: "-",
-    description: "시설 점검 중. 3월 15일 재오픈 예정.",
-    slots: [],
-  },
-  {
-    id: 5, name: "PT룸 3", type: "PT", capacity: 2, status: "운영중", gate: "D-1 게이트",
-    description: "여성 전용 PT룸. 프라이버시 보호 설계.",
-    slots: [
-      { hour: 7,  ratio: 0.0 }, { hour: 8,  ratio: 0.5 }, { hour: 9,  ratio: 1.0, label: "예약" },
-      { hour: 10, ratio: 1.0, label: "예약" }, { hour: 11, ratio: 0.5 }, { hour: 12, ratio: 0.0 },
-      { hour: 13, ratio: 0.0 }, { hour: 14, ratio: 0.5 }, { hour: 15, ratio: 1.0, label: "예약" },
-      { hour: 16, ratio: 1.0, label: "예약" }, { hour: 17, ratio: 0.5 }, { hour: 18, ratio: 0.0 },
-      { hour: 19, ratio: 0.0 }, { hour: 20, ratio: 0.0 },
-    ],
-  },
-];
 
 const ROOM_TYPE_STYLES: Record<RoomType, string> = {
   GX:     "bg-state-info/10 text-state-info border-state-info/20",
@@ -390,23 +336,39 @@ const RoomModal = ({
   );
 };
 
-// --- settings 저장/불러오기 헬퍼 ---
-const SETTINGS_KEY = "room_management";
-function getBranchId() { if (typeof window === "undefined") return "1"; return localStorage.getItem("branchId") || "1"; }
-function getStorageKey() { return `settings_${getBranchId()}_${SETTINGS_KEY}`; }
-
-async function loadRoomSettings(): Promise<Room[] | null> {
-  const parsed = readBranchJson<Room[] | null>(SETTINGS_KEY, null, getBranchId());
-  return Array.isArray(parsed) ? parsed : null;
+function getBranchId() {
+  if (typeof window === "undefined") return 1;
+  const stored = localStorage.getItem("branchId");
+  return stored ? Number(stored) : 1;
 }
 
-async function saveRoomSettings(rooms: Room[]): Promise<boolean> {
-  writeBranchJson(SETTINGS_KEY, rooms, getBranchId());
-  return true;
+const mapRoomRow = (row: Record<string, unknown>): Room => ({
+  id: Number(row.id),
+  name: String(row.name ?? ""),
+  type: (row.type as RoomType) ?? "GX",
+  capacity: Number(row.capacity ?? 1),
+  status: (row.status as RoomStatus) ?? "운영중",
+  gate: String(row.gate ?? "-"),
+  description: String(row.description ?? ""),
+  slots: Array.isArray(row.slots) ? row.slots as Room["slots"] : [],
+});
+
+async function loadRoomSettings(): Promise<Room[]> {
+  const { data, error } = await supabase
+    .from("facility_rooms")
+    .select("*")
+    .eq("branchId", getBranchId())
+    .order("name", { ascending: true });
+
+  if (error) {
+    toast.error("운동룸 목록을 불러오지 못했습니다.");
+    return [];
+  }
+  return (data ?? []).map((row: Record<string, unknown>) => mapRoomRow(row));
 }
 
 export default function RoomManagement() {
-  const [rooms,         setRooms]         = useState<Room[]>(INITIAL_ROOMS);
+  const [rooms,         setRooms]         = useState<Room[]>([]);
   const [activeTab,     setActiveTab]     = useState("cards");
   const [isRoomModal,   setRoomModal]     = useState(false);
   const [isDeleteOpen,  setDeleteOpen]    = useState(false);
@@ -414,60 +376,86 @@ export default function RoomManagement() {
   const [filterType,    setFilterType]    = useState<RoomType | "">("");
   const [loading,       setLoading]       = useState(true);
 
-  // 초기 로딩: settings에서 데이터 조회
+  // 초기 로딩: DB에서 데이터 조회
   useEffect(() => {
     (async () => {
       setLoading(true);
       const saved = await loadRoomSettings();
-      if (saved) setRooms(saved);
+      setRooms(saved);
       setLoading(false);
     })();
-  }, []);
-
-  // 룸 데이터 변경 시 자동 저장 (로딩 완료 후)
-  const persistRooms = useCallback(async (newRooms: Room[]) => {
-    const ok = await saveRoomSettings(newRooms);
-    if (!ok) toast.error("저장에 실패했습니다. 로컬에 임시 저장되었습니다.");
   }, []);
 
   const filteredRooms = filterType ? rooms.filter(r => r.type === filterType) : rooms;
   const gxRooms = filteredRooms.filter(r => r.type === "GX");
   const ptRooms = filteredRooms.filter(r => r.type === "PT");
 
-  const handleSave = (data: { name: string; type: RoomType; capacity: number; description: string }) => {
-    let newRooms: Room[];
+  const handleSave = async (data: { name: string; type: RoomType; capacity: number; description: string }) => {
     if (selectedRoom) {
-      newRooms = rooms.map(r => r.id === selectedRoom.id ? { ...r, ...data } : r);
+      const { data: updated, error } = await supabase
+        .from("facility_rooms")
+        .update({ ...data, updatedAt: new Date().toISOString() })
+        .eq("id", selectedRoom.id)
+        .select("*")
+        .single();
+      if (error || !updated) {
+        toast.error("운동룸 수정에 실패했습니다.");
+        return;
+      }
+      const mapped = mapRoomRow(updated as Record<string, unknown>);
+      setRooms(prev => prev.map(r => r.id === selectedRoom.id ? mapped : r));
+      toast.success("운동룸이 수정되었습니다.");
     } else {
-      const newRoom: Room = {
-        id: Math.max(...rooms.map(r => r.id), 0) + 1,
-        ...data,
-        status: "운영중",
-        gate: "-",
-        slots: [],
-      };
-      newRooms = [...rooms, newRoom];
+      const { data: inserted, error } = await supabase
+        .from("facility_rooms")
+        .insert({
+          branchId: getBranchId(),
+          ...data,
+          status: "운영중",
+          gate: "-",
+          slots: [],
+        })
+        .select("*")
+        .single();
+      if (error || !inserted) {
+        toast.error("운동룸 등록에 실패했습니다.");
+        return;
+      }
+      const mapped = mapRoomRow(inserted as Record<string, unknown>);
+      setRooms(prev => [...prev, mapped].sort((a, b) => a.name.localeCompare(b.name, "ko")));
+      toast.success("운동룸이 등록되었습니다.");
     }
-    setRooms(newRooms);
-    persistRooms(newRooms);
-    toast.success(selectedRoom ? "운동룸이 수정되었습니다." : "운동룸이 등록되었습니다.");
   };
 
-  const handleToggle = (id: number) => {
+  const handleToggle = async (id: number) => {
     const nextStatus = (s: RoomStatus): RoomStatus =>
       s === "운영중" ? "점검중" : s === "점검중" ? "고장" : "운영중";
-    const newRooms = rooms.map(r =>
-      r.id === id ? { ...r, status: nextStatus(r.status) } : r
-    );
-    setRooms(newRooms);
-    persistRooms(newRooms);
+    const room = rooms.find(r => r.id === id);
+    if (!room) return;
+    const status = nextStatus(room.status);
+    const { error } = await supabase
+      .from("facility_rooms")
+      .update({ status, updatedAt: new Date().toISOString() })
+      .eq("id", id);
+    if (error) {
+      toast.error("운동룸 상태 변경에 실패했습니다.");
+      return;
+    }
+    setRooms(prev => prev.map(r => r.id === id ? { ...r, status } : r));
+    toast.success(`운동룸 상태가 ${status}(으)로 변경되었습니다.`);
   };
 
-  const handleDelete = () => {
+  const handleDelete = async () => {
     if (!selectedRoom) return;
-    const newRooms = rooms.filter(r => r.id !== selectedRoom.id);
-    setRooms(newRooms);
-    persistRooms(newRooms);
+    const { error } = await supabase
+      .from("facility_rooms")
+      .delete()
+      .eq("id", selectedRoom.id);
+    if (error) {
+      toast.error("운동룸 삭제에 실패했습니다.");
+      return;
+    }
+    setRooms(prev => prev.filter(r => r.id !== selectedRoom.id));
     toast.success("운동룸이 삭제되었습니다.");
     setDeleteOpen(false);
     setSelectedRoom(null);

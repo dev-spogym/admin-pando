@@ -190,6 +190,9 @@ model Branch {
   classes    Class[]
   coupons    Coupon[]
   users      User[]
+  installmentContracts InstallmentContract[]
+  taxInvoices TaxInvoice[]
+  salesForecastTargets SalesForecastTarget[]
 
   @@map("branches")
 }
@@ -267,6 +270,8 @@ model Member {
   locker     Locker?
   bodyComps  BodyComposition[]
   contracts  Contract[]
+  installmentContracts InstallmentContract[]
+  taxInvoices TaxInvoice[]
   memos      MemberMemo[]
   goals      MemberGoal[]
   bodyInfos         MemberBodyInfo[]
@@ -274,8 +279,64 @@ model Member {
   consultations     Consultation[]
   exercisePrograms  MemberExerciseProgram[]
   exerciseLogs      ExerciseLog[]
+  representativeFamilyGroups MemberFamilyGroup[] @relation("FamilyRepresentative")
+  familyMemberships MemberFamilyMember[]
+  mergeLogsAsPrimary MemberMergeLog[]
 
   @@map("members")
+}
+
+/// 가족 회원 그룹
+model MemberFamilyGroup {
+  id                     BigInt   @id @default(autoincrement())
+  branchId               Int
+  name                   String
+  representativeMemberId Int?
+  representativeName     String
+  memo                   String?
+  createdAt              DateTime @default(now())
+  updatedAt              DateTime @default(now()) @updatedAt
+
+  representative Member?              @relation("FamilyRepresentative", fields: [representativeMemberId], references: [id], onDelete: SetNull)
+  members        MemberFamilyMember[]
+
+  @@index([branchId])
+  @@map("member_family_groups")
+}
+
+/// 가족 회원 구성원
+model MemberFamilyMember {
+  id               BigInt   @id @default(autoincrement())
+  groupId          BigInt
+  memberId         Int?
+  memberName       String
+  relationship     String   @default("기타")
+  isRepresentative Boolean  @default(false)
+  joinedAt         DateTime @default(now())
+  createdAt        DateTime @default(now())
+
+  group  MemberFamilyGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  member Member?           @relation(fields: [memberId], references: [id], onDelete: SetNull)
+
+  @@index([groupId])
+  @@map("member_family_members")
+}
+
+/// 회원 병합 이력
+model MemberMergeLog {
+  id                BigInt   @id @default(autoincrement())
+  primaryMemberId   Int
+  secondaryMemberId Int
+  branchId          Int
+  mergedBy          String?
+  mergedAt          DateTime @default(now())
+  detail            Json     @default("{}")
+
+  primaryMember Member @relation(fields: [primaryMemberId], references: [id], onDelete: Cascade)
+
+  @@index([primaryMemberId])
+  @@index([secondaryMemberId])
+  @@map("member_merge_logs")
 }
 
 /// 체성분 기록
@@ -361,8 +422,34 @@ model Staff {
   payroll Payroll[]
   classes Class[]
   members Member[]  @relation("MemberStaff")
+  documents StaffDocument[]
 
   @@map("staff")
+}
+
+/// 직원 인사 파일 첨부 이력
+model StaffDocument {
+  id         BigInt   @id @default(autoincrement())
+  staffId    Int
+  branchId   Int
+  docType    String   @default("employment_contract")
+  fileName   String
+  filePath   String
+  fileUrl    String
+  mimeType   String?
+  fileSize   Int?
+  status     String   @default("uploaded")
+  memo       String?
+  uploadedBy String?
+  uploadedAt DateTime @default(now())
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @default(now()) @updatedAt
+
+  staff Staff @relation(fields: [staffId], references: [id], onDelete: Cascade)
+
+  @@index([staffId])
+  @@index([branchId, docType])
+  @@map("staff_documents")
 }
 
 /// 상품/이용권
@@ -385,10 +472,14 @@ model Product {
   suspendLimit   Int?     // 기간정지 제한 (일)
   dailyUseLimit  Int?     // 일사용 횟수 제한
   productGroupId Int?     // 상품분류 FK
+  imageUrl       String?
+  imageMimeType  String?
+  imageUpdatedAt DateTime?
 
   branch       Branch        @relation(fields: [branchId], references: [id])
   productGroup ProductGroup? @relation(fields: [productGroupId], references: [id])
   sales        Sale[]
+  installmentContracts InstallmentContract[]
 
   @@map("products")
 }
@@ -441,6 +532,9 @@ model Sale {
   staff   Staff?   @relation(fields: [staffId], references: [id])
   branch  Branch   @relation(fields: [branchId], references: [id])
   paymentLines SalePaymentLine[]
+  unpaidCollections UnpaidCollection[]
+  installmentContracts InstallmentContract[]
+  taxInvoices TaxInvoice[]
   originalSale Sale? @relation("SaleRefunds", fields: [originalSaleId], references: [id], onDelete: SetNull)
   refundSales  Sale[] @relation("SaleRefunds")
 
@@ -482,6 +576,170 @@ model SalePaymentLine {
   @@index([originalLineId])
   @@index([branchId, memberId])
   @@map("sale_payment_lines")
+}
+
+/// 미수금 납부 이력
+model UnpaidCollection {
+  id                    BigInt        @id @default(autoincrement())
+  saleId                Int
+  branchId              Int
+  memberId              Int
+  internalApprovalNo    String
+  method                PaymentMethod
+  amount                Decimal       @default(0) @db.Decimal(12, 2)
+  previousUnpaid        Decimal       @default(0) @db.Decimal(12, 2)
+  remainingUnpaid       Decimal       @default(0) @db.Decimal(12, 2)
+  paidAt                DateTime      @default(now())
+  approvalNo            String?
+  terminalId            String?
+  externalTransactionId String?
+  bankPayerName         String?
+  transferConfirmNo     String?
+  cashReceiptIssued     Boolean       @default(false)
+  cashReceiptType       String?
+  cashReceiptIdentifier String?
+  memo                  String?
+  processedBy           String?
+  createdAt             DateTime      @default(now())
+
+  sale Sale @relation(fields: [saleId], references: [id], onDelete: Cascade)
+
+  @@index([saleId])
+  @@index([branchId, memberId])
+  @@index([paidAt])
+  @@map("unpaid_collections")
+}
+
+/// 할부결제 계약
+model InstallmentContract {
+  id                 BigInt   @id @default(autoincrement())
+  contractNo         String   @unique
+  branchId           Int
+  memberId           Int
+  memberName         String
+  productId          Int?
+  productName        String
+  source             String   @default("직접 등록")
+  sourceSaleId       Int?
+  internalApprovalNo String
+  prepaidAmount      Decimal  @default(0) @db.Decimal(12, 2)
+  totalAmount        Decimal  @db.Decimal(12, 2)
+  roundCount         Int
+  status             String   @default("진행중")
+  startDueDate       DateTime @db.Date
+  refundInProgress   Boolean  @default(false)
+  memo               String?
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @default(now()) @updatedAt
+
+  branch     Branch              @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  member     Member              @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  product    Product?            @relation(fields: [productId], references: [id], onDelete: SetNull)
+  sourceSale Sale?               @relation(fields: [sourceSaleId], references: [id], onDelete: SetNull)
+  rounds     InstallmentRound[]
+
+  @@index([branchId, memberId])
+  @@index([sourceSaleId])
+  @@map("installment_contracts")
+}
+
+/// 할부 회차 납입 이력
+model InstallmentRound {
+  id                    BigInt         @id @default(autoincrement())
+  contractId            BigInt
+  roundNo               Int
+  dueDate               DateTime       @db.Date
+  amount                Decimal        @db.Decimal(12, 2)
+  paidAmount            Decimal        @default(0) @db.Decimal(12, 2)
+  status                String         @default("예정")
+  paidAt                DateTime?
+  method                PaymentMethod?
+  approvalNo            String?
+  terminalId            String?
+  externalTransactionId String?
+  bankPayerName         String?
+  transferConfirmNo     String?
+  cashReceiptIssued     Boolean        @default(false)
+  cashReceiptType       String?
+  cashReceiptIdentifier String?
+  memo                  String?
+  processedBy           String?
+  createdAt             DateTime       @default(now())
+  updatedAt             DateTime       @default(now()) @updatedAt
+
+  contract InstallmentContract @relation(fields: [contractId], references: [id], onDelete: Cascade)
+
+  @@unique([contractId, roundNo])
+  @@index([contractId])
+  @@index([dueDate, status])
+  @@map("installment_rounds")
+}
+
+/// 세금계산서 발행 이력
+model TaxInvoice {
+  id           BigInt   @id @default(autoincrement())
+  invoiceNo    String   @unique
+  branchId     Int
+  saleId       Int
+  memberId     Int
+  memberName   String
+  recipient    String
+  bizNo        String
+  email        String
+  issueDate    DateTime @default(now()) @db.Date
+  supplyAmount Decimal  @default(0) @db.Decimal(12, 2)
+  vatAmount    Decimal  @default(0) @db.Decimal(12, 2)
+  totalAmount  Decimal  @default(0) @db.Decimal(12, 2)
+  status       String   @default("발행 완료")
+  emailSentAt  DateTime?
+  memo         String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @default(now()) @updatedAt
+
+  branch Branch           @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  sale   Sale             @relation(fields: [saleId], references: [id], onDelete: Cascade)
+  member Member           @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  items  TaxInvoiceItem[]
+
+  @@index([branchId, issueDate])
+  @@map("tax_invoices")
+}
+
+/// 세금계산서 공급 품목
+model TaxInvoiceItem {
+  id           BigInt   @id @default(autoincrement())
+  invoiceId    BigInt
+  productName  String
+  qty          Int      @default(1)
+  unitPrice    Decimal  @default(0) @db.Decimal(12, 2)
+  supplyAmount Decimal  @default(0) @db.Decimal(12, 2)
+  vatAmount    Decimal  @default(0) @db.Decimal(12, 2)
+  taxFree      Boolean  @default(false)
+  createdAt    DateTime @default(now())
+
+  invoice TaxInvoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+
+  @@index([invoiceId])
+  @@map("tax_invoice_items")
+}
+
+/// 매출 예측 목표 설정
+model SalesForecastTarget {
+  id             BigInt   @id @default(autoincrement())
+  branchId       Int
+  period         String
+  targetMonth    String
+  targetAmount   Decimal  @default(0) @db.Decimal(12, 2)
+  approvalStatus String   @default("APPROVED")
+  requestedBy    String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @default(now()) @updatedAt
+
+  branch Branch @relation(fields: [branchId], references: [id], onDelete: Cascade)
+
+  @@unique([branchId, period, targetMonth])
+  @@index([branchId, period, targetMonth])
+  @@map("sales_forecast_targets")
 }
 
 /// 출석
@@ -527,6 +785,48 @@ model Payroll {
   @@map("payroll")
 }
 
+/// 급여 명세서 발송 상태
+model PayrollStatementDelivery {
+  id            Int      @id @default(autoincrement())
+  branchId      Int
+  payrollId     Int      @unique
+  staffId       Int
+  sendStatus    String   @default("NOT_SENT")
+  receiptStatus String   @default("NONE")
+  sentAt        DateTime?
+  voidedAt      DateTime?
+  history       Json     @default("[]")
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @default(now()) @updatedAt
+
+  @@index([branchId, sendStatus])
+  @@index([staffId])
+  @@map("payroll_statement_deliveries")
+}
+
+/// 급여 정책 템플릿
+model SalaryPolicy {
+  id              Int      @id @default(autoincrement())
+  branchId        Int
+  category        String
+  job             String
+  payMethod       String
+  rank            String
+  baseSalary      Decimal  @default(0)
+  lessonUnitPrice Decimal  @default(0)
+  lessonRate      Decimal  @default(0)
+  salesCommission Decimal  @default(0)
+  reRegCommission Decimal  @default(0)
+  refundRule      String?
+  scope           String?
+  isActive        Boolean  @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @default(now()) @updatedAt
+
+  @@index([branchId, category, job])
+  @@map("salary_policies")
+}
+
 /// 락커
 model Locker {
   id         Int          @id @default(autoincrement())
@@ -537,6 +837,9 @@ model Locker {
   assignedAt DateTime?
   expiresAt  DateTime?
   branchId   Int
+  zone       String?
+  password   String?
+  memo       String?
   createdAt  DateTime     @default(now())
   updatedAt  DateTime     @default(now()) @updatedAt
 
@@ -544,6 +847,47 @@ model Locker {
   branch Branch  @relation(fields: [branchId], references: [id])
 
   @@map("lockers")
+}
+
+/// RFID 밴드/카드
+model RfidCard {
+  id           Int       @id @default(autoincrement())
+  branchId     Int
+  cardNo       String
+  memberId     Int?
+  memberName   String?
+  memberPhone  String?
+  userType     String?
+  status       String    @default("활성")
+  registeredAt DateTime  @default(now())
+  issuedAt     DateTime?
+  lockerNo     String?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @default(now()) @updatedAt
+
+  @@unique([branchId, cardNo])
+  @@index([branchId, status])
+  @@index([branchId, memberId])
+  @@map("rfid_cards")
+}
+
+/// 운동룸 마스터
+model FacilityRoom {
+  id          Int      @id @default(autoincrement())
+  branchId    Int
+  name        String
+  type        String   @default("GX")
+  capacity    Int      @default(1)
+  status      String   @default("운영중")
+  gate        String?
+  description String?
+  slots       Json     @default("[]")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @default(now()) @updatedAt
+
+  @@index([branchId, type])
+  @@index([branchId, status])
+  @@map("facility_rooms")
 }
 
 /// 수업/스케줄
@@ -567,11 +911,157 @@ model Class {
   targetType       String  @default("member")   // member, non_member, staff
   scheduleCategory String? // 상담, OT, 체성분, 방문, 수업 등
   approvalStatus   String  @default("approved") // pending, approved, rejected
+  lesson_status    String? @default("scheduled")
+  signature_url    String?
+  signature_at     DateTime?
+  completed_at     DateTime?
+  cancel_deadline_hours Int? @default(3)
+  member_id        Int?
+  member_name      String?
+  memo             String?
 
   staff  Staff  @relation(fields: [staffId], references: [id])
   branch Branch @relation(fields: [branchId], references: [id])
 
   @@map("classes")
+}
+
+/// 수업 예약 회원 원장
+model LessonBooking {
+  id               Int       @id @default(autoincrement())
+  scheduleId       Int
+  memberId         Int
+  memberName       String
+  status           String    @default("BOOKED")
+  branchId         Int
+  createdAt        DateTime? @default(now())
+  cancelReason     String?
+  updatedAt        DateTime?
+  attendedAt       DateTime?
+  noShowAt         DateTime?
+  completedAt      DateTime?
+  pushSentAt       DateTime?
+  processedBy      String?
+  lessonCountId    Int?
+  lessonCountDelta Int       @default(0)
+  attendanceNote   String?
+
+  @@index([branchId, createdAt])
+  @@index([scheduleId, status])
+  @@index([memberId, createdAt])
+  @@map("lesson_bookings")
+}
+
+/// 회원 수강권 횟수 원장
+model LessonCount {
+  id          Int       @id @default(autoincrement())
+  memberId    Int
+  productId   Int?
+  productName String
+  totalCount  Int
+  usedCount   Int       @default(0)
+  startDate   DateTime? @db.Date
+  endDate     DateTime? @db.Date
+  branchId    Int?
+  createdAt   DateTime? @default(now())
+  updatedAt   DateTime?
+
+  @@index([branchId])
+  @@index([memberId])
+  @@map("lesson_counts")
+}
+
+/// 수강권 횟수 변동 이력
+model LessonCountLog {
+  id            Int      @id @default(autoincrement())
+  lessonCountId Int
+  memberId      Int
+  scheduleId    Int?
+  bookingId     Int?
+  branchId      Int?
+  deductedAt    DateTime @default(now())
+  lessonName    String?
+  delta         Int      @default(1)
+  reason        String   @default("manual")
+  note          String?
+  processedBy   String?
+  createdAt     DateTime @default(now())
+
+  @@index([lessonCountId, deductedAt])
+  @@index([memberId, deductedAt])
+  @@index([scheduleId, bookingId])
+  @@map("lesson_count_logs")
+}
+
+/// 회원앱 수업 일정 변경/취소 요청
+model ScheduleRequest {
+  id              Int       @id @default(autoincrement())
+  branchId        Int
+  requestType     String
+  memberId        Int?
+  memberName      String
+  memberPhone     String?
+  scheduleId      Int?
+  className       String
+  classTime       String
+  instructor      String?
+  desiredTime     String?
+  cancelReason    String?
+  requestedAt     DateTime  @default(now())
+  status          String    @default("pending")
+  alternativeDate DateTime? @db.Date
+  alternativeTime DateTime? @db.Time
+  alternativeMemo String?
+  rejectReason    String?
+  processedBy     String?
+  processedAt     DateTime?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime?
+
+  @@index([branchId, status, requestedAt])
+  @@index([scheduleId])
+  @@map("schedule_requests")
+}
+
+/// 회원 수업 평가 피드백
+model ClassFeedback {
+  id          Int       @id @default(autoincrement())
+  branchId    Int
+  scheduleId  Int?
+  memberId    Int?
+  memberName  String
+  anonymous   Boolean   @default(false)
+  className   String
+  sessionType String    @default("기타")
+  instructor  String?
+  classDate   DateTime? @db.Date
+  rating      Int
+  comment     String
+  hidden      Boolean   @default(false)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime?
+
+  @@index([branchId, createdAt])
+  @@index([scheduleId])
+  @@map("class_feedbacks")
+}
+
+/// 지점별 수업 운영 정책
+model LessonPolicySetting {
+  branchId                 Int      @id
+  cancelDeadlineHours      Int      @default(3)
+  noShowDeductsSession     Boolean  @default(true)
+  autoCompleteHours        Int      @default(24)
+  lateCancelPenalty        Boolean  @default(true)
+  maxNoShowCount           Int      @default(3)
+  reservationAutoOpenHours Int      @default(48)
+  waitlistEnabled          Boolean  @default(true)
+  waitlistAutoPromote      Boolean  @default(true)
+  noshowAutoDeduct         Boolean  @default(true)
+  noshowDeductCount        Int      @default(1)
+  updatedAt                DateTime @default(now())
+
+  @@map("lesson_policy_settings")
 }
 
 /// 메시지
@@ -596,13 +1086,19 @@ model Message {
 model Coupon {
   id          Int      @id @default(autoincrement())
   name        String
+  code        String?
   type        String   // 할인율, 정액할인, 무료이용
   value       Decimal
-  validFrom   DateTime
-  validUntil  DateTime
+  validFrom   DateTime?
+  validUntil  DateTime?
   totalIssued Int      @default(0)
   totalUsed   Int      @default(0)
   isActive    Boolean  @default(true)
+  maxUsage    Int?
+  conditions  String?
+  memo        String?
+  validityType String @default("period")
+  validDays   Int?
   branchId    Int
   createdAt   DateTime @default(now())
   updatedAt   DateTime @default(now()) @updatedAt
@@ -610,6 +1106,28 @@ model Coupon {
   branch Branch @relation(fields: [branchId], references: [id])
 
   @@map("coupons")
+}
+
+/// 쿠폰 발급 이력
+model CouponIssuanceLog {
+  id          Int      @id @default(autoincrement())
+  branchId    Int
+  couponId    Int
+  couponName  String
+  memberId    Int?
+  memberName  String
+  memberNo    String?
+  issuedDate  DateTime @default(now()) @db.Date
+  expiryDate  DateTime? @db.Date
+  usedDate    DateTime? @db.Date
+  status      String   @default("unused")
+  usedProduct String?
+  code        String?
+  createdAt   DateTime @default(now())
+
+  @@index([branchId, couponId])
+  @@index([branchId, memberId])
+  @@map("coupon_issuance_logs")
 }
 
 /// 전자계약
@@ -632,6 +1150,176 @@ model Contract {
   @@map("contracts")
 }
 
+/// 마케팅 자동 알림 설정
+model AutoAlarmSetting {
+  branchId      Int      @id
+  steps         Json     @default("[]")
+  events        Json     @default("[]")
+  masterEnabled Boolean  @default(true)
+  senderNumber  String   @default("02-1234-5678")
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @default(now()) @updatedAt
+
+  @@map("auto_alarm_settings")
+}
+
+/// 마케팅 캠페인
+model MarketingCampaign {
+  id          Int      @id @default(autoincrement())
+  branchId    Int
+  name        String
+  goal        String
+  segment     String
+  segmentSize Int      @default(0)
+  startDate   DateTime @db.Date
+  endDate     DateTime @db.Date
+  status      String   @default("준비")
+  channels    String[]
+  budget      Decimal  @default(0) @db.Decimal(12, 0)
+  reach       Int      @default(0)
+  clicks      Int      @default(0)
+  conversions Int      @default(0)
+  cost        Decimal  @default(0) @db.Decimal(12, 0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @default(now()) @updatedAt
+
+  @@index([branchId, status])
+  @@map("marketing_campaigns")
+}
+
+/// 리퍼럴 이벤트
+model ReferralEvent {
+  id             Int      @id @default(autoincrement())
+  branchId       Int
+  name           String
+  referrerReward String
+  refereeReward  String   @default("-")
+  startDate      DateTime @db.Date
+  endDate        DateTime @db.Date
+  status         String   @default("준비")
+  participants   Int      @default(0)
+  active         Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @default(now()) @updatedAt
+
+  @@index([branchId, status])
+  @@map("referral_events")
+}
+
+/// 리퍼럴 추천 이력
+model ReferralRecord {
+  id        Int      @id @default(autoincrement())
+  branchId  Int
+  eventId   Int?
+  eventName String
+  referrer  String
+  referee   String
+  date      DateTime @default(now()) @db.Date
+  reward    String
+  status    String   @default("지급대기")
+  createdAt DateTime @default(now())
+
+  @@index([branchId, eventId])
+  @@map("referral_records")
+}
+
+/// SMS/카카오 템플릿
+model SmsTemplate {
+  id        Int      @id @default(autoincrement())
+  branchId  Int
+  name      String
+  channel   String
+  content   String
+  approved  Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
+
+  @@index([branchId, channel])
+  @@map("sms_templates")
+}
+
+/// SMS/카카오 대량 발송 이력
+model BulkSendHistory {
+  id         Int      @id @default(autoincrement())
+  branchId   Int
+  channel    String
+  title      String
+  target     String
+  sentAt     DateTime
+  recipients Int      @default(0)
+  success    Int      @default(0)
+  failed     Int      @default(0)
+  excluded   Int      @default(0)
+  cost       Decimal  @default(0) @db.Decimal(12, 0)
+  status     String
+  failReason String?
+  content    String?
+  createdAt  DateTime @default(now())
+
+  @@index([branchId, sentAt])
+  @@map("bulk_send_histories")
+}
+
+/// A/B 테스트
+model AbTest {
+  id        Int      @id @default(autoincrement())
+  branchId  Int
+  name      String
+  status    String   @default("진행")
+  variantA  Json     @default("{\"name\":\"A안\",\"sent\":0,\"open\":0,\"click\":0}")
+  variantB  Json     @default("{\"name\":\"B안\",\"sent\":0,\"open\":0,\"click\":0}")
+  winner    String?
+  startDate DateTime @db.Date
+  endDate   DateTime @db.Date
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
+
+  @@index([branchId, status])
+  @@map("ab_tests")
+}
+
+/// 회원/직원 전자계약 원장
+model ElectronicContract {
+  id               Int      @id @default(autoincrement())
+  branchId         Int
+  contractNo       String   @unique
+  contractCategory String
+  contractType     String
+  targetId         Int?
+  targetName       String
+  targetPhone      String?
+  targetSub        String?
+  startDate        DateTime @db.Date
+  endDate          DateTime @db.Date
+  amount           Decimal  @default(0) @db.Decimal(12, 0)
+  terms            String?
+  signMode         String   @default("onsite")
+  status           String   @default("임시 저장")
+  signedAt         DateTime?
+  remoteLinkSentAt DateTime?
+  history          Json     @default("[]")
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @default(now()) @updatedAt
+
+  @@index([branchId, createdAt])
+  @@map("electronic_contracts")
+}
+
+/// 마일리지 정책 설정
+model MileagePolicySetting {
+  branchId              Int      @id
+  earnRate              Decimal  @default(3) @db.Decimal(5, 2)
+  expiryMonths          Int      @default(12)
+  minUsage              Int      @default(1000)
+  maxUsagePerTx         Int      @default(50000)
+  productScopes         Json     @default("[]")
+  excludedProductScopes Json     @default("[]")
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @default(now()) @updatedAt
+
+  @@map("mileage_policy_settings")
+}
+
 /// 설정
 model Settings {
   id                  Int      @id @default(autoincrement())
@@ -652,6 +1340,59 @@ model Settings {
   branch Branch @relation(fields: [branchId], references: [id])
 
   @@map("settings")
+}
+
+/// 지점별 JSON 설정 원장
+model BranchSetting {
+  id        Int      @id @default(autoincrement())
+  branchId  Int
+  key       String
+  value     Json     @default("{}")
+  updatedBy String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
+
+  @@unique([branchId, key])
+  @@index([branchId])
+  @@map("branch_settings")
+}
+
+/// 회원 등급 관리 전역 설정
+model MemberGradeSetting {
+  branchId            Int      @id
+  refreshCycle        String   @default("월간")
+  downgradeProtection Boolean  @default(true)
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @default(now()) @updatedAt
+
+  @@map("member_grade_settings")
+}
+
+/// 회원 등급별 산정 기준과 혜택
+model MemberGradeRule {
+  id               Int      @id @default(autoincrement())
+  branchId         Int
+  gradeCode        String
+  gradeName        String
+  sortOrder        Int
+  colorClass       String?
+  minPaymentAmount Decimal  @default(0) @db.Decimal(12, 0)
+  minUsageMonths   Int      @default(0)
+  minVisitCount    Int      @default(0)
+  usePaymentAmount Boolean  @default(true)
+  useUsageMonths   Boolean  @default(true)
+  useVisitCount    Boolean  @default(true)
+  criteriaOperator String   @default("AND")
+  mileageRate      Decimal  @default(0) @db.Decimal(5, 2)
+  discountRate     Decimal  @default(0) @db.Decimal(5, 2)
+  benefits         Json?
+  currentMemberCount Int    @default(0)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @default(now()) @updatedAt
+
+  @@unique([branchId, gradeCode])
+  @@index([branchId, sortOrder])
+  @@map("member_grade_rules")
 }
 
 // ============================================================
@@ -918,16 +1659,22 @@ model StaffAttendanceRecord {
   id        Int       @id @default(autoincrement())
   staffId   Int
   staffName String    // 비정규화
-  clockIn   DateTime
+  date      DateTime  @db.Date
+  clockIn   DateTime?
   clockOut  DateTime?
   status    String    @default("normal") // normal, late, early_leave, absent
   workHours Decimal?  @db.Decimal(4, 1) // 근무 시간
+  workMinutes Int?
+  source    String    @default("키오스크")
+  corrections Json     @default("[]")
+  memo      String?
   notes     String?
   branchId  Int
   createdAt DateTime  @default(now())
 
   @@index([staffId])
   @@index([branchId])
+  @@index([branchId, date])
   @@index([clockIn])
   @@map("staff_attendance")
 }
@@ -948,6 +1695,34 @@ model DiscountPolicy {
 
   @@index([branchId])
   @@map("discount_policies")
+}
+
+/// 시즌 특가
+model ProductSeasonalPrice {
+  id                 Int      @id @default(autoincrement())
+  branchId           Int
+  name               String
+  productIds         Int[]    @default([])
+  productNames       String[] @default([])
+  primaryProductId   Int?
+  primaryProductName String?
+  originalPrice      Decimal  @default(0) @db.Decimal(12, 0)
+  discountedPrice    Decimal  @default(0) @db.Decimal(12, 0)
+  discountRate       Decimal  @default(0) @db.Decimal(5, 2)
+  discountType       String   @default("fixed_price")
+  discountValue      Decimal  @default(0) @db.Decimal(12, 2)
+  startDate          DateTime @db.Date
+  endDate            DateTime @db.Date
+  isActive           Boolean  @default(true)
+  endedAt            DateTime?
+  createdBy          String?
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @default(now()) @updatedAt
+
+  @@index([branchId])
+  @@index([branchId, startDate, endDate])
+  @@index([branchId, isActive])
+  @@map("product_seasonal_prices")
 }
 
 /// 선수익금 (미래 매출 인식)
@@ -976,11 +1751,14 @@ model Notice {
   id          Int       @id @default(autoincrement())
   title       String
   content     String
-  authorId    Int       // 작성자 (staff ID)
+  authorId    Int?      // 작성자 (staff ID)
   authorName  String    // 비정규화
   isPinned    Boolean   @default(false) // 고정글
   isPublished Boolean   @default(true)
   publishedAt DateTime?
+  targetRoles String[]  @default(["all"])
+  publishStart DateTime?
+  publishEnd   DateTime?
   branchId    Int
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @default(now()) @updatedAt
@@ -988,6 +1766,20 @@ model Notice {
   @@index([branchId])
   @@index([isPinned])
   @@map("notices")
+}
+
+/// 공지 읽음 이력
+model NoticeReadReceipt {
+  id       Int      @id @default(autoincrement())
+  branchId Int
+  noticeId Int
+  userId   Int?
+  userName String?
+  readAt   DateTime @default(now())
+
+  @@unique([noticeId, userId])
+  @@index([branchId, noticeId])
+  @@map("notice_read_receipts")
 }
 
 /// 상품 분류 (카테고리 그룹)

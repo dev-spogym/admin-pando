@@ -1,7 +1,7 @@
 'use client';
 export const dynamic = 'force-dynamic';
 
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import AppLayout from '@/components/layout/AppLayout';
 import PageHeader from '@/components/common/PageHeader';
 import StatCard from '@/components/common/StatCard';
@@ -20,6 +20,7 @@ import {
   ROLE_PERMISSION_MENUS,
   type CustomRole,
 } from '@/mocks/settings';
+import { loadBranchSetting, saveBranchSetting } from '@/lib/branchSettings';
 
 type PermKey = 'access' | 'read' | 'create' | 'update' | 'delete';
 const PERM_LABELS: Record<PermKey, string> = {
@@ -56,6 +57,22 @@ export default function CustomRolesPage() {
   const [deleteTarget, setDeleteTarget] = useState<CustomRole | null>(null);
   const [reassignTarget, setReassignTarget] = useState<CustomRole | null>(null);
   const [reassignTo, setReassignTo] = useState('');
+
+  useEffect(() => {
+    let mounted = true;
+    loadBranchSetting<CustomRole[]>('custom_roles', CUSTOM_ROLES).then((saved) => {
+      if (!mounted) return;
+      setRoles(saved);
+      setSelected(saved[0]?.id ?? null);
+    });
+    return () => { mounted = false; };
+  }, []);
+
+  const persistRoles = async (nextRoles: CustomRole[]) => {
+    const error = await saveBranchSetting('custom_roles', nextRoles);
+    if (error) toast.error(`역할 저장 실패: ${error}`);
+    return !error;
+  };
 
   const selectedRole = roles.find((r) => r.id === selected) ?? null;
 
@@ -99,7 +116,9 @@ export default function CustomRolesPage() {
     }
     const name = form.name.trim();
     if (form.id) {
-      setRoles((prev) => prev.map((r) => (r.id === form.id ? { ...r, name, description: form.description, baseRole: form.baseRole } : r)));
+      const nextRoles = roles.map((r) => (r.id === form.id ? { ...r, name, description: form.description, baseRole: form.baseRole } : r));
+      setRoles(nextRoles);
+      persistRoles(nextRoles);
       toast.success('역할을 수정했습니다');
     } else {
       const newRole: CustomRole = {
@@ -112,7 +131,9 @@ export default function CustomRolesPage() {
         isSystem: false,
         permissions: [],
       };
-      setRoles((prev) => [...prev, newRole]);
+      const nextRoles = [...roles, newRole];
+      setRoles(nextRoles);
+      persistRoles(nextRoles);
       setSelected(newRole.id);
       toast.success('역할을 생성했습니다. 권한 설정에 즉시 노출되지 않으면 새로고침해주세요.');
     }
@@ -132,7 +153,9 @@ export default function CustomRolesPage() {
 
   const confirmDelete = () => {
     if (!deleteTarget) return;
-    setRoles((prev) => prev.filter((r) => r.id !== deleteTarget.id));
+    const nextRoles = roles.filter((r) => r.id !== deleteTarget.id);
+    setRoles(nextRoles);
+    persistRoles(nextRoles);
     if (selected === deleteTarget.id) setSelected(null);
     setDeleteTarget(null);
     toast.success('역할을 삭제했습니다');
@@ -144,7 +167,9 @@ export default function CustomRolesPage() {
       toast.error('재배정할 역할을 선택해주세요');
       return;
     }
-    setRoles((prev) => prev.filter((r) => r.id !== reassignTarget.id));
+    const nextRoles = roles.filter((r) => r.id !== reassignTarget.id);
+    setRoles(nextRoles);
+    persistRoles(nextRoles);
     if (selected === reassignTarget.id) setSelected(null);
     toast.success(`직원 ${reassignTarget.members}명을 재배정하고 역할을 삭제했습니다`);
     setReassignTarget(null);

@@ -1,7 +1,7 @@
 'use client';
 export const dynamic = 'force-dynamic';
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import AppLayout from '@/components/layout/AppLayout';
 import PageHeader from '@/components/common/PageHeader';
 import StatCard from '@/components/common/StatCard';
@@ -21,6 +21,7 @@ import {
 import {
   BACKUP_RECORDS, RESTORE_RECORDS, type BackupRecord, type BackupStatus,
 } from '@/mocks/settings';
+import { loadBranchSetting, saveBranchSetting } from '@/lib/branchSettings';
 
 // 권한 데모: 슈퍼관리자는 복원·다운로드, owner는 백업만(복원은 승인 필요)
 type ViewerRole = 'super' | 'owner';
@@ -49,6 +50,8 @@ export default function BackupPage() {
   const [historyTab, setHistoryTab] = useState('backup');
   const [period, setPeriod] = useState('month');
   const [backingUp, setBackingUp] = useState(false);
+  const [backupRecords, setBackupRecords] = useState<BackupRecord[]>(BACKUP_RECORDS);
+  const [restoreRecords, setRestoreRecords] = useState(RESTORE_RECORDS);
 
   // 백업 설정 (DLG-089-002)
   const [showSettings, setShowSettings] = useState(false);
@@ -62,13 +65,75 @@ export default function BackupPage() {
   const [restoreTarget, setRestoreTarget] = useState<BackupRecord | null>(null);
   const [restoreReason, setRestoreReason] = useState('');
 
+  useEffect(() => {
+    let mounted = true;
+    loadBranchSetting<{
+      autoBackup: boolean;
+      frequency: string;
+      runTime: string;
+      retention: string;
+      backupRecords: BackupRecord[];
+      restoreRecords: typeof RESTORE_RECORDS;
+    }>('backup_restore_settings', {
+      autoBackup,
+      frequency,
+      runTime,
+      retention,
+      backupRecords: BACKUP_RECORDS,
+      restoreRecords: RESTORE_RECORDS,
+    }).then((saved) => {
+      if (!mounted) return;
+      setAutoBackup(saved.autoBackup);
+      setFrequency(saved.frequency);
+      setRunTime(saved.runTime);
+      setRetention(saved.retention);
+      setBackupRecords(saved.backupRecords ?? BACKUP_RECORDS);
+      setRestoreRecords(saved.restoreRecords ?? RESTORE_RECORDS);
+    });
+    return () => { mounted = false; };
+  }, []);
+
+  const persistBackupSettings = async (next?: Partial<{
+    autoBackup: boolean;
+    frequency: string;
+    runTime: string;
+    retention: string;
+    backupRecords: BackupRecord[];
+    restoreRecords: typeof RESTORE_RECORDS;
+  }>) => {
+    const error = await saveBranchSetting('backup_restore_settings', {
+      autoBackup: next?.autoBackup ?? autoBackup,
+      frequency: next?.frequency ?? frequency,
+      runTime: next?.runTime ?? runTime,
+      retention: next?.retention ?? retention,
+      backupRecords: next?.backupRecords ?? backupRecords,
+      restoreRecords: next?.restoreRecords ?? restoreRecords,
+    });
+    return error;
+  };
+
   const isSuper = viewerRole === 'super';
   const storageOver = false; // 100GB 초과 데모
 
-  const handleBackupNow = () => {
+  const handleBackupNow = async () => {
     setBackingUp(true);
+    const nextRecords: BackupRecord[] = [{
+      id: `b-${Date.now()}`,
+      name: '수동 백업',
+      type: 'manual',
+      size: '대기 중',
+      status: 'running',
+      createdAt: new Date().toISOString().slice(0, 16).replace('T', ' '),
+    }, ...backupRecords];
+    setBackupRecords(nextRecords);
+    await persistBackupSettings({ backupRecords: nextRecords });
     toast.success('수동 백업을 시작했습니다. 완료되면 이력에 반영됩니다');
-    setTimeout(() => setBackingUp(false), 1500);
+    setTimeout(async () => {
+      const completed = nextRecords.map((r, index) => index === 0 ? { ...r, size: '2.8GB', status: 'completed' as BackupStatus } : r);
+      setBackupRecords(completed);
+      await persistBackupSettings({ backupRecords: completed });
+      setBackingUp(false);
+    }, 1500);
   };
 
   const handleDownload = (rec: BackupRecord) => {
@@ -92,16 +157,29 @@ export default function BackupPage() {
     setRestoreTarget(rec);
   };
 
-  const confirmRestore = () => {
+  const confirmRestore = async () => {
     if (!restoreReason.trim()) {
       toast.error('복원 사유를 입력해주세요');
       return;
     }
+    const nextRestoreRecords = [{
+      id: `rs-${Date.now()}`,
+      restoredAt: new Date().toISOString().slice(0, 16).replace('T', ' '),
+      backupPoint: restoreTarget?.createdAt ?? '',
+      executor: viewerRole === 'super' ? '슈퍼관리자' : 'Owner(지점장)',
+    }, ...restoreRecords];
+    setRestoreRecords(nextRestoreRecords);
+    await persistBackupSettings({ restoreRecords: nextRestoreRecords });
     toast.success('복원을 시작했습니다. 완료 후 자동으로 재시작됩니다');
     setRestoreTarget(null);
   };
 
-  const saveSettings = () => {
+  const saveSettings = async () => {
+    const error = await persistBackupSettings();
+    if (error) {
+      toast.error(`백업 설정 저장 실패: ${error}`);
+      return;
+    }
     setShowSettings(false);
     toast.success('백업 설정을 저장했습니다');
   };
@@ -191,7 +269,7 @@ export default function BackupPage() {
               action={{ label: '다시 시도', onClick: () => setLoadState('ready') }}
             />
           ) : historyTab === 'backup' ? (
-            BACKUP_RECORDS.length === 0 ? (
+            backupRecords.length === 0 ? (
               <EmptyState
                 icon={HardDrive}
                 title="백업 이력이 없습니다"
@@ -200,7 +278,7 @@ export default function BackupPage() {
               />
             ) : (
               <div className="divide-y divide-line/50">
-                {BACKUP_RECORDS.map((rec) => {
+                {backupRecords.map((rec) => {
                   const meta = STATUS_META[rec.status];
                   const restorable = rec.status === 'completed';
                   return (
@@ -239,11 +317,11 @@ export default function BackupPage() {
                 })}
               </div>
             )
-          ) : RESTORE_RECORDS.length === 0 ? (
+          ) : restoreRecords.length === 0 ? (
             <EmptyState icon={RotateCcw} title="복원 이력이 없습니다" description="과거 복원 실행 내역이 여기에 표시됩니다." />
           ) : (
             <div className="divide-y divide-line/50">
-              {RESTORE_RECORDS.map((rec) => (
+              {restoreRecords.map((rec) => (
                 <div key={rec.id} className="flex items-center justify-between gap-md px-lg py-md">
                   <div className="flex items-center gap-md">
                     <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-surface-tertiary text-content-secondary">

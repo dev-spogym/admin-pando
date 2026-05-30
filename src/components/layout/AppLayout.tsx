@@ -26,6 +26,7 @@ const AppLayout = ({ children }: AppLayoutProps) => {
   const [isMobile, setIsMobile] = useState(false);
   const [isPreview, setIsPreview] = useState(false);
   const [previewReady, setPreviewReady] = useState(false);
+  const [sessionExpired, setSessionExpired] = useState(false);
   const authUser = useAuthStore((s) => s.user);
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
   const toggleDesignDocMode = useUiStore((s) => s.toggleDesignDocMode);
@@ -52,9 +53,15 @@ const AppLayout = ({ children }: AppLayoutProps) => {
   // 인증 가드: 로그인 안 된 상태면 /login으로 리다이렉트
   useEffect(() => {
     if (hasMounted && !isPreview && !isAuthenticated) {
-      router.replace('/login');
+      const expired = sessionStorage.getItem('session_expired') === '1';
+      if (expired && pathname !== '/login') {
+        setSessionExpired(true);
+        return;
+      }
+      const returnTo = pathname && pathname !== '/login' ? `?returnTo=${encodeURIComponent(pathname)}` : '';
+      router.replace(`/login${returnTo}`);
     }
-  }, [hasMounted, isAuthenticated, isPreview, router]);
+  }, [hasMounted, isAuthenticated, isPreview, pathname, router]);
 
   // Cmd/Ctrl + / 단축키로 화면설계서 모드 토글
   useEffect(() => {
@@ -107,6 +114,34 @@ const AppLayout = ({ children }: AppLayoutProps) => {
   }, [isMobile]);
 
   // hydration mismatch 방지를 위해 최초 서버/클라이언트 렌더는 동일한 플레이스홀더 유지
+  if (sessionExpired && !isAuthenticated && !isPreview) {
+    const returnTo = pathname && pathname !== '/login' ? pathname : '/';
+    return (
+      <div className="flex h-screen w-full items-center justify-center bg-surface-secondary px-md">
+        <div className="w-full max-w-[420px] rounded-2xl border border-line bg-surface p-xl shadow-card-deep">
+          <p className="text-[12px] font-semibold uppercase tracking-[0.14em] text-primary">Session</p>
+          <h1 className="mt-xs text-[20px] font-bold text-content">세션이 만료되었습니다</h1>
+          <p className="mt-sm text-[13px] leading-relaxed text-content-secondary">
+            현재 위치를 기억해 두었습니다. 재로그인 후 이전 화면으로 돌아갈 수 있습니다.
+          </p>
+          <p className="mt-md rounded-lg bg-surface-secondary px-md py-sm text-[12px] text-content-secondary">
+            복귀 예정 위치: <span className="font-mono text-content">{returnTo}</span>
+          </p>
+          <button
+            type="button"
+            className="mt-lg h-11 w-full rounded-xl bg-primary text-[13px] font-semibold text-white transition-colors hover:bg-primary-dark"
+            onClick={() => {
+              sessionStorage.removeItem('session_expired');
+              router.replace(`/login?reason=session_expired&returnTo=${encodeURIComponent(returnTo)}`);
+            }}
+          >
+            재로그인
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   if (!hasMounted || (!isPreview && !isAuthenticated) || (isPreview && !previewReady)) {
     return (
       <div className="flex h-screen w-full items-center justify-center bg-surface-secondary">

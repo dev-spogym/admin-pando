@@ -185,11 +185,11 @@ const ManualAdjustmentModal = ({
           </button>
           <button
             className="flex-1 py-md rounded-button bg-primary text-white hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
-            onClick={() => {
+            onClick={async () => {
               if (isProcessing) return;
               setIsProcessing(true);
               try {
-                onConfirm({ type, amount: Number(amount), reason, memo });
+                await onConfirm({ type, amount: Number(amount), reason, memo });
               } finally {
                 setIsProcessing(false);
               }
@@ -404,6 +404,31 @@ export default function MileageManagement() {
   const [savedPolicy, setSavedPolicy] = useState(DEFAULT_POLICY);
   const isPolicyDirty = JSON.stringify(policy) !== JSON.stringify(savedPolicy);
 
+  useEffect(() => {
+    const fetchPolicy = async () => {
+      const { data, error } = await supabase
+        .from('mileage_policy_settings')
+        .select('*')
+        .eq('branchId', getBranchId())
+        .maybeSingle();
+      if (error) {
+        console.warn('[MileageManagement] mileage_policy_settings 조회 실패:', error.message);
+        return;
+      }
+      if (data) {
+        const next = {
+          earnRate: Number(data.earnRate ?? DEFAULT_POLICY.earnRate),
+          expiryMonths: Number(data.expiryMonths ?? DEFAULT_POLICY.expiryMonths),
+          minUsage: Number(data.minUsage ?? DEFAULT_POLICY.minUsage),
+          maxUsagePerTx: Number(data.maxUsagePerTx ?? DEFAULT_POLICY.maxUsagePerTx),
+        };
+        setPolicy(next);
+        setSavedPolicy(next);
+      }
+    };
+    fetchPolicy();
+  }, []);
+
   const tabs = [
     { key: 'status', label: '마일리지 현황', icon: Coins },
     { key: 'history', label: '마일리지 이력', icon: History },
@@ -513,13 +538,101 @@ export default function MileageManagement() {
     },
   ], []);
 
-  const handleManualAdjustment = (data: any) => {
+  const handleManualAdjustment = async (data: any) => {
+    if (!selectedMember) return;
+    const amount = Number(data.amount);
+    if (!amount || amount <= 0) {
+      toast.error('마일리지 금액을 입력하세요.');
+      return;
+    }
+
+    const signedAmount = data.type === '적립' ? amount : -amount;
+    const nextBalance = Number(selectedMember.balance ?? 0) + signedAmount;
+    if (nextBalance < 0) {
+      toast.error('차감 후 잔액이 0보다 작을 수 없습니다.');
+      return;
+    }
+
+    const { error: memberError } = await supabase
+      .from('members')
+      .update({ mileage: nextBalance })
+      .eq('id', selectedMember.id)
+      .eq('branchId', getBranchId());
+    if (memberError) {
+      toast.error(`회원 마일리지 갱신 실패: ${memberError.message}`);
+      return;
+    }
+
+    const { error: logError } = await supabase
+      .from('mileage_logs')
+      .insert({
+        branchId: getBranchId(),
+        memberId: selectedMember.id,
+        memberName: selectedMember.name,
+        type: data.type === '적립' ? 'earn' : 'use',
+        amount: signedAmount,
+        balance: nextBalance,
+        reason: data.reason,
+        admin: '관리자',
+      });
+    if (logError) {
+      toast.error(`마일리지 이력 저장 실패: ${logError.message}`);
+      return;
+    }
+
+    setMembers((prev) => prev.map((m) => (
+      m.id === selectedMember.id
+        ? {
+            ...m,
+            earned: data.type === '적립' ? m.earned + amount : m.earned,
+            used: data.type === '차감' ? m.used + amount : m.used,
+            balance: nextBalance,
+            lastEarnedAt: data.type === '적립' ? new Date().toISOString().slice(0, 10) : m.lastEarnedAt,
+          }
+        : m
+    )));
+    setMileageLogs((prev) => [
+      {
+        id: `manual-${Date.now()}`,
+        memberId: selectedMember.id,
+        name: selectedMember.name,
+        type: data.type,
+        amount: signedAmount,
+        balance: nextBalance,
+        reason: data.reason,
+        createdAt: new Date().toISOString(),
+        admin: '관리자',
+        expiryDate: '-',
+      },
+      ...prev,
+    ]);
+    setSummary((prev) => ({
+      ...prev,
+      totalIssued: data.type === '적립' ? prev.totalIssued + amount : prev.totalIssued,
+      totalUsed: data.type === '차감' ? prev.totalUsed + amount : prev.totalUsed,
+      currentBalance: prev.currentBalance + signedAmount,
+      monthlyEarned: data.type === '적립' ? prev.monthlyEarned + amount : prev.monthlyEarned,
+    }));
     setIsManualModalOpen(false);
     setSelectedMember(null);
     toast.success(`${data.type} 처리가 완료되었습니다.`);
   };
 
-  const handlePolicySave = () => {
+  const handlePolicySave = async () => {
+    const { error } = await supabase
+      .from('mileage_policy_settings')
+      .upsert({
+        branchId: getBranchId(),
+        earnRate: policy.earnRate,
+        expiryMonths: policy.expiryMonths,
+        minUsage: policy.minUsage,
+        maxUsagePerTx: policy.maxUsagePerTx,
+        updatedAt: new Date().toISOString(),
+      }, { onConflict: 'branchId' });
+    if (error) {
+      toast.error(`마일리지 정책 저장 실패: ${error.message}`);
+      return;
+    }
     setSavedPolicy(policy);
     setIsPolicySaveDialogOpen(false);
     toast.success('정책이 성공적으로 저장되었습니다.');

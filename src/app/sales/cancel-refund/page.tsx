@@ -1,5 +1,5 @@
 'use client';
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { Suspense, useCallback, useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Search, RefreshCcw, AlertTriangle, CheckCircle } from 'lucide-react';
 import { toast } from 'sonner';
@@ -249,7 +249,7 @@ const getBranchId = () => {
 
 const approvalNo = () => `RF${Date.now().toString().slice(-6)}${Math.floor(Math.random() * 9000) + 1000}`;
 
-export default function CancelRefundPage() {
+function CancelRefundContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const linkedSaleId = searchParams?.get('saleId') ?? null;
@@ -1348,5 +1348,21 @@ export default function CancelRefundPage() {
       </ConfirmDialog>
     </div>
     </AppLayout>
+  );
+}
+
+export default function CancelRefundPage() {
+  return (
+    <Suspense
+      fallback={
+        <AppLayout>
+          <div className="rounded-xl border border-gray-200 bg-white p-6 text-sm text-gray-500">
+            결제 취소 / 부분 환불 화면을 불러오는 중입니다.
+          </div>
+        </AppLayout>
+      }
+    >
+      <CancelRefundContent />
+    </Suspense>
   );
 }

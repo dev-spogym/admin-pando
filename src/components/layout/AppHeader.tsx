@@ -75,6 +75,7 @@ const AppHeader = ({
 
   // ── 비밀번호 변경 모달 ──
   const [showPasswordModal, setShowPasswordModal] = useState(false);
+  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const [pwForm, setPwForm] = useState({ current: '', new: '', confirm: '' });
   const [pwLoading, setPwLoading] = useState(false);
   const [showPwCurrent, setShowPwCurrent] = useState(false);
@@ -181,6 +182,11 @@ const AppHeader = ({
   // ── 로그아웃 ──
   const handleLogout = () => {
     setOpenDropdown(null);
+    setShowLogoutConfirm(true);
+  };
+
+  const confirmLogout = () => {
+    setShowLogoutConfirm(false);
     useAuthStore.getState().logout();
     moveToPage(990);
   };
@@ -342,7 +348,7 @@ const AppHeader = ({
                     className="flex w-full items-center gap-sm px-md py-[9px] text-[13px] text-content hover:bg-surface-secondary transition-colors"
                     onClick={() => {
                       setOpenDropdown(null);
-                      toast.info(`${displayUserName} (${authUser?.role || '사용자'}) | 지점: ${displayBranchName}`);
+                      window.location.assign('/profile');
                     }}
                   >
                     <User size={15} className="text-content-tertiary" />
@@ -481,6 +487,36 @@ const AppHeader = ({
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* 로그아웃 확인 다이얼로그 — DLG-001 */}
+      {showLogoutConfirm && (
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/40" onClick={() => setShowLogoutConfirm(false)}>
+          <div className="w-full max-w-[380px] rounded-xl border border-line bg-surface shadow-lg" onClick={(e) => e.stopPropagation()}>
+            <div className="border-b border-line px-lg py-md">
+              <h3 className="text-[15px] font-bold text-content">로그아웃 하시겠습니까?</h3>
+              <p className="mt-xs text-[12px] text-content-secondary">
+                확인하면 현재 세션을 종료하고 로그인 화면으로 이동합니다.
+              </p>
+            </div>
+            <div className="flex justify-end gap-sm px-lg py-md">
+              <button
+                type="button"
+                className="h-10 rounded-lg border border-line px-md text-[13px] font-medium text-content-secondary hover:bg-surface-secondary"
+                onClick={() => setShowLogoutConfirm(false)}
+              >
+                취소
+              </button>
+              <button
+                type="button"
+                className="h-10 rounded-lg bg-danger px-md text-[13px] font-semibold text-white hover:opacity-90"
+                onClick={confirmLogout}
+              >
+                로그아웃
+              </button>
+            </div>
           </div>
         </div>
       )}

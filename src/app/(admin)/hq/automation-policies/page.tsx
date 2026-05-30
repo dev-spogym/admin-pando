@@ -1,7 +1,7 @@
 'use client';
 export const dynamic = 'force-dynamic';
 
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import AppLayout from '@/components/layout/AppLayout';
 import PageHeader from '@/components/common/PageHeader';
 import Button from '@/components/ui/Button';
@@ -16,6 +16,7 @@ import {
   ShieldCheck,
   SlidersHorizontal,
 } from 'lucide-react';
+import { loadBranchSetting, saveBranchSetting } from '@/lib/branchSettings';
 
 type PolicyStatus = '사용 중' | '검수 중' | '일시 중지';
 
@@ -49,6 +50,7 @@ const statusTone: Record<PolicyStatus, string> = {
 };
 
 const todayString = () => new Date().toISOString().slice(0, 10);
+const POLICY_SETTING_KEY = 'hq_automation_policy_sets';
 
 export default function AutomationPoliciesPage() {
   const [policySets, setPolicySets] = useState<PolicySet[]>(INITIAL_POLICY_SETS);
@@ -66,6 +68,17 @@ export default function AutomationPoliciesPage() {
     editableRange: INITIAL_POLICY_SETS[0]?.editableRange ?? '허용 스텝만 조정',
     status: INITIAL_POLICY_SETS[0]?.status ?? '사용 중',
   });
+
+  useEffect(() => {
+    let mounted = true;
+    loadBranchSetting<PolicySet[]>(POLICY_SETTING_KEY, INITIAL_POLICY_SETS).then((saved) => {
+      if (!mounted) return;
+      const next = saved.length ? saved : INITIAL_POLICY_SETS;
+      setPolicySets(next);
+      setSelectedName(next[0]?.name ?? '');
+    });
+    return () => { mounted = false; };
+  }, []);
 
   const selected = useMemo(
     () => policySets.find((policy) => policy.name === selectedName) ?? policySets[0],
@@ -98,18 +111,19 @@ export default function AutomationPoliciesPage() {
       editableRange: '허용 스텝만 조정',
     };
 
-    setPolicySets((prev) => [nextPolicy, ...prev]);
+    const nextPolicies = [nextPolicy, ...policySets];
+    setPolicySets(nextPolicies);
     setSelectedName(nextPolicy.name);
     setIsCreateModalOpen(false);
     setCreateForm({ name: '', scope: '전 지점', steps: 4, status: '검수 중' });
+    void saveBranchSetting(POLICY_SETTING_KEY, nextPolicies);
     toast.success(`"${nextPolicy.name}" 정책 세트를 생성했습니다.`);
   };
 
   const handleSaveScope = () => {
     if (!selected) return;
 
-    setPolicySets((prev) =>
-      prev.map((policy) =>
+    const nextPolicies = policySets.map((policy) =>
         policy.name === selected.name
           ? {
               ...policy,
@@ -119,9 +133,10 @@ export default function AutomationPoliciesPage() {
               updatedAt: todayString(),
             }
           : policy
-      )
     );
+    setPolicySets(nextPolicies);
     setIsScopeModalOpen(false);
+    void saveBranchSetting(POLICY_SETTING_KEY, nextPolicies);
     toast.success('허용 범위 설정을 반영했습니다.');
   };
 
@@ -142,8 +157,8 @@ export default function AutomationPoliciesPage() {
         }
       />
 
-      <div className="mb-5 rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
-        퍼블리싱 완료 / 데이터 미연동: 화면 구조 검수용 목업이며 Supabase·외부 템플릿 연동은 후속 단계입니다.
+      <div className="mb-5 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
+        정책 세트 생성, 적용 범위, 지점 수정 허용 수준은 DB 설정에 저장됩니다. 외부 메시지 템플릿 API 연동은 정책 확정 후 연결 대상입니다.
       </div>
 
       <div className="mb-6 grid grid-cols-4 gap-4">

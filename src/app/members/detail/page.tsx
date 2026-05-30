@@ -1532,6 +1532,8 @@ function MemberDetail() {
   const [programStart, setProgramStart] = useState(getCurrentDateInputValue);
   const [programEnd, setProgramEnd] = useState('');
   const [programTrainer, setProgramTrainer] = useState('');
+  const [programOptions, setProgramOptions] = useState<Array<{ id: number; name: string }>>([]);
+  const [trainerOptions, setTrainerOptions] = useState<Array<{ id: number; name: string }>>([]);
   const canTransfer = hasFeature(authUser?.role ?? '', 'memberTransfer', authUser?.isSuperAdmin);
   const canWithdraw = hasFeature(authUser?.role ?? '', 'memberWithdraw', authUser?.isSuperAdmin);
 
@@ -1819,7 +1821,7 @@ function MemberDetail() {
     moveToPage(967);
   };
 
-  // DLG-M021 마일리지 조정: 적립/차감 처리 (목업 — 토스트 + 닫기)
+  // DLG-M021 마일리지 조정: 적립/차감 처리
   const closeMileageModal = () => {
     setIsMileageModalOpen(false);
     setMileageType('적립');
@@ -1829,7 +1831,8 @@ function MemberDetail() {
   const currentMileage = member?.mileage ?? 0;
   const mileageDelta = Number(mileageAmount) || 0;
   const projectedMileage = mileageType === '적립' ? currentMileage + mileageDelta : currentMileage - mileageDelta;
-  const handleMileageSubmit = () => {
+  const handleMileageSubmit = async () => {
+    if (!member) return;
     if (mileageDelta <= 0) {
       toast.error('조정 포인트를 입력해주세요.');
       return;
@@ -1842,8 +1845,32 @@ function MemberDetail() {
       toast.error('차감 후 잔액이 0보다 작을 수 없습니다.');
       return;
     }
+    const { error } = await supabase
+      .from('members')
+      .update({ mileage: projectedMileage, updatedAt: new Date().toISOString() })
+      .eq('id', member.id);
+    if (error) {
+      toast.error(`마일리지 조정 실패: ${error.message}`);
+      return;
+    }
+    await createAuditLog({
+      action: AUDIT_ACTIONS.UPDATE,
+      targetType: 'member',
+      targetId: member.id,
+      detail: {
+        source: 'member-detail-mileage-adjustment',
+        memberId: member.id,
+        memberName: member.name,
+        adjustmentType: mileageType,
+        amount: mileageDelta,
+        beforeMileage: currentMileage,
+        afterMileage: projectedMileage,
+        reason: mileageReason.trim(),
+      },
+    });
+    setMember((prev) => (prev ? { ...prev, mileage: projectedMileage } : prev));
     closeMileageModal();
-    toast.success('처리되었습니다.');
+    toast.success('마일리지가 조정되었습니다.');
   };
 
   // DLG-M025 운동 프로그램 배정 처리 (목업 — 토스트 + 닫기)
@@ -1854,7 +1881,31 @@ function MemberDetail() {
     setProgramEnd('');
     setProgramTrainer('');
   };
-  const handleProgramSubmit = () => {
+
+  useEffect(() => {
+    if (!isProgramModalOpen || !member) return;
+    const branchId = Number(typeof window !== 'undefined' ? localStorage.getItem('branchId') : member.branchId ?? '1');
+    Promise.all([
+      supabase
+        .from('exercise_programs')
+        .select('id, name')
+        .eq('branchId', branchId)
+        .eq('isActive', true)
+        .order('name', { ascending: true }),
+      supabase
+        .from('staff')
+        .select('id, name')
+        .eq('branchId', branchId)
+        .eq('isActive', true)
+        .order('name', { ascending: true }),
+    ]).then(([programRes, staffRes]) => {
+      if (programRes.data) setProgramOptions(programRes.data as Array<{ id: number; name: string }>);
+      if (staffRes.data) setTrainerOptions(staffRes.data as Array<{ id: number; name: string }>);
+    });
+  }, [isProgramModalOpen, member]);
+
+  const handleProgramSubmit = async () => {
+    if (!member) return;
     if (!programName.trim()) {
       toast.error('프로그램을 선택해주세요.');
       return;
@@ -1863,8 +1914,41 @@ function MemberDetail() {
       toast.error('배정 시작일을 선택해주세요.');
       return;
     }
+    const programId = Number(programName);
+    if (!Number.isFinite(programId)) {
+      toast.error('유효한 프로그램을 선택해주세요.');
+      return;
+    }
+    const branchId = Number(typeof window !== 'undefined' ? localStorage.getItem('branchId') : member.branchId ?? '1');
+    const assignedBy = Number(programTrainer) || Number(authUser?.id) || 0;
+    const { error } = await supabase.from('member_exercise_programs').insert({
+      memberId: member.id,
+      programId,
+      assignedBy,
+      branchId,
+      assignedAt: new Date(`${programStart}T00:00:00`).toISOString(),
+      expiresAt: programEnd ? new Date(`${programEnd}T23:59:59`).toISOString() : null,
+      status: 'active',
+    });
+    if (error) {
+      toast.error(`운동 프로그램 배정 실패: ${error.message}`);
+      return;
+    }
+    await createAuditLog({
+      action: AUDIT_ACTIONS.CREATE,
+      targetType: 'member_exercise_program',
+      targetId: member.id,
+      detail: {
+        memberId: member.id,
+        memberName: member.name,
+        programId,
+        assignedBy,
+        programStart,
+        programEnd: programEnd || null,
+      },
+    });
     closeProgramModal();
-    toast.success('처리되었습니다.');
+    toast.success('운동 프로그램이 배정되었습니다.');
   };
 
   // 회원권 만료일까지 남은 일수 계산
@@ -2633,12 +2717,7 @@ function MemberDetail() {
             value={programName}
             onChange={setProgramName}
             placeholder="기존 프로그램에서 선택"
-            options={[
-              { value: '체지방 감량 8주', label: '체지방 감량 8주' },
-              { value: '근력 강화 12주', label: '근력 강화 12주' },
-              { value: '재활/코어 안정화', label: '재활/코어 안정화' },
-              { value: '바디 프로필 준비', label: '바디 프로필 준비' },
-            ]}
+            options={programOptions.map((program) => ({ value: String(program.id), label: program.name }))}
           />
 
           <div className="grid gap-md md:grid-cols-2">
@@ -2669,12 +2748,13 @@ function MemberDetail() {
             value={programTrainer}
             onChange={setProgramTrainer}
             placeholder="담당 트레이너 지정"
-            options={[
-              { value: '이지원', label: '이지원' },
-              { value: '김민수', label: '김민수' },
-              { value: '최유리', label: '최유리' },
-            ]}
+            options={trainerOptions.map((trainer) => ({ value: String(trainer.id), label: trainer.name }))}
           />
+          {programOptions.length === 0 && (
+            <p className="rounded-xl border border-amber-200 bg-amber-50 px-md py-sm text-[12px] text-amber-700">
+              등록된 운동 프로그램이 없습니다. 먼저 운동 프로그램 관리에서 템플릿을 생성하세요.
+            </p>
+          )}
         </div>
       </Modal>
 

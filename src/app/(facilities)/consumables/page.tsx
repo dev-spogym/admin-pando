@@ -99,8 +99,8 @@ export default function ConsumablesPage() {
   return (
     <AppLayout>
       <PageHeader
-        title="소모품 재고 관리"
-        description="센터 운영 소모품의 재고를 추적하고 입출고·발주를 관리합니다."
+        title="소모품 재고 관리 (V2/후속)"
+        description="센터 운영 소모품의 재고, 입출고, 발주 흐름을 검토합니다."
         actions={
           <div className="flex items-center gap-sm">
             <Button type="button" variant="outline" size="md" icon={<RefreshCw size={14} className={loadState === 'loading' ? 'animate-spin' : ''} />}
@@ -113,6 +113,10 @@ export default function ConsumablesPage() {
           </div>
         }
       />
+
+      <div className="mb-lg rounded-xl border border-red-200 bg-red-50 px-md py-sm text-[12px] font-semibold text-red-700">
+        docs4 V2/후속 화면입니다. 소모품 품목, 입출고, 발주 원장은 후속 확정 후 DB에 연결하며 현재 화면의 변경은 퍼블리싱 검토용 상태입니다.
+      </div>
 
       {/* 오류 상태 */}
       {loadState === 'error' && (

@@ -4,9 +4,8 @@ export const dynamic = 'force-dynamic';
 // SCR-I007 회원 건강 연동 요약 (docs4 V1/V2 D11-통합운영)
 // 회원별 체성분·운동 이력·Health Connect(걸음/거리/활동kcal/운동세션) 연동 상태를 통합 요약.
 // admin은 조회 전용(연결/해제/권한 변경 불가). 심박수/수면/의료 데이터는 v1 미수집.
-// 데이터 미연동: 인라인 mock 기준 기능형 목업.
 
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import AppLayout from '@/components/layout/AppLayout';
 import PageHeader from '@/components/common/PageHeader';
 import StatCard from '@/components/common/StatCard';
@@ -18,6 +17,8 @@ import {
   Activity, Footprints, Flame, Dumbbell, CalendarCheck, Shirt, Package,
   Scale, Info, MessageSquare, Search, ChevronRight,
 } from 'lucide-react';
+import { getCurrentBranchId } from '@/lib/branchSettings';
+import { supabase } from '@/lib/supabase';
 
 // ─── 타입 ──────────────────────────────────────────────────────────────────
 
@@ -38,6 +39,7 @@ interface LessonRecord {
 
 interface MemberHealth {
   id: string;
+  memberId: number;
   name: string;
   age: number;
   lastCheckIn: string;        // 최근 출석
@@ -63,66 +65,6 @@ const HC_VARIANT: Record<HcStatus, BadgeVariant> = {
   미지원: 'secondary',
 };
 
-// ─── 인라인 mock ──────────────────────────────────────────────────────────
-
-const MOCK_MEMBERS: MemberHealth[] = [
-  {
-    id: 'M-001', name: '김민준', age: 34, lastCheckIn: '오늘 08:12',
-    clothingLocker: 'A-03', fixedLocker: 'P-01',
-    hcStatus: '연결됨', hcSource: 'Samsung Health', hcLastSync: '오늘 09:00',
-    weeklySteps: 58940, weeklyKcal: 2380, weeklyWorkoutDays: 5, weeklyDistance: 42.3,
-    inbody: [
-      { date: '2026-05-20', weight: 72.4, muscle: 34.2, fatRate: 16.8 },
-      { date: '2026-04-22', weight: 73.1, muscle: 33.8, fatRate: 17.5 },
-      { date: '2026-03-24', weight: 74.0, muscle: 33.2, fatRate: 18.4 },
-    ],
-    lessons: [
-      { date: '2026-05-27', name: '1:1 PT', trainer: '박코치' },
-      { date: '2026-05-25', name: '그룹 스피닝', trainer: '이코치' },
-    ],
-    goalRate: 82,
-  },
-  {
-    id: 'M-002', name: '이서연', age: 28, lastCheckIn: '오늘 07:35',
-    clothingLocker: null, fixedLocker: null,
-    hcStatus: '부분권한', hcSource: 'Google Fit', hcLastSync: '오늘 08:40',
-    weeklySteps: 71200, weeklyKcal: 2910, weeklyWorkoutDays: 6, weeklyDistance: 51.0,
-    inbody: [
-      { date: '2026-05-18', weight: 54.2, muscle: 23.1, fatRate: 22.4 },
-      { date: '2026-04-20', weight: 55.0, muscle: 22.7, fatRate: 23.1 },
-    ],
-    lessons: [{ date: '2026-05-26', name: '필라테스', trainer: '최코치' }],
-    goalRate: 95,
-  },
-  {
-    id: 'M-003', name: '박지훈', age: 45, lastCheckIn: '어제 21:10',
-    clothingLocker: null, fixedLocker: 'G-02',
-    hcStatus: '동기화지연', hcSource: 'Samsung Health', hcLastSync: '3일 전',
-    weeklySteps: 18200, weeklyKcal: 760, weeklyWorkoutDays: 2, weeklyDistance: 13.4,
-    inbody: [{ date: '2026-04-10', weight: 81.2, muscle: 35.0, fatRate: 24.8 }],
-    lessons: [],
-    goalRate: 38,
-  },
-  {
-    id: 'M-004', name: '최유리', age: 31, lastCheckIn: '오늘 09:02',
-    clothingLocker: 'A-06', fixedLocker: null,
-    hcStatus: '미연결', hcSource: '-', hcLastSync: '-',
-    weeklySteps: 0, weeklyKcal: 0, weeklyWorkoutDays: 0, weeklyDistance: 0,
-    inbody: [{ date: '2026-05-12', weight: 58.7, muscle: 24.6, fatRate: 25.2 }],
-    lessons: [{ date: '2026-05-24', name: '요가', trainer: '한코치' }],
-    goalRate: 60,
-  },
-  {
-    id: 'M-005', name: '정현우', age: 52, lastCheckIn: '오늘 06:20',
-    clothingLocker: null, fixedLocker: null,
-    hcStatus: '미지원', hcSource: '-', hcLastSync: '-',
-    weeklySteps: 0, weeklyKcal: 0, weeklyWorkoutDays: 0, weeklyDistance: 0,
-    inbody: [],
-    lessons: [],
-    goalRate: 0,
-  },
-];
-
 const HC_GUIDE: Record<HcStatus, string> = {
   연결됨: '회원앱(MA-159)에서 정상 연동되어 있습니다.',
   부분권한: '일부 권한만 허용되어 누락 지표가 있습니다. 회원앱(MA-159)에서 권한 수정을 안내하세요.',
@@ -131,12 +73,233 @@ const HC_GUIDE: Record<HcStatus, string> = {
   미지원: 'iOS 또는 미지원 단말로 Health Connect 연동이 불가합니다.',
 };
 
+type DbRow = Record<string, any>;
+
+function displayMemberNo(id: number) {
+  return `M-${String(id).padStart(5, '0')}`;
+}
+
+function toNumber(value: unknown, fallback = 0) {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : fallback;
+}
+
+function formatDate(value: string | null | undefined) {
+  if (!value) return '-';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '-';
+  return date.toISOString().slice(0, 10);
+}
+
+function calculateAge(value: string | null | undefined) {
+  if (!value) return 0;
+  const birth = new Date(value);
+  if (Number.isNaN(birth.getTime())) return 0;
+  const now = new Date();
+  let age = now.getFullYear() - birth.getFullYear();
+  const monthDiff = now.getMonth() - birth.getMonth();
+  if (monthDiff < 0 || (monthDiff === 0 && now.getDate() < birth.getDate())) age -= 1;
+  return Math.max(age, 0);
+}
+
+function formatRelativeCheckIn(value: string | null | undefined) {
+  if (!value) return '출석 이력 없음';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '출석 이력 없음';
+  const now = new Date();
+  const today = now.toISOString().slice(0, 10);
+  const target = date.toISOString().slice(0, 10);
+  const hhmm = `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
+  if (target === today) return `오늘 ${hhmm}`;
+  const yesterday = new Date(now);
+  yesterday.setDate(yesterday.getDate() - 1);
+  if (target === yesterday.toISOString().slice(0, 10)) return `어제 ${hhmm}`;
+  return target;
+}
+
+function mapInbody(rows: DbRow[]): InbodyRecord[] {
+  return rows.slice(0, 5).map((row) => ({
+    date: formatDate(row.date ?? row.createdAt),
+    weight: toNumber(row.weight),
+    muscle: toNumber(row.muscle),
+    fatRate: toNumber(row.fatRate ?? row.fat),
+  }));
+}
+
+function mapLessonRows(bookings: DbRow[], classMap: Map<number, DbRow>): LessonRecord[] {
+  return bookings.slice(0, 5).map((booking) => {
+    const klass = classMap.get(Number(booking.scheduleId));
+    return {
+      date: formatDate(booking.completedAt ?? booking.attendedAt ?? klass?.startTime ?? booking.createdAt),
+      name: klass?.title ?? '수업 이력',
+      trainer: klass?.staffName ?? booking.processedBy ?? '-',
+    };
+  });
+}
+
 // ─── 메인 컴포넌트 ─────────────────────────────────────────────────────────
 
 export default function HealthSummaryPage() {
-  const [members] = useState<MemberHealth[]>(MOCK_MEMBERS);
+  const [members, setMembers] = useState<MemberHealth[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [search, setSearch] = useState('');
-  const [selectedId, setSelectedId] = useState<string>(MOCK_MEMBERS[0]?.id ?? '');
+  const [selectedId, setSelectedId] = useState<string>('');
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadMembers = async () => {
+      setIsLoading(true);
+      const branchId = getCurrentBranchId();
+      try {
+        const { data: memberRows, error: memberError } = await supabase
+          .from('members')
+          .select('id, name, birthDate, registeredAt, membershipType, membershipExpiry, status, branchId')
+          .eq('branchId', branchId)
+          .is('deletedAt', null)
+          .order('name', { ascending: true });
+
+        if (memberError) throw memberError;
+
+        const ids = (memberRows ?? []).map((member) => Number(member.id)).filter(Number.isFinite);
+        if (ids.length === 0) {
+          if (!cancelled) {
+            setMembers([]);
+            setSelectedId('');
+          }
+          return;
+        }
+
+        const thirtyDaysAgo = new Date();
+        thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+
+        const [
+          attendanceResult,
+          lockerResult,
+          bodyResult,
+          bookingResult,
+        ] = await Promise.all([
+          supabase
+            .from('attendance')
+            .select('memberId, checkInAt')
+            .eq('branchId', branchId)
+            .in('memberId', ids)
+            .order('checkInAt', { ascending: false }),
+          supabase
+            .from('lockers')
+            .select('memberId, number, zone, status')
+            .eq('branchId', branchId)
+            .in('memberId', ids),
+          supabase
+            .from('body_compositions')
+            .select('memberId, date, weight, muscle, fat, fatRate, createdAt')
+            .in('memberId', ids)
+            .order('date', { ascending: false }),
+          supabase
+            .from('lesson_bookings')
+            .select('memberId, scheduleId, status, attendedAt, completedAt, createdAt, processedBy')
+            .eq('branchId', branchId)
+            .in('memberId', ids)
+            .order('createdAt', { ascending: false }),
+        ]);
+
+        if (attendanceResult.error) throw attendanceResult.error;
+        if (lockerResult.error) throw lockerResult.error;
+        if (bodyResult.error) throw bodyResult.error;
+        if (bookingResult.error) throw bookingResult.error;
+
+        const scheduleIds = Array.from(new Set((bookingResult.data ?? []).map((row) => Number(row.scheduleId)).filter(Number.isFinite)));
+        const classMap = new Map<number, DbRow>();
+        if (scheduleIds.length > 0) {
+          const { data: classRows, error: classError } = await supabase
+            .from('classes')
+            .select('id, title, staffName, startTime')
+            .eq('branchId', branchId)
+            .in('id', scheduleIds);
+          if (classError) throw classError;
+          (classRows ?? []).forEach((row) => classMap.set(Number(row.id), row));
+        }
+
+        const attendanceByMember = new Map<number, DbRow[]>();
+        (attendanceResult.data ?? []).forEach((row) => {
+          const memberId = Number(row.memberId);
+          const list = attendanceByMember.get(memberId) ?? [];
+          list.push(row);
+          attendanceByMember.set(memberId, list);
+        });
+
+        const lockerByMember = new Map<number, DbRow>();
+        (lockerResult.data ?? []).forEach((row) => {
+          if (row.memberId != null && row.status !== 'AVAILABLE') lockerByMember.set(Number(row.memberId), row);
+        });
+
+        const bodiesByMember = new Map<number, DbRow[]>();
+        (bodyResult.data ?? []).forEach((row) => {
+          const memberId = Number(row.memberId);
+          const list = bodiesByMember.get(memberId) ?? [];
+          list.push(row);
+          bodiesByMember.set(memberId, list);
+        });
+
+        const bookingsByMember = new Map<number, DbRow[]>();
+        (bookingResult.data ?? []).forEach((row) => {
+          const memberId = Number(row.memberId);
+          const list = bookingsByMember.get(memberId) ?? [];
+          list.push(row);
+          bookingsByMember.set(memberId, list);
+        });
+
+        const mapped: MemberHealth[] = (memberRows ?? []).map((member) => {
+          const memberId = Number(member.id);
+          const attendances = attendanceByMember.get(memberId) ?? [];
+          const locker = lockerByMember.get(memberId);
+          const monthlyVisits = attendances.filter((row) => {
+            const checkIn = new Date(row.checkInAt);
+            return !Number.isNaN(checkIn.getTime()) && checkIn >= thirtyDaysAgo;
+          }).length;
+          const lockerLabel = locker ? `${locker.zone ? `${locker.zone}-` : ''}${locker.number}` : null;
+
+          return {
+            id: displayMemberNo(memberId),
+            memberId,
+            name: member.name ?? `회원 ${memberId}`,
+            age: calculateAge(member.birthDate),
+            lastCheckIn: formatRelativeCheckIn(attendances[0]?.checkInAt),
+            clothingLocker: null,
+            fixedLocker: lockerLabel,
+            hcStatus: '미연결',
+            hcSource: '-',
+            hcLastSync: '-',
+            weeklySteps: 0,
+            weeklyKcal: 0,
+            weeklyWorkoutDays: 0,
+            weeklyDistance: 0,
+            inbody: mapInbody(bodiesByMember.get(memberId) ?? []),
+            lessons: mapLessonRows(bookingsByMember.get(memberId) ?? [], classMap),
+            goalRate: Math.min(100, Math.round((monthlyVisits / 12) * 100)),
+          };
+        });
+
+        if (!cancelled) {
+          setMembers(mapped);
+          setSelectedId((prev) => (mapped.some((member) => member.id === prev) ? prev : mapped[0]?.id ?? ''));
+        }
+      } catch (error) {
+        console.error(error);
+        if (!cancelled) {
+          setMembers([]);
+          setSelectedId('');
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    };
+
+    loadMembers();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const filtered = useMemo(
     () => members.filter((m) => !search.trim() || m.name.includes(search.trim()) || m.id.includes(search.trim())),
@@ -175,8 +338,10 @@ export default function HealthSummaryPage() {
               />
             </div>
           </div>
-          {filtered.length === 0 ? (
-            <EmptyState icon={Search} title="검색 결과가 없습니다" />
+          {isLoading ? (
+            <div className="p-md text-[13px] text-content-secondary">회원 건강 요약을 불러오는 중입니다.</div>
+          ) : filtered.length === 0 ? (
+            <EmptyState icon={Search} title={members.length === 0 ? '조회 가능한 회원이 없습니다' : '검색 결과가 없습니다'} />
           ) : (
             <ul className="max-h-[640px] divide-y divide-line overflow-auto">
               {filtered.map((m) => (
@@ -190,7 +355,7 @@ export default function HealthSummaryPage() {
                   >
                     <div>
                       <p className="text-[13px] font-semibold text-content">{m.name}</p>
-                      <p className="text-[11px] text-content-tertiary">{m.age}세 · {m.id}</p>
+                      <p className="text-[11px] text-content-tertiary">{m.age > 0 ? `${m.age}세` : '나이 미등록'} · {m.id}</p>
                     </div>
                     <div className="flex items-center gap-xs">
                       <StatusBadge variant={HC_VARIANT[m.hcStatus]} label={m.hcStatus} />
@@ -350,6 +515,9 @@ export default function HealthSummaryPage() {
             {/* 상담 메모 바로가기 */}
             <button
               type="button"
+              onClick={() => {
+                window.location.href = `/members/detail?id=${selected.memberId}&tab=consultation`;
+              }}
               className="flex w-full items-center justify-between rounded-xl border border-line bg-white px-lg py-md text-left hover:bg-surface-secondary"
             >
               <div className="flex items-center gap-sm">

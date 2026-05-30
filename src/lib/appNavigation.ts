@@ -88,6 +88,18 @@ export const APP_MENU_ITEMS: NavigationMenuItem[] = [
     ],
   },
   {
+    label: "직원",
+    iconKey: "users",
+    path: "/staff",
+    children: [
+      { label: "직원 관리", path: "/staff", viewId: 974 },
+      { label: "직원 등록", path: "/staff/new", viewId: 998 },
+      { label: "직원 근태", path: "/staff/attendance" },
+      { label: "급여 관리", path: "/payroll", viewId: 976 },
+      { label: "급여 명세서", path: "/payroll/statements", viewId: 989 },
+    ],
+  },
+  {
     label: "매출",
     iconKey: "trendingUp",
     path: "/sales",
@@ -137,15 +149,6 @@ export const APP_MENU_ITEMS: NavigationMenuItem[] = [
     ],
   },
   {
-    label: "급여",
-    iconKey: "dollarSign",
-    path: "/payroll",
-    children: [
-      { label: "급여 관리", path: "/payroll", viewId: 976 },
-      { label: "급여 명세서", path: "/payroll/statements", viewId: 989 },
-    ],
-  },
-  {
     label: "영업/마케팅",
     iconKey: "messageSquare",
     path: "/message",
@@ -167,8 +170,6 @@ export const APP_MENU_ITEMS: NavigationMenuItem[] = [
     path: "/settings",
     children: [
       { label: "센터 설정", path: "/settings", viewId: 975 },
-      { label: "직원 관리", path: "/staff", viewId: 974 },
-      { label: "직원 근태", path: "/staff/attendance" },
       { label: "운동 프로그램", path: "/exercise-programs" },
       { label: "권한 설정", path: "/settings/permissions", viewId: 996 },
       { label: "키오스크", path: "/settings/kiosk", viewId: 994 },

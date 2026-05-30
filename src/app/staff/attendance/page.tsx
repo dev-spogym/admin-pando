@@ -21,6 +21,7 @@ import { supabase } from '@/lib/supabase';
 import { useAuthStore } from '@/stores/authStore';
 import { normalizeRole, isRoleAtLeast } from '@/lib/permissions';
 import {
+  createStaffAttendance,
   getStaffAttendance,
   updateStaffAttendance,
   type StaffAttendanceItem,
@@ -218,30 +219,46 @@ export default function StaffAttendance() {
       after,
     };
 
-    // 기존 기록이 있으면 DB 업데이트, 없으면(누락 추가) 로컬 상태만 반영(목업)
     const isNew = !correctRow.id;
+    const source: AttendanceSource = isNew ? '누락 추가' : '수동 보정';
+    const corrections = [...correctRow.corrections, correction];
+    let savedRow: StaffAttendanceItem | null = null;
+
     if (!isNew) {
-      const { error } = await updateStaffAttendance(correctRow.id, {
+      const { data, error } = await updateStaffAttendance(correctRow.id, {
+        date: correctRow.date || selectedDate,
         clockIn: correctForm.clockIn || undefined,
         clockOut: correctForm.clockOut || undefined,
         status: correctForm.status,
+        source,
+        corrections,
+        memo: correctForm.reason,
       });
       if (error) { toast.error('근태 보정에 실패했습니다.'); return; }
-    }
-
-    setAttendances(prev => {
-      const exists = prev.find(a => a.id === correctRow.id && correctRow.id !== 0);
-      const source: AttendanceSource = isNew ? '누락 추가' : '수동 보정';
-      const updated: StaffAttendanceItem = {
-        ...correctRow,
+      savedRow = data;
+    } else {
+      const { data, error } = await createStaffAttendance({
+        staffId: correctRow.staffId,
+        staffName: correctRow.staffName,
+        date: correctRow.date || selectedDate,
         clockIn: correctForm.clockIn || null,
         clockOut: correctForm.clockOut || null,
         status: correctForm.status,
         source,
-        corrections: [...correctRow.corrections, correction],
-      };
-      if (exists) return prev.map(a => a.id === correctRow.id ? updated : a);
-      return [...prev, { ...updated, id: updated.id || Date.now() }];
+        corrections,
+        memo: correctForm.reason,
+        branchId: getBranchId(),
+      });
+      if (error) { toast.error('누락 근태 추가에 실패했습니다.'); return; }
+      savedRow = data;
+    }
+
+    if (!savedRow) { toast.error('근태 저장 결과를 확인하지 못했습니다.'); return; }
+
+    setAttendances(prev => {
+      const exists = prev.find(a => a.id === correctRow.id && correctRow.id !== 0);
+      if (exists) return prev.map(a => a.id === correctRow.id ? savedRow : a);
+      return [...prev, savedRow];
     });
     toast.success(isNew ? '누락 근태가 추가되었습니다.' : '근태가 보정되었습니다.');
     setCorrectRow(null);

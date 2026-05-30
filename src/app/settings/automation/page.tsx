@@ -1,7 +1,7 @@
 'use client';
 export const dynamic = 'force-dynamic';
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import AppLayout from '@/components/layout/AppLayout';
 import PageHeader from '@/components/common/PageHeader';
 import StatCard from '@/components/common/StatCard';
@@ -32,6 +32,7 @@ import {
   type AutomationPolicyType,
   type AutomationStep,
 } from '@/mocks/settings';
+import { loadBranchSetting, saveBranchSetting } from '@/lib/branchSettings';
 
 type LoadState = 'loading' | 'ready' | 'error';
 // 권한 데모: owner만 변경 가능, manager는 조회 전용
@@ -52,6 +53,20 @@ export default function SettingsAutomationPage() {
   const [assets, setAssets] = useState(ASSET_RECOVERY_POLICIES);
   const [dirty, setDirty] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
+
+  useEffect(() => {
+    let mounted = true;
+    loadBranchSetting<{ steps: AutomationStep[]; assets: typeof ASSET_RECOVERY_POLICIES }>('automation_apply_settings', {
+      steps: AUTOMATION_STEPS,
+      assets: ASSET_RECOVERY_POLICIES,
+    }).then((saved) => {
+      if (!mounted) return;
+      setSteps(saved.steps ?? AUTOMATION_STEPS);
+      setAssets(saved.assets ?? ASSET_RECOVERY_POLICIES);
+      setDirty(false);
+    });
+    return () => { mounted = false; };
+  }, []);
 
   const canEdit = viewerRole === 'owner';
   const policyType = activeTab as AutomationPolicyType;
@@ -109,7 +124,12 @@ export default function SettingsAutomationPage() {
     toast.success('본사 기본값으로 복원했습니다');
   };
 
-  const handleConfirmApply = () => {
+  const handleConfirmApply = async () => {
+    const error = await saveBranchSetting('automation_apply_settings', { steps, assets });
+    if (error) {
+      toast.error(`지점 자동화 적용 설정 저장 실패: ${error}`);
+      return;
+    }
     setShowConfirm(false);
     setDirty(false);
     toast.success('지점 자동화 적용 설정을 저장했습니다');

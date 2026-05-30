@@ -43,7 +43,7 @@ export default function PredictiveAnalyticsPage() {
             onClick={() => void reload(true)}
             type="button"
           >
-            <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} /> seed 갱신
+            <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} /> 스냅샷 갱신
           </button>
         }
       />

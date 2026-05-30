@@ -16,10 +16,11 @@ import Modal from '@/components/ui/Modal';
 import { cn } from '@/lib/utils';
 import { useAuthStore } from '@/stores/authStore';
 import { hasPermission } from '@/lib/permissions';
+import { supabase } from '@/lib/supabase';
 
 // ─── SCR-M007 회원 병합 (MBR-EXT-01) ──────────────────────────────────────────
 // docs4/V1/D02-회원관리/회원관리.md ## SCR-M007
-// 기능형 목업: 중복 의심 회원 검색 → 주/부 계정 지정 → 비교 → 병합 확인 다이얼로그
+// DB 연결: 중복 의심 회원 검색 → 주/부 계정 지정 → 비교 → 이력 이전 → 부계정 비활성
 // 4축 상태: 로딩(스켈레톤) / 정상(검색 결과) / 빈(검색 0건) / 오류(권한·환불 차단)
 
 type MergeCandidate = {
@@ -34,14 +35,21 @@ type MergeCandidate = {
   refundInProgress: boolean; // 부 계정 환불 진행 중 → 병합 차단 케이스
 };
 
-// 같은 이름/생년월일이 겹치는 "중복 의심" mock 명단
-const MOCK_DUPLICATES: MergeCandidate[] = [
-  { id: 1001, name: '김철수', phone: '010-1234-5678', birthDate: '1990-05-15', membership: 'PT 20회', registeredAt: '2024-01-10', lastVisit: '2026-05-20', status: '활성', refundInProgress: false },
-  { id: 1042, name: '김철수', phone: '010-1234-9999', birthDate: '1990-05-15', membership: '헬스 3개월', registeredAt: '2025-08-02', lastVisit: '2026-04-11', status: '만료', refundInProgress: false },
-  { id: 1103, name: '이영희', phone: '010-9876-5432', birthDate: '1988-11-20', membership: '필라테스 30회', registeredAt: '2023-06-15', lastVisit: '2026-05-18', status: '활성', refundInProgress: false },
-  { id: 1188, name: '이영희', phone: '010-9876-0000', birthDate: '1988-11-20', membership: '요가 10회', registeredAt: '2025-12-01', lastVisit: '2026-03-02', status: '홀딩', refundInProgress: true },
-  { id: 1230, name: '박지성', phone: '010-5555-4444', birthDate: '1992-03-10', membership: 'PT 10회', registeredAt: '2024-10-15', lastVisit: '2026-02-10', status: '만료', refundInProgress: false },
-];
+const getBranchId = () => {
+  if (typeof window === 'undefined') return 1;
+  return Number(localStorage.getItem('branchId') || '1');
+};
+
+const formatDate = (value: unknown, fallback = '-') => {
+  if (typeof value !== 'string' || !value) return fallback;
+  return value.slice(0, 10);
+};
+
+const mapStatus = (status: unknown): MergeCandidate['status'] => {
+  if (status === 'ACTIVE') return '활성';
+  if (status === 'HOLDING') return '홀딩';
+  return '만료';
+};
 
 const STATUS_VARIANT: Record<MergeCandidate['status'], 'success' | 'error' | 'warning'> = {
   활성: 'success',
@@ -142,12 +150,49 @@ function MemberMerge() {
   const handleSearch = async () => {
     setLoading(true);
     setSearched(false);
-    await new Promise((r) => setTimeout(r, 500)); // mock 비동기 검색
     const q = search.trim();
-    const matched = q
-      ? MOCK_DUPLICATES.filter((m) => m.name.includes(q) || m.phone.includes(q) || m.birthDate.includes(q))
-      : MOCK_DUPLICATES;
-    setResults(matched);
+    let query = supabase
+      .from('members')
+      .select('id, name, phone, birthDate, membershipType, registeredAt, lastVisitAt, status, branchId')
+      .eq('branchId', getBranchId())
+      .is('deletedAt', null)
+      .limit(30);
+
+    if (q) {
+      const filters = [`name.ilike.%${q}%`, `phone.ilike.%${q}%`];
+      if (/^\d{4}-\d{2}-\d{2}$/.test(q)) filters.push(`birthDate.eq.${q}`);
+      query = query.or(filters.join(','));
+    }
+
+    const { data, error } = await query.order('name', { ascending: true });
+    if (error) {
+      toast.error('회원 검색에 실패했습니다.');
+      setResults([]);
+    } else {
+      const memberRows = data ?? [];
+      const ids = memberRows.map((member) => Number(member.id));
+      const refundIds = new Set<number>();
+      if (ids.length > 0) {
+        const { data: saleRows } = await supabase
+          .from('sales')
+          .select('memberId, status')
+          .in('memberId', ids)
+          .in('status', ['refund_requested', 'refund_pending', 'REFUND_REQUESTED', 'REFUND_PENDING']);
+        (saleRows ?? []).forEach((sale) => refundIds.add(Number(sale.memberId)));
+      }
+      const mapped: MergeCandidate[] = memberRows.map((member: Record<string, unknown>) => ({
+        id: Number(member.id),
+        name: String(member.name ?? ''),
+        phone: String(member.phone ?? ''),
+        birthDate: formatDate(member.birthDate),
+        membership: String(member.membershipType ?? '이용권 없음'),
+        registeredAt: formatDate(member.registeredAt),
+        lastVisit: formatDate(member.lastVisitAt),
+        status: mapStatus(member.status),
+        refundInProgress: refundIds.has(Number(member.id)),
+      }));
+      setResults(mapped);
+    }
     setPrimaryId(null);
     setSecondaryId(null);
     setSearched(true);
@@ -163,12 +208,87 @@ function MemberMerge() {
   };
 
   const handleMerge = async () => {
+    if (!primary || !secondary) return;
     if (confirmText.trim() !== '병합') {
       toast.error('확인 문구가 일치하지 않습니다.');
       return;
     }
     setMerging(true);
-    await new Promise((r) => setTimeout(r, 900));
+    const relationTables = [
+      'sales',
+      'attendance',
+      'body_compositions',
+      'contracts',
+      'member_memos',
+      'consultations',
+      'member_evaluations',
+      'exercise_logs',
+      'member_exercise_programs',
+      'member_family_members',
+    ];
+
+    for (const table of relationTables) {
+      const { error } = await supabase
+        .from(table)
+        .update({ memberId: primary.id })
+        .eq('memberId', secondary.id);
+      if (error) {
+        setMerging(false);
+        toast.error(`병합 중 ${table} 이력 이전에 실패했습니다.`);
+        return;
+      }
+    }
+
+    const { data: primaryGoal } = await supabase
+      .from('member_goals')
+      .select('id')
+      .eq('memberId', primary.id)
+      .maybeSingle();
+    if (primaryGoal) {
+      await supabase.from('member_goals').delete().eq('memberId', secondary.id);
+    } else {
+      await supabase.from('member_goals').update({ memberId: primary.id }).eq('memberId', secondary.id);
+    }
+
+    const { data: primaryLocker } = await supabase
+      .from('lockers')
+      .select('id')
+      .eq('memberId', primary.id)
+      .maybeSingle();
+    if (primaryLocker) {
+      await supabase.from('lockers').update({ memberId: null, memberName: null }).eq('memberId', secondary.id);
+    } else {
+      await supabase.from('lockers').update({ memberId: primary.id, memberName: primary.name }).eq('memberId', secondary.id);
+    }
+
+    const { error: memberError } = await supabase
+      .from('members')
+      .update({
+        status: 'WITHDRAWN',
+        deletedAt: new Date().toISOString(),
+        previousMemberId: primary.id,
+        memo: `회원 병합으로 비활성화됨. 주 계정 #${primary.id}`,
+      })
+      .eq('id', secondary.id);
+
+    if (memberError) {
+      setMerging(false);
+      toast.error('부 계정 비활성화에 실패했습니다.');
+      return;
+    }
+
+    await supabase.from('member_merge_logs').insert({
+      primaryMemberId: primary.id,
+      secondaryMemberId: secondary.id,
+      branchId: getBranchId(),
+      mergedBy: authUser?.name ?? '관리자',
+      detail: {
+        primaryName: primary.name,
+        secondaryName: secondary.name,
+        transferredTables: relationTables,
+      },
+    });
+
     setMerging(false);
     setConfirmOpen(false);
     setConfirmText('');

@@ -267,7 +267,13 @@ export default function LessonManagement() {
 
   // ── 노쇼/취소 정책 로드 ──────────────────────────────────────
   const fetchPolicy = async () => {
-    const policy = readBranchJson<Record<string, unknown>>('lesson_policy', {}, branchId);
+    const localPolicy = readBranchJson<Record<string, unknown>>('lesson_policy', {}, branchId);
+    const { data: dbPolicy } = await supabase
+      .from('lesson_policy_settings')
+      .select('cancelDeadlineHours,noShowDeductsSession,autoCompleteHours,lateCancelPenalty,maxNoShowCount,reservationAutoOpenHours,waitlistEnabled,waitlistAutoPromote,noshowAutoDeduct,noshowDeductCount')
+      .eq('branchId', branchId)
+      .maybeSingle();
+    const policy = { ...localPolicy, ...(dbPolicy ?? {}) };
     setCancelDeadlineHours(String(policy.cancelDeadlineHours ?? '3'));
     setNoShowDeductsSession((policy.noShowDeductsSession as boolean | undefined) ?? true);
     setAutoCompleteHours(String(policy.autoCompleteHours ?? '24'));
@@ -280,7 +286,7 @@ export default function LessonManagement() {
 
   const savePolicy = async () => {
     setPolicySaving(true);
-    const policyValue = JSON.stringify({
+    const policy = {
       cancelDeadlineHours: Number(cancelDeadlineHours) || 3,
       noShowDeductsSession,
       autoCompleteHours: Number(autoCompleteHours) || 24,
@@ -289,9 +295,21 @@ export default function LessonManagement() {
       reservationAutoOpenHours: Number(reservationAutoOpenHours) || 48,
       waitlistEnabled,
       waitlistAutoPromote,
-    });
+      noshowAutoDeduct: noShowDeductsSession,
+      noshowDeductCount: 1,
+    };
 
-    writeBranchJson('lesson_policy', JSON.parse(policyValue), branchId);
+    const { error } = await supabase
+      .from('lesson_policy_settings')
+      .upsert({ branchId, ...policy }, { onConflict: 'branchId' });
+
+    if (error) {
+      setPolicySaving(false);
+      toast.error(`노쇼/취소 정책 저장에 실패했습니다: ${error.message}`);
+      return;
+    }
+
+    writeBranchJson('lesson_policy', policy, branchId);
     setPolicySaving(false);
     toast.success('노쇼/취소 정책이 저장되었습니다.');
     setPolicyOpen(false);

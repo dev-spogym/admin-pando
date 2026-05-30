@@ -26,11 +26,12 @@ import { getTodayTasks, type TodayTask } from "@/lib/todayTasks";
 import { cn } from "@/lib/utils";
 import Select from '@/components/ui/Select';
 import Textarea from '@/components/ui/Textarea';
+import { loadBranchSetting, saveBranchSetting } from '@/lib/branchSettings';
 
 type StatusFilter = "all" | "대기" | "진행중" | "완료";
 type EditableTask = TodayTask & { source: "hq" };
 
-const STORAGE_KEY = "today_tasks_custom";
+const SETTINGS_KEY = "today_tasks_custom";
 
 const CATEGORY_OPTIONS: TodayTask["category"][] = ["상담", "재등록", "출석회복", "PT관리", "운영", "매출", "수업"];
 const PRIORITY_OPTIONS: TodayTask["priority"][] = ["긴급", "높음", "보통"];
@@ -93,21 +94,22 @@ export default function TodayTasks() {
   const [customTasks, setCustomTasks] = useState<EditableTask[]>([]);
   const [form, setForm] = useState({ ...EMPTY_FORM });
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [settingsReady, setSettingsReady] = useState(false);
 
   useEffect(() => {
-    try {
-      const saved = localStorage.getItem(STORAGE_KEY);
-      if (!saved) return;
-      const parsed = JSON.parse(saved) as EditableTask[];
-      if (Array.isArray(parsed)) setCustomTasks(parsed);
-    } catch {
-      localStorage.removeItem(STORAGE_KEY);
-    }
+    let mounted = true;
+    loadBranchSetting<EditableTask[]>(SETTINGS_KEY, []).then((saved) => {
+      if (!mounted) return;
+      if (Array.isArray(saved)) setCustomTasks(saved);
+      setSettingsReady(true);
+    });
+    return () => { mounted = false; };
   }, []);
 
   useEffect(() => {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(customTasks));
-  }, [customTasks]);
+    if (!settingsReady) return;
+    void saveBranchSetting(SETTINGS_KEY, customTasks);
+  }, [customTasks, settingsReady]);
 
   const visibleCustomTasks = useMemo(
     () =>
@@ -416,7 +418,7 @@ export default function TodayTasks() {
                         prev.map(t => t.id === task.id ? { ...t, status: nextStatus } : t)
                       );
                     } else {
-                      // 랜덤 배정 태스크는 로컬 상태로 오버라이드
+                      // 랜덤 배정 태스크는 DB 설정에 오버라이드로 저장
                       setCustomTasks(prev => {
                         const exists = prev.find(t => t.id === task.id);
                         if (exists) {
@@ -448,7 +450,7 @@ export default function TodayTasks() {
         </div>
         <p className="text-[12px] leading-6 text-content-secondary">
           AI 없이 본사 업무 풀 100개를 기준으로, 오늘 날짜와 현재 지점/역할을 조합해 랜덤 배정합니다.
-          실제 HQ DB가 연결되면 같은 화면 구조로 데이터만 교체하면 됩니다.
+          직접 추가·수정·상태 변경한 업무는 DB 설정에 저장되어 새로고침 후에도 유지됩니다.
         </p>
       </div>
     </AppLayout>

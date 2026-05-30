@@ -6,7 +6,7 @@ export const dynamic = 'force-dynamic';
 // 반영: 상태 필터(준비/진행/종료), 실적 추적 패널(도달·클릭·전환·ROI),
 //       등록 시 세그먼트 0명·시작일>종료일·채널 미연결·예산 0 차단, 빈 상태 CTA, 로딩/오류 상태
 
-import React, { useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Megaphone, Plus, Trash2, RefreshCw, Send, TrendingUp, Coins } from 'lucide-react';
 import AppLayout from '@/components/layout/AppLayout';
 import PageHeader from '@/components/common/PageHeader';
@@ -22,14 +22,19 @@ import MultiSelect from '@/components/ui/MultiSelect';
 import ConfirmDialog from '@/components/ui/ConfirmDialog';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
+import { supabase } from '@/lib/supabase';
 import {
-  MOCK_CAMPAIGNS,
   CAMPAIGN_SEGMENTS,
   CAMPAIGN_CHANNELS,
   type MarketingCampaign,
   type CampaignStatus,
   type CampaignGoal,
 } from '@/mocks/marketing';
+
+const getBranchId = () => {
+  if (typeof window === 'undefined') return 1;
+  return Number(localStorage.getItem('branchId') || '1');
+};
 
 const STATUS_BADGE: Record<CampaignStatus, { variant: 'success' | 'warning' | 'default'; label: string }> = {
   준비: { variant: 'warning', label: '준비 중' },
@@ -59,12 +64,49 @@ const EMPTY_FORM = {
 
 export default function CampaignsPage() {
   const [loadState, setLoadState] = useState<LoadState>('ready');
-  const [campaigns, setCampaigns] = useState<MarketingCampaign[]>(MOCK_CAMPAIGNS);
+  const [campaigns, setCampaigns] = useState<MarketingCampaign[]>([]);
   const [filter, setFilter] = useState<'전체' | CampaignStatus>('전체');
 
   const [createOpen, setCreateOpen] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<MarketingCampaign | null>(null);
   const [form, setForm] = useState({ ...EMPTY_FORM });
+
+  const loadCampaigns = useCallback(async () => {
+    setLoadState('loading');
+    const { data, error } = await supabase
+      .from('marketing_campaigns')
+      .select('*')
+      .eq('branchId', getBranchId())
+      .order('createdAt', { ascending: false });
+
+    if (error) {
+      setLoadState('error');
+      toast.error(`캠페인 정보를 불러오지 못했습니다: ${error.message}`);
+      return;
+    }
+
+    setCampaigns((data ?? []).map((row: any) => ({
+      id: row.id,
+      name: row.name,
+      goal: row.goal,
+      segment: row.segment,
+      segmentSize: Number(row.segmentSize ?? 0),
+      startDate: row.startDate,
+      endDate: row.endDate,
+      status: row.status,
+      channels: Array.isArray(row.channels) ? row.channels : [],
+      budget: Number(row.budget ?? 0),
+      reach: Number(row.reach ?? 0),
+      clicks: Number(row.clicks ?? 0),
+      conversions: Number(row.conversions ?? 0),
+      cost: Number(row.cost ?? 0),
+    })));
+    setLoadState('ready');
+  }, []);
+
+  useEffect(() => {
+    void loadCampaigns();
+  }, [loadCampaigns]);
 
   const stats = useMemo(() => {
     const active = campaigns.filter((c) => c.status === '진행').length;
@@ -81,7 +123,7 @@ export default function CampaignsPage() {
 
   const resetForm = () => setForm({ ...EMPTY_FORM });
 
-  const handleCreate = (e: React.FormEvent) => {
+  const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
     // 필수 예외처리 (docs4 SCR-076 / DLG-076-001)
     if (!form.name.trim()) { toast.error('캠페인 이름을 입력하세요.'); return; }
@@ -92,9 +134,10 @@ export default function CampaignsPage() {
     const budget = Number(form.budget);
     if (!budget || budget <= 0) { toast.error('예산은 0보다 커야 합니다.'); return; }
 
-    setCampaigns((prev) => [
-      {
-        id: Math.max(0, ...prev.map((c) => c.id)) + 1,
+    const { error } = await supabase
+      .from('marketing_campaigns')
+      .insert({
+        branchId: getBranchId(),
         name: form.name.trim(),
         goal: form.goal,
         segment: form.segment,
@@ -104,18 +147,31 @@ export default function CampaignsPage() {
         status: '준비',
         channels: form.channels,
         budget,
-        reach: 0, clicks: 0, conversions: 0, cost: 0,
-      },
-      ...prev,
-    ]);
+      });
+
+    if (error) {
+      toast.error(`캠페인 저장 실패: ${error.message}`);
+      return;
+    }
+
+    await loadCampaigns();
     setCreateOpen(false);
     resetForm();
     toast.success('저장되었습니다.');
   };
 
-  const handleDelete = () => {
+  const handleDelete = async () => {
     if (!deleteTarget) return;
-    setCampaigns((prev) => prev.filter((c) => c.id !== deleteTarget.id));
+    const { error } = await supabase
+      .from('marketing_campaigns')
+      .delete()
+      .eq('id', deleteTarget.id)
+      .eq('branchId', getBranchId());
+    if (error) {
+      toast.error(`캠페인 삭제 실패: ${error.message}`);
+      return;
+    }
+    await loadCampaigns();
     setDeleteTarget(null);
     toast.success('처리되었습니다.');
   };
@@ -128,7 +184,7 @@ export default function CampaignsPage() {
         actions={
           <div className="flex items-center gap-sm">
             <Button type="button" variant="outline" size="md" icon={<RefreshCw size={14} className={loadState === 'loading' ? 'animate-spin' : ''} />}
-              onClick={() => { setLoadState('loading'); setTimeout(() => { setCampaigns(MOCK_CAMPAIGNS); setLoadState('ready'); }, 500); }}>
+              onClick={() => { void loadCampaigns(); }}>
               새로고침
             </Button>
             <Button type="button" variant="primary" size="md" icon={<Plus size={14} />} onClick={() => { resetForm(); setCreateOpen(true); }}>

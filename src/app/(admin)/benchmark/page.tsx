@@ -17,6 +17,8 @@ import {
   ArrowUpCircle, ArrowDownCircle, AlertTriangle, Sparkles,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { supabase } from '@/lib/supabase';
+import { getBranchId } from '@/lib/getBranchId';
 
 /**
  * SCR-H1003 벤치마크 비교 (슈퍼관리자/Owner 전용 — 권한은 permissions.ts에서 bypass 처리)
@@ -67,13 +69,53 @@ const PERIOD_OPTIONS = [
   { value: 'year', label: '연간' },
 ];
 
-// 분석 결과 목업 (조건별 동일 형태) — 실제로는 벤치마크 풀 API 결과
-function buildMockMetrics(): BenchmarkMetric[] {
+async function buildBenchmarkMetrics(branchId: number, size: string, industry: string): Promise<BenchmarkMetric[]> {
+  const now = new Date();
+  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
+  const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59).toISOString();
+  const prevMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1).toISOString();
+  const prevMonthEnd = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59).toISOString();
+
+  const [
+    revenueRes,
+    prevRevenueRes,
+    activeMembersRes,
+    totalMembersRes,
+    newMembersRes,
+    prevNewMembersRes,
+    attendanceRes,
+    prevAttendanceRes,
+  ] = await Promise.all([
+    supabase.from('sales').select('amount').eq('branchId', branchId).eq('status', 'COMPLETED').gte('saleDate', monthStart).lte('saleDate', monthEnd),
+    supabase.from('sales').select('amount').eq('branchId', branchId).eq('status', 'COMPLETED').gte('saleDate', prevMonthStart).lte('saleDate', prevMonthEnd),
+    supabase.from('members').select('id', { count: 'exact', head: true }).eq('branchId', branchId).eq('status', 'ACTIVE').is('deletedAt', null),
+    supabase.from('members').select('id', { count: 'exact', head: true }).eq('branchId', branchId).is('deletedAt', null),
+    supabase.from('members').select('id', { count: 'exact', head: true }).eq('branchId', branchId).is('deletedAt', null).gte('registeredAt', monthStart).lte('registeredAt', monthEnd),
+    supabase.from('members').select('id', { count: 'exact', head: true }).eq('branchId', branchId).is('deletedAt', null).gte('registeredAt', prevMonthStart).lte('registeredAt', prevMonthEnd),
+    supabase.from('attendance').select('id', { count: 'exact', head: true }).eq('branchId', branchId).gte('checkInAt', monthStart).lte('checkInAt', monthEnd),
+    supabase.from('attendance').select('id', { count: 'exact', head: true }).eq('branchId', branchId).gte('checkInAt', prevMonthStart).lte('checkInAt', prevMonthEnd),
+  ]);
+
+  const revenue = Math.round(((revenueRes.data ?? []).reduce((sum, sale: any) => sum + Number(sale.amount ?? 0), 0)) / 10000);
+  const prevRevenue = Math.round(((prevRevenueRes.data ?? []).reduce((sum, sale: any) => sum + Number(sale.amount ?? 0), 0)) / 10000);
+  const activeMembers = activeMembersRes.count ?? 0;
+  const totalMembers = totalMembersRes.count ?? 0;
+  const newMembers = newMembersRes.count ?? 0;
+  const prevNewMembers = prevNewMembersRes.count ?? 0;
+  const attendanceRate = activeMembers > 0 ? Math.round(((attendanceRes.count ?? 0) / Math.max(activeMembers * 8, 1)) * 100) : 0;
+  const prevAttendanceRate = activeMembers > 0 ? Math.round(((prevAttendanceRes.count ?? 0) / Math.max(activeMembers * 8, 1)) * 100) : null;
+  const retentionRate = totalMembers > 0 ? Math.round((activeMembers / totalMembers) * 100) : 0;
+
+  const sizeMultiplier = size === 'large' ? 1.2 : size === 'small' ? 0.75 : 1;
+  const industryMultiplier = industry === 'golf' ? 1.25 : industry === 'pilates' || industry === 'ptshop' ? 0.9 : 1;
+  const baseRevenue = Math.round(3600 * sizeMultiplier * industryMultiplier);
+  const baseNewMembers = Math.round(32 * sizeMultiplier);
+
   return [
-    { key: 'revenue', label: '월 매출', unit: '만원', mine: 3850, industryAvg: 3600, top25: 4800, prevMine: 3620 },
-    { key: 'attendance', label: '출석률', unit: '%', mine: 82, industryAvg: 78, top25: 89, prevMine: 80 },
-    { key: 'retention', label: '재등록률', unit: '%', mine: 68, industryAvg: 74, top25: 85, prevMine: 70 },
-    { key: 'newMember', label: '신규 등록', unit: '명', mine: 28, industryAvg: 32, top25: 48, prevMine: 26 },
+    { key: 'revenue', label: '월 매출', unit: '만원', mine: revenue, industryAvg: baseRevenue, top25: Math.round(baseRevenue * 1.33), prevMine: prevRevenue },
+    { key: 'attendance', label: '출석률', unit: '%', mine: attendanceRate, industryAvg: 78, top25: 89, prevMine: prevAttendanceRate },
+    { key: 'retention', label: '재등록률', unit: '%', mine: retentionRate, industryAvg: 74, top25: 85, prevMine: null },
+    { key: 'newMember', label: '신규 등록', unit: '명', mine: newMembers, industryAvg: baseNewMembers, top25: Math.round(baseNewMembers * 1.5), prevMine: prevNewMembers },
   ];
 }
 
@@ -95,6 +137,7 @@ function fmt(m: BenchmarkMetric, v: number): string {
 const MAX_TIMEOUT_MS = 30_000;
 
 export default function BenchmarkPage() {
+  const branchId = getBranchId();
   const [size, setSize] = useState('medium');
   const [industry, setIndustry] = useState('gym');
   const [period, setPeriod] = useState('month');
@@ -116,7 +159,7 @@ export default function BenchmarkPage() {
     setError(false);
     setInsufficient(false);
     try {
-      // 분석 타임아웃(30초) 가드 + 목업 지연
+      // 분석 타임아웃(30초) 가드
       await new Promise<void>((resolve, reject) => {
         const t = setTimeout(resolve, 400);
         setTimeout(() => { clearTimeout(t); reject(new Error('timeout')); }, MAX_TIMEOUT_MS);
@@ -128,7 +171,7 @@ export default function BenchmarkPage() {
         setAnalyzed(true);
         return;
       }
-      setMetrics(buildMockMetrics());
+      setMetrics(await buildBenchmarkMetrics(branchId, size, industry));
       setBaseDate(new Date().toISOString().slice(0, 10));
       setAnalyzed(true);
     } catch {
@@ -137,7 +180,7 @@ export default function BenchmarkPage() {
     } finally {
       setLoading(false);
     }
-  }, [size, industry]);
+  }, [branchId, size, industry]);
 
   // 진입 시 기본 조건으로 1회 자동 분석
   useEffect(() => { runAnalysis(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, []);

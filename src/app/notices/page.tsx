@@ -20,6 +20,8 @@ import {
   type Notice,
 } from '@/api/endpoints/notices';
 import { useAuthStore } from '@/stores/authStore';
+import { supabase } from '@/lib/supabase';
+import { getCurrentBranchId } from '@/lib/branchSettings';
 
 // --- 게시 대상 역할 (docs4 SCR-085: 전체 / 특정 역할 다중 선택) ---
 const TARGET_ROLES = [
@@ -47,26 +49,11 @@ const STATUS_META: Record<NoticeStatus, { label: string; variant: 'mint' | 'defa
   ended: { label: '종료', variant: 'default' },
 };
 
-// 백엔드 미지원 메타데이터(게시 대상·기간·예약)는 목업으로 localStorage에 보관
 interface NoticeMeta {
   targets: string[]; // TARGET_ROLES.code
   publishStart: string; // datetime-local 문자열, 빈값=즉시
   publishEnd: string;   // datetime-local 문자열, 빈값=무기한
 }
-
-const META_KEY = 'notice_meta_v1';
-
-const loadMetaMap = (): Record<number, NoticeMeta> => {
-  if (typeof window === 'undefined') return {};
-  try {
-    const stored = localStorage.getItem(META_KEY);
-    return stored ? (JSON.parse(stored) as Record<number, NoticeMeta>) : {};
-  } catch { return {}; }
-};
-
-const saveMetaMap = (map: Record<number, NoticeMeta>) => {
-  localStorage.setItem(META_KEY, JSON.stringify(map));
-};
 
 const DEFAULT_META: NoticeMeta = { targets: ['all'], publishStart: '', publishEnd: '' };
 
@@ -121,21 +108,23 @@ export default function Notices() {
   const [statusFilter, setStatusFilter] = useState<'all' | NoticeStatus>('all');
   const [keyword, setKeyword] = useState('');
 
-  const [readIds, setReadIds] = useState<Set<number>>(() => {
-    if (typeof window === 'undefined') return new Set();
-    try {
-      const stored = localStorage.getItem('notice_read_ids');
-      return stored ? new Set<number>(JSON.parse(stored) as number[]) : new Set<number>();
-    } catch { return new Set<number>(); }
-  });
+  const [readIds, setReadIds] = useState<Set<number>>(new Set());
 
-  const markAsRead = (id: number) => {
+  const markAsRead = async (id: number) => {
     setReadIds(prev => {
       const next = new Set(prev);
       next.add(id);
-      localStorage.setItem('notice_read_ids', JSON.stringify([...next]));
       return next;
     });
+    await supabase
+      .from('notice_read_receipts')
+      .upsert({
+        branchId: getCurrentBranchId(),
+        noticeId: id,
+        userId: Number(authUser?.id ?? 0),
+        userName: authUser?.name ?? '관리자',
+        readAt: new Date().toISOString(),
+      }, { onConflict: 'noticeId,userId' });
   };
 
   const fetchNotices = async () => {
@@ -143,10 +132,28 @@ export default function Notices() {
     const { data, error } = await getNotices();
     setIsLoading(false);
     if (error) { toast.error('공지사항을 불러오지 못했습니다.'); return; }
-    setNotices(data ?? []);
+    const list = data ?? [];
+    setNotices(list);
+    setMetaMap(Object.fromEntries(list.map(n => [n.id, {
+      targets: n.targets ?? ['all'],
+      publishStart: n.publishStart ?? '',
+      publishEnd: n.publishEnd ?? '',
+    }])));
   };
 
-  useEffect(() => { fetchNotices(); setMetaMap(loadMetaMap()); }, []);
+  useEffect(() => { fetchNotices(); }, []);
+
+  useEffect(() => {
+    const fetchReadReceipts = async () => {
+      const { data } = await supabase
+        .from('notice_read_receipts')
+        .select('noticeId')
+        .eq('branchId', getCurrentBranchId())
+        .eq('userId', Number(authUser?.id ?? 0));
+      setReadIds(new Set((data ?? []).map((row: any) => row.noticeId)));
+    };
+    fetchReadReceipts();
+  }, [authUser?.id]);
 
   const openCreate = () => {
     setEditTarget(null);
@@ -194,9 +201,16 @@ export default function Notices() {
     }
     setIsSaving(true);
 
-    let savedId = editTarget?.id ?? null;
     if (editTarget) {
-      const { error } = await updateNotice(editTarget.id, { title: form.title, content: form.content, isPinned: form.isPinned, isPublic: form.isPublic });
+      const { error } = await updateNotice(editTarget.id, {
+        title: form.title,
+        content: form.content,
+        isPinned: form.isPinned,
+        isPublic: form.isPublic,
+        targets: form.targets,
+        publishStart: form.publishStart,
+        publishEnd: form.publishEnd,
+      });
       if (error) { toast.error('수정에 실패했습니다.'); setIsSaving(false); return; }
       toast.success('공지사항이 수정되었습니다.');
     } else {
@@ -206,25 +220,15 @@ export default function Notices() {
         authorName: authUser?.name ?? '관리자',
         isPinned: form.isPinned,
         isPublic: form.isPublic,
+        targets: form.targets,
+        publishStart: form.publishStart,
+        publishEnd: form.publishEnd,
       });
       if (error) { toast.error('등록에 실패했습니다.'); setIsSaving(false); return; }
       toast.success('공지사항이 등록되었습니다.');
     }
 
-    // 게시 대상·기간 메타데이터 저장 (목업). 신규 등록은 재조회 후 최신 id에 매핑.
-    const { data: refreshed } = await getNotices();
-    const list = refreshed ?? [];
-    setNotices(list);
-    if (savedId === null && list.length > 0) {
-      // 신규: 가장 최근 작성 공지의 id로 추정 매핑
-      savedId = [...list].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0].id;
-    }
-    if (savedId !== null) {
-      const nextMeta = { ...metaMap, [savedId]: { targets: form.targets, publishStart: form.publishStart, publishEnd: form.publishEnd } };
-      setMetaMap(nextMeta);
-      saveMetaMap(nextMeta);
-    }
-
+    await fetchNotices();
     setIsSaving(false);
     setModalOpen(false);
   };
@@ -234,10 +238,6 @@ export default function Notices() {
     const { error } = await deleteNotice(deleteTarget);
     if (error) { toast.error('삭제에 실패했습니다.'); return; }
     toast.success('공지사항이 삭제되었습니다.');
-    const nextMeta = { ...metaMap };
-    delete nextMeta[deleteTarget];
-    setMetaMap(nextMeta);
-    saveMetaMap(nextMeta);
     setDeleteDialogOpen(false);
     setDeleteTarget(null);
     fetchNotices();

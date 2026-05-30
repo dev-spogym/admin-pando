@@ -159,8 +159,8 @@ export default function FacilityInventoryPage() {
   return (
     <AppLayout>
       <PageHeader
-        title="상품 재고 관리"
-        description="센터가 실제로 보유한 운동복, 수건, 소모품, 판매용품 등 일반 재고 수량을 관리합니다."
+        title="상품 재고 관리 (V2/후속)"
+        description="센터가 보유한 운동복, 수건, 소모품, 판매용품 등 일반 재고 수량을 검토합니다."
         actions={
           <div className="flex flex-wrap gap-2">
             <button
@@ -208,6 +208,10 @@ export default function FacilityInventoryPage() {
           </label>
         </div>
       </PageHeader>
+
+      <div className="mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-xs font-semibold text-red-700">
+        docs4 V2/후속 화면입니다. 상품 재고 실행 원장과 D05 재고 범위 정리는 후속 확정 후 DB에 연결하며 현재 화면의 변경은 퍼블리싱 검토용 상태입니다.
+      </div>
 
       <div className="mb-6 grid grid-cols-1 gap-4 md:grid-cols-4">
         <div className="rounded-lg border border-gray-200 bg-white p-4">

@@ -31,6 +31,7 @@ import Input from "@/components/ui/Input";
 import { useAuthStore } from "@/stores/authStore";
 import { isRoleAtLeast, normalizeRole } from "@/lib/permissions";
 import { toast } from "sonner";
+import { supabase } from "@/lib/supabase";
 
 /**
  * SCR-072 자동 알림 설정 + SCR-072A 자동알림 운영현황
@@ -125,30 +126,16 @@ const Toggle = ({ checked, onChange, disabled }: { checked: boolean; onChange: (
   </button>
 );
 
-// --- 저장 헬퍼 (localStorage 목업) ---
-const ALARM_SETTINGS_KEY = "auto_alarm_v2";
-function getBranchId() { if (typeof window === "undefined") return "1"; return localStorage.getItem("branchId") || "1"; }
-function getAlarmStorageKey() { return `settings_${getBranchId()}_${ALARM_SETTINGS_KEY}`; }
+function getBranchId() {
+  if (typeof window === "undefined") return 1;
+  return Number(localStorage.getItem("branchId") || "1");
+}
 
 interface AlarmSettingsData {
   steps: AlarmStep[];
   events: EventRule[];
   masterEnabled: boolean;
   senderNumber: string;
-}
-
-function loadSettings(): AlarmSettingsData | null {
-  const saved = localStorage.getItem(getAlarmStorageKey());
-  if (saved) {
-    try {
-      const parsed = JSON.parse(saved);
-      if (parsed?.steps && parsed?.events) return parsed;
-    } catch { /* ignore */ }
-  }
-  return null;
-}
-function persist(data: AlarmSettingsData) {
-  localStorage.setItem(getAlarmStorageKey(), JSON.stringify(data));
 }
 
 export default function AutoAlarm() {
@@ -174,25 +161,50 @@ export default function AutoAlarm() {
   const [newStep, setNewStep] = useState({ baseDay: 5, channel: "talk" as Channel });
 
   useEffect(() => {
+    let mounted = true;
     setLoading(true);
-    const saved = loadSettings();
-    if (saved) {
-      setSteps(saved.steps);
-      setEvents(saved.events);
-      setMasterEnabled(saved.masterEnabled);
-      if (saved.senderNumber) setSenderNumber(saved.senderNumber);
-    }
-    setLoading(false);
+
+    const loadSettings = async () => {
+      const { data, error } = await supabase
+        .from("auto_alarm_settings")
+        .select("steps, events, masterEnabled, senderNumber")
+        .eq("branchId", getBranchId())
+        .maybeSingle();
+
+      if (!mounted) return;
+
+      if (error) {
+        toast.error(`자동 알림 설정을 불러오지 못했습니다: ${error.message}`);
+        setLoading(false);
+        return;
+      }
+
+      if (data) {
+        setSteps(Array.isArray(data.steps) ? data.steps as AlarmStep[] : INITIAL_STEPS);
+        setEvents(Array.isArray(data.events) ? data.events as EventRule[] : INITIAL_EVENTS);
+        setMasterEnabled(Boolean(data.masterEnabled));
+        if (data.senderNumber) setSenderNumber(data.senderNumber);
+      }
+      setLoading(false);
+    };
+
+    loadSettings();
+    return () => { mounted = false; };
   }, []);
 
-  const save = useCallback((next: Partial<AlarmSettingsData>) => {
+  const save = useCallback(async (next: Partial<AlarmSettingsData>) => {
     const data: AlarmSettingsData = {
       steps: next.steps ?? steps,
       events: next.events ?? events,
       masterEnabled: next.masterEnabled ?? masterEnabled,
       senderNumber: next.senderNumber ?? senderNumber,
     };
-    persist(data);
+    const { error } = await supabase
+      .from("auto_alarm_settings")
+      .upsert({ branchId: getBranchId(), ...data, updatedAt: new Date().toISOString() }, { onConflict: "branchId" });
+    if (error) {
+      toast.error(`자동 알림 설정 저장 실패: ${error.message}`);
+    }
   }, [steps, events, masterEnabled, senderNumber]);
 
   const currentSteps = useMemo(() => steps.filter((s) => s.policy === expiryTab), [steps, expiryTab]);
@@ -205,21 +217,21 @@ export default function AutoAlarm() {
     if (target?.hqRequired) { toast.error("본사 필수 알림은 지점에서 끌 수 없습니다."); return; }
     const next = steps.map((s) => (s.id === id ? { ...s, enabled: !s.enabled } : s));
     setSteps(next);
-    save({ steps: next });
+    void save({ steps: next });
   };
 
   const toggleEvent = (id: string) => {
     if (!canControl) { toast.error("Owner(지점장) 권한이 필요합니다."); return; }
     const next = events.map((e) => (e.id === id ? { ...e, enabled: !e.enabled } : e));
     setEvents(next);
-    save({ events: next });
+    void save({ events: next });
   };
 
   const toggleMaster = () => {
     if (!canControl) { toast.error("전체 ON/OFF는 Owner(지점장)만 변경할 수 있습니다."); return; }
     const next = !masterEnabled;
     setMasterEnabled(next);
-    save({ masterEnabled: next });
+    void save({ masterEnabled: next });
     toast.success(next ? "전체 자동 알림을 활성화했습니다." : "전체 자동 알림을 비활성화했습니다. (해당 지점만 중단)");
   };
 
@@ -239,11 +251,11 @@ export default function AutoAlarm() {
       // 본사 step은 기준일 수정 불가 — 채널/메시지/발송 시각만 조정
       const next = steps.map((s) => (s.id === editStep.id ? { ...s, channel: modalData.channel, template: { ...modalData } } : s));
       setSteps(next);
-      save({ steps: next });
+      void save({ steps: next });
     } else if (editEvent) {
       const next = events.map((e) => (e.id === editEvent.id ? { ...e, channel: modalData.channel, template: { ...modalData } } : e));
       setEvents(next);
-      save({ events: next });
+      void save({ events: next });
     }
     toast.success("알림 규칙이 저장되었습니다.");
     setEditStep(null);
@@ -271,7 +283,7 @@ export default function AutoAlarm() {
     };
     const next = [...steps, created];
     setSteps(next);
-    save({ steps: next });
+    void save({ steps: next });
     setAddStepOpen(false);
     setNewStep({ baseDay: 5, channel: "talk" });
     toast.success("지점 추가 step이 등록되었습니다. (비활성 상태)");
@@ -281,7 +293,7 @@ export default function AutoAlarm() {
     if (!canControl) { toast.error("Owner(지점장) 권한이 필요합니다."); return; }
     const next = steps.filter((s) => s.id !== id);
     setSteps(next);
-    save({ steps: next });
+    void save({ steps: next });
     toast.success("지점 추가 step이 삭제되었습니다.");
   };
 

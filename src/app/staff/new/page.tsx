@@ -12,11 +12,15 @@ import {
   Mail,
   Calendar,
   FileText,
+  FileCheck2,
   Check,
   ShieldCheck,
   KeyRound,
   BadgeCheck,
   Lock,
+  Upload,
+  ExternalLink,
+  Trash2,
 } from "lucide-react";
 import { toast } from "sonner";
 import AppLayout from "@/components/layout/AppLayout";
@@ -62,6 +66,21 @@ type ExistingStaffRecord = {
   salary: number | null;
   branchId: number | null;
 };
+
+type StaffDocumentRecord = {
+  id: string;
+  fileName: string;
+  filePath: string;
+  fileUrl: string;
+  mimeType: string | null;
+  fileSize: number | null;
+  uploadedAt: string;
+  uploadedBy: string | null;
+  status: string;
+};
+
+const CONTRACT_MAX_BYTES = 10 * 1024 * 1024;
+const CONTRACT_ACCEPT_TYPES = ["application/pdf", "image/jpeg", "image/png", "image/webp"];
 
 const ROLE_PERMISSIONS: Record<StaffFormRole, { label: string; desc: string; perms: string[] }> = {
   owner: {
@@ -123,6 +142,24 @@ function inferAccountStatus(user: { isActive: boolean; lockedUntil: string | nul
   return user.isActive ? "ACTIVE" : "LOCKED";
 }
 
+const formatFileSize = (bytes: number | null | undefined) => {
+  if (!bytes) return "-";
+  if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)}KB`;
+  return `${(bytes / 1024 / 1024).toFixed(1)}MB`;
+};
+
+const getOperatorName = () => {
+  if (typeof window === "undefined") return "관리자";
+  try {
+    const raw = localStorage.getItem("auth_user");
+    if (!raw) return "관리자";
+    const parsed = JSON.parse(raw) as { name?: string };
+    return parsed.name || "관리자";
+  } catch {
+    return "관리자";
+  }
+};
+
 function StaffForm() {
   const searchParams = useSearchParams();
   const editId = searchParams?.get("id") ?? null;
@@ -132,6 +169,9 @@ function StaffForm() {
   const [isSaving, setIsSaving] = useState(false);
   const [existingStaff, setExistingStaff] = useState<ExistingStaffRecord | null>(null);
   const [linkedUserId, setLinkedUserId] = useState<number | null>(null);
+  const [contractFile, setContractFile] = useState<File | null>(null);
+  const [contractDocuments, setContractDocuments] = useState<StaffDocumentRecord[]>([]);
+  const [isLoadingDocuments, setIsLoadingDocuments] = useState(false);
 
   const {
     register,
@@ -173,6 +213,98 @@ function StaffForm() {
     ],
     [roleInfo.label, watchedForcePasswordChange, watchedStatus]
   );
+
+  const fetchStaffDocuments = async (staffId: number) => {
+    setIsLoadingDocuments(true);
+    const { data, error } = await supabase
+      .from("staff_documents")
+      .select("id, fileName, filePath, fileUrl, mimeType, fileSize, uploadedAt, uploadedBy, status")
+      .eq("staffId", staffId)
+      .eq("docType", "employment_contract")
+      .order("uploadedAt", { ascending: false });
+    setIsLoadingDocuments(false);
+
+    if (error) {
+      toast.error("근로계약서 첨부 이력을 불러오지 못했습니다.");
+      return;
+    }
+
+    setContractDocuments((data ?? []).map((doc: Record<string, unknown>) => ({
+      id: String(doc.id),
+      fileName: String(doc.fileName ?? ""),
+      filePath: String(doc.filePath ?? ""),
+      fileUrl: String(doc.fileUrl ?? ""),
+      mimeType: doc.mimeType == null ? null : String(doc.mimeType),
+      fileSize: doc.fileSize == null ? null : Number(doc.fileSize),
+      uploadedAt: String(doc.uploadedAt ?? ""),
+      uploadedBy: doc.uploadedBy == null ? null : String(doc.uploadedBy),
+      status: String(doc.status ?? "uploaded"),
+    })));
+  };
+
+  const handleContractFileChange = (file: File | null) => {
+    if (!file) {
+      setContractFile(null);
+      return;
+    }
+    if (!CONTRACT_ACCEPT_TYPES.includes(file.type)) {
+      toast.error("근로계약서는 이미지(JPG/PNG/WebP) 또는 PDF만 첨부할 수 있습니다.");
+      return;
+    }
+    if (file.size > CONTRACT_MAX_BYTES) {
+      toast.error("근로계약서 파일은 10MB 이하만 첨부할 수 있습니다.");
+      return;
+    }
+    setContractFile(file);
+  };
+
+  const uploadContractDocument = async (staffId: number, branchId: number, staffName: string, file: File) => {
+    const safeName = file.name.replace(/[^\w.-]/g, "_");
+    const path = `staff-contracts/${branchId}/${staffId}/${Date.now()}_${safeName}`;
+    const { data: uploadData, error: uploadError } = await supabase.storage
+      .from("files")
+      .upload(path, file, { contentType: file.type || "application/octet-stream", upsert: false });
+
+    if (uploadError) return { error: uploadError.message };
+
+    const { data: urlData } = supabase.storage.from("files").getPublicUrl(uploadData.path);
+    const fileUrl = urlData.publicUrl;
+    const { error: insertError } = await supabase.from("staff_documents").insert({
+      staffId,
+      branchId,
+      docType: "employment_contract",
+      fileName: file.name,
+      filePath: uploadData.path,
+      fileUrl,
+      mimeType: file.type || null,
+      fileSize: file.size,
+      status: "uploaded",
+      memo: `${staffName} 근로계약서 첨부`,
+      uploadedBy: getOperatorName(),
+    });
+
+    if (insertError) return { error: insertError.message };
+    return { url: fileUrl };
+  };
+
+  const handleDeleteContractDocument = async (doc: StaffDocumentRecord) => {
+    const { error } = await supabase
+      .from("staff_documents")
+      .delete()
+      .eq("id", doc.id);
+
+    if (error) {
+      toast.error("근로계약서 첨부 삭제에 실패했습니다.");
+      return;
+    }
+
+    if (doc.filePath) {
+      await supabase.storage.from("files").remove([doc.filePath]);
+    }
+
+    setContractDocuments(prev => prev.filter(item => item.id !== doc.id));
+    toast.success("근로계약서 첨부를 삭제했습니다.");
+  };
 
   useEffect(() => {
     const currentPosition = watch("position");
@@ -227,6 +359,8 @@ function StaffForm() {
         temporaryPassword: "",
         forcePasswordChange: linkedUser?.forcePasswordChange ?? false,
       });
+
+      void fetchStaffDocuments(staff.id);
     };
 
     void fetchStaff();
@@ -291,13 +425,26 @@ function StaffForm() {
         forcePasswordChange: formData.forcePasswordChange,
       });
 
+      let contractUploadNote = "";
+      if (savedStaffId && contractFile) {
+        const uploadResult = await uploadContractDocument(savedStaffId, branchId, formData.name.trim(), contractFile);
+        if ("error" in uploadResult) {
+          toast.error("직원 정보는 저장됐지만 근로계약서 첨부에 실패했습니다.", {
+            description: uploadResult.error,
+          });
+        } else {
+          contractUploadNote = " · 근로계약서 첨부 완료";
+          setContractFile(null);
+        }
+      }
+
       const roleForPermission = mapStaffFormRoleToUserRole(formData.role);
       const successMessage = isEditMode
         ? "직원 정보와 로그인 계정이 함께 수정되었습니다."
         : "직원 등록과 로그인 계정 생성이 완료되었습니다.";
 
       toast.success(successMessage, {
-        description: `${accountResult.user.username} · ${roleForPermission} · ${formData.accountStatus === "LOCKED" ? "잠금" : "활성"}`,
+        description: `${accountResult.user.username} · ${roleForPermission} · ${formData.accountStatus === "LOCKED" ? "잠금" : "활성"}${contractUploadNote}`,
       });
 
       if (!accountResult.authSynced) {
@@ -594,6 +741,97 @@ function StaffForm() {
             <p className="mt-sm text-[11px] text-content-secondary">
               권한 상세는 <span className="font-medium text-content">설정 &gt; 권한 설정</span>에서 템플릿별로 조정하고, 직원 등록 화면에서는 해당 템플릿을 사용할 직원 계정만 발급합니다.
             </p>
+          </div>
+        </FormSection>
+
+        <FormSection title="근로계약서 (선택)" description="서명된 근로계약서 이미지 또는 PDF를 직원 인사 파일로 보관합니다.">
+          <div className="space-y-md md:col-span-2">
+            <div className="rounded-input border border-line bg-surface-secondary p-md">
+              <div className="flex flex-col gap-md sm:flex-row sm:items-center sm:justify-between">
+                <div className="min-w-0">
+                  <div className="flex items-center gap-xs">
+                    <FileCheck2 size={16} className="text-primary" />
+                    <p className="text-Label font-semibold text-content">계약서 파일 첨부</p>
+                  </div>
+                  <p className="mt-xs text-[11px] text-content-secondary">
+                    JPG, PNG, WebP, PDF 파일을 10MB 이하로 첨부할 수 있습니다. 자동 발송은 정책 확정 전이므로 파일 보관만 처리합니다.
+                  </p>
+                </div>
+                <label className="inline-flex shrink-0 cursor-pointer items-center justify-center gap-xs rounded-button border border-line bg-surface px-md py-sm text-[13px] font-semibold text-content-secondary transition-colors hover:bg-surface-tertiary">
+                  <Upload size={15} />
+                  파일 선택
+                  <input
+                    type="file"
+                    className="sr-only"
+                    accept="image/jpeg,image/png,image/webp,application/pdf"
+                    onChange={(event) => handleContractFileChange(event.target.files?.[0] ?? null)}
+                  />
+                </label>
+              </div>
+
+              {contractFile && (
+                <div className="mt-md flex flex-col gap-sm rounded-card border border-primary/20 bg-white p-md sm:flex-row sm:items-center sm:justify-between">
+                  <div className="min-w-0">
+                    <p className="truncate text-[13px] font-semibold text-content">{contractFile.name}</p>
+                    <p className="text-[11px] text-content-secondary">{formatFileSize(contractFile.size)} · 저장 버튼 클릭 시 업로드</p>
+                  </div>
+                  <button
+                    type="button"
+                    className="self-start rounded-button px-sm py-xs text-[12px] font-semibold text-state-error hover:bg-red-50 sm:self-auto"
+                    onClick={() => setContractFile(null)}
+                  >
+                    선택 취소
+                  </button>
+                </div>
+              )}
+            </div>
+
+            {isEditMode && (
+              <div className="rounded-input border border-line bg-surface p-md">
+                <div className="mb-sm flex items-center justify-between">
+                  <p className="text-Label font-semibold text-content">기존 첨부 이력</p>
+                  <span className="text-[11px] text-content-secondary">
+                    {isLoadingDocuments ? "불러오는 중" : `${contractDocuments.length}건`}
+                  </span>
+                </div>
+                {contractDocuments.length === 0 ? (
+                  <p className="rounded-card bg-surface-secondary px-md py-sm text-[12px] text-content-secondary">
+                    저장된 근로계약서 첨부가 없습니다.
+                  </p>
+                ) : (
+                  <div className="space-y-sm">
+                    {contractDocuments.map((doc) => (
+                      <div key={doc.id} className="flex flex-col gap-sm rounded-card border border-line bg-surface-secondary p-md sm:flex-row sm:items-center sm:justify-between">
+                        <div className="min-w-0">
+                          <p className="truncate text-[13px] font-semibold text-content">{doc.fileName}</p>
+                          <p className="text-[11px] text-content-secondary">
+                            {formatFileSize(doc.fileSize)} · {doc.uploadedAt ? doc.uploadedAt.slice(0, 10) : "-"} · {doc.uploadedBy ?? "관리자"}
+                          </p>
+                        </div>
+                        <div className="flex shrink-0 items-center gap-xs">
+                          <button
+                            type="button"
+                            className="inline-flex items-center gap-[4px] rounded-button border border-line bg-surface px-sm py-xs text-[12px] font-semibold text-content-secondary hover:bg-white"
+                            onClick={() => window.open(doc.fileUrl, "_blank", "noopener,noreferrer")}
+                          >
+                            <ExternalLink size={13} />
+                            보기
+                          </button>
+                          <button
+                            type="button"
+                            className="inline-flex items-center gap-[4px] rounded-button border border-state-error/30 bg-red-50 px-sm py-xs text-[12px] font-semibold text-state-error hover:bg-red-100"
+                            onClick={() => handleDeleteContractDocument(doc)}
+                          >
+                            <Trash2 size={13} />
+                            삭제
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         </FormSection>
 

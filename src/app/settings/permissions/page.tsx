@@ -28,6 +28,7 @@ import AppLayout from "@/components/layout/AppLayout";
 import Select from '@/components/ui/Select';
 import Textarea from '@/components/ui/Textarea';
 import { supabase } from "@/lib/supabase";
+import { loadBranchSetting, saveBranchSetting } from "@/lib/branchSettings";
 
 const getBranchId = (): number => {
   if (typeof window === 'undefined') return 1;
@@ -159,6 +160,20 @@ export default function PermissionSettings() {
   const [copyNewRoleName, setCopyNewRoleName] = useState("");
   const [copyNewRoleCode, setCopyNewRoleCode] = useState("");
 
+  useEffect(() => {
+    let mounted = true;
+    loadBranchSetting<Role[]>('permission_roles', INITIAL_ROLES).then((savedRoles) => {
+      if (!mounted) return;
+      setRoles(savedRoles);
+    });
+    return () => { mounted = false; };
+  }, []);
+
+  const persistRoles = async (nextRoles: Role[]) => {
+    const error = await saveBranchSetting('permission_roles', nextRoles);
+    if (error) console.error('역할 목록 저장 실패:', error);
+  };
+
   const selectedRole = roles.find(r => r.id === selectedRoleId) || roles[0];
   // superAdmin·primary는 매트릭스 잠금(읽기 전용)
   const isPrimary = selectedRole.code === "primary" || selectedRole.code === "superAdmin";
@@ -197,55 +212,49 @@ export default function PermissionSettings() {
   }, [employeesByRole]);
 
   useEffect(() => {
-    setIsLoading(true);
-    const roleCode = selectedRole.code;
-    const storageKey = `permissions_${selectedRole.code}`;
-    const saved = localStorage.getItem(storageKey);
-    let savedPerms: Record<string, MenuPermission['permissions']> = {};
-    if (saved) {
-      try { savedPerms = JSON.parse(saved); } catch { /* ignore */ }
-    }
+    let mounted = true;
+    const loadPermissions = async () => {
+      setIsLoading(true);
+      const roleCode = selectedRole.code;
+      const savedPerms = await loadBranchSetting<Record<string, MenuPermission['permissions']>>(`permissions_${roleCode}`, {});
 
-    const basePermissions: MenuPermission[] = [];
-    MENU_GROUPS.forEach(group => {
-      group.menus.forEach((menuName) => {
-        const id = `${group.group}-${menuName}`;
-        const fromStorage = savedPerms[id];
-        const existing = INITIAL_PERMISSIONS[roleCode]?.find(p => p.name === menuName);
+      const basePermissions: MenuPermission[] = [];
+      MENU_GROUPS.forEach(group => {
+        group.menus.forEach((menuName) => {
+          const id = `${group.group}-${menuName}`;
+          const fromStorage = savedPerms[id];
+          const existing = INITIAL_PERMISSIONS[roleCode]?.find(p => p.name === menuName);
 
-        basePermissions.push({
-          id,
-          group: group.group,
-          name: menuName,
-          permissions: isPrimary
-            ? { access: true, read: true, create: true, update: true, delete: true }
-            : fromStorage || existing?.permissions || { access: false, read: false, create: false, update: false, delete: false }
+          basePermissions.push({
+            id,
+            group: group.group,
+            name: menuName,
+            permissions: isPrimary
+              ? { access: true, read: true, create: true, update: true, delete: true }
+              : fromStorage || existing?.permissions || { access: false, read: false, create: false, update: false, delete: false }
+          });
         });
       });
-    });
 
-    setPermissions(basePermissions);
-    setSavedPermissions(JSON.parse(JSON.stringify(basePermissions)));
-    setIsDirty(false);
-    setConflictWarnings([]);
-    setShowSensitiveBlock(false);
-
-    // 민감 기능 체크 상태 로드 (역할별 localStorage)
-    const sensitiveKey = `sensitive_${roleCode}`;
-    const savedSensitive = localStorage.getItem(sensitiveKey);
-    if (savedSensitive) {
-      try { setSensitiveChecked(JSON.parse(savedSensitive)); } catch { setSensitiveChecked({}); }
-    } else {
-      // superAdmin/primary는 기본적으로 전 민감 기능 보유
       const defaults: Record<string, boolean> = {};
       if (roleCode === "superAdmin" || roleCode === "primary") {
         SENSITIVE_FUNCTIONS.forEach(f => { defaults[f.id] = true; });
       }
-      setSensitiveChecked(defaults);
-    }
+      const savedSensitive = await loadBranchSetting<Record<string, boolean>>(`sensitive_${roleCode}`, defaults);
 
-    setIsLoading(false);
-  }, [selectedRoleId]);
+      if (!mounted) return;
+      setPermissions(basePermissions);
+      setSavedPermissions(JSON.parse(JSON.stringify(basePermissions)));
+      setIsDirty(false);
+      setConflictWarnings([]);
+      setShowSensitiveBlock(false);
+      setSensitiveChecked(savedSensitive);
+      setIsLoading(false);
+    };
+
+    loadPermissions();
+    return () => { mounted = false; };
+  }, [selectedRoleId, selectedRole.code, isPrimary]);
 
   // 민감 기능 토글 (목업)
   const handleSensitiveToggle = (id: string) => {
@@ -295,12 +304,15 @@ export default function PermissionSettings() {
     setIsDirty(true);
   };
 
-  const doSave = () => {
-    const storageKey = `permissions_${selectedRole.code}`;
+  const doSave = async () => {
     const permMap: Record<string, MenuPermission['permissions']> = {};
     permissions.forEach(p => { permMap[p.id] = p.permissions; });
-    localStorage.setItem(storageKey, JSON.stringify(permMap));
-    localStorage.setItem(`sensitive_${selectedRole.code}`, JSON.stringify(sensitiveChecked));
+    const permError = await saveBranchSetting(`permissions_${selectedRole.code}`, permMap);
+    const sensitiveError = await saveBranchSetting(`sensitive_${selectedRole.code}`, sensitiveChecked);
+    if (permError || sensitiveError) {
+      console.error("권한 저장 실패:", permError ?? sensitiveError);
+      return;
+    }
 
     setSavedPermissions(JSON.parse(JSON.stringify(permissions)));
     setIsDirty(false);
@@ -319,7 +331,7 @@ export default function PermissionSettings() {
       setConflictWarnings(warnings);
       setShowConflictModal(true);
     } else {
-      doSave();
+      void doSave();
     }
   };
 
@@ -345,7 +357,9 @@ export default function PermissionSettings() {
       userCount: 0
     };
 
-    setRoles([...roles, newRole]);
+    const nextRoles = [...roles, newRole];
+    setRoles(nextRoles);
+    persistRoles(nextRoles);
     setIsCreateModalOpen(false);
     setCreateSourceRole('');
     setSelectedRoleId(newRole.id);
@@ -366,7 +380,9 @@ export default function PermissionSettings() {
       userCount: 0
     };
 
-    setRoles([...roles, newRole]);
+    const nextRoles = [...roles, newRole];
+    setRoles(nextRoles);
+    persistRoles(nextRoles);
     setIsCopyModalOpen(false);
     setCopyNewRoleName("");
     setCopyNewRoleCode("");
@@ -376,7 +392,9 @@ export default function PermissionSettings() {
 
   const handleDeleteRole = () => {
     if (!roleToDelete) return;
-    setRoles(roles.filter(r => r.id !== roleToDelete.id));
+    const nextRoles = roles.filter(r => r.id !== roleToDelete.id);
+    setRoles(nextRoles);
+    persistRoles(nextRoles);
     setSelectedRoleId(roles[0].id);
     setRoleToDelete(null);
     setIsDeleteConfirmOpen(false);
@@ -947,7 +965,7 @@ export default function PermissionSettings() {
                   className="rounded-lg bg-amber-600 px-md py-sm text-sm text-white hover:opacity-90 transition-all"
                   onClick={() => {
                     setShowConflictModal(false);
-                    doSave();
+                    void doSave();
                   }}
                 >
                   경고 무시하고 저장

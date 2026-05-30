@@ -65,6 +65,45 @@ interface MemberOption {
   contact: string;
 }
 
+const getTenantId = (): number => {
+  if (typeof window === "undefined") return 1;
+  const stored = localStorage.getItem("tenantId");
+  return stored ? Number(stored) : 1;
+};
+
+const getCurrentUser = (): { id: number; name: string } => {
+  if (typeof window === "undefined") return { id: 0, name: "" };
+  try {
+    const raw = localStorage.getItem("auth_user");
+    const parsed = raw ? JSON.parse(raw) : null;
+    return {
+      id: parsed?.id ? Number(parsed.id) : 0,
+      name: parsed?.name ?? parsed?.email ?? "",
+    };
+  } catch {
+    return { id: 0, name: "" };
+  }
+};
+
+const LOCKER_DB_STATUS: Record<LockerStatus, "AVAILABLE" | "IN_USE" | "MAINTENANCE"> = {
+  available: "AVAILABLE",
+  in_use: "IN_USE",
+  expiring: "IN_USE",
+  broken: "MAINTENANCE",
+};
+
+const LOCKER_HISTORY_LABELS: Record<string, string> = {
+  ASSIGN: "배정",
+  BULK_ASSIGN: "일괄 배정",
+  RELEASE: "해제",
+  BULK_RELEASE: "일괄 해제",
+  RECLAIM: "회수",
+  MOVE: "이동",
+  MAINTENANCE_ON: "고장 처리",
+  MAINTENANCE_OFF: "고장 해제",
+  UPDATE_SECRET: "비밀번호/메모",
+};
+
 // --- D-Day 계산 ---
 function getDDay(expiryDate?: string): number | null {
   if (!expiryDate) return null;
@@ -249,6 +288,33 @@ export default function Locker() {
 
   const branchId = getBranchId();
 
+  const writeLockerAudit = async (
+    action: keyof typeof LOCKER_HISTORY_LABELS,
+    locker: LockerData,
+    beforeValue: Record<string, unknown> | null,
+    afterValue: Record<string, unknown> | null,
+    detail: Record<string, unknown> = {},
+  ) => {
+    const user = getCurrentUser();
+    await supabase.from("audit_log").insert({
+      tenantId: getTenantId(),
+      userId: user.id,
+      action,
+      targetType: "locker",
+      targetId: Number(locker.id),
+      fromBranchId: branchId,
+      beforeValue,
+      afterValue,
+      detail: {
+        userName: user.name,
+        lockerNumber: locker.number,
+        zone: locker.zone,
+        ...detail,
+      },
+      userAgent: typeof navigator === "undefined" ? null : navigator.userAgent,
+    }).then(() => undefined);
+  };
+
   useEffect(() => {
     const fetchData = async () => {
       setLoading(true);
@@ -256,7 +322,7 @@ export default function Locker() {
         // 락커 데이터 (lockers 테이블)
         const { data: lockerData } = await supabase
           .from("lockers")
-          .select("id, number, status, memberId, memberName, assignedAt, expiresAt, branchId, password, memo")
+          .select("id, number, status, memberId, memberName, assignedAt, expiresAt, branchId, zone, password, memo")
           .eq("branchId", branchId);
 
         if (lockerData) {
@@ -328,18 +394,18 @@ export default function Locker() {
         setBulkAssignExpiryDate("");
       }
       if (action === "history") {
-        // audit_logs에서 해당 락커 이력 조회
+        // audit_log에서 해당 락커 이력 조회
         const { data } = await supabase
-          .from("audit_logs")
-          .select("created_at, action, details")
-          .eq("target_type", "locker")
-          .eq("target_id", locker.id)
-          .order("created_at", { ascending: false });
+          .from("audit_log")
+          .select("createdAt, action, detail")
+          .eq("targetType", "locker")
+          .eq("targetId", Number(locker.id))
+          .order("createdAt", { ascending: false });
 
-        const history = (data ?? []).map((row: { created_at: string; action: string; details: Record<string, unknown> }) => ({
-          date: new Date(row.created_at).toLocaleDateString("ko-KR"),
-          action: row.action === "assign" ? "배정" : row.action === "reclaim" ? "회수" : row.action === "broken" ? "고장" : row.action,
-          member: (row.details as Record<string, unknown>)?.memberName as string ?? "-",
+        const history = (data ?? []).map((row: { createdAt: string; action: string; detail: Record<string, unknown> }) => ({
+          date: new Date(row.createdAt).toLocaleDateString("ko-KR"),
+          action: LOCKER_HISTORY_LABELS[row.action] ?? row.action,
+          member: (row.detail as Record<string, unknown>)?.memberName as string ?? (row.detail as Record<string, unknown>)?.userName as string ?? "-",
         }));
         setActionModal({ action, locker: { ...locker, history } });
         return;
@@ -358,6 +424,7 @@ export default function Locker() {
       .update({ number: targetNum })
       .eq("id", actionModal.locker.id);
     if (error) { toast.error("락커 이동에 실패했습니다."); return; }
+    await writeLockerAudit("MOVE", actionModal.locker, { number: actionModal.locker.number }, { number: targetNum });
     setLockers(prev => prev.map(l => l.id === actionModal.locker.id ? { ...l, number: targetNum } : l));
     toast.success(`락커가 ${targetNum}번으로 이동되었습니다.`);
     setActionModal(null);
@@ -368,9 +435,12 @@ export default function Locker() {
     if (!actionModal) return;
     const { error } = await supabase
       .from("lockers")
-      .update({ status: "available", memberId: null, memberName: null, assignedAt: null, expiresAt: null })
+      .update({ status: "AVAILABLE", memberId: null, memberName: null, assignedAt: null, expiresAt: null })
       .eq("id", actionModal.locker.id);
     if (error) { toast.error("락커 회수에 실패했습니다."); return; }
+    await writeLockerAudit("RECLAIM", actionModal.locker, actionModal.locker as unknown as Record<string, unknown>, { status: "available" }, {
+      memberName: actionModal.locker.memberName,
+    });
     setLockers(prev => prev.map(l =>
       l.id === actionModal.locker.id
         ? { ...l, status: "available", memberName: undefined, memberId: undefined, assignedDate: undefined, expiryDate: undefined }
@@ -386,9 +456,10 @@ export default function Locker() {
     const newStatus: LockerStatus = actionModal.locker.status === "broken" ? "available" : "broken";
     const { error } = await supabase
       .from("lockers")
-      .update({ status: newStatus })
+      .update({ status: LOCKER_DB_STATUS[newStatus] })
       .eq("id", actionModal.locker.id);
     if (error) { toast.error("고장 상태 변경에 실패했습니다."); return; }
+    await writeLockerAudit(newStatus === "broken" ? "MAINTENANCE_ON" : "MAINTENANCE_OFF", actionModal.locker, { status: actionModal.locker.status }, { status: newStatus });
     setLockers(prev => prev.map(l =>
       l.id === actionModal.locker.id ? { ...l, status: newStatus } : l
     ));
@@ -403,6 +474,10 @@ export default function Locker() {
       .update({ password, memo })
       .eq("id", lockerId);
     if (error) { toast.error("저장에 실패했습니다."); return; }
+    const locker = lockers.find(l => l.id === lockerId);
+    if (locker) {
+      await writeLockerAudit("UPDATE_SECRET", locker, { password: locker.password, memo: locker.memo }, { password, memo });
+    }
     setLockers(prev => prev.map(l => l.id === lockerId ? { ...l, password, memo } : l));
     toast.success("비밀번호/메모가 저장되었습니다.");
   };
@@ -413,7 +488,7 @@ export default function Locker() {
     const { error } = await supabase
       .from("lockers")
       .update({
-        status: "in_use",
+        status: "IN_USE",
         memberId: selectedMemberForAssign.id,
         memberName: selectedMemberForAssign.name,
         assignedAt: new Date().toISOString(),
@@ -421,6 +496,14 @@ export default function Locker() {
       })
       .eq("id", actionModal.locker.id);
     if (error) { toast.error("락커 배정에 실패했습니다."); return; }
+    await writeLockerAudit("ASSIGN", actionModal.locker, actionModal.locker as unknown as Record<string, unknown>, {
+      status: "in_use",
+      memberId: selectedMemberForAssign.id,
+      memberName: selectedMemberForAssign.name,
+      expiryDate: bulkAssignExpiryDate || null,
+    }, {
+      memberName: selectedMemberForAssign.name,
+    });
     setLockers(prev => prev.map(l =>
       l.id === actionModal.locker.id
         ? { ...l, status: "in_use", memberName: selectedMemberForAssign.name, memberId: selectedMemberForAssign.id, assignedDate: new Date().toISOString().slice(0, 10), expiryDate: bulkAssignExpiryDate || undefined }
@@ -438,7 +521,7 @@ export default function Locker() {
     const { error } = await supabase
       .from("lockers")
       .update({
-        status: "in_use",
+        status: "IN_USE",
         memberId: selectedMemberForAssign.id,
         memberName: selectedMemberForAssign.name,
         assignedAt: new Date().toISOString(),
@@ -446,6 +529,18 @@ export default function Locker() {
       })
       .in("id", ids);
     if (error) { toast.error("일괄 배정에 실패했습니다."); return; }
+    await Promise.all(
+      lockers
+        .filter(l => selectedBulkIds.has(l.id))
+        .map(locker => writeLockerAudit("BULK_ASSIGN", locker, locker as unknown as Record<string, unknown>, {
+          status: "in_use",
+          memberId: selectedMemberForAssign.id,
+          memberName: selectedMemberForAssign.name,
+          expiryDate: bulkAssignExpiryDate || null,
+        }, {
+          memberName: selectedMemberForAssign.name,
+        }))
+    );
     setLockers(prev => prev.map(l =>
       selectedBulkIds.has(l.id)
         ? { ...l, status: "in_use", memberName: selectedMemberForAssign.name, memberId: selectedMemberForAssign.id, assignedDate: new Date().toISOString().slice(0, 10), expiryDate: bulkAssignExpiryDate || undefined }
@@ -518,7 +613,7 @@ export default function Locker() {
   const handleRelease = async (id: string) => {
     const { error } = await supabase
       .from("lockers")
-      .update({ status: "available", memberId: null, memberName: null, assignedAt: null, expiresAt: null })
+      .update({ status: "AVAILABLE", memberId: null, memberName: null, assignedAt: null, expiresAt: null })
       .eq("id", id);
 
     if (error) {
@@ -526,6 +621,12 @@ export default function Locker() {
       return;
     }
 
+    const locker = lockers.find(l => l.id === id);
+    if (locker) {
+      await writeLockerAudit("RELEASE", locker, locker as unknown as Record<string, unknown>, { status: "available" }, {
+        memberName: locker.memberName,
+      });
+    }
     setLockers(prev => prev.map(l =>
       l.id === id
         ? { ...l, status: "available", memberName: undefined, memberId: undefined, assignedDate: undefined, expiryDate: undefined }
@@ -538,7 +639,7 @@ export default function Locker() {
     const ids = Array.from(selectedBulkIds);
     const { error } = await supabase
       .from("lockers")
-      .update({ status: "available", memberId: null, memberName: null, assignedAt: null, expiresAt: null })
+      .update({ status: "AVAILABLE", memberId: null, memberName: null, assignedAt: null, expiresAt: null })
       .in("id", ids);
 
     if (error) {
@@ -547,6 +648,13 @@ export default function Locker() {
       return;
     }
 
+    await Promise.all(
+      lockers
+        .filter(l => selectedBulkIds.has(l.id))
+        .map(locker => writeLockerAudit("BULK_RELEASE", locker, locker as unknown as Record<string, unknown>, { status: "available" }, {
+          memberName: locker.memberName,
+        }))
+    );
     setLockers(prev => prev.map(l =>
       selectedBulkIds.has(l.id)
         ? { ...l, status: "available", memberName: undefined, memberId: undefined, assignedDate: undefined, expiryDate: undefined }

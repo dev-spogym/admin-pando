@@ -1,7 +1,7 @@
 'use client';
 export const dynamic = 'force-dynamic';
 
-import React, { useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Users, UserPlus, Unlink, RefreshCw, Crown, Wallet, UserCheck } from 'lucide-react';
 import { toast } from 'sonner';
 import AppLayout from '@/components/layout/AppLayout';
@@ -17,13 +17,12 @@ import Input from '@/components/ui/Input';
 import Select from '@/components/ui/Select';
 import Modal from '@/components/ui/Modal';
 import { cn } from '@/lib/utils';
-import { usePageSeed } from '@/hooks';
-import type { MemberFamilySeedPayload } from '@/lib/publishingPageSeed';
+import { supabase } from '@/lib/supabase';
 
 // ─── SCR-M008 가족 회원 (MBR-EXT-02) ──────────────────────────────────────────
 // docs4/V1/D02-회원관리/회원관리.md ## SCR-M008
-// 기능형 목업: 가족 그룹 카드 목록 → 구성원 추가/제거 → 그룹 생성 → 가족 단위 요약
-// 4축 상태: 로딩(seed) / 정상(카드 목록) / 빈(그룹 0건) / 오류(seed fallback)
+// DB 연결: 가족 그룹 카드 목록 → 구성원 추가/제거 → 그룹 생성 → 가족 단위 요약
+// 4축 상태: 로딩 / 정상(카드 목록) / 빈(그룹 0건) / 오류
 
 const RELATIONSHIP_OPTIONS = [
   { value: '배우자', label: '배우자' },
@@ -33,31 +32,37 @@ const RELATIONSHIP_OPTIONS = [
   { value: '기타', label: '기타' },
 ];
 
-const FALLBACK_FAMILIES: MemberFamilySeedPayload = {
-  families: [
-    { id: 1, main: '김철수', members: ['김영희 (배우자)', '김민준 (자녀)'], joined: '2024.01.15' },
-    { id: 2, main: '이수진', members: ['이준호 (배우자)'], joined: '2024.03.22' },
-  ],
-};
-
 const GROUP_MAX_MEMBERS = 10; // 예외처리: 그룹 정원 10명
 
-type FamilyGroup = MemberFamilySeedPayload['families'][number];
+interface FamilyMemberRow {
+  id: number;
+  memberName: string;
+  relationship: string;
+  isRepresentative: boolean;
+}
+
+interface FamilyGroup {
+  id: number;
+  main: string;
+  members: FamilyMemberRow[];
+  joined: string;
+}
+
+const getBranchId = () => {
+  if (typeof window === 'undefined') return 1;
+  return Number(localStorage.getItem('branchId') || '1');
+};
 
 function FamilyMember() {
-  const { data, loading, error, branchId, snapshotDate, reload } = usePageSeed<MemberFamilySeedPayload>(
-    '/members/family',
-    FALLBACK_FAMILIES,
-  );
-
-  // seed 데이터를 로컬에서 가공해 실제 추가/제거가 동작하도록 함
-  const [localFamilies, setLocalFamilies] = useState<FamilyGroup[] | null>(null);
-  const families = localFamilies ?? data.families;
+  const [families, setFamilies] = useState<FamilyGroup[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [branchId, setBranchId] = useState(1);
 
   const [query, setQuery] = useState('');
   const [showCreate, setShowCreate] = useState(false);
   const [addMemberGroupId, setAddMemberGroupId] = useState<number | null>(null);
-  const [removeTarget, setRemoveTarget] = useState<{ groupId: number; member: string } | null>(null);
+  const [removeTarget, setRemoveTarget] = useState<{ groupId: number; member: FamilyMemberRow } | null>(null);
 
   // 그룹 생성 폼
   const [groupName, setGroupName] = useState('');
@@ -66,11 +71,57 @@ function FamilyMember() {
   const [newMemberName, setNewMemberName] = useState('');
   const [newRelation, setNewRelation] = useState('배우자');
 
+  const fetchFamilies = useCallback(async () => {
+    const currentBranchId = getBranchId();
+    setBranchId(currentBranchId);
+    setLoading(true);
+    setError('');
+
+    const { data, error: fetchError } = await supabase
+      .from('member_family_groups')
+      .select('id, representativeName, createdAt, member_family_members(id, memberName, relationship, isRepresentative)')
+      .eq('branchId', currentBranchId)
+      .order('createdAt', { ascending: false });
+
+    if (fetchError) {
+      setError(fetchError.message);
+      setFamilies([]);
+      setLoading(false);
+      return;
+    }
+
+    const mapped = (data ?? []).map((group: Record<string, unknown>) => {
+      const rawMembers = Array.isArray(group.member_family_members)
+        ? group.member_family_members as Record<string, unknown>[]
+        : [];
+      return {
+        id: Number(group.id),
+        main: String(group.representativeName ?? ''),
+        members: rawMembers
+          .map((member) => ({
+            id: Number(member.id),
+            memberName: String(member.memberName ?? ''),
+            relationship: String(member.relationship ?? '기타'),
+            isRepresentative: Boolean(member.isRepresentative),
+          }))
+          .filter((member) => !member.isRepresentative),
+        joined: String(group.createdAt ?? '').slice(0, 10).replace(/-/g, '.'),
+      };
+    });
+
+    setFamilies(mapped);
+    setLoading(false);
+  }, []);
+
+  useEffect(() => {
+    void fetchFamilies();
+  }, [fetchFamilies]);
+
   const filtered = useMemo(() => {
     const keyword = query.trim();
     if (!keyword) return families;
     return families.filter(
-      (f) => f.main.includes(keyword) || f.members.some((m) => m.includes(keyword)),
+      (f) => f.main.includes(keyword) || f.members.some((m) => m.memberName.includes(keyword)),
     );
   }, [families, query]);
 
@@ -79,11 +130,7 @@ function FamilyMember() {
   const totalMembers = families.reduce((acc, f) => acc + f.members.length + 1, 0);
   const avgMembers = totalGroups > 0 ? (totalMembers / totalGroups).toFixed(1) : '0';
 
-  const ensureLocal = (fn: (prev: FamilyGroup[]) => FamilyGroup[]) => {
-    setLocalFamilies((prev) => fn(prev ?? data.families));
-  };
-
-  const handleCreateGroup = () => {
+  const handleCreateGroup = async () => {
     const name = groupName.trim();
     if (!name) {
       toast.error('대표 회원 이름을 입력하세요.');
@@ -93,15 +140,38 @@ function FamilyMember() {
       toast.error('그룹 대표명은 30자 이내로 입력해주세요.');
       return;
     }
-    ensureLocal((prev) => [
-      {
-        id: (prev.reduce((max, f) => Math.max(max, f.id), 0) || 0) + 1,
-        main: name,
-        members: firstMember.trim() ? [`${firstMember.trim()} (${newRelation})`] : [],
-        joined: new Date().toISOString().slice(0, 10).replace(/-/g, '.'),
-      },
-      ...prev,
-    ]);
+    const { data: group, error: groupError } = await supabase
+      .from('member_family_groups')
+      .insert({
+        branchId,
+        name: `${name} 가족`,
+        representativeName: name,
+      })
+      .select('id')
+      .single();
+
+    if (groupError || !group) {
+      toast.error('가족 그룹 생성에 실패했습니다.');
+      return;
+    }
+
+    const groupId = Number(group.id);
+    const membersToInsert = [
+      { groupId, memberName: name, relationship: '대표', isRepresentative: true },
+      ...(firstMember.trim()
+        ? [{ groupId, memberName: firstMember.trim(), relationship: newRelation, isRepresentative: false }]
+        : []),
+    ];
+    const { error: memberError } = await supabase
+      .from('member_family_members')
+      .insert(membersToInsert);
+
+    if (memberError) {
+      toast.error('가족 구성원 저장에 실패했습니다.');
+      return;
+    }
+
+    await fetchFamilies();
     setShowCreate(false);
     setGroupName('');
     setFirstMember('');
@@ -109,7 +179,7 @@ function FamilyMember() {
     toast.success('저장되었습니다.');
   };
 
-  const handleAddMember = () => {
+  const handleAddMember = async () => {
     if (addMemberGroupId === null) return;
     const name = newMemberName.trim();
     if (!name) {
@@ -122,26 +192,40 @@ function FamilyMember() {
       toast.error('그룹 정원이 초과되었어요. (최대 10명)');
       return;
     }
-    ensureLocal((prev) =>
-      prev.map((f) =>
-        f.id === addMemberGroupId ? { ...f, members: [...f.members, `${name} (${newRelation})`] } : f,
-      ),
-    );
+    const { error: insertError } = await supabase
+      .from('member_family_members')
+      .insert({
+        groupId: addMemberGroupId,
+        memberName: name,
+        relationship: newRelation,
+        isRepresentative: false,
+      });
+
+    if (insertError) {
+      toast.error('가족 구성원 추가에 실패했습니다.');
+      return;
+    }
+
+    await fetchFamilies();
     setAddMemberGroupId(null);
     setNewMemberName('');
     setNewRelation('배우자');
     toast.success('저장되었습니다.');
   };
 
-  const handleRemoveMember = () => {
+  const handleRemoveMember = async () => {
     if (!removeTarget) return;
-    ensureLocal((prev) =>
-      prev.map((f) =>
-        f.id === removeTarget.groupId
-          ? { ...f, members: f.members.filter((m) => m !== removeTarget.member) }
-          : f,
-      ),
-    );
+    const { error: deleteError } = await supabase
+      .from('member_family_members')
+      .delete()
+      .eq('id', removeTarget.member.id);
+
+    if (deleteError) {
+      toast.error('구성원 분리에 실패했습니다.');
+      return;
+    }
+
+    await fetchFamilies();
     setRemoveTarget(null);
     toast.success('구성원을 분리했습니다.');
   };
@@ -157,9 +241,9 @@ function FamilyMember() {
               variant="outline"
               size="sm"
               icon={<RefreshCw className={cn('h-4 w-4', loading && 'animate-spin')} />}
-              onClick={() => void reload(true)}
+              onClick={() => void fetchFamilies()}
             >
-              seed 갱신
+              새로고침
             </Button>
             <Button variant="primary" size="sm" icon={<UserPlus size={14} />} onClick={() => setShowCreate(true)}>
               새 그룹 만들기
@@ -175,10 +259,10 @@ function FamilyMember() {
         <StatCard label="그룹당 평균" value={`${avgMembers}명`} icon={<Wallet size={20} />} variant="peach" />
       </StatCardGrid>
 
-      {/* seed 출처 안내 + 오류 상태(fallback) */}
+      {/* DB 출처 안내 + 오류 상태 */}
       <div className="mb-lg rounded-xl border border-line bg-surface-secondary/50 px-md py-sm text-[12px] text-content-secondary">
-        Supabase snapshot · 지점 {branchId} · 기준일 {snapshotDate ?? '-'}
-        {error && <span className="ml-2 font-semibold text-state-error">Fallback 사용: {error}</span>}
+        Supabase DB · 지점 {branchId}
+        {error && <span className="ml-2 font-semibold text-state-error">로드 실패: {error}</span>}
       </div>
 
       <div className="mb-lg">
@@ -233,10 +317,10 @@ function FamilyMember() {
                 ) : (
                   family.members.map((m, idx) => (
                     <div
-                      key={`${m}-${idx}`}
+                      key={`${m.id}-${idx}`}
                       className="flex items-center justify-between rounded-lg border border-line bg-surface-secondary/40 px-md py-sm"
                     >
-                      <span className="text-[13px] text-content">{m}</span>
+                      <span className="text-[13px] text-content">{m.memberName} ({m.relationship})</span>
                       <button
                         type="button"
                         onClick={() => setRemoveTarget({ groupId: family.id, member: m })}
@@ -329,7 +413,7 @@ function FamilyMember() {
       <ConfirmDialog
         open={removeTarget !== null}
         title="구성원 분리"
-        description={`${removeTarget?.member ?? ''} 구성원을 가족 그룹에서 분리하시겠습니까? 회원 데이터는 그대로 유지됩니다.`}
+        description={`${removeTarget?.member.memberName ?? ''} 구성원을 가족 그룹에서 분리하시겠습니까? 회원 데이터는 그대로 유지됩니다.`}
         confirmLabel="분리"
         variant="danger"
         onConfirm={handleRemoveMember}

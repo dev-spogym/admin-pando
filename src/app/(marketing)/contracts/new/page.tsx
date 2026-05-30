@@ -1,7 +1,7 @@
 'use client';
 export const dynamic = 'force-dynamic';
 
-import React, { useState, useMemo } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   User,
   Search,
@@ -27,6 +27,7 @@ import Button from '@/components/ui/Button';
 import { cn } from '@/lib/utils';
 import { formatKRW } from '@/lib/format';
 import { toast } from 'sonner';
+import { supabase } from '@/lib/supabase';
 
 /**
  * SCR-075 전자 계약 (MKT-05)
@@ -62,17 +63,8 @@ const TEMPLATE_NAME: Record<ContractType, string> = {
 
 interface SearchTarget { id: number; name: string; phone: string; sub: string }
 
-const MOCK_MEMBERS: SearchTarget[] = [
-  { id: 1, name: '김민준', phone: '010-1234-5678', sub: '이용권 회원' },
-  { id: 2, name: '이서연', phone: '010-2345-6789', sub: 'PT 회원' },
-  { id: 3, name: '박지호', phone: '010-3456-7890', sub: '신규 상담' },
-];
-const MOCK_STAFF: SearchTarget[] = [
-  { id: 101, name: '정수아', phone: '010-9876-5432', sub: '필라테스 강사' },
-  { id: 102, name: '최도윤', phone: '010-8765-4321', sub: '프리랜서 트레이너' },
-];
-
 interface ContractHistoryRow {
+  dbId: number;
   id: string;
   date: string;
   category: ContractCategory;
@@ -80,18 +72,19 @@ interface ContractHistoryRow {
   targetName: string;
   status: '서명 완료' | '원격 서명 대기' | '임시 저장';
 }
-const MOCK_HISTORY: ContractHistoryRow[] = [
-  { id: 'CT-2026-0007', date: '2026-05-20', category: 'member', type: '이용권', targetName: '김민준', status: '서명 완료' },
-  { id: 'CT-2026-0006', date: '2026-05-18', category: 'staff', type: '강사 위촉', targetName: '정수아', status: '서명 완료' },
-  { id: 'CT-2026-0005', date: '2026-05-15', category: 'member', type: 'PT', targetName: '이서연', status: '원격 서명 대기' },
-  { id: 'CT-2026-0004', date: '2026-05-10', category: 'staff', type: '프리랜서', targetName: '최도윤', status: '임시 저장' },
-];
 
 const HISTORY_VARIANT: Record<ContractHistoryRow['status'], 'success' | 'warning' | 'default'> = {
   '서명 완료': 'success',
   '원격 서명 대기': 'warning',
   '임시 저장': 'default',
 };
+
+const getBranchId = () => {
+  if (typeof window === 'undefined') return 1;
+  return Number(localStorage.getItem('branchId') || '1');
+};
+
+const createContractNo = () => `CT-${new Date().getFullYear()}-${Date.now().toString().slice(-8)}`;
 
 export default function ElectronicContract() {
   const [tab, setTab] = useState<'new' | 'history'>('new');
@@ -107,8 +100,81 @@ export default function ElectronicContract() {
   const [terms, setTerms] = useState('');
   const [signMode, setSignMode] = useState<SignMode>('onsite');
   const [signed, setSigned] = useState(false);
+  const [candidates, setCandidates] = useState<SearchTarget[]>([]);
+  const [historyRows, setHistoryRows] = useState<ContractHistoryRow[]>([]);
+  const [saving, setSaving] = useState(false);
 
-  const candidates = category === 'member' ? MOCK_MEMBERS : MOCK_STAFF;
+  const loadTargets = useCallback(async (nextCategory: ContractCategory) => {
+    if (nextCategory === 'member') {
+      const { data, error } = await supabase
+        .from('members')
+        .select('id, name, phone, membershipType, status')
+        .eq('branchId', getBranchId())
+        .order('name', { ascending: true })
+        .limit(100);
+      if (error) {
+        toast.error(`회원 목록을 불러오지 못했습니다: ${error.message}`);
+        setCandidates([]);
+        return;
+      }
+      setCandidates((data ?? []).map((row: any) => ({
+        id: row.id,
+        name: row.name,
+        phone: row.phone ?? '',
+        sub: row.membershipType ?? row.status ?? '회원',
+      })));
+      return;
+    }
+
+    const { data, error } = await supabase
+      .from('staff')
+      .select('id, name, phone, role, position')
+      .eq('branchId', getBranchId())
+      .eq('isActive', true)
+      .order('name', { ascending: true })
+      .limit(100);
+    if (error) {
+      toast.error(`직원 목록을 불러오지 못했습니다: ${error.message}`);
+      setCandidates([]);
+      return;
+    }
+    setCandidates((data ?? []).map((row: any) => ({
+      id: row.id,
+      name: row.name,
+      phone: row.phone ?? '',
+      sub: row.position || row.role || '직원',
+    })));
+  }, []);
+
+  const loadHistory = useCallback(async () => {
+    const { data, error } = await supabase
+      .from('electronic_contracts')
+      .select('*')
+      .eq('branchId', getBranchId())
+      .order('createdAt', { ascending: false });
+    if (error) {
+      toast.error(`계약 이력을 불러오지 못했습니다: ${error.message}`);
+      return;
+    }
+    setHistoryRows((data ?? []).map((row: any) => ({
+      dbId: row.id,
+      id: row.contractNo,
+      date: String(row.createdAt ?? '').slice(0, 10),
+      category: row.contractCategory,
+      type: row.contractType,
+      targetName: row.targetName,
+      status: row.status,
+    })));
+  }, []);
+
+  useEffect(() => {
+    void loadTargets(category);
+  }, [category, loadTargets]);
+
+  useEffect(() => {
+    void loadHistory();
+  }, [loadHistory]);
+
   const filtered = useMemo(() => {
     if (!search) return candidates;
     const q = search.toLowerCase();
@@ -130,10 +196,51 @@ export default function ElectronicContract() {
     return null;
   };
 
-  const handleRemoteSend = () => {
+  const saveContract = async (status: ContractHistoryRow['status'], mode: SignMode) => {
     const err = validate();
-    if (err) { toast.error(err); return; }
+    if (err) {
+      toast.error(err);
+      return false;
+    }
+
+    setSaving(true);
+    const now = new Date().toISOString();
+    const { error } = await supabase
+      .from('electronic_contracts')
+      .insert({
+        branchId: getBranchId(),
+        contractNo: createContractNo(),
+        contractCategory: category,
+        contractType: type,
+        targetId: target?.id ?? null,
+        targetName: target?.name ?? '',
+        targetPhone: target?.phone ?? null,
+        targetSub: target?.sub ?? null,
+        startDate,
+        endDate,
+        amount,
+        terms,
+        signMode: mode,
+        status,
+        signedAt: status === '서명 완료' ? now : null,
+        remoteLinkSentAt: mode === 'remote' ? now : null,
+        history: [{ at: now, action: status, signMode: mode }],
+      });
+    setSaving(false);
+
+    if (error) {
+      toast.error(`계약 저장 실패: ${error.message}`);
+      return false;
+    }
+    await loadHistory();
+    return true;
+  };
+
+  const handleRemoteSend = async () => {
+    const saved = await saveContract('원격 서명 대기', 'remote');
+    if (!saved) return;
     toast.success(`${target?.name}님에게 원격 서명 링크를 발송했습니다. (7일 유효)`);
+    setTab('history');
   };
 
   const handleSign = (_dataUrl: string) => {
@@ -141,15 +248,40 @@ export default function ElectronicContract() {
     toast.success('서명이 입력되었습니다.');
   };
 
-  const handleComplete = () => {
+  const handleComplete = async () => {
     const err = validate();
     if (err) { toast.error(err); return; }
     if (signMode === 'onsite' && !signed) { toast.error('서명이 필요합니다.'); return; }
-    toast.success('계약이 체결되어 이력에 저장되었습니다. (PDF 변환 목업)');
+    const status = signMode === 'onsite' ? '서명 완료' : '원격 서명 대기';
+    const saved = await saveContract(status, signMode);
+    if (!saved) return;
+    toast.success(signMode === 'onsite' ? '계약이 체결되어 이력에 저장되었습니다.' : '원격 서명 대기 계약으로 저장되었습니다.');
     setTab('history');
   };
 
-  const handleResend = (row: ContractHistoryRow) => {
+  const handleTempSave = async () => {
+    const saved = await saveContract('임시 저장', signMode);
+    if (!saved) return;
+    toast.success('임시 저장되었습니다.');
+    setTab('history');
+  };
+
+  const handleResend = async (row: ContractHistoryRow) => {
+    const now = new Date().toISOString();
+    const { error } = await supabase
+      .from('electronic_contracts')
+      .update({
+        status: '원격 서명 대기',
+        remoteLinkSentAt: now,
+        updatedAt: now,
+      })
+      .eq('id', row.dbId)
+      .eq('branchId', getBranchId());
+    if (error) {
+      toast.error(`재발송 실패: ${error.message}`);
+      return;
+    }
+    await loadHistory();
     toast.success(`${row.targetName}님(${row.id})에게 계약서를 재발송했습니다.`);
   };
 
@@ -277,14 +409,14 @@ export default function ElectronicContract() {
               ) : (
                 <div className="rounded-lg border border-dashed border-line p-lg text-center">
                   <p className="text-Body-2 text-content-secondary mb-sm">회원/직원에게 서명 링크를 SMS·카카오톡으로 전송합니다. (7일 유효)</p>
-                  <Button variant="outline" size="sm" icon={<Send size={14} />} onClick={handleRemoteSend}>원격 서명 링크 발송</Button>
+                  <Button variant="outline" size="sm" icon={<Send size={14} />} onClick={handleRemoteSend} disabled={saving}>원격 서명 링크 발송</Button>
                 </div>
               )}
             </section>
 
             <div className="flex justify-end gap-sm">
-              <Button variant="outline" onClick={() => toast.success('임시 저장되었습니다. (24시간 보관)')}>임시 저장</Button>
-              <Button variant="primary" icon={<CheckCircle2 size={14} />} onClick={handleComplete}>계약 체결</Button>
+              <Button variant="outline" onClick={handleTempSave} disabled={saving}>임시 저장</Button>
+              <Button variant="primary" icon={<CheckCircle2 size={14} />} onClick={handleComplete} disabled={saving}>계약 체결</Button>
             </div>
           </div>
 
@@ -332,7 +464,7 @@ export default function ElectronicContract() {
       {tab === 'history' && (
         <div className="bg-surface rounded-xl border border-line shadow-card overflow-hidden">
           <div className="px-lg py-md border-b border-line"><h3 className="text-Body-1 font-bold text-content">계약 이력</h3></div>
-          {MOCK_HISTORY.length === 0 ? (
+          {historyRows.length === 0 ? (
             <div className="py-2xl text-center text-Body-2 text-content-secondary">완료된 계약이 없습니다.</div>
           ) : (
             <table className="w-full text-sm">
@@ -347,7 +479,7 @@ export default function ElectronicContract() {
                 </tr>
               </thead>
               <tbody>
-                {MOCK_HISTORY.map((row) => (
+                {historyRows.map((row) => (
                   <tr key={row.id} className="border-t border-line">
                     <td className="px-lg py-sm font-mono text-[12px] text-content">{row.id}</td>
                     <td className="px-lg py-sm font-mono text-[12px] text-content">{row.date}</td>

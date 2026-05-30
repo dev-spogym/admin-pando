@@ -1159,6 +1159,24 @@ export default function Calendar() {
     setIsAddModalOpen(true);
   }, []);
 
+  const openEditEvent = useCallback((event: ScheduleEvent) => {
+    setSelectedEvent(event);
+    setFormName(event.title);
+    setFormType(event.type);
+    setFormCapacity(event.capacity);
+    setFormInstructor(event.instructorId);
+    setFormDate(event.start.slice(0, 10));
+    setFormStartTime(event.start.slice(11, 16));
+    setFormEndTime(event.end.slice(11, 16));
+    setFormRoom(event.room);
+    setFormScheduleCategory(event.scheduleCategory ?? "");
+    setFormTargetType(event.targetType ?? "회원");
+    setFormTargetName(event.targetName ?? "");
+    setFormTargetPhone(event.targetPhone ?? "");
+    setParticipants([]);
+    setIsAddModalOpen(true);
+  }, []);
+
   // --- 이벤트 드래그&드롭 → Supabase 업데이트 ---
   const handleEventDrop = useCallback(async (info: EventDropArg) => {
     const { event, revert } = info;
@@ -1298,7 +1316,7 @@ export default function Calendar() {
   };
 
   // --- 수업 등록 제출 핸들러 ---
-  const handleAddClass = () => {
+  const handleAddClass = async () => {
     if (isSaving) return;
 
     if (!formName.trim()) {
@@ -1347,37 +1365,67 @@ export default function Calendar() {
         formTargetType === "직원"
           ? (instructors.find(i => i.id === formTargetStaff)?.name ?? formTargetStaff)
           : formTargetName || null;
-      const newEvent: ScheduleEvent = {
-        id: `local-${Date.now()}`,
-        title: formName,
-        instructor: instructorInfo?.name ?? "",
-        instructorId: formInstructor,
-        start: `${formDate}T${formStartTime}:00`,
-        end: `${formDate}T${formEndTime}:00`,
-        room: formRoom,
+      const startAt = `${formDate}T${formStartTime}:00`;
+      const endAt = `${formDate}T${formEndTime}:00`;
+      const staffId = Number(formInstructor) || Number(instructors[0]?.id) || 1;
+      const staffName = instructorInfo?.name ?? instructors[0]?.name ?? "담당자 미지정";
+      const payload = {
+        title: formName.trim(),
+        type: (["PT", "GX", "골프", "기타"].includes(formType) ? formType : "기타"),
+        staffId,
+        staffName,
+        room: formRoom || null,
+        startTime: startAt,
+        endTime: endAt,
         capacity: formCapacity,
-        currentCount: 0,
-        status: "예약",
-        type: (["PT", "GX", "골프", "기타"].includes(formType) ? formType : "기타") as EventType,
-        maxCapacity: formMaxCapacity > 0 ? formMaxCapacity : formCapacity,
-        currentReservations: 0,
-        reservationDeadline: formReservationDeadline || undefined,
-        seatRows: formSeatRows > 0 ? formSeatRows : undefined,
-        seatCols: formSeatCols > 0 ? formSeatCols : undefined,
-        reservedSeats: [],
-        scheduleCategory: formScheduleCategory || null,
+        booked: participants.length,
+        isRecurring: false,
+        branchId,
         targetType: formTargetType,
-        targetName: resolvedTargetName,
-        approvalStatus: null,
-        color: formColor,
+        scheduleCategory: formScheduleCategory || null,
+        approvalStatus: "approved",
+        member_name: resolvedTargetName,
       };
 
-      setLocalEvents(prev => [...prev, newEvent]);
-      // 참여자 데이터 (lesson_bookings INSERT 연동 시 교체)
-      if (participants.length > 0) {
-        console.log("참여자 목록:", participants);
+      if (selectedEvent && !selectedEvent.id.startsWith("local-")) {
+        const { error } = await supabase
+          .from("classes")
+          .update(payload)
+          .eq("id", Number(selectedEvent.id));
+        if (error) {
+          toast.error(`수업 수정에 실패했습니다: ${error.message}`);
+          return;
+        }
+        toast.success("수업이 수정되었습니다.");
+      } else {
+        const { data, error } = await supabase
+          .from("classes")
+          .insert(payload)
+          .select("id")
+          .single();
+        if (error || !data) {
+          toast.error(`수업 등록에 실패했습니다: ${error?.message ?? "저장 결과 없음"}`);
+          return;
+        }
+
+        if (participants.length > 0) {
+          const { error: bookingError } = await supabase.from("lesson_bookings").insert(
+            participants.map((participant) => ({
+              scheduleId: data.id,
+              memberId: Number(participant.id),
+              memberName: participant.name,
+              status: "BOOKED",
+              branchId,
+            }))
+          );
+          if (bookingError) {
+            toast.error(`수업은 등록됐지만 참여자 예약 저장에 실패했습니다: ${bookingError.message}`);
+          }
+        }
+        toast.success("수업이 등록되었습니다.");
       }
-      toast.success("수업이 등록되었습니다.");
+
+      await fetchData();
       setIsAddModalOpen(false);
       resetForm();
       setSelectedEvent(null);
@@ -2112,7 +2160,7 @@ export default function Calendar() {
         <EventDetailModal
           event={selectedEvent}
           onClose={() => setIsDetailModalOpen(false)}
-          onEdit={() => { setIsDetailModalOpen(false); setIsAddModalOpen(true); }}
+          onEdit={() => { setIsDetailModalOpen(false); openEditEvent(selectedEvent); }}
           onDelete={handleDeleteClass}
           onApprove={handleApproveEvent}
           onReject={handleRejectEvent}

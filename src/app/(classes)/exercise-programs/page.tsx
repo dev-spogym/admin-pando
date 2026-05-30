@@ -21,10 +21,13 @@ import {
   createExerciseProgram,
   updateExerciseProgram,
   deleteExerciseProgram,
+  assignProgram,
+  unassignProgram,
   type ExerciseProgram,
   type ProgramLevel,
   type ExerciseItem,
 } from '@/api/endpoints/exercisePrograms';
+import { supabase } from '@/lib/supabase';
 
 const CATEGORIES = ['근력', '유산소', '유연성', '재활'];
 const LEVELS: ProgramLevel[] = ['초급', '중급', '고급'];
@@ -52,8 +55,19 @@ const EMPTY_FORM = {
   exercises: [{ ...EMPTY_EXERCISE }] as ExerciseItem[],
 };
 
-// 배정 회원 mock 후보 (백엔드 미구현 — 회원 배정은 로컬 목업으로 동작)
-const MOCK_MEMBER_CANDIDATES = ['김민수', '이서연', '박지훈', '최유진', '정도윤', '강하늘', '윤서아', '임준호', '한지민', '오세훈'];
+interface MemberCandidate {
+  id: number;
+  name: string;
+  phone: string;
+}
+
+interface ProgramAssignment {
+  id: number;
+  memberId: number;
+  memberName: string;
+  memberPhone: string;
+  status: string;
+}
 
 export default function ExerciseProgramManagement() {
   const branchId = getBranchId();
@@ -74,14 +88,57 @@ export default function ExerciseProgramManagement() {
   const [filterCategory, setFilterCategory] = useState('전체');
   // 필터: 배정 회원 있는 프로그램만 보기
   const [onlyAssigned, setOnlyAssigned] = useState(false);
-  // 회원 배정 (프로그램ID → 배정 회원명 목록) — 목업 로컬 상태
-  const [assignments, setAssignments] = useState<Record<number, string[]>>({});
+  const [assignments, setAssignments] = useState<Record<number, ProgramAssignment[]>>({});
+  const [memberCandidates, setMemberCandidates] = useState<MemberCandidate[]>([]);
   const [assignTarget, setAssignTarget] = useState<ExerciseProgram | null>(null);
   const [memberSearch, setMemberSearch] = useState('');
 
+  const fetchAssignments = async () => {
+    const [{ data: assignmentData }, { data: memberData }] = await Promise.all([
+      supabase
+        .from('member_exercise_programs')
+        .select('id, memberId, programId, status')
+        .eq('branchId', branchId)
+        .in('status', ['ACTIVE', 'active']),
+      supabase
+        .from('members')
+        .select('id, name, phone')
+        .eq('branchId', branchId)
+        .neq('status', 'WITHDRAWN')
+        .order('name', { ascending: true }),
+    ]);
+
+    const memberMap = new Map((memberData ?? []).map((member: any) => [Number(member.id), member]));
+    const grouped: Record<number, ProgramAssignment[]> = {};
+    (assignmentData ?? []).forEach((row: any) => {
+      const programId = Number(row.programId);
+      const member = memberMap.get(Number(row.memberId));
+      grouped[programId] ??= [];
+      grouped[programId].push({
+        id: Number(row.id),
+        memberId: Number(row.memberId),
+        memberName: member?.name ?? '-',
+        memberPhone: member?.phone ?? '-',
+        status: String(row.status ?? 'ACTIVE'),
+      });
+    });
+
+    setAssignments(grouped);
+    setMemberCandidates(
+      (memberData ?? []).map((member: any) => ({
+        id: Number(member.id),
+        name: String(member.name ?? '-'),
+        phone: String(member.phone ?? '-'),
+      }))
+    );
+  };
+
   const fetchPrograms = async () => {
     setIsLoading(true);
-    const data = await getExercisePrograms(branchId);
+    const [data] = await Promise.all([
+      getExercisePrograms(branchId),
+      fetchAssignments(),
+    ]);
     setIsLoading(false);
     setPrograms(data);
   };
@@ -145,13 +202,9 @@ export default function ExerciseProgramManagement() {
 
   const handleDelete = async () => {
     if (deleteTarget === null) return;
+    await supabase.from('member_exercise_programs').delete().eq('programId', deleteTarget);
     const { error } = await deleteExerciseProgram(deleteTarget);
     if (error) { toast.error('삭제에 실패했습니다.'); return; }
-    setAssignments((prev) => {
-      const next = { ...prev };
-      delete next[deleteTarget];
-      return next;
-    });
     toast.success('운동 프로그램이 삭제되었습니다.');
     setDeleteDialogOpen(false);
     setDeleteTarget(null);
@@ -173,17 +226,26 @@ export default function ExerciseProgramManagement() {
     setMemberSearch('');
     setAssignTarget(program);
   };
-  const addAssignment = (memberName: string) => {
+  const addAssignment = async (member: MemberCandidate) => {
     if (!assignTarget) return;
-    setAssignments((prev) => {
-      const list = prev[assignTarget.id] ?? [];
-      if (list.includes(memberName)) return prev;
-      return { ...prev, [assignTarget.id]: [...list, memberName] };
-    });
-    toast.success(`${memberName} 회원에게 배정했습니다.`);
+    if ((assignments[assignTarget.id] ?? []).some((assignment) => assignment.memberId === member.id)) return;
+    const assignedBy = Number((currentUser as { id?: number | string } | null)?.id ?? 0);
+    try {
+      await assignProgram(member.id, assignTarget.id, assignedBy, branchId);
+      toast.success(`${member.name} 회원에게 배정했습니다.`);
+      await fetchAssignments();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : '회원 배정에 실패했습니다.');
+    }
   };
-  const removeAssignment = (programId: number, memberName: string) => {
-    setAssignments((prev) => ({ ...prev, [programId]: (prev[programId] ?? []).filter((n) => n !== memberName) }));
+  const removeAssignment = async (assignmentId: number) => {
+    try {
+      await unassignProgram(assignmentId);
+      toast.success('회원 배정을 해제했습니다.');
+      await fetchAssignments();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : '배정 해제에 실패했습니다.');
+    }
   };
   const assignedCount = (programId: number) => (assignments[programId] ?? []).length;
 
@@ -193,8 +255,11 @@ export default function ExerciseProgramManagement() {
     return true;
   });
 
-  const assignCandidates = MOCK_MEMBER_CANDIDATES.filter(
-    (n) => !memberSearch || n.includes(memberSearch)
+  const assignCandidates = memberCandidates.filter(
+    (member) =>
+      !memberSearch ||
+      member.name.includes(memberSearch) ||
+      member.phone.replace(/\D/g, '').includes(memberSearch.replace(/\D/g, ''))
   );
 
   const columns = [
@@ -425,7 +490,7 @@ export default function ExerciseProgramManagement() {
         </div>
       )}
 
-      {/* 회원 배정 드로어 (목업) */}
+      {/* 회원 배정 드로어 */}
       {assignTarget && (
         <div className="fixed inset-0 z-[9999] flex justify-end bg-black/40" onClick={() => setAssignTarget(null)}>
           <div className="w-full max-w-sm h-full bg-surface shadow-xl flex flex-col" onClick={(e) => e.stopPropagation()}>
@@ -444,10 +509,10 @@ export default function ExerciseProgramManagement() {
                 <p className="text-[12px] text-content-tertiary">아직 배정된 회원이 없습니다.</p>
               ) : (
                 <div className="flex flex-wrap gap-xs">
-                  {(assignments[assignTarget.id] ?? []).map((n) => (
-                    <span key={n} className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-primary-light text-primary text-[12px] font-medium">
-                      {n}
-                      <button onClick={() => removeAssignment(assignTarget.id, n)} className="hover:text-state-error"><X size={12} /></button>
+                  {(assignments[assignTarget.id] ?? []).map((assignment) => (
+                    <span key={assignment.id} className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-primary-light text-primary text-[12px] font-medium">
+                      {assignment.memberName}
+                      <button onClick={() => removeAssignment(assignment.id)} className="hover:text-state-error"><X size={12} /></button>
                     </span>
                   ))}
                 </div>
@@ -464,14 +529,17 @@ export default function ExerciseProgramManagement() {
                 <p className="text-[12px] text-content-tertiary text-center py-md">검색 결과가 없어요.</p>
               ) : (
                 <ul className="space-y-xs">
-                  {assignCandidates.map((n) => {
-                    const already = (assignments[assignTarget.id] ?? []).includes(n);
+                  {assignCandidates.map((member) => {
+                    const already = (assignments[assignTarget.id] ?? []).some((assignment) => assignment.memberId === member.id);
                     return (
-                      <li key={n} className="flex items-center justify-between px-3 py-2 rounded-lg bg-surface-secondary">
-                        <span className="text-[13px] text-content">{n}</span>
+                      <li key={member.id} className="flex items-center justify-between px-3 py-2 rounded-lg bg-surface-secondary">
+                        <span className="text-[13px] text-content">
+                          {member.name}
+                          <span className="ml-2 text-[11px] text-content-tertiary">{member.phone}</span>
+                        </span>
                         <button
                           disabled={already}
-                          onClick={() => addAssignment(n)}
+                          onClick={() => addAssignment(member)}
                           className="text-[12px] font-semibold text-primary disabled:text-content-tertiary disabled:cursor-not-allowed"
                         >
                           {already ? '배정됨' : '배정'}
@@ -491,7 +559,7 @@ export default function ExerciseProgramManagement() {
         title="운동 프로그램 삭제"
         description={
           deleteTarget !== null && assignedCount(deleteTarget) > 0
-            ? `배정 회원 ${assignedCount(deleteTarget)}명(${(assignments[deleteTarget] ?? []).join(', ')})이 있습니다. 삭제하면 배정이 해제되고 회원에게 안내됩니다. 계속하시겠습니까?`
+            ? `배정 회원 ${assignedCount(deleteTarget)}명(${(assignments[deleteTarget] ?? []).map((assignment) => assignment.memberName).join(', ')})이 있습니다. 삭제하면 배정이 해제되고 회원에게 안내됩니다. 계속하시겠습니까?`
             : '정말로 이 운동 프로그램을 삭제하시겠습니까?'
         }
         confirmLabel="삭제"

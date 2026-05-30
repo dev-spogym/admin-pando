@@ -4,6 +4,15 @@ import React, { useEffect, useState } from 'react';
 import { User, Camera, Lock, LogOut, Save, Loader2, Shield } from 'lucide-react';
 import { useAuthStore } from '@/stores/authStore';
 import { useRouter } from 'next/navigation';
+import { loadBranchSetting, saveBranchSetting } from '@/lib/branchSettings';
+import { supabase } from '@/lib/supabase';
+import { toast } from 'sonner';
+
+type ProfileSetting = {
+  name: string;
+  phone: string;
+  updatedAt: string;
+};
 
 export default function ProfilePage() {
   const authUser = useAuthStore(s => s.user);
@@ -12,6 +21,7 @@ export default function ProfilePage() {
   const user = mounted ? authUser : null;
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [showSaveConfirm, setShowSaveConfirm] = useState(false);
   const [form, setForm] = useState({
     name: '관리자',
     phone: '',
@@ -22,17 +32,55 @@ export default function ProfilePage() {
   }, []);
 
   useEffect(() => {
-    if (!mounted || !authUser?.name) return;
-    setForm((current) => ({ ...current, name: authUser.name }));
-  }, [authUser?.name, mounted]);
+    if (!mounted || !authUser?.id) return;
+    const key = `profile_settings_${authUser.id}`;
+    loadBranchSetting<Partial<ProfileSetting>>(key, {}).then((savedProfile) => {
+      setForm({
+        name: savedProfile.name ?? authUser.name ?? '관리자',
+        phone: savedProfile.phone ?? '',
+      });
+    });
+  }, [authUser?.id, authUser?.name, mounted]);
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
+    setShowSaveConfirm(true);
+  };
+
+  const confirmSave = async () => {
+    if (!authUser?.id) return;
     setSaving(true);
-    await new Promise(r => setTimeout(r, 800));
-    setSaving(false);
-    setSaved(true);
-    setTimeout(() => setSaved(false), 2000);
+    try {
+      const key = `profile_settings_${authUser.id}`;
+      const payload: ProfileSetting = {
+        name: form.name.trim() || authUser.name,
+        phone: form.phone.trim(),
+        updatedAt: new Date().toISOString(),
+      };
+      const settingError = await saveBranchSetting(key, payload);
+      if (settingError) throw new Error(settingError);
+
+      const numericUserId = Number(authUser.id);
+      if (Number.isFinite(numericUserId)) {
+        const { error } = await supabase
+          .from('users')
+          .update({ name: payload.name, updatedAt: payload.updatedAt })
+          .eq('id', numericUserId);
+        if (error) console.warn('[profile] users update skipped:', error.message);
+      }
+
+      const updatedUser = { ...authUser, name: payload.name };
+      useAuthStore.setState({ user: updatedUser });
+      localStorage.setItem('auth_user', JSON.stringify(updatedUser));
+      setSaved(true);
+      setShowSaveConfirm(false);
+      toast.success('프로필 정보를 저장했습니다.');
+      setTimeout(() => setSaved(false), 2000);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : '프로필 저장에 실패했습니다.');
+    } finally {
+      setSaving(false);
+    }
   };
 
   const roleLabel: Record<string, string> = {
@@ -164,11 +212,47 @@ export default function ProfilePage() {
 
       {/* 로그아웃 */}
       <div className="bg-white rounded-xl border border-red-100 p-4">
-        <button className="flex items-center gap-2 text-sm text-red-500 hover:text-red-600 font-medium transition-colors">
+        <button
+          type="button"
+          onClick={() => router.push('/logout')}
+          className="flex items-center gap-2 text-sm text-red-500 hover:text-red-600 font-medium transition-colors"
+        >
           <LogOut className="w-4 h-4" />
           로그아웃
         </button>
       </div>
+
+      {showSaveConfirm && (
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/40 px-4" onClick={() => setShowSaveConfirm(false)}>
+          <div className="w-full max-w-[380px] rounded-xl border border-gray-200 bg-white shadow-xl" onClick={(e) => e.stopPropagation()}>
+            <div className="border-b border-gray-100 px-5 py-4">
+              <h2 className="text-sm font-bold text-gray-900">저장하시겠습니까?</h2>
+              <p className="mt-1 text-xs leading-5 text-gray-500">
+                내 계정 기본 정보를 저장합니다. 저장 후 상단 사용자명에도 즉시 반영됩니다.
+              </p>
+            </div>
+            <div className="flex justify-end gap-2 px-5 py-4">
+              <button
+                type="button"
+                onClick={() => setShowSaveConfirm(false)}
+                className="h-10 rounded-lg border border-gray-200 px-4 text-sm font-medium text-gray-600 hover:bg-gray-50"
+                disabled={saving}
+              >
+                취소
+              </button>
+              <button
+                type="button"
+                onClick={confirmSave}
+                className="inline-flex h-10 items-center gap-2 rounded-lg bg-blue-600 px-4 text-sm font-semibold text-white hover:bg-blue-700 disabled:bg-blue-400"
+                disabled={saving}
+              >
+                {saving && <Loader2 className="h-4 w-4 animate-spin" />}
+                저장
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

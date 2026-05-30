@@ -58,7 +58,6 @@ const getBranchId = (): number => {
  * - DLG-064-002 급여 확정 확인 + 확정 취소
  * - DLG-064-003 급여 정책 추가/수정 + 급여 정책 템플릿 패널
  * - 전월 이전 마감 월 잠금
- * 실데이터 미연동 기능(정책 템플릿)은 로컬 상태 목업으로 구현합니다.
  */
 
 // 최근 12개월 생성
@@ -80,6 +79,16 @@ const PAY_TYPE_LABELS: Record<string, string> = {
   hourly: "시급제",
   rate: "정률제",
   mixed: "혼합제",
+};
+
+const mapPayrollStatusFromDb = (status: string | null | undefined): "paid" | "pending" | "hold" => {
+  if (status === "PAID" || status === "paid") return "paid";
+  if (status === "HOLD" || status === "hold") return "hold";
+  return "pending";
+};
+
+const mapPayrollStatusToDb = (status: "paid" | "pending" | "hold"): "PAID" | "PENDING" => {
+  return status === "paid" ? "PAID" : "PENDING";
 };
 
 // 역할 기준 급여 형태 추정 (실데이터 컬럼 부재 → 목업 매핑)
@@ -130,13 +139,6 @@ interface SalaryPolicy {
   scope: string; // 적용 센터/팀 범위
 }
 
-const SEED_POLICIES: SalaryPolicy[] = [
-  { id: 1, category: "lesson", job: "PT", payMethod: "혼합제", rank: "트레이너", baseSalary: 1800000, lessonUnitPrice: 25000, lessonRate: 40, salesCommission: 5, reRegCommission: 0, refundRule: "환불 확정 시 해당 회차분 차감", scope: "본점 / PT팀" },
-  { id: 2, category: "lesson", job: "PT", payMethod: "정률제", rank: "수석 트레이너", baseSalary: 0, lessonUnitPrice: 35000, lessonRate: 55, salesCommission: 8, reRegCommission: 0, refundRule: "환불 확정 시 차감 없음", scope: "본점 / PT팀" },
-  { id: 3, category: "sales", job: "FC", payMethod: "혼합제", rank: "FC 팀장", baseSalary: 2200000, lessonUnitPrice: 0, lessonRate: 0, salesCommission: 10, reRegCommission: 15, refundRule: "환불 확정 시 커미션 전액 차감", scope: "본점 / FC팀" },
-  { id: 4, category: "lesson", job: "GX", payMethod: "시급제", rank: "GX 강사", baseSalary: 0, lessonUnitPrice: 0, lessonRate: 0, salesCommission: 0, reRegCommission: 0, refundRule: "해당 없음", scope: "본점 / GX팀" },
-];
-
 const emptyPolicy = (): Omit<SalaryPolicy, "id"> => ({
   category: "lesson",
   job: "PT",
@@ -149,6 +151,21 @@ const emptyPolicy = (): Omit<SalaryPolicy, "id"> => ({
   reRegCommission: 0,
   refundRule: "",
   scope: "",
+});
+
+const mapPolicyRow = (row: Record<string, unknown>): SalaryPolicy => ({
+  id: Number(row.id),
+  category: row.category as PolicyCategory,
+  job: row.job as PolicyJob,
+  payMethod: row.payMethod as PayMethod,
+  rank: String(row.rank ?? ""),
+  baseSalary: Number(row.baseSalary ?? 0),
+  lessonUnitPrice: Number(row.lessonUnitPrice ?? 0),
+  lessonRate: Number(row.lessonRate ?? 0),
+  salesCommission: Number(row.salesCommission ?? 0),
+  reRegCommission: Number(row.reRegCommission ?? 0),
+  refundRule: String(row.refundRule ?? ""),
+  scope: String(row.scope ?? ""),
 });
 
 export default function Payroll() {
@@ -185,11 +202,12 @@ export default function Payroll() {
   const [editDeductions, setEditDeductions] = useState<{ name: string; amount: number }[]>([]);
   const [editReason, setEditReason] = useState("");
 
-  // ── DLG-064-003 급여 정책 템플릿 상태 (목업) ───────────────────────────────
-  const [policies, setPolicies] = useState<SalaryPolicy[]>(SEED_POLICIES);
+  // ── DLG-064-003 급여 정책 템플릿 상태 ──────────────────────────────────────
+  const [policies, setPolicies] = useState<SalaryPolicy[]>([]);
+  const [isLoadingPolicies, setIsLoadingPolicies] = useState(true);
   const [policyCategory, setPolicyCategory] = useState<PolicyCategory>("lesson");
   const [policyJob, setPolicyJob] = useState<PolicyJob>("PT");
-  const [selectedPolicyId, setSelectedPolicyId] = useState<number | null>(SEED_POLICIES[0].id);
+  const [selectedPolicyId, setSelectedPolicyId] = useState<number | null>(null);
   const [policyDialogOpen, setPolicyDialogOpen] = useState(false);
   const [policyForm, setPolicyForm] = useState<Omit<SalaryPolicy, "id">>(emptyPolicy());
   const [editingPolicyId, setEditingPolicyId] = useState<number | null>(null);
@@ -200,7 +218,7 @@ export default function Payroll() {
       const [year, month] = selectedMonth.split("-").map(Number);
       const { data, error } = await supabase
         .from("payroll")
-        .select("id, staffId, staffName, year, month, baseSalary, bonus, deduction, netSalary, status, staff!inner(role, branchId)")
+        .select("id, staffId, staffName, year, month, baseSalary, bonus, deduction, netSalary, status, details, staff!inner(role, branchId)")
         .eq("staff.branchId", getBranchId())
         .eq("year", year)
         .eq("month", month);
@@ -214,6 +232,10 @@ export default function Payroll() {
           const bonus = Number(r.bonus ?? 0);
           const deduction = Number(r.deduction ?? 0);
           const commission = 0; // 수수료: 실데이터 컬럼 부재 → 0(목업)
+          const details = (r.details ?? {}) as {
+            manualEarnings?: { name: string; amount: number }[];
+            manualDeductions?: { name: string; amount: number }[];
+          };
           return {
             id: r.id,
             name: r.staffName,
@@ -223,8 +245,10 @@ export default function Payroll() {
             incentive: bonus,
             deduction,
             commission,
-            status: r.status ?? "pending",
+            status: mapPayrollStatusFromDb(r.status),
             netPay: r.netSalary != null ? Number(r.netSalary) : (baseSalary + bonus - deduction + commission),
+            manualEarnings: Array.isArray(details.manualEarnings) ? details.manualEarnings : [],
+            manualDeductions: Array.isArray(details.manualDeductions) ? details.manualDeductions : [],
           };
         });
         setPayrollData(mapped);
@@ -256,6 +280,32 @@ export default function Payroll() {
     }
     fetchPrev();
   }, [selectedMonth]);
+
+  useEffect(() => {
+    async function fetchPolicies() {
+      setIsLoadingPolicies(true);
+      const { data, error } = await supabase
+        .from("salary_policies")
+        .select("*")
+        .eq("branchId", getBranchId())
+        .eq("isActive", true)
+        .order("category", { ascending: true })
+        .order("job", { ascending: true })
+        .order("rank", { ascending: true });
+
+      if (error) {
+        console.error("급여 정책 로드 실패:", error);
+        toast.error("급여 정책을 불러오지 못했습니다.");
+      } else {
+        const mapped = (data ?? []).map((row) => mapPolicyRow(row as Record<string, unknown>));
+        setPolicies(mapped);
+        setSelectedPolicyId((current) => current ?? mapped[0]?.id ?? null);
+      }
+      setIsLoadingPolicies(false);
+    }
+
+    fetchPolicies();
+  }, []);
 
   const handleSort = (key: SortKey) => {
     if (sortKey === key) {
@@ -346,7 +396,7 @@ export default function Payroll() {
     return auto + addE - addD;
   }, [editRow, editEarnings, editDeductions]);
 
-  const handleEditSave = () => {
+  const handleEditSave = async () => {
     if (!editRow) return;
     if (!editReason.trim()) { toast.error("변경 사유는 필수입니다."); return; }
     if (editEarnings.some(e => e.amount < 0) || editDeductions.some(e => e.amount < 0)) {
@@ -354,15 +404,42 @@ export default function Payroll() {
     }
     const addE = editEarnings.reduce((s, e) => s + (e.amount || 0), 0);
     const addD = editDeductions.reduce((s, e) => s + (e.amount || 0), 0);
+    const prevE = (editRow.manualEarnings ?? []).reduce((s, e) => s + (e.amount || 0), 0);
+    const prevD = (editRow.manualDeductions ?? []).reduce((s, e) => s + (e.amount || 0), 0);
+    const nextIncentive = editRow.incentive - prevE + addE;
+    const nextDeduction = editRow.deduction - prevD + addD;
+    const nextNetPay = editRow.baseSalary + nextIncentive - nextDeduction + editRow.commission;
+    const details = {
+      manualEarnings: editEarnings,
+      manualDeductions: editDeductions,
+      lastEditReason: editReason,
+      lastEditedAt: new Date().toISOString(),
+      lastEditedBy: authUser?.name ?? "관리자",
+    };
+    const { error } = await supabase
+      .from("payroll")
+      .update({
+        bonus: nextIncentive,
+        deduction: nextDeduction,
+        netSalary: nextNetPay,
+        details,
+      })
+      .eq("id", editRow.id);
+
+    if (error) {
+      toast.error("급여 항목 저장에 실패했습니다.");
+      return;
+    }
+
     setPayrollData(prev => prev.map(r => r.id === editRow.id ? {
       ...r,
-      incentive: r.incentive + addE,
-      deduction: r.deduction + addD,
-      netPay: r.baseSalary + r.incentive + addE - r.deduction - addD + r.commission,
+      incentive: nextIncentive,
+      deduction: nextDeduction,
+      netPay: nextNetPay,
       manualEarnings: [...editEarnings],
       manualDeductions: [...editDeductions],
     } : r));
-    toast.success("급여 항목이 수정되었습니다. (미확정 유지)");
+    toast.success("급여 항목이 저장되었습니다. (미확정 유지)");
     setEditRow(null);
   };
 
@@ -480,21 +557,60 @@ export default function Payroll() {
     setPolicyDialogOpen(true);
   };
 
-  const handlePolicySave = () => {
+  const handlePolicySave = async () => {
     if (!policyForm.rank.trim()) { toast.error("직급명을 입력해주세요."); return; }
+    const payload = {
+      branchId: getBranchId(),
+      category: policyForm.category,
+      job: policyForm.job,
+      payMethod: policyForm.payMethod,
+      rank: policyForm.rank.trim(),
+      baseSalary: policyForm.baseSalary,
+      lessonUnitPrice: policyForm.lessonUnitPrice,
+      lessonRate: policyForm.lessonRate,
+      salesCommission: policyForm.salesCommission,
+      reRegCommission: policyForm.reRegCommission,
+      refundRule: policyForm.refundRule || null,
+      scope: policyForm.scope || null,
+      updatedAt: new Date().toISOString(),
+    };
+
     if (editingPolicyId != null) {
-      setPolicies(prev => prev.map(p => p.id === editingPolicyId ? { ...policyForm, id: editingPolicyId } : p));
+      const { data, error } = await supabase
+        .from("salary_policies")
+        .update(payload)
+        .eq("id", editingPolicyId)
+        .select("*")
+        .single();
+
+      if (error) { toast.error("급여 정책 수정에 실패했습니다."); return; }
+      const saved = mapPolicyRow(data as Record<string, unknown>);
+      setPolicies(prev => prev.map(p => p.id === editingPolicyId ? saved : p));
+      setSelectedPolicyId(saved.id);
       toast.success("급여 정책이 수정되었습니다.");
     } else {
-      const newId = Math.max(0, ...policies.map(p => p.id)) + 1;
-      setPolicies(prev => [...prev, { ...policyForm, id: newId }]);
-      setSelectedPolicyId(newId);
+      const { data, error } = await supabase
+        .from("salary_policies")
+        .insert(payload)
+        .select("*")
+        .single();
+
+      if (error) { toast.error("급여 정책 추가에 실패했습니다."); return; }
+      const saved = mapPolicyRow(data as Record<string, unknown>);
+      setPolicies(prev => [...prev, saved]);
+      setSelectedPolicyId(saved.id);
       toast.success("급여 정책이 추가되었습니다.");
     }
     setPolicyDialogOpen(false);
   };
 
-  const handlePolicyDelete = (id: number) => {
+  const handlePolicyDelete = async (id: number) => {
+    const { error } = await supabase
+      .from("salary_policies")
+      .update({ isActive: false, updatedAt: new Date().toISOString() })
+      .eq("id", id);
+
+    if (error) { toast.error("급여 정책 삭제에 실패했습니다."); return; }
     setPolicies(prev => prev.filter(p => p.id !== id));
     if (selectedPolicyId === id) setSelectedPolicyId(null);
     toast.success("급여 정책이 삭제되었습니다.");
@@ -689,7 +805,9 @@ export default function Payroll() {
 
             {/* 정책 목록 */}
             <div className="space-y-xs max-h-[220px] overflow-y-auto">
-              {filteredPolicies.length === 0 ? (
+              {isLoadingPolicies ? (
+                <p className="text-Label text-content-secondary py-md text-center">급여 정책을 불러오는 중...</p>
+              ) : filteredPolicies.length === 0 ? (
                 <p className="text-Label text-content-secondary py-md text-center">해당 분류의 정책이 없습니다.</p>
               ) : filteredPolicies.map(p => (
                 <button
@@ -870,7 +988,10 @@ export default function Payroll() {
         onConfirm={async () => {
           const ids = confirmTargetIds ?? [];
           if (ids.length === 0) { setConfirmTargetIds(null); return; }
-          const { error } = await supabase.from("payroll").update({ status: "paid" }).in("id", ids);
+          const { error } = await supabase
+            .from("payroll")
+            .update({ status: mapPayrollStatusToDb("paid"), paidAt: new Date().toISOString(), updatedAt: new Date().toISOString() })
+            .in("id", ids);
           if (error) { toast.error("급여 확정에 실패했습니다."); return; }
           toast.success(`${ids.length}명의 급여가 확정되었습니다.`);
           setPayrollData(prev => prev.map(r => ids.includes(r.id) ? { ...r, status: "paid" } : r));
@@ -889,7 +1010,10 @@ export default function Payroll() {
         onConfirm={async () => {
           const id = cancelTargetId;
           if (id == null) return;
-          const { error } = await supabase.from("payroll").update({ status: "pending" }).eq("id", id);
+          const { error } = await supabase
+            .from("payroll")
+            .update({ status: mapPayrollStatusToDb("pending"), paidAt: null, updatedAt: new Date().toISOString() })
+            .eq("id", id);
           if (error) { toast.error("확정 취소에 실패했습니다."); return; }
           toast.success("급여 확정이 취소되었습니다. 기존 명세서는 무효 처리됩니다.");
           setPayrollData(prev => prev.map(r => r.id === id ? { ...r, status: "pending" } : r));

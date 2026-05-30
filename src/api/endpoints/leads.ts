@@ -106,6 +106,7 @@ export async function createLead(input: CreateLeadInput): Promise<Lead> {
       name: input.name,
       phone: input.phone ?? null,
       source: input.source,
+      inquiryType: input.inquiryType ?? '전화문의',
       status: input.status ?? '신규',
       assignedFc: input.assignedFc ?? null,
       memo: input.memo ?? null,
@@ -125,6 +126,7 @@ export async function updateLead(id: number, input: Partial<CreateLeadInput>): P
   if (input.name !== undefined) payload.name = input.name;
   if (input.phone !== undefined) payload.phone = input.phone;
   if (input.source !== undefined) payload.source = input.source;
+  if (input.inquiryType !== undefined) payload.inquiryType = input.inquiryType;
   if (input.status !== undefined) payload.status = input.status;
   if (input.assignedFc !== undefined) payload.assignedFc = input.assignedFc;
   if (input.memo !== undefined) payload.memo = input.memo;

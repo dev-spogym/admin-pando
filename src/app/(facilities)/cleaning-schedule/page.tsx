@@ -81,8 +81,8 @@ export default function CleaningSchedulePage() {
   return (
     <AppLayout>
       <PageHeader
-        title="청소 스케줄"
-        description="구역별 청소 일정과 담당자를 관리하고 오늘의 완료 현황을 점검합니다."
+        title="청소 스케줄 (V2/후속)"
+        description="구역별 청소 일정과 담당자, 오늘의 완료 현황을 검토합니다."
         actions={
           <div className="flex items-center gap-sm">
             <Button type="button" variant="outline" size="md" icon={<RefreshCw size={14} className={loading ? 'animate-spin' : ''} />}
@@ -95,6 +95,10 @@ export default function CleaningSchedulePage() {
           </div>
         }
       />
+
+      <div className="mb-lg rounded-xl border border-red-200 bg-red-50 px-md py-sm text-[12px] font-semibold text-red-700">
+        docs4 V2/후속 화면입니다. 반복 청소 스케줄 원장과 완료 이력 저장은 후속 확정 후 DB에 연결하며 현재 화면의 변경은 퍼블리싱 검토용 상태입니다.
+      </div>
 
       {/* 오늘의 청소 현황 카드 */}
       <StatCardGrid cols={4} className="mb-lg">

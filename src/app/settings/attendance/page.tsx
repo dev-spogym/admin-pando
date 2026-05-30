@@ -1,7 +1,7 @@
 'use client';
 export const dynamic = 'force-dynamic';
 
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import AppLayout from '@/components/layout/AppLayout';
 import PageHeader from '@/components/common/PageHeader';
 import FormSection from '@/components/common/FormSection';
@@ -13,6 +13,7 @@ import StatusBadge from '@/components/common/StatusBadge';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import { Save, AlertTriangle, ShieldAlert, Wifi, Undo2 } from 'lucide-react';
+import { loadBranchSetting, saveBranchSetting } from '@/lib/branchSettings';
 
 // 권한 데모: owner는 수정, manager는 조회 전용
 type ViewerRole = 'owner' | 'manager';
@@ -83,6 +84,16 @@ export default function AttendanceSettingsPage() {
   const [dirty, setDirty] = useState(false);
   const [showLeaveWarn, setShowLeaveWarn] = useState(false);
 
+  useEffect(() => {
+    let mounted = true;
+    loadBranchSetting<AttendanceSettings>('attendance_settings', INITIAL).then((saved) => {
+      if (!mounted) return;
+      setSettings({ ...INITIAL, ...saved });
+      setDirty(false);
+    });
+    return () => { mounted = false; };
+  }, []);
+
   const canEdit = viewerRole === 'owner';
   const update = <K extends keyof AttendanceSettings>(key: K, value: AttendanceSettings[K]) => {
     setSettings((p) => ({ ...p, [key]: value }));
@@ -116,13 +127,18 @@ export default function AttendanceSettingsPage() {
 
   const hasError = Object.keys(errors).length > 0;
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!canEdit) {
       toast.error('이 작업을 수행할 권한이 없습니다');
       return;
     }
     if (hasError) {
       toast.error('입력값을 확인해주세요');
+      return;
+    }
+    const error = await saveBranchSetting('attendance_settings', settings);
+    if (error) {
+      toast.error(`출석 관리 설정 저장 실패: ${error}`);
       return;
     }
     setDirty(false);

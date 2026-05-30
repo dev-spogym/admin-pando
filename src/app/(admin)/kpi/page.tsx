@@ -17,6 +17,7 @@ import { supabase } from "@/lib/supabase";
 import { toast } from "sonner";
 import { formatNumber } from '@/lib/format';
 import SimpleTable from '@/components/common/SimpleTable';
+import { loadBranchSetting, saveBranchSetting } from '@/lib/branchSettings';
 import {
   LESSON_SESSION_TYPES,
   createLessonSessionCounts,
@@ -174,11 +175,17 @@ function TargetModal({
   onClose: () => void;
   onSaved: (value: number) => void;
 }) {
-  const storageKey = `kpi_monthly_target_${branchId}_${yearMonth}`;
-  const saved = typeof window !== 'undefined' ? localStorage.getItem(storageKey) : null;
-  const [inputValue, setInputValue] = useState(
-    saved ? formatNumber(Number(saved)) : ""
-  );
+  const settingKey = `kpi_monthly_target_${branchId}_${yearMonth}`;
+  const [inputValue, setInputValue] = useState("");
+
+  useEffect(() => {
+    let mounted = true;
+    loadBranchSetting<number | null>(settingKey, null, branchId).then((saved) => {
+      if (!mounted) return;
+      setInputValue(saved ? formatNumber(Number(saved)) : "");
+    });
+    return () => { mounted = false; };
+  }, [branchId, settingKey]);
 
   function handleChange(e: React.ChangeEvent<HTMLInputElement>) {
     const raw = e.target.value.replace(/[^0-9]/g, "");
@@ -189,14 +196,19 @@ function TargetModal({
     setInputValue(formatNumber(Number(raw)));
   }
 
-  function handleSave() {
+  async function handleSave() {
     const raw = inputValue.replace(/[^0-9]/g, "");
     if (!raw || Number(raw) <= 0) {
       toast.error("올바른 목표 금액을 입력해 주세요.");
       return;
     }
-    localStorage.setItem(storageKey, raw);
-    onSaved(Number(raw));
+    const value = Number(raw);
+    const error = await saveBranchSetting(settingKey, value, branchId);
+    if (error) {
+      toast.error(`매출 목표 저장 실패: ${error}`);
+      return;
+    }
+    onSaved(value);
     toast.success("매출 목표가 저장되었습니다.");
     onClose();
   }
@@ -614,11 +626,15 @@ export default function KpiDashboard() {
   const yearMonth = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}`;
 
   const [showTargetModal, setShowTargetModal] = useState(false);
-  const [monthlyTarget, setMonthlyTarget] = useState<number | null>(() => {
-    if (typeof window === 'undefined') return null;
-    const saved = localStorage.getItem(`kpi_monthly_target_${getBranchId()}_${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, "0")}`);
-    return saved ? Number(saved) : null;
-  });
+  const [monthlyTarget, setMonthlyTarget] = useState<number | null>(null);
+
+  useEffect(() => {
+    let mounted = true;
+    loadBranchSetting<number | null>(`kpi_monthly_target_${branchId}_${yearMonth}`, null, branchId).then((saved) => {
+      if (mounted) setMonthlyTarget(saved);
+    });
+    return () => { mounted = false; };
+  }, [branchId, yearMonth]);
 
   const fetchMetrics = useCallback(async () => {
     setLoading(true);

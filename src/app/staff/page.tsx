@@ -15,7 +15,8 @@ import {
   ChevronDown,
   ChevronsUpDown,
   MoreVertical,
-  Settings2
+  Settings2,
+  FileCheck2,
 } from "lucide-react";
 import AppLayout from "@/components/layout/AppLayout";
 import PageHeader from "@/components/common/PageHeader";
@@ -71,6 +72,7 @@ interface StaffRow {
   joinDate: string;
   status: string;
   memo: string;
+  contractDocumentCount: number;
 }
 
 type SortKey = "name" | "role" | "branchName" | "joinDate" | "status";
@@ -120,6 +122,19 @@ export default function StaffList() {
       console.error("직원 데이터 로드 실패:", error);
       toast.error("직원 데이터를 불러오지 못했습니다.");
     } else if (data) {
+      const staffIds = data.map((s: any) => Number(s.id)).filter(Boolean);
+      const contractCountByStaff = new Map<number, number>();
+      if (staffIds.length > 0) {
+        const { data: documentRows } = await supabase
+          .from("staff_documents")
+          .select("staffId")
+          .eq("docType", "employment_contract")
+          .in("staffId", staffIds);
+        (documentRows ?? []).forEach((doc: Record<string, unknown>) => {
+          const staffId = Number(doc.staffId);
+          contractCountByStaff.set(staffId, (contractCountByStaff.get(staffId) ?? 0) + 1);
+        });
+      }
       const mapped: StaffRow[] = data.map((s: any) => ({
         id: s.id,
         name: s.name,
@@ -131,6 +146,7 @@ export default function StaffList() {
         joinDate: s.hireDate ?? "",
         status: s.staffStatus === "ON_LEAVE" ? "leave" : s.staffStatus === "LOCKED" ? "locked" : s.isActive === false ? "resigned" : "active",
         memo: "",
+        contractDocumentCount: contractCountByStaff.get(Number(s.id)) ?? 0,
       }));
       setStaffData(mapped);
     }
@@ -214,6 +230,22 @@ export default function StaffList() {
     active: "success", leave: "warning", locked: "warning", resigned: "default"
   };
 
+  const handleDownloadExcel = () => {
+    const exportColumns = [
+      { key: 'id', header: 'No' },
+      { key: 'name', header: '직원명' },
+      { key: 'branchName', header: '소속 지점' },
+      { key: 'role', header: '역할' },
+      { key: 'contact', header: '연락처' },
+      { key: 'joinDate', header: '입사일' },
+      { key: 'status', header: '상태' },
+      { key: 'contractDocumentCount', header: '근로계약서 첨부' },
+      { key: 'memo', header: '메모' },
+    ];
+    exportToExcel(filtered as unknown as Record<string, unknown>[], exportColumns, { filename: '직원목록' });
+    toast.success(`${filtered.length}건 엑셀 다운로드 완료`);
+  };
+
   const columns = [
     { key: "id", header: "No", width: 60, align: "center" as const },
     {
@@ -265,6 +297,23 @@ export default function StaffList() {
           {statusLabel[val] ?? val}
         </StatusBadge>
       )
+    },
+    {
+      key: "contractDocumentCount",
+      header: "근로계약서",
+      width: 110,
+      align: "center" as const,
+      render: (val: number) => (
+        <span className={cn(
+          "inline-flex items-center gap-[4px] rounded-full px-sm py-[2px] text-[11px] font-semibold",
+          val > 0
+            ? "border border-state-success/30 bg-state-success/10 text-state-success"
+            : "border border-line bg-surface-secondary text-content-tertiary"
+        )}>
+          <FileCheck2 size={12} />
+          {val > 0 ? `${val}건` : "미첨부"}
+        </span>
+      ),
     },
     { key: "memo", header: "메모", render: (val: string) => <span className="text-content-secondary text-Body-2">{val || "-"}</span> },
     {
@@ -370,7 +419,7 @@ export default function StaffList() {
             >
               퇴사 처리
             </Button>
-            <Button variant="outline" icon={<Download size={16} />}>
+            <Button variant="outline" icon={<Download size={16} />} onClick={handleDownloadExcel}>
               명단 다운로드
             </Button>
           </div>
@@ -386,20 +435,7 @@ export default function StaffList() {
             onSelectRows={setSelectedRows}
             pagination={{ page: currentPage, pageSize: PAGE_SIZE, total: filtered.length }}
             onPageChange={(p) => setCurrentPage(p)}
-            onDownloadExcel={() => {
-              const exportColumns = [
-                { key: 'id', header: 'No' },
-                { key: 'name', header: '직원명' },
-                { key: 'branchName', header: '소속 지점' },
-                { key: 'role', header: '역할' },
-                { key: 'contact', header: '연락처' },
-                { key: 'joinDate', header: '입사일' },
-                { key: 'status', header: '상태' },
-                { key: 'memo', header: '메모' },
-              ];
-              exportToExcel(filtered as unknown as Record<string, unknown>[], exportColumns, { filename: '직원목록' });
-              toast.success(`${filtered.length}건 엑셀 다운로드 완료`);
-            }}
+            onDownloadExcel={handleDownloadExcel}
             emptyMessage={isLoadingData ? "데이터를 불러오는 중..." : "직원 데이터가 없습니다."}
           />
         </div>

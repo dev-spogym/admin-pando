@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import AppLayout from '@/components/layout/AppLayout';
 import PageHeader from '@/components/common/PageHeader';
 import StatCard from '@/components/common/StatCard';
@@ -10,12 +10,11 @@ import Button from '@/components/ui/Button';
 import Modal from '@/components/ui/Modal';
 import { toast } from 'sonner';
 import { Filter, Plus, Zap, ChevronRight, Tag, RefreshCw, Send } from 'lucide-react';
-import { usePageSeed } from '@/hooks';
-import type { MemberSegmentSeedPayload } from '@/lib/publishingPageSeed';
+import { getCurrentBranchId, loadBranchSetting, saveBranchSetting } from '@/lib/branchSettings';
+import { supabase } from '@/lib/supabase';
 
 // ─── SCR-M010 세그먼트 관리 (MBR-EXT-04) ──────────────────────────────────────
 // docs4/V1/D02-회원관리/회원관리.md ## SCR-M010
-// 기능형 목업: 세그먼트 카드 목록(자동/커스텀) → 생성 → 미리보기 → 메시지 발송
 // 자동 세그먼트는 수정·삭제 버튼을 제공하지 않는다(시스템 정의).
 
 // ── 조건 빌더 정의 (docs4 MBR-EXT-04-03) ──
@@ -23,6 +22,34 @@ interface SegmentCondition {
   field: string;
   operator: string;
   value: string;
+}
+
+interface SegmentItem {
+  id: number;
+  name: string;
+  desc: string;
+  count: number;
+  color: string;
+  auto: boolean;
+  conditions?: SegmentCondition[];
+  joinOp?: 'AND' | 'OR';
+}
+
+interface SegmentMemberSnapshot {
+  id: number;
+  name: string;
+  status: string;
+  gender: string | null;
+  memberType: string | null;
+  referralSource: string | null;
+  registeredAt: string | null;
+  membershipExpiry: string | null;
+  lastVisitAt: string | null;
+  firstPaymentAt: string | null;
+  totalPayment: number;
+  attendance30: number;
+  attendance90: number;
+  lastCareAt: string | null;
 }
 
 /** 조건 빌더에서 선택 가능한 필드 (docs4 SCR-M010 조건 항목) */
@@ -48,29 +75,44 @@ const CONDITION_OPERATORS = [
 ];
 
 // docs4 SCR-M010 자동 7종 (신규/만료후미등록/이탈위험/만료임박/관심필요/충성/활발)
-const FALLBACK_SEGMENTS: MemberSegmentSeedPayload = {
-  segments: [
-    { id: 1, name: '신규', desc: '첫 정상 결제 완료일로부터 30일 이내', count: 18, color: 'text-blue-600 bg-blue-50 border-blue-200', auto: true },
-    { id: 2, name: '만료후미등록', desc: '마지막 이용권 만료일 +60일 경과, 재등록 결제 없음', count: 31, color: 'text-rose-600 bg-rose-50 border-rose-200', auto: true },
-    { id: 3, name: '이탈위험', desc: '활성 회원이 최근 30일 이상 방문/출석 없음', count: 45, color: 'text-red-600 bg-red-50 border-red-200', auto: true },
-    { id: 4, name: '만료임박', desc: '본사/지점 만료 알림 step 대상 회원', count: 23, color: 'text-orange-600 bg-orange-50 border-orange-200', auto: true },
-    { id: 5, name: '관심필요', desc: '최근 90일 이내 종합평가·상담 기록 없음', count: 52, color: 'text-amber-600 bg-amber-50 border-amber-200', auto: true },
-    { id: 6, name: '충성', desc: '누적 결제 기간 12개월 이상 + 골드 이상 등급', count: 67, color: 'text-purple-600 bg-purple-50 border-purple-200', auto: true },
-    { id: 7, name: '활발', desc: '최근 30일 이내 방문/출석 8회 이상', count: 134, color: 'text-emerald-600 bg-emerald-50 border-emerald-200', auto: true },
-  ],
-};
+const CUSTOM_SEGMENT_KEY = 'member_custom_segments';
+const SEGMENT_MESSAGE_HISTORY_KEY = 'member_segment_message_history';
 
-const segmentMembers: Record<string, Array<{ name: string; note: string }>> = {
-  '신규': [{ name: '오지민', note: '첫 결제 12일차 · 첫 PT 미진행' }, { name: '문서준', note: '첫 결제 21일차 · 앱 미설치' }],
-  '이탈위험': [{ name: '최유리', note: '34일 미방문 · 휴면 전환 직전' }, { name: '한도윤', note: '48일 미방문 · 담당 FC 지정' }],
-  '만료임박': [{ name: '김민준', note: '만료 step 대상 · 재등록 상담 필요' }, { name: '박지훈', note: '만료 step 대상 · 락커 동시 만료' }],
-};
+const AUTO_SEGMENTS: SegmentItem[] = [
+  { id: 1, name: '신규', desc: '첫 정상 결제 완료일로부터 30일 이내', count: 0, color: 'text-blue-600 bg-blue-50 border-blue-200', auto: true },
+  { id: 2, name: '만료후미등록', desc: '마지막 이용권 만료일 +60일 경과, 재등록 결제 없음', count: 0, color: 'text-rose-600 bg-rose-50 border-rose-200', auto: true },
+  { id: 3, name: '이탈위험', desc: '활성 회원이 최근 30일 이상 방문/출석 없음', count: 0, color: 'text-red-600 bg-red-50 border-red-200', auto: true },
+  { id: 4, name: '만료임박', desc: '만료일이 30일 이내인 활성 회원', count: 0, color: 'text-orange-600 bg-orange-50 border-orange-200', auto: true },
+  { id: 5, name: '관심필요', desc: '최근 90일 이내 종합평가·상담 기록 없음', count: 0, color: 'text-amber-600 bg-amber-50 border-amber-200', auto: true },
+  { id: 6, name: '충성', desc: '누적 결제 12개월 이상 또는 고액 결제 회원', count: 0, color: 'text-purple-600 bg-purple-50 border-purple-200', auto: true },
+  { id: 7, name: '활발', desc: '최근 30일 이내 방문/출석 8회 이상', count: 0, color: 'text-emerald-600 bg-emerald-50 border-emerald-200', auto: true },
+];
+
+function daysFrom(value: string | null) {
+  if (!value) return Number.POSITIVE_INFINITY;
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return Number.POSITIVE_INFINITY;
+  return Math.floor((Date.now() - date.getTime()) / 86_400_000);
+}
+
+function daysUntil(value: string | null) {
+  if (!value) return Number.POSITIVE_INFINITY;
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return Number.POSITIVE_INFINITY;
+  return Math.ceil((date.getTime() - Date.now()) / 86_400_000);
+}
 
 export default function SegmentPage() {
   const [showCreate, setShowCreate] = useState(false);
   const [selectedSegmentName, setSelectedSegmentName] = useState<string | null>(null);
   const [messageTarget, setMessageTarget] = useState<string | null>(null);
-  const [segmentsState, setSegmentsState] = useState(FALLBACK_SEGMENTS.segments);
+  const [segmentsState, setSegmentsState] = useState<SegmentItem[]>(AUTO_SEGMENTS);
+  const [memberSnapshots, setMemberSnapshots] = useState<SegmentMemberSnapshot[]>([]);
+  const [segmentMembers, setSegmentMembers] = useState<Record<string, Array<{ name: string; note: string }>>>({});
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [branchId, setBranchId] = useState(1);
+  const [snapshotDate, setSnapshotDate] = useState<string | null>(null);
   const [form, setForm] = useState({ name: '', desc: '', count: 24 });
   const [messageBody, setMessageBody] = useState('');
 
@@ -80,13 +122,174 @@ export default function SegmentPage() {
     { field: 'status', operator: 'eq', value: '활성' },
   ]);
   const [previewCount, setPreviewCount] = useState<number | null>(null);
-  const { loading, error, branchId, snapshotDate, reload } = usePageSeed<MemberSegmentSeedPayload>(
-    '/members/segment',
-    FALLBACK_SEGMENTS,
-  );
 
   const segments = segmentsState;
   const selectedMembers = useMemo(() => segmentMembers[selectedSegmentName ?? ''] ?? [], [selectedSegmentName]);
+
+  const evaluateCondition = (member: SegmentMemberSnapshot, condition: SegmentCondition) => {
+    const numericValue = Number(condition.value);
+    let source: string | number | null = null;
+    if (condition.field === 'status') source = member.status === 'ACTIVE' ? '활성' : member.status === 'EXPIRED' ? '만료' : member.status;
+    if (condition.field === 'gender') source = member.gender === 'MALE' ? '남성' : member.gender === 'FEMALE' ? '여성' : member.gender;
+    if (condition.field === 'memberType') source = member.memberType ?? '일반';
+    if (condition.field === 'referral') source = member.referralSource ?? '';
+    if (condition.field === 'lastVisit') source = daysFrom(member.lastVisitAt);
+    if (condition.field === 'expiry') source = daysUntil(member.membershipExpiry);
+    if (condition.field === 'firstPayment') source = daysFrom(member.firstPaymentAt);
+    if (condition.field === 'paymentAmount') source = member.totalPayment;
+    if (condition.field === 'ageGroup') source = '';
+    if (condition.field === 'inquiryType') source = '';
+    if (condition.field === 'suspended') source = member.status === 'SUSPENDED' ? '정지 포함' : '정지 제외';
+
+    if (typeof source === 'number') {
+      if (condition.operator === 'gte') return source >= numericValue;
+      if (condition.operator === 'lte') return source <= numericValue;
+      if (condition.operator === 'neq') return source !== numericValue;
+      return source === numericValue;
+    }
+    if (condition.operator === 'neq') return String(source) !== condition.value;
+    return String(source) === condition.value;
+  };
+
+  const filterByConditions = (conds: SegmentCondition[], op: 'AND' | 'OR') => {
+    const filled = conds.filter((condition) => condition.value.trim() !== '');
+    if (filled.length === 0) return [];
+    return memberSnapshots.filter((member) => {
+      const results = filled.map((condition) => evaluateCondition(member, condition));
+      return op === 'AND' ? results.every(Boolean) : results.some(Boolean);
+    });
+  };
+
+  const buildNote = (member: SegmentMemberSnapshot, segmentName: string) => {
+    if (segmentName === '신규') return `첫 결제 ${daysFrom(member.firstPaymentAt)}일차`;
+    if (segmentName === '만료임박') return `만료 D-${daysUntil(member.membershipExpiry)}`;
+    if (segmentName === '이탈위험') return `${daysFrom(member.lastVisitAt)}일 미방문`;
+    if (segmentName === '활발') return `최근 30일 출석 ${member.attendance30}회`;
+    if (segmentName === '관심필요') return `${daysFrom(member.lastCareAt)}일 상담/평가 없음`;
+    return `누적 결제 ${member.totalPayment.toLocaleString()}원`;
+  };
+
+  const reload = async () => {
+    setLoading(true);
+    setError('');
+    const currentBranchId = getCurrentBranchId();
+    setBranchId(currentBranchId);
+    try {
+      const ninetyDaysAgo = new Date(Date.now() - 90 * 86_400_000).toISOString();
+      const [customSegments, membersRes, attendanceRes, salesRes, consultationRes, evaluationRes] = await Promise.all([
+        loadBranchSetting<SegmentItem[]>(CUSTOM_SEGMENT_KEY, [], currentBranchId),
+        supabase
+          .from('members')
+          .select('id, name, status, gender, memberType, referralSource, registeredAt, membershipExpiry, lastVisitAt')
+          .eq('branchId', currentBranchId)
+          .is('deletedAt', null),
+        supabase
+          .from('attendance')
+          .select('memberId, checkInAt')
+          .eq('branchId', currentBranchId)
+          .gte('checkInAt', ninetyDaysAgo),
+        supabase
+          .from('sales')
+          .select('memberId, amount, status, saleDate')
+          .eq('branchId', currentBranchId),
+        supabase
+          .from('consultations')
+          .select('memberId, completedAt, createdAt')
+          .eq('branchId', currentBranchId)
+          .gte('createdAt', ninetyDaysAgo),
+        supabase
+          .from('member_evaluations')
+          .select('memberId, createdAt')
+          .eq('branchId', currentBranchId)
+          .gte('createdAt', ninetyDaysAgo),
+      ]);
+
+      if (membersRes.error) throw membersRes.error;
+      if (attendanceRes.error) throw attendanceRes.error;
+      if (salesRes.error) throw salesRes.error;
+
+      const attendanceByMember = new Map<number, string[]>();
+      (attendanceRes.data ?? []).forEach((row) => {
+        const memberId = Number(row.memberId);
+        attendanceByMember.set(memberId, [...(attendanceByMember.get(memberId) ?? []), row.checkInAt]);
+      });
+
+      const salesByMember = new Map<number, Array<{ amount: number; saleDate: string | null }>>();
+      (salesRes.data ?? []).forEach((row) => {
+        const memberId = Number(row.memberId);
+        const rows = salesByMember.get(memberId) ?? [];
+        rows.push({ amount: Number(row.amount ?? 0), saleDate: row.saleDate ?? null });
+        salesByMember.set(memberId, rows);
+      });
+
+      const careByMember = new Map<number, string>();
+      [...(consultationRes.data ?? []), ...(evaluationRes.data ?? [])].forEach((row) => {
+        const memberId = Number(row.memberId);
+        const record = row as Record<string, any>;
+        const date = record.completedAt ?? record.createdAt;
+        const prev = careByMember.get(memberId);
+        if (!prev || new Date(prev) < new Date(date)) careByMember.set(memberId, date);
+      });
+
+      const snapshots: SegmentMemberSnapshot[] = (membersRes.data ?? []).map((member) => {
+        const memberId = Number(member.id);
+        const attendances = attendanceByMember.get(memberId) ?? [];
+        const payments = salesByMember.get(memberId) ?? [];
+        const firstPaymentAt = payments
+          .map((payment) => payment.saleDate)
+          .filter(Boolean)
+          .sort()[0] ?? null;
+        const lastVisitAt = member.lastVisitAt ?? attendances.sort().at(-1) ?? null;
+        return {
+          id: memberId,
+          name: member.name ?? `회원 ${memberId}`,
+          status: member.status ?? '',
+          gender: member.gender ?? null,
+          memberType: member.memberType ?? null,
+          referralSource: member.referralSource ?? null,
+          registeredAt: member.registeredAt ?? null,
+          membershipExpiry: member.membershipExpiry ?? null,
+          lastVisitAt,
+          firstPaymentAt,
+          totalPayment: payments.reduce((sum, payment) => sum + payment.amount, 0),
+          attendance30: attendances.filter((date) => daysFrom(date) <= 30).length,
+          attendance90: attendances.length,
+          lastCareAt: careByMember.get(memberId) ?? null,
+        };
+      });
+
+      const autoMembers: Record<string, SegmentMemberSnapshot[]> = {
+        신규: snapshots.filter((member) => daysFrom(member.firstPaymentAt) <= 30),
+        만료후미등록: snapshots.filter((member) => daysUntil(member.membershipExpiry) < -60),
+        이탈위험: snapshots.filter((member) => member.status === 'ACTIVE' && daysFrom(member.lastVisitAt) >= 30),
+        만료임박: snapshots.filter((member) => member.status === 'ACTIVE' && daysUntil(member.membershipExpiry) >= 0 && daysUntil(member.membershipExpiry) <= 30),
+        관심필요: snapshots.filter((member) => daysFrom(member.lastCareAt) >= 90),
+        충성: snapshots.filter((member) => member.totalPayment >= 1_000_000 || daysFrom(member.firstPaymentAt) >= 365),
+        활발: snapshots.filter((member) => member.attendance30 >= 8),
+      };
+
+      setMemberSnapshots(snapshots);
+      setSegmentMembers(Object.fromEntries(
+        Object.entries(autoMembers).map(([name, rows]) => [
+          name,
+          rows.slice(0, 20).map((member) => ({ name: member.name, note: buildNote(member, name) })),
+        ]),
+      ));
+      setSegmentsState([
+        ...customSegments,
+        ...AUTO_SEGMENTS.map((segment) => ({ ...segment, count: autoMembers[segment.name]?.length ?? 0 })),
+      ]);
+      setSnapshotDate(new Date().toISOString().slice(0, 10));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : '세그먼트 데이터를 불러오지 못했습니다.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    void reload();
+  }, []);
 
   /** 조건을 사람이 읽을 수 있는 요약 문자열로 변환 */
   const summarizeConditions = (conds: SegmentCondition[], op: 'AND' | 'OR'): string => {
@@ -113,9 +316,7 @@ export default function SegmentPage() {
       toast.error('조건을 1개 이상 입력하세요.');
       return;
     }
-    // 실제 회원 조회는 백엔드 범위이므로 조건 기반 의사 난수로 미리보기 수를 추정(목업)
-    const base = joinOp === 'AND' ? 12 : 48;
-    setPreviewCount(base * filled.length + (filled.length % 3) * 7);
+    setPreviewCount(filterByConditions(filled, joinOp).length);
   };
 
   const resetCreateForm = () => {
@@ -125,7 +326,7 @@ export default function SegmentPage() {
     setPreviewCount(null);
   };
 
-  const handleCreateSegment = () => {
+  const handleCreateSegment = async () => {
     if (!form.name.trim()) {
       toast.error('세그먼트 이름을 입력하세요.');
       return;
@@ -146,27 +347,49 @@ export default function SegmentPage() {
     if (previewCount === null) {
       toast.warning('미리보기로 회원 수를 확인하지 않았습니다. 그대로 저장합니다.');
     }
+    const customSegment: SegmentItem = {
+      id: Date.now(),
+      name: form.name.trim(),
+      desc: form.desc.trim() ? `${form.desc.trim()} · ${conditionSummary}` : conditionSummary,
+      count: previewCount ?? filterByConditions(conditions, joinOp).length,
+      color: 'text-sky-600 bg-sky-50 border-sky-200',
+      auto: false,
+      conditions,
+      joinOp,
+    };
+    const nextCustom = [customSegment, ...segments.filter((segment) => !segment.auto)];
+    const errorMessage = await saveBranchSetting(CUSTOM_SEGMENT_KEY, nextCustom);
+    if (errorMessage) {
+      toast.error(`세그먼트 저장 실패: ${errorMessage}`);
+      return;
+    }
     setSegmentsState((prev) => [
-      {
-        id: prev.length + 1,
-        name: form.name.trim(),
-        desc: form.desc.trim() ? `${form.desc.trim()} · ${conditionSummary}` : conditionSummary,
-        count: previewCount ?? form.count,
-        color: 'text-sky-600 bg-sky-50 border-sky-200',
-        auto: false,
-      },
+      customSegment,
       ...prev,
     ]);
+    setSegmentMembers((prev) => ({
+      ...prev,
+      [customSegment.name]: filterByConditions(conditions, joinOp).slice(0, 20).map((member) => ({
+        name: member.name,
+        note: summarizeConditions(conditions, joinOp),
+      })),
+    }));
     setShowCreate(false);
     resetCreateForm();
     toast.success('세그먼트를 생성했습니다.');
   };
 
-  const handleSendMessage = () => {
+  const handleSendMessage = async () => {
     if (!messageTarget || !messageBody.trim()) {
       toast.error('메시지 내용을 입력하세요.');
       return;
     }
+    const prev = await loadBranchSetting<Array<{ segment: string; body: string; sentAt: string; count: number }>>(SEGMENT_MESSAGE_HISTORY_KEY, []);
+    const target = segments.find((segment) => segment.name === messageTarget);
+    await saveBranchSetting(SEGMENT_MESSAGE_HISTORY_KEY, [
+      { segment: messageTarget, body: messageBody.trim(), sentAt: new Date().toISOString(), count: target?.count ?? 0 },
+      ...prev,
+    ].slice(0, 100));
     toast.success(`${messageTarget} 세그먼트에 메시지를 발송했습니다.`);
     setMessageTarget(null);
     setMessageBody('');
@@ -184,9 +407,9 @@ export default function SegmentPage() {
                 variant="outline"
                 size="sm"
                 icon={<RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />}
-                onClick={() => void reload(true)}
+                onClick={() => void reload()}
               >
-                seed 갱신
+                DB 갱신
               </Button>
               <Button size="sm" icon={<Plus className="w-4 h-4" />} onClick={() => setShowCreate(true)}>
                 세그먼트 생성

@@ -102,6 +102,7 @@ export default function PenaltyManagement() {
   const [autoPolicyModalOpen, setAutoPolicyModalOpen] = useState(false);
   const [noshowAutoDeduct, setNoshowAutoDeduct] = useState(true);
   const [noshowDeductCount, setNoshowDeductCount] = useState(1);
+  const [policySaving, setPolicySaving] = useState(false);
 
   // 페널티 목록 조회
   const fetchPenalties = async () => {
@@ -128,9 +129,23 @@ export default function PenaltyManagement() {
     if (data) setMembers(data);
   };
 
+  const fetchPolicy = async () => {
+    const { data } = await supabase
+      .from('lesson_policy_settings')
+      .select('noshowAutoDeduct, noshowDeductCount')
+      .eq('branchId', branchId)
+      .maybeSingle();
+
+    if (data) {
+      setNoshowAutoDeduct(Boolean(data.noshowAutoDeduct));
+      setNoshowDeductCount(Number(data.noshowDeductCount ?? 1));
+    }
+  };
+
   useEffect(() => {
     fetchPenalties();
     fetchMembers();
+    fetchPolicy();
   }, []);
 
   // 이번달 통계 집계
@@ -232,6 +247,27 @@ export default function PenaltyManagement() {
     }
     setReleaseTarget(null);
     setReleaseReason('');
+  };
+
+  const handleSavePolicy = async () => {
+    setPolicySaving(true);
+    const { error } = await supabase
+      .from('lesson_policy_settings')
+      .upsert({
+        branchId,
+        noshowAutoDeduct,
+        noShowDeductsSession: noshowAutoDeduct,
+        noshowDeductCount,
+      }, { onConflict: 'branchId' });
+    setPolicySaving(false);
+
+    if (error) {
+      toast.error(`자동 페널티 정책 저장에 실패했습니다: ${error.message}`);
+      return;
+    }
+
+    setAutoPolicyModalOpen(false);
+    toast.success('자동 페널티 정책이 저장되었습니다.');
   };
 
   // 테이블 컬럼 정의
@@ -515,12 +551,10 @@ export default function PenaltyManagement() {
             </button>
             <button
               className="px-4 py-2 rounded-lg bg-primary text-white text-[13px] font-medium hover:bg-primary/90 transition-colors"
-              onClick={() => {
-                setAutoPolicyModalOpen(false);
-                toast.success('자동 페널티 정책이 저장되었습니다.');
-              }}
+              onClick={handleSavePolicy}
+              disabled={policySaving}
             >
-              저장
+              {policySaving ? '저장 중...' : '저장'}
             </button>
           </div>
         }

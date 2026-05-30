@@ -2,13 +2,14 @@ import React, { useState, useEffect, useRef, useCallback } from "react";
 import {
   Bell,
   Check,
+  ArrowUpRight,
   UserPlus,
   Coins,
   Clock,
   Settings,
   Shield,
   RefreshCw,
-  X,
+  Trash2,
   LogIn,
   LogOut as LogOutIcon,
   Package,
@@ -17,6 +18,7 @@ import {
   ToggleLeft,
   ToggleRight,
 } from "lucide-react";
+import { usePathname } from "next/navigation";
 import { getAuditLogs, type AuditLogEntry } from "@/api/endpoints/auditLog";
 import { useAuthStore } from "@/stores/authStore";
 import { cn } from "@/lib/utils";
@@ -104,6 +106,7 @@ function getNavigationViewId(entry: AuditLogEntry): number | null {
 
 const STORAGE_KEY = "last_notification_read_at";
 const READ_IDS_KEY = "notification_read_ids";
+const DELETED_IDS_KEY = "notification_deleted_ids";
 const SETTINGS_KEY = "notification_settings";
 
 /** 상대 시간 포맷 */
@@ -135,6 +138,60 @@ function buildDescription(entry: AuditLogEntry): string {
 
 type TabType = "all" | "unread" | "read";
 
+interface ContextShortcut {
+  label: string;
+  description: string;
+  viewId: number;
+}
+
+function getContextShortcuts(pathname: string | null): { title: string; shortcuts: ContextShortcut[] } {
+  if (pathname?.startsWith("/members")) {
+    return {
+      title: "회원 운영 바로가기",
+      shortcuts: [
+        { label: "회원 목록", description: "회원 CRM", viewId: 967 },
+        { label: "메시지 발송", description: "리마인드", viewId: 980 },
+        { label: "전자계약", description: "계약 진행", viewId: 977 },
+        { label: "출석 관리", description: "방문 처리", viewId: 968 },
+      ],
+    };
+  }
+
+  if (pathname?.startsWith("/sales") || pathname?.startsWith("/pos")) {
+    return {
+      title: "매출 처리 바로가기",
+      shortcuts: [
+        { label: "신규 결제", description: "POS 결제", viewId: 982 },
+        { label: "매출 현황", description: "거래 확인", viewId: 970 },
+        { label: "자동 알림", description: "미수/만료", viewId: 992 },
+        { label: "회원 목록", description: "구매자 확인", viewId: 967 },
+      ],
+    };
+  }
+
+  if (pathname?.startsWith("/settings") || pathname?.startsWith("/staff")) {
+    return {
+      title: "설정 운영 바로가기",
+      shortcuts: [
+        { label: "센터 설정", description: "운영 기준", viewId: 975 },
+        { label: "권한 설정", description: "접근 범위", viewId: 996 },
+        { label: "직원 관리", description: "계정 상태", viewId: 974 },
+        { label: "키오스크", description: "현장 장비", viewId: 994 },
+      ],
+    };
+  }
+
+  return {
+    title: "운영 바로가기",
+    shortcuts: [
+      { label: "대시보드", description: "KPI", viewId: 966 },
+      { label: "회원 목록", description: "CRM", viewId: 967 },
+      { label: "매출 현황", description: "거래", viewId: 970 },
+      { label: "설정", description: "정책", viewId: 975 },
+    ],
+  };
+}
+
 interface NotificationSettings {
   kakao: boolean;
   sms: boolean;
@@ -147,10 +204,12 @@ interface NotificationCenterProps {
 }
 
 const NotificationCenter: React.FC<NotificationCenterProps> = ({ collapsed = false }) => {
+  const pathname = usePathname();
   const [open, setOpen] = useState(false);
   const [tab, setTab] = useState<TabType>("all");
   const [logs, setLogs] = useState<AuditLogEntry[]>([]);
   const [loading, setLoading] = useState(false);
+  const [loadError, setLoadError] = useState("");
   const [showSettings, setShowSettings] = useState(false);
 
   // 개별 읽음 ID 세트 (localStorage 기반)
@@ -158,6 +217,16 @@ const NotificationCenter: React.FC<NotificationCenterProps> = ({ collapsed = fal
     if (typeof window === "undefined") return new Set();
     try {
       const stored = localStorage.getItem(READ_IDS_KEY);
+      return stored ? new Set(JSON.parse(stored)) : new Set();
+    } catch {
+      return new Set();
+    }
+  });
+
+  const [deletedIds, setDeletedIds] = useState<Set<string>>(() => {
+    if (typeof window === "undefined") return new Set();
+    try {
+      const stored = localStorage.getItem(DELETED_IDS_KEY);
       return stored ? new Set(JSON.parse(stored)) : new Set();
     } catch {
       return new Set();
@@ -187,10 +256,13 @@ const NotificationCenter: React.FC<NotificationCenterProps> = ({ collapsed = fal
 
   const authUser = useAuthStore((s) => s.user);
   const branchId = authUser?.currentBranchId ?? authUser?.branchId ?? undefined;
+  const canBulkDelete = authUser?.isSuperAdmin || ["primary", "owner", "manager", "ADMIN", "MANAGER"].includes(authUser?.role ?? "");
+  const contextArea = getContextShortcuts(pathname);
 
   /** audit_logs 최근 30건 조회 */
   const fetchLogs = useCallback(async () => {
     setLoading(true);
+    setLoadError("");
     try {
       const params = {
         page: 1,
@@ -200,7 +272,11 @@ const NotificationCenter: React.FC<NotificationCenterProps> = ({ collapsed = fal
       const res = await getAuditLogs(params);
       if (res.success && res.data?.data) {
         setLogs(res.data.data);
+      } else {
+        setLoadError(res.message ?? "알림을 불러오지 못했습니다.");
       }
+    } catch {
+      setLoadError("알림을 불러오지 못했습니다.");
     } finally {
       setLoading(false);
     }
@@ -238,10 +314,11 @@ const NotificationCenter: React.FC<NotificationCenterProps> = ({ collapsed = fal
     [readIds, lastReadAt]
   );
 
-  const unreadCount = logs.filter(isUnread).length;
+  const visibleLogs = logs.filter((entry) => !deletedIds.has(String(entry.id)));
+  const visibleUnreadCount = visibleLogs.filter(isUnread).length;
 
   /** 탭별 필터링 */
-  const filteredLogs = logs.filter((entry) => {
+  const filteredLogs = visibleLogs.filter((entry) => {
     if (tab === "unread") return isUnread(entry);
     if (tab === "read") return !isUnread(entry);
     return true;
@@ -255,6 +332,15 @@ const NotificationCenter: React.FC<NotificationCenterProps> = ({ collapsed = fal
     // 개별 읽음 IDs도 초기화
     setReadIds(new Set());
     localStorage.setItem(READ_IDS_KEY, JSON.stringify([]));
+  };
+
+  const deleteVisibleNotifications = () => {
+    const next = new Set(deletedIds);
+    visibleLogs.forEach((entry) => next.add(String(entry.id)));
+    setDeletedIds(next);
+    try {
+      localStorage.setItem(DELETED_IDS_KEY, JSON.stringify(Array.from(next)));
+    } catch {/* ignore */}
   };
 
   /** 개별 알림 클릭: 읽음 처리 + 페이지 이동 */
@@ -301,9 +387,9 @@ const NotificationCenter: React.FC<NotificationCenterProps> = ({ collapsed = fal
         title="알림 센터"
       >
         <Bell size={16} strokeWidth={1.5} />
-        {unreadCount > 0 && (
+        {visibleUnreadCount > 0 && (
           <span className="absolute -top-1 -right-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-bold text-white leading-none">
-            {unreadCount > 99 ? "99+" : unreadCount}
+            {visibleUnreadCount > 99 ? "99+" : visibleUnreadCount}
           </span>
         )}
       </button>
@@ -326,6 +412,16 @@ const NotificationCenter: React.FC<NotificationCenterProps> = ({ collapsed = fal
                 <Check size={13} strokeWidth={2} />
                 전체 읽음
               </button>
+              {canBulkDelete && (
+                <button
+                  onClick={deleteVisibleNotifications}
+                  className="flex items-center gap-1 text-[12px] text-content-tertiary hover:text-danger transition-colors"
+                  title="전체 삭제"
+                >
+                  <Trash2 size={13} strokeWidth={2} />
+                  전체 삭제
+                </button>
+              )}
               <button
                 onClick={() => setShowSettings((v) => !v)}
                 className={cn(
@@ -338,6 +434,28 @@ const NotificationCenter: React.FC<NotificationCenterProps> = ({ collapsed = fal
               >
                 <Settings size={13} strokeWidth={1.5} />
               </button>
+            </div>
+          </div>
+
+          <div className="border-b border-line bg-surface-secondary/70 px-4 py-3">
+            <div className="flex items-center justify-between gap-sm">
+              <p className="text-[12px] font-semibold text-content">{contextArea.title}</p>
+              <ArrowUpRight size={13} className="text-content-tertiary" />
+            </div>
+            <div className="mt-2 grid grid-cols-2 gap-2">
+              {contextArea.shortcuts.map((shortcut) => (
+                <button
+                  key={shortcut.label}
+                  className="rounded-lg border border-line bg-white px-3 py-2 text-left transition-colors hover:border-primary/30 hover:bg-primary-light/30"
+                  onClick={() => {
+                    setOpen(false);
+                    moveToPage(shortcut.viewId);
+                  }}
+                >
+                  <p className="text-[12px] font-semibold text-content">{shortcut.label}</p>
+                  <p className="mt-[2px] text-[11px] text-content-tertiary">{shortcut.description}</p>
+                </button>
+              ))}
             </div>
           </div>
 
@@ -392,9 +510,9 @@ const NotificationCenter: React.FC<NotificationCenterProps> = ({ collapsed = fal
                   )}
                 >
                   {labels[t]}
-                  {t === "unread" && unreadCount > 0 && (
+                  {t === "unread" && visibleUnreadCount > 0 && (
                     <span className="ml-1 rounded-full bg-red-500 px-1.5 py-0.5 text-[10px] text-white">
-                      {unreadCount}
+                      {visibleUnreadCount}
                     </span>
                   )}
                 </button>
@@ -407,6 +525,18 @@ const NotificationCenter: React.FC<NotificationCenterProps> = ({ collapsed = fal
             {loading ? (
               <div className="flex items-center justify-center py-10 text-[13px] text-content-tertiary">
                 불러오는 중...
+              </div>
+            ) : loadError ? (
+              <div className="flex flex-col items-center justify-center gap-3 px-4 py-10 text-center text-content-tertiary">
+                <Bell size={24} strokeWidth={1} className="opacity-30" />
+                <span className="text-[13px]">{loadError}</span>
+                <button
+                  type="button"
+                  className="rounded-lg border border-line px-3 py-1.5 text-[12px] font-semibold text-content-secondary transition-colors hover:border-primary hover:text-primary"
+                  onClick={fetchLogs}
+                >
+                  재시도
+                </button>
               </div>
             ) : filteredLogs.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-10 gap-2 text-content-tertiary">

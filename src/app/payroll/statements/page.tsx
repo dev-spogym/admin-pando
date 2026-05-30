@@ -103,6 +103,60 @@ function getRecentMonths() {
 
 const nowStr = () => new Date().toLocaleString('ko-KR', { dateStyle: 'short', timeStyle: 'short' });
 
+const mapPayrollStatusFromDb = (status: string | null | undefined): "paid" | "pending" => {
+  return status === "PAID" || status === "paid" ? "paid" : "pending";
+};
+
+const mapSendStatusFromDb = (status: string | null | undefined): SendStatus => {
+  if (status === "SENT") return "발송완료";
+  if (status === "VOID") return "무효";
+  return "미발송";
+};
+
+const mapReceiptFromDb = (status: string | null | undefined): ReceiptStatus => {
+  if (status === "UNREAD") return "미열람";
+  if (status === "READ") return "열람완료";
+  if (status === "UNAVAILABLE") return "확인불가";
+  return "-";
+};
+
+const mapSendStatusToDb = (status: SendStatus): "NOT_SENT" | "SENT" | "VOID" => {
+  if (status === "발송완료") return "SENT";
+  if (status === "무효") return "VOID";
+  return "NOT_SENT";
+};
+
+const mapReceiptToDb = (status: ReceiptStatus): "NONE" | "UNREAD" | "READ" | "UNAVAILABLE" => {
+  if (status === "미열람") return "UNREAD";
+  if (status === "열람완료") return "READ";
+  if (status === "확인불가") return "UNAVAILABLE";
+  return "NONE";
+};
+
+const normalizePayrollDetails = (row: any): { earnings: EarningItem[]; deductions: DeductionItem[] } => {
+  const details = row.details ?? {};
+  if (Array.isArray(details.earnings) || Array.isArray(details.deductions)) {
+    return {
+      earnings: Array.isArray(details.earnings) ? details.earnings : [{ name: "기본급", amount: Number(row.baseSalary ?? 0) }],
+      deductions: Array.isArray(details.deductions) ? details.deductions : [],
+    };
+  }
+  const manualEarnings = Array.isArray(details.manualEarnings) ? details.manualEarnings : [];
+  const manualDeductions = Array.isArray(details.manualDeductions) ? details.manualDeductions : [];
+  const baseSalary = Number(row.baseSalary ?? 0);
+  const bonus = Number(row.bonus ?? 0);
+  const deduction = Number(row.deduction ?? 0);
+  return {
+    earnings: [
+      { name: "기본급", amount: baseSalary },
+      ...(manualEarnings.length > 0 ? manualEarnings : bonus > 0 ? [{ name: "수당 합계", amount: bonus }] : []),
+    ],
+    deductions: [
+      ...(manualDeductions.length > 0 ? manualDeductions : deduction > 0 ? [{ name: "공제 합계", amount: deduction }] : []),
+    ],
+  };
+};
+
 export default function PayrollStatement() {
   const authUser = useAuthStore((s) => s.user);
   const userRole = normalizeRole(authUser?.role ?? '');
@@ -130,6 +184,40 @@ export default function PayrollStatement() {
   const [voidTargetId, setVoidTargetId] = useState<number | null>(null);
   // 발송 이력 패널
   const [historyTargetId, setHistoryTargetId] = useState<number | null>(null);
+
+  const loadDeliveryStates = async (records: PayrollRecord[]) => {
+    if (records.length === 0) {
+      setSendStates({});
+      return;
+    }
+    const ids = records.map(record => record.id);
+    const { data, error } = await supabase
+      .from("payroll_statement_deliveries")
+      .select("payrollId, sendStatus, receiptStatus, sentAt, history")
+      .in("payrollId", ids);
+
+    if (error) {
+      toast.error("급여 명세서 발송 상태를 불러오지 못했습니다.");
+      setSendStates(Object.fromEntries(records.map(record => [record.id, { sendStatus: "미발송", sentAt: null, receipt: "-", history: [] }])));
+      return;
+    }
+
+    const deliveryByPayrollId = new Map<number, Record<string, unknown>>();
+    (data ?? []).forEach((row: Record<string, unknown>) => {
+      deliveryByPayrollId.set(Number(row.payrollId), row);
+    });
+
+    setSendStates(Object.fromEntries(records.map(record => {
+      const row = deliveryByPayrollId.get(record.id);
+      if (!row) return [record.id, { sendStatus: "미발송", sentAt: null, receipt: "-", history: [] } satisfies SendState];
+      return [record.id, {
+        sendStatus: mapSendStatusFromDb(row.sendStatus as string | null),
+        sentAt: row.sentAt ? new Date(row.sentAt as string).toLocaleString("ko-KR", { dateStyle: "short", timeStyle: "short" }) : null,
+        receipt: mapReceiptFromDb(row.receiptStatus as string | null),
+        history: Array.isArray(row.history) ? row.history as SendState["history"] : [],
+      } satisfies SendState];
+    })));
+  };
 
   // 직원 목록 로드 (readonly는 본인만)
   useEffect(() => {
@@ -160,7 +248,7 @@ export default function PayrollStatement() {
       const [year, month] = selectedMonth.split("-").map(Number);
       const { data, error } = await supabase
         .from("payroll")
-        .select("id, staffId, staffName, year, month, baseSalary, netSalary, status, paidAt, details, staff!inner(position, branchId)")
+        .select("id, staffId, staffName, year, month, baseSalary, bonus, deduction, netSalary, status, paidAt, details, staff!inner(position, branchId)")
         .eq("staff.branchId", getBranchId())
         .eq("year", year)
         .eq("month", month);
@@ -177,19 +265,12 @@ export default function PayrollStatement() {
           month: r.month,
           baseSalary: Number(r.baseSalary ?? 0),
           netSalary: Number(r.netSalary ?? 0),
-          status: r.status ?? "pending",
+          status: mapPayrollStatusFromDb(r.status),
           paymentDate: r.paidAt ? new Date(r.paidAt).toLocaleDateString('ko-KR') : "-",
-          details: r.details ?? null,
+          details: normalizePayrollDetails(r),
         }));
         setPayrollRecords(mapped);
-        // 발송 상태 초기화: 확정(paid)이면 미발송, 미확정이면 발송 대상 아님
-        setSendStates(prev => {
-          const next = { ...prev };
-          mapped.forEach(r => {
-            if (!next[r.id]) next[r.id] = { sendStatus: "미발송", sentAt: null, receipt: "-", history: [] };
-          });
-          return next;
-        });
+        await loadDeliveryStates(mapped);
       }
       setIsLoadingData(false);
       setSelectedRows(new Set());
@@ -251,50 +332,90 @@ export default function PayrollStatement() {
   const totalNet     = tableData.reduce((s, r) => s + r.netPay, 0);
 
   // ── 발송 액션 (목업) ─────────────────────────────────────────────────────
-  const doSend = (recId: number, channelLabel = "이메일·앱") => {
-    setSendStates(prev => {
-      const cur = prev[recId] ?? { sendStatus: "미발송" as SendStatus, sentAt: null, receipt: "-" as ReceiptStatus, history: [] };
-      const at = nowStr();
-      return {
-        ...prev,
-        [recId]: {
-          sendStatus: "발송완료",
-          sentAt: at,
-          receipt: "미열람",
-          history: [...cur.history, { at, action: cur.sendStatus === "발송완료" ? "재발송" : "발송", channel: channelLabel }],
-        },
-      };
-    });
+  const doSend = async (recId: number, channelLabel = "이메일·앱") => {
+    const rec = payrollRecords.find(record => record.id === recId);
+    if (!rec) return false;
+    const cur = sendStates[recId] ?? { sendStatus: "미발송" as SendStatus, sentAt: null, receipt: "-" as ReceiptStatus, history: [] };
+    const at = nowStr();
+    const nextState: SendState = {
+      sendStatus: "발송완료",
+      sentAt: at,
+      receipt: "미열람",
+      history: [...cur.history, { at, action: cur.sendStatus === "발송완료" ? "재발송" : "발송", channel: channelLabel }],
+    };
+
+    const { error } = await supabase.from("payroll_statement_deliveries").upsert({
+      branchId: getBranchId(),
+      payrollId: rec.id,
+      staffId: rec.staffId,
+      sendStatus: mapSendStatusToDb(nextState.sendStatus),
+      receiptStatus: mapReceiptToDb(nextState.receipt),
+      sentAt: new Date().toISOString(),
+      voidedAt: null,
+      history: nextState.history,
+      updatedAt: new Date().toISOString(),
+    }, { onConflict: "payrollId" });
+
+    if (error) {
+      toast.error("명세서 발송 상태 저장에 실패했습니다.");
+      return false;
+    }
+
+    setSendStates(prev => ({ ...prev, [recId]: nextState }));
+    return true;
   };
 
-  const handleSendClick = (row: TableRow) => {
+  const handleSendClick = async (row: TableRow) => {
     if (!canSend) { toast.error("발송 권한이 없습니다."); return; }
     if (row.status !== "paid") { toast.warning("급여 미확정 상태입니다. 급여 확정 후 명세서를 발송할 수 있습니다."); return; }
     if (row.sendStatus === "무효") { toast.error("무효 명세서는 발송할 수 없습니다. 급여 재확정 후 새 명세서를 발송해주세요."); return; }
     if (row.sendStatus === "발송완료") { setResendTargetId(row.recId); return; } // 재발송 확인
-    doSend(row.recId);
-    toast.success(`${row.name} 명세서를 발송했습니다.`);
+    const ok = await doSend(row.recId);
+    if (ok) toast.success(`${row.name} 명세서를 발송했습니다.`);
   };
 
-  const handleBulkSend = () => {
+  const handleBulkSend = async () => {
     if (!canSend) { toast.error("발송 권한이 없습니다."); return; }
     const selectedTableRows = [...selectedRows].map(idx => tableData[idx]).filter(Boolean);
     const targets = selectedTableRows.filter(r => r.recId && r.status === "paid" && r.sendStatus !== "무효");
     const skipped = selectedTableRows.length - targets.length;
     if (targets.length === 0) { toast.warning("발송 가능한 확정 명세서가 없습니다."); return; }
-    targets.forEach(t => doSend(t.recId));
+    let sent = 0;
+    for (const target of targets) {
+      if (await doSend(target.recId)) sent += 1;
+    }
     setSelectedRows(new Set());
-    toast.success(`${targets.length}건을 일괄 발송했습니다.${skipped > 0 ? ` (미확정·무효 ${skipped}건 제외)` : ""}`);
+    toast.success(`${sent}건을 일괄 발송했습니다.${skipped > 0 ? ` (미확정·무효 ${skipped}건 제외)` : ""}`);
   };
 
-  const handleVoid = (recId: number) => {
-    setSendStates(prev => {
-      const cur = prev[recId] ?? { sendStatus: "미발송" as SendStatus, sentAt: null, receipt: "-" as ReceiptStatus, history: [] };
-      return {
-        ...prev,
-        [recId]: { ...cur, sendStatus: "무효", receipt: "확인불가", history: [...cur.history, { at: nowStr(), action: "무효 처리", channel: "-" }] },
-      };
-    });
+  const handleVoid = async (recId: number) => {
+    const rec = payrollRecords.find(record => record.id === recId);
+    if (!rec) return false;
+    const cur = sendStates[recId] ?? { sendStatus: "미발송" as SendStatus, sentAt: null, receipt: "-" as ReceiptStatus, history: [] };
+    const nextState: SendState = {
+      ...cur,
+      sendStatus: "무효",
+      receipt: "확인불가",
+      history: [...cur.history, { at: nowStr(), action: "무효 처리", channel: "-" }],
+    };
+    const { error } = await supabase.from("payroll_statement_deliveries").upsert({
+      branchId: getBranchId(),
+      payrollId: rec.id,
+      staffId: rec.staffId,
+      sendStatus: mapSendStatusToDb(nextState.sendStatus),
+      receiptStatus: mapReceiptToDb(nextState.receipt),
+      sentAt: cur.sentAt ? new Date().toISOString() : null,
+      voidedAt: new Date().toISOString(),
+      history: nextState.history,
+      updatedAt: new Date().toISOString(),
+    }, { onConflict: "payrollId" });
+
+    if (error) {
+      toast.error("명세서 무효 상태 저장에 실패했습니다.");
+      return false;
+    }
+    setSendStates(prev => ({ ...prev, [recId]: nextState }));
+    return true;
   };
 
   const sendStatusVariant = (s: SendStatus): "success" | "warning" | "default" | "error" =>
@@ -632,11 +753,11 @@ export default function PayrollStatement() {
         description={"이미 발송된 명세서입니다. 다시 발송하면 기존 발송 이력은 유지되고 새 발송 이력이 추가됩니다."}
         confirmLabel="재발송"
         cancelLabel="취소"
-        onConfirm={() => {
+        onConfirm={async () => {
           if (resendTargetId != null) {
             const row = tableData.find(t => t.recId === resendTargetId);
-            doSend(resendTargetId);
-            toast.success(`${row?.name ?? ""} 명세서를 재발송했습니다.`);
+            const ok = await doSend(resendTargetId);
+            if (ok) toast.success(`${row?.name ?? ""} 명세서를 재발송했습니다.`);
           }
           setResendTargetId(null);
         }}
@@ -650,10 +771,10 @@ export default function PayrollStatement() {
         description={"무효 처리하면 해당 명세서의 발송·재발송·PDF 저장·인쇄가 차단됩니다.\n이미 발송된 외부 이메일·앱 푸시 자체는 회수되지 않습니다."}
         confirmLabel="무효 처리"
         cancelLabel="취소"
-        onConfirm={() => {
+        onConfirm={async () => {
           if (voidTargetId != null) {
-            handleVoid(voidTargetId);
-            toast.success("명세서가 무효 처리되었습니다.");
+            const ok = await handleVoid(voidTargetId);
+            if (ok) toast.success("명세서가 무효 처리되었습니다.");
           }
           setVoidTargetId(null);
         }}

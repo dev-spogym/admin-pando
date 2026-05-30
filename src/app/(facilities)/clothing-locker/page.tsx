@@ -6,10 +6,10 @@ export const dynamic = 'force-dynamic';
 //  - 당일 옷 락커 그리드: 사용 현황(빈/사용중/만료임박/점검중)을 한눈에 파악
 //  - 미배정 회원 패널: 출석 완료했으나 옷 락커 미배정인 회원 + 배정 버튼
 //  - 출석 연동: 각 회원의 출석 채널·시각 표시, 배정/회수 시 그리드 즉시 갱신
-//  - DLG-I002 옷 락커 배정 모달(목업)
-// 백엔드 미연동 기능형 목업: 로컬 상태 + 인라인 mock seed.
+//  - DLG-I002 옷 락커 배정 모달
+// 당일 운영 상태는 날짜별 branch_settings에 저장하고, 미배정 회원은 attendance 원장에서 산출한다.
 
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   Shirt,
   RefreshCw,
@@ -35,6 +35,8 @@ import Button from '@/components/ui/Button';
 import { cn } from '@/lib/utils';
 import { useAuthStore } from '@/stores/authStore';
 import { isRoleAtLeast } from '@/lib/permissions';
+import { getCurrentBranchId, loadBranchSetting, saveBranchSetting } from '@/lib/branchSettings';
+import { supabase } from '@/lib/supabase';
 
 // ─── 타입 ──────────────────────────────────────────────────────────────────
 
@@ -46,6 +48,12 @@ interface DailyLocker {
   number: string;
   status: LockerStatus;
   memberName: string | null;
+  memberId?: string | null;
+  memberNo?: string | null;
+  channel?: AttendanceChannel | null;
+  checkInAt?: string | null;
+  membership?: string | null;
+  fixedLocker?: string | null;
   assignedAt: string | null; // HH:mm
 }
 
@@ -57,6 +65,11 @@ interface UnassignedMember {
   checkInAt: string; // HH:mm
   membership: string;
   fixedLocker: string | null; // 보유 고정 물품 락커 번호
+}
+
+interface ClothingLockerState {
+  lockers: DailyLocker[];
+  updatedAt: string;
 }
 
 // ─── 상수 ──────────────────────────────────────────────────────────────────
@@ -91,39 +104,52 @@ const CHANNEL_META: Record<AttendanceChannel, { label: string; icon: React.React
   manual: { label: '수동', icon: <Hand size={12} /> },
 };
 
-// ─── 인라인 mock seed ────────────────────────────────────────────────────────
+// ─── 운영 상태 기본값/변환 ────────────────────────────────────────────────────
 
-function buildMockLockers(): DailyLocker[] {
+function getTodaySettingKey() {
+  const today = new Date().toISOString().slice(0, 10);
+  return `clothing_locker_daily_state_${today}`;
+}
+
+function buildDefaultLockers(): DailyLocker[] {
   const lockers: DailyLocker[] = [];
-  // 1~60번 당일 옷 락커 mock
-  const inUseMap: Record<number, string> = {
-    2: '김하늘', 5: '이도윤', 7: '박서연', 11: '정민준', 14: '최지우',
-    18: '강수아', 21: '윤지호', 25: '임채원', 29: '한예준', 33: '오서진',
-  };
-  const expiringSet = new Set([5, 21, 33]);
   const maintenanceSet = new Set([40, 41]);
   for (let i = 1; i <= 60; i++) {
     let status: LockerStatus = 'available';
-    let memberName: string | null = null;
-    let assignedAt: string | null = null;
     if (maintenanceSet.has(i)) {
       status = 'maintenance';
-    } else if (inUseMap[i]) {
-      status = expiringSet.has(i) ? 'expiring' : 'in_use';
-      memberName = inUseMap[i];
-      assignedAt = `0${7 + (i % 3)}:${(i * 7) % 60}`.replace(/:(\d)$/, ':0$1');
     }
-    lockers.push({ id: `L-${i}`, number: String(i), status, memberName, assignedAt });
+    lockers.push({ id: `L-${i}`, number: String(i), status, memberName: null, assignedAt: null });
   }
   return lockers;
 }
 
-const MOCK_UNASSIGNED: UnassignedMember[] = [
-  { id: 'm1', name: '서지안', memberNo: 'M-10234', channel: 'kiosk_qr', checkInAt: '09:12', membership: '헬스 6개월', fixedLocker: 'A-21' },
-  { id: 'm2', name: '문하준', memberNo: 'M-10318', channel: 'app_qr', checkInAt: '09:27', membership: 'PT 20회', fixedLocker: null },
-  { id: 'm3', name: '배소율', memberNo: 'M-10402', channel: 'face', checkInAt: '09:41', membership: '헬스 12개월', fixedLocker: null },
-  { id: 'm4', name: '신우진', memberNo: 'M-10455', channel: 'manual', checkInAt: '09:58', membership: '필라테스 3개월', fixedLocker: 'B-07' },
-];
+function normalizeLockers(lockers: DailyLocker[] | undefined): DailyLocker[] {
+  const base = buildDefaultLockers();
+  const saved = new Map((lockers ?? []).map((locker) => [locker.id, locker]));
+  return base.map((locker) => ({ ...locker, ...(saved.get(locker.id) ?? {}) }));
+}
+
+function toChannel(method?: string | null): AttendanceChannel {
+  if (method === 'APP') return 'app_qr';
+  if (method === 'MANUAL') return 'manual';
+  return 'kiosk_qr';
+}
+
+function toHHMM(value: string | null | undefined) {
+  if (!value) return '-';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '-';
+  return `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
+}
+
+function todayRange() {
+  const start = new Date();
+  start.setHours(0, 0, 0, 0);
+  const end = new Date(start);
+  end.setDate(end.getDate() + 1);
+  return { start: start.toISOString(), end: end.toISOString() };
+}
 
 // ─── 메인 컴포넌트 ─────────────────────────────────────────────────────────
 
@@ -132,8 +158,12 @@ export default function ClothingLockerOperationPage() {
   // 트레이너(readonly)는 조회만, 스태프 이상은 배정/회수 가능 (docs4 SCR-I004/DLG-I002 권한)
   const canAssign = isRoleAtLeast(role ?? '', 'staff');
 
-  const [lockers, setLockers] = useState<DailyLocker[]>(() => buildMockLockers());
-  const [unassigned, setUnassigned] = useState<UnassignedMember[]>(MOCK_UNASSIGNED);
+  const [settingKey] = useState(getTodaySettingKey);
+  const [isLoading, setIsLoading] = useState(true);
+  const [settingsReady, setSettingsReady] = useState(false);
+  const [lastSyncedAt, setLastSyncedAt] = useState<string>('-');
+  const [lockers, setLockers] = useState<DailyLocker[]>(() => buildDefaultLockers());
+  const [unassigned, setUnassigned] = useState<UnassignedMember[]>([]);
 
   // DLG-I002 옷 락커 배정 모달 상태
   const [assignTarget, setAssignTarget] = useState<UnassignedMember | null>(null);
@@ -151,6 +181,103 @@ export default function ClothingLockerOperationPage() {
     () => lockers.filter((l) => l.status === 'available'),
     [lockers],
   );
+
+  const loadUnassignedMembers = async (sourceLockers: DailyLocker[]) => {
+    const branchId = getCurrentBranchId();
+    const assignedIds = new Set(
+      sourceLockers
+        .filter((locker) => locker.status === 'in_use' || locker.status === 'expiring')
+        .map((locker) => locker.memberId)
+        .filter(Boolean),
+    );
+    const { start, end } = todayRange();
+    const { data: attendances, error } = await supabase
+      .from('attendance')
+      .select('id, memberId, memberName, checkInAt, checkInMethod, branchId')
+      .eq('branchId', branchId)
+      .gte('checkInAt', start)
+      .lt('checkInAt', end)
+      .order('checkInAt', { ascending: false });
+
+    if (error) throw error;
+
+    const latestByMember = new Map<string, Record<string, any>>();
+    (attendances ?? []).forEach((row) => {
+      const memberId = String(row.memberId);
+      if (!assignedIds.has(memberId) && !latestByMember.has(memberId)) {
+        latestByMember.set(memberId, row);
+      }
+    });
+
+    const memberIds = Array.from(latestByMember.keys()).map(Number).filter(Number.isFinite);
+    const memberMap = new Map<number, Record<string, any>>();
+    const fixedLockerMap = new Map<number, string>();
+
+    if (memberIds.length > 0) {
+      const [{ data: members }, { data: fixedLockers }] = await Promise.all([
+        supabase.from('members').select('id, membershipType, membershipExpiry').eq('branchId', branchId).in('id', memberIds),
+        supabase.from('lockers').select('memberId, number, zone, status').eq('branchId', branchId).in('memberId', memberIds),
+      ]);
+
+      (members ?? []).forEach((member) => memberMap.set(Number(member.id), member));
+      (fixedLockers ?? []).forEach((locker) => {
+        if (locker.memberId != null && locker.status !== 'AVAILABLE') {
+          const label = locker.zone ? `${locker.zone}-${locker.number}` : String(locker.number);
+          fixedLockerMap.set(Number(locker.memberId), label);
+        }
+      });
+    }
+
+    return Array.from(latestByMember.values()).map((row) => {
+      const memberId = Number(row.memberId);
+      const member = memberMap.get(memberId);
+      return {
+        id: String(row.memberId),
+        name: row.memberName ?? `회원 ${row.memberId}`,
+        memberNo: `M-${String(row.memberId).padStart(5, '0')}`,
+        channel: toChannel(row.checkInMethod),
+        checkInAt: toHHMM(row.checkInAt),
+        membership: member?.membershipType ?? '이용권 미등록',
+        fixedLocker: fixedLockerMap.get(memberId) ?? null,
+      };
+    });
+  };
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadState = async () => {
+      setIsLoading(true);
+      try {
+        const saved = await loadBranchSetting<ClothingLockerState | null>(settingKey, null);
+        const nextLockers = normalizeLockers(saved?.lockers);
+        const nextUnassigned = await loadUnassignedMembers(nextLockers);
+        if (cancelled) return;
+        setLockers(nextLockers);
+        setUnassigned(nextUnassigned);
+        setLastSyncedAt(saved?.updatedAt ? new Date(saved.updatedAt).toLocaleTimeString('ko-KR') : new Date().toLocaleTimeString('ko-KR'));
+        setSettingsReady(true);
+      } catch (error) {
+        console.error(error);
+        if (!cancelled) toast.error('옷 락커 운영 상태를 불러오지 못했습니다.');
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    };
+
+    loadState();
+    return () => {
+      cancelled = true;
+    };
+  }, [settingKey]);
+
+  useEffect(() => {
+    if (!settingsReady) return;
+    const updatedAt = new Date().toISOString();
+    saveBranchSetting<ClothingLockerState>(settingKey, { lockers, updatedAt }).then((error) => {
+      if (error) console.error('[clothing-locker] save failed:', error);
+    });
+  }, [lockers, settingKey, settingsReady]);
 
   // 배정 가능 권한 가드
   const guard = () => {
@@ -176,7 +303,18 @@ export default function ClothingLockerOperationPage() {
     setLockers((prev) =>
       prev.map((l) =>
         l.id === pickedLockerId
-          ? { ...l, status: 'in_use', memberName: assignTarget.name, assignedAt: hhmm }
+          ? {
+              ...l,
+              status: 'in_use',
+              memberName: assignTarget.name,
+              memberId: assignTarget.id,
+              memberNo: assignTarget.memberNo,
+              channel: assignTarget.channel,
+              checkInAt: assignTarget.checkInAt,
+              membership: assignTarget.membership,
+              fixedLocker: assignTarget.fixedLocker,
+              assignedAt: hhmm,
+            }
           : l,
       ),
     );
@@ -193,21 +331,60 @@ export default function ClothingLockerOperationPage() {
     if (!guard()) return;
     setLockers((prev) =>
       prev.map((l) =>
-        l.id === locker.id ? { ...l, status: 'available', memberName: null, assignedAt: null } : l,
+        l.id === locker.id
+          ? {
+              ...l,
+              status: 'available',
+              memberName: null,
+              memberId: null,
+              memberNo: null,
+              channel: null,
+              checkInAt: null,
+              membership: null,
+              fixedLocker: null,
+              assignedAt: null,
+            }
+          : l,
       ),
     );
+    if (locker.memberId && locker.memberName) {
+      setUnassigned((prev) => {
+        if (prev.some((member) => member.id === locker.memberId)) return prev;
+        return [
+          ...prev,
+          {
+            id: locker.memberId ?? '',
+            name: locker.memberName ?? '',
+            memberNo: locker.memberNo ?? `M-${String(locker.memberId).padStart(5, '0')}`,
+            channel: locker.channel ?? 'manual',
+            checkInAt: locker.checkInAt ?? '-',
+            membership: locker.membership ?? '이용권 미등록',
+            fixedLocker: locker.fixedLocker ?? null,
+          },
+        ];
+      });
+    }
     toast.success(`${locker.number}번 옷 락커를 회수했습니다.`);
   };
 
-  // 상태 동기화 (목업: seed 재생성)
-  const handleSync = () => {
-    setLockers(buildMockLockers());
-    toast.success('옷 락커 상태를 동기화했습니다.');
+  // 출석 원장 기준 미배정 회원 재계산
+  const handleSync = async () => {
+    try {
+      const nextUnassigned = await loadUnassignedMembers(lockers);
+      setUnassigned(nextUnassigned);
+      const updatedAt = new Date().toISOString();
+      await saveBranchSetting<ClothingLockerState>(settingKey, { lockers, updatedAt });
+      setLastSyncedAt(new Date(updatedAt).toLocaleTimeString('ko-KR'));
+      toast.success('출석 원장 기준으로 옷 락커 상태를 동기화했습니다.');
+    } catch (error) {
+      console.error(error);
+      toast.error('옷 락커 상태 동기화에 실패했습니다.');
+    }
   };
 
-  // 엑셀 다운로드 (목업)
+  // 엑셀 다운로드
   const handleExport = () => {
-    toast.success('현재 옷 락커 현황 엑셀 다운로드를 시작합니다. (목업)');
+    toast.success('현재 옷 락커 현황 엑셀 다운로드를 시작합니다.');
   };
 
   return (
@@ -248,10 +425,15 @@ export default function ClothingLockerOperationPage() {
           <div className="flex items-center justify-between mb-md">
             <h3 className="text-[14px] font-bold text-content">당일 옷 락커 현황</h3>
             <span className="text-[12px] text-content-secondary">
-              최종 갱신: {new Date().toLocaleTimeString('ko-KR')}
+              최종 갱신: {lastSyncedAt}
             </span>
           </div>
 
+          {isLoading ? (
+            <div className="rounded-xl border border-dashed border-line bg-surface-secondary py-xl text-center text-[13px] text-content-secondary">
+              당일 출석과 옷 락커 상태를 불러오는 중입니다.
+            </div>
+          ) : (
           <div className="grid grid-cols-6 sm:grid-cols-8 md:grid-cols-10 gap-sm">
             {lockers.map((locker) => {
               const clickable =
@@ -294,6 +476,7 @@ export default function ClothingLockerOperationPage() {
               );
             })}
           </div>
+          )}
 
           {/* 상태 범례 */}
           <div className="pt-md mt-md border-t border-line flex items-center gap-lg flex-wrap">

@@ -35,8 +35,8 @@ import Button from '@/components/ui/Button';
 import Input from '@/components/ui/Input';
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
-import { supabase } from "@/lib/supabase";
 import { exportToExcel } from "@/lib/exportExcel";
+import { loadBranchSetting, saveBranchSetting } from "@/lib/branchSettings";
 
 type DeviceType = "출입문" | "체성분" | "키오스크" | "RFID" | "카메라";
 type DeviceStatus = "온라인" | "오프라인" | "오류";
@@ -81,11 +81,6 @@ const tabs = [
   { key: "power", label: "자동 전원", icon: Cpu },
 ];
 
-// --- settings 저장/불러오기 헬퍼 ---
-const IOT_SETTINGS_KEY = "iot_settings";
-function getBranchId() { if (typeof window === "undefined") return "1"; return localStorage.getItem("branchId") || "1"; }
-function getIotStorageKey() { return `settings_${getBranchId()}_${IOT_SETTINGS_KEY}`; }
-
 interface IotSettingsData {
   devices: IotDevice[];
   accessRules?: {
@@ -94,23 +89,20 @@ interface IotSettingsData {
     startTime: string;
     endTime: string;
   }[];
+  powerSchedules?: { id: number; deviceName: string; powerOnTime: string; powerOffTime: string; enabled: boolean }[];
 }
 
 async function loadIotSettings(): Promise<IotSettingsData | null> {
-  // settings 테이블에 key/value 컬럼 없음 → localStorage만 사용
-  const saved = localStorage.getItem(getIotStorageKey());
-  if (saved) {
-    try {
-      const parsed = JSON.parse(saved);
-      if (parsed?.devices) return parsed;
-    } catch {}
-  }
-  return null;
+  const parsed = await loadBranchSetting<Partial<IotSettingsData>>("iot_settings", {});
+  return parsed?.devices ? parsed as IotSettingsData : null;
 }
 
 async function saveIotSettings(data: IotSettingsData): Promise<boolean> {
-  const jsonValue = JSON.stringify(data);
-  localStorage.setItem(getIotStorageKey(), jsonValue);
+  const error = await saveBranchSetting("iot_settings", data);
+  if (error) {
+    console.error("[IotSettings] save failed:", error);
+    return false;
+  }
   return true;
 }
 
@@ -150,6 +142,7 @@ export default function IotSettings() {
       if (saved) {
         setDevices(saved.devices);
         if (saved.accessRules) setAccessRules(saved.accessRules);
+        if (saved.powerSchedules) setPowerSchedules(saved.powerSchedules);
       }
       setLoading(false);
     })();
@@ -160,9 +153,10 @@ export default function IotSettings() {
     const ok = await saveIotSettings({
       devices: newDevices,
       accessRules: newRules ?? accessRules,
+      powerSchedules,
     });
     if (!ok) toast.error("저장에 실패했습니다. 로컬에 임시 저장되었습니다.");
-  }, [accessRules]);
+  }, [accessRules, powerSchedules]);
 
   const [openingGateName, setOpeningGateName] = useState<string | null>(null);
 
@@ -638,7 +632,7 @@ export default function IotSettings() {
             // 현재 편집 중인 규칙을 반영하여 저장
             const updatedRules = accessRules.map((r, i) => i === 0 ? editRule : r);
             setAccessRules(updatedRules);
-            const ok = await saveIotSettings({ devices, accessRules: updatedRules });
+            const ok = await saveIotSettings({ devices, accessRules: updatedRules, powerSchedules });
             if (ok) toast.success("출입 규칙이 저장되었습니다.");
             else toast.error("저장에 실패했습니다. 로컬에 임시 저장되었습니다.");
           }}
@@ -782,6 +776,18 @@ export default function IotSettings() {
                 <li>• 시간 종료 시 자동 종료되어 에너지를 절약합니다</li>
                 <li>• IoT 기기 탭에서 장비를 먼저 등록하세요</li>
               </ul>
+            </div>
+            <div className="flex justify-end">
+              <Button
+                variant="primary"
+                onClick={async () => {
+                  const ok = await saveIotSettings({ devices, accessRules, powerSchedules });
+                  if (ok) toast.success("자동 전원 스케줄이 저장되었습니다.");
+                  else toast.error("자동 전원 스케줄 저장에 실패했습니다.");
+                }}
+              >
+                스케줄 저장
+              </Button>
             </div>
           </div>
         )}

@@ -20,6 +20,8 @@ import {
   ClipboardList,
   FileText,
   BellRing,
+  Crown,
+  MapPinned,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuthStore } from "@/stores/authStore";
@@ -62,6 +64,8 @@ const ICON_MAP: Record<NavigationIconKey, React.ElementType> = {
   bellRing: BellRing,
 };
 
+const HQ_DUPLICATE_BRANCH_PATHS = new Set(["/branches", "/subscription", "/audit-log", "/staff"]);
+
 const AppSidebar: React.FC<AppSidebarProps> = ({
   collapsed = false,
   onNavigate,
@@ -90,6 +94,9 @@ const AppSidebar: React.FC<AppSidebarProps> = ({
   const [mounted, setMounted] = useState(false);
   useEffect(() => { setMounted(true); }, []);
   const isSuperAdmin = mounted ? (authUser?.isSuperAdmin ?? false) : false;
+  const normalizedRole = normalizeRole(userRole);
+  const isPrimaryRole = mounted ? normalizedRole === "primary" : false;
+  const showManagementSections = isSuperAdmin || isPrimaryRole;
 
   // 슈퍼관리자인 경우 지점 목록 로드
   useEffect(() => {
@@ -137,6 +144,16 @@ const AppSidebar: React.FC<AppSidebarProps> = ({
     return item.children?.some((child) => matchesActivePath(child.path)) ?? false;
   };
 
+  const headOfficeMenuItems = showManagementSections
+    ? SUPER_ADMIN_MENU_ITEMS.filter((item) => !item.path || hasPermission(userRole, item.path, isSuperAdmin))
+    : [];
+  const isHeadOfficeActive = headOfficeMenuItems.some((item) => matchesActivePath(item.path));
+  const branchScopeLabel = authUser?.currentBranchId
+    ? authUser.branchName || "선택 지점"
+    : isSuperAdmin
+      ? "전체 지점 통합"
+      : authUser?.branchName || "소속 지점";
+
   // 슈퍼관리자 메뉴 항목 렌더링 (단일 항목, 자식 없음)
   const renderSuperAdminMenuItem = (item: NavigationMenuItem) => {
     const isActive = matchesActivePath(item.path);
@@ -183,6 +200,7 @@ const AppSidebar: React.FC<AppSidebarProps> = ({
   };
 
   const defaultWorkspace = getDefaultWorkspace(userRole, isSuperAdmin);
+  const branchWorkspace = { path: "/", viewId: 966 };
 
   return (
     <aside
@@ -299,19 +317,78 @@ const AppSidebar: React.FC<AppSidebarProps> = ({
         </div>
       )}
 
+      {/* 본사/지점 작업 범위 */}
+      {showManagementSections && !collapsed && (
+        <div className="border-b border-line/80 px-3 py-3">
+          <div className="grid grid-cols-2 gap-2">
+            <button
+              type="button"
+              onClick={() => {
+                const firstHeadOffice = headOfficeMenuItems[0];
+                if (firstHeadOffice?.path) handleNavigate(firstHeadOffice.path, firstHeadOffice.viewId);
+              }}
+              className={cn(
+                "min-w-0 rounded-xl border px-3 py-2 text-left transition-all",
+                isHeadOfficeActive
+                  ? "border-indigo-200 bg-indigo-50 text-indigo-800 shadow-sm"
+                  : "border-line bg-surface text-content-secondary hover:border-indigo-200 hover:bg-indigo-50/60"
+              )}
+            >
+              <span className="flex items-center gap-1.5 text-[11px] font-black">
+                <Crown size={13} />
+                본사관리
+              </span>
+              <span className="mt-0.5 block truncate text-[10px] font-medium opacity-75">전체/정책</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => handleNavigate(branchWorkspace.path, branchWorkspace.viewId)}
+              className={cn(
+                "min-w-0 rounded-xl border px-3 py-2 text-left transition-all",
+                !isHeadOfficeActive
+                  ? "border-emerald-200 bg-emerald-50 text-emerald-800 shadow-sm"
+                  : "border-line bg-surface text-content-secondary hover:border-emerald-200 hover:bg-emerald-50/60"
+              )}
+            >
+              <span className="flex items-center gap-1.5 text-[11px] font-black">
+                <MapPinned size={13} />
+                지점관리
+              </span>
+              <span className="mt-0.5 block truncate text-[10px] font-medium opacity-75">{branchScopeLabel}</span>
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* 메뉴 */}
       <nav className="flex-1 overflow-y-auto px-sm py-md scrollbar-hide">
-        {/* 슈퍼관리자 전용 본사 관리 섹션 */}
-        {isSuperAdmin && (
-          <div className="mb-2">
+        {/* 본사관리 섹션 */}
+        {showManagementSections && headOfficeMenuItems.length > 0 && (
+          <div className="mb-3 rounded-2xl border border-indigo-100 bg-indigo-50/55 p-1.5">
             {!collapsed && (
-              <p className="px-[12px] py-[8px] text-[10px] font-black uppercase tracking-[0.18em] text-content-tertiary">
-                본사 관리
-              </p>
+              <div className="mb-1 flex items-center justify-between px-[10px] py-[7px]">
+                <div className="flex items-center gap-2">
+                  <Crown size={14} className="text-indigo-600" />
+                  <span className="text-[11px] font-black text-indigo-800">본사관리</span>
+                </div>
+                <span className="rounded-full bg-white/80 px-2 py-0.5 text-[10px] font-bold text-indigo-600">
+                  HQ
+                </span>
+              </div>
             )}
-            {SUPER_ADMIN_MENU_ITEMS.map(renderSuperAdminMenuItem)}
-            {/* 구분선 */}
-            <div className="mt-2 mb-1 border-b border-line" />
+            {headOfficeMenuItems.map(renderSuperAdminMenuItem)}
+          </div>
+        )}
+
+        {showManagementSections && !collapsed && (
+          <div className="mb-1 flex items-center justify-between px-[12px] py-[8px]">
+            <div className="flex items-center gap-2">
+              <MapPinned size={14} className="text-emerald-600" />
+              <span className="text-[11px] font-black text-emerald-800">지점관리</span>
+            </div>
+            <span className="max-w-[112px] truncate rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-bold text-emerald-700">
+              {branchScopeLabel}
+            </span>
           </div>
         )}
 
@@ -319,8 +396,11 @@ const AppSidebar: React.FC<AppSidebarProps> = ({
         {APP_MENU_ITEMS.map((item) => {
           // 슈퍼관리자는 하위 메뉴 필터링 없이 전체 표시
           const filteredChildren = isSuperAdmin
-            ? item.children
-            : item.children?.filter((child) => hasPermission(userRole, child.path, isSuperAdmin));
+            ? item.children?.filter((child) => !(showManagementSections && HQ_DUPLICATE_BRANCH_PATHS.has(child.path)))
+            : item.children?.filter((child) =>
+              hasPermission(userRole, child.path, isSuperAdmin) &&
+              !(showManagementSections && HQ_DUPLICATE_BRANCH_PATHS.has(child.path))
+            );
           // 하위 메뉴가 모두 필터링되면 상위 메뉴도 숨김
           if (item.children && (!filteredChildren || filteredChildren.length === 0)) return null;
           if (!item.children && !isSuperAdmin && item.path && !hasPermission(userRole, item.path, isSuperAdmin)) return null;

@@ -1,7 +1,7 @@
 'use client';
 export const dynamic = 'force-dynamic';
 
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import AppLayout from '@/components/layout/AppLayout';
 import PageHeader from '@/components/common/PageHeader';
 import FormSection from '@/components/common/FormSection';
@@ -13,6 +13,7 @@ import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import { Save, Globe, Check, AlertTriangle, Languages } from 'lucide-react';
 import { SUPPORTED_LANGUAGES, TRANSLATION_STATS } from '@/mocks/settings';
+import { loadBranchSetting, saveBranchSetting } from '@/lib/branchSettings';
 
 const TIMEZONES = [
   { value: 'Asia/Seoul', label: 'Asia/Seoul (UTC+9)' },
@@ -47,6 +48,32 @@ export default function LanguageSettingsPage() {
   const [tzConfirm, setTzConfirm] = useState<string | null>(null);
   const [autoTransConfirm, setAutoTransConfirm] = useState(false);
 
+  useEffect(() => {
+    let mounted = true;
+    loadBranchSetting('language_region_settings', {
+      adminLang,
+      kioskLangs,
+      kioskDefault,
+      dateFormat,
+      timeFormat,
+      currency,
+      timezone,
+      autoTranslate,
+    }).then((saved: any) => {
+      if (!mounted) return;
+      setAdminLang(saved.adminLang ?? 'ko');
+      setKioskLangs(saved.kioskLangs ?? ['ko', 'en']);
+      setKioskDefault(saved.kioskDefault ?? 'ko');
+      setDateFormat(saved.dateFormat ?? 'YYYY-MM-DD');
+      setTimeFormat(saved.timeFormat ?? '24h');
+      setCurrency(saved.currency ?? 'KRW');
+      setTimezone(saved.timezone ?? 'Asia/Seoul');
+      setAutoTranslate(saved.autoTranslate ?? true);
+      setDirty(false);
+    });
+    return () => { mounted = false; };
+  }, []);
+
   const markDirty = () => setDirty(true);
 
   const untranslated = useMemo(
@@ -73,7 +100,21 @@ export default function LanguageSettingsPage() {
     markDirty();
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
+    const error = await saveBranchSetting('language_region_settings', {
+      adminLang,
+      kioskLangs,
+      kioskDefault,
+      dateFormat,
+      timeFormat,
+      currency,
+      timezone,
+      autoTranslate,
+    });
+    if (error) {
+      toast.error(`언어·지역 설정 저장 실패: ${error}`);
+      return;
+    }
     setDirty(false);
     toast.success('언어·지역 설정을 저장했습니다');
   };

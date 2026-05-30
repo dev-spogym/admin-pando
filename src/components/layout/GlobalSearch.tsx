@@ -151,6 +151,7 @@ export default function GlobalSearch() {
         try {
           const { data: staff, error } = await supabase
             .from('staff').select('id, name, role')
+            .eq('branchId', branchId)
             .ilike('name', `%${q}%`).limit(5);
           if (!error) (staff ?? []).forEach((s: any) => {
             items.push({
@@ -166,12 +167,13 @@ export default function GlobalSearch() {
       // 수업 검색 (안전 컬럼만 조회 — 스키마 차이 시 조용히 건너뜀)
       try {
         const { data: classes, error } = await supabase
-          .from('classes').select('id, name')
-          .ilike('name', `%${q}%`).limit(5);
+          .from('classes').select('id, title, staffName, startTime')
+          .eq('branchId', branchId)
+          .ilike('title', `%${q}%`).limit(5);
         if (!error) (classes ?? []).forEach((c: any) => {
           items.push({
-            type: 'class', id: c.id, title: c.name,
-            subtitle: '수업',
+            type: 'class', id: c.id, title: c.title,
+            subtitle: `${c.staffName ?? '담당자 미정'} · ${c.startTime ? new Date(c.startTime).toLocaleString('ko-KR') : '시간 미정'}`,
             icon: <CalendarClock size={14} className="text-accent" />,
             action: () => moveToPage(969),
           });

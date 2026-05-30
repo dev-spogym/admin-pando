@@ -93,7 +93,7 @@ export default function CouponManagement() {
 
   // --- Data ---
   const [coupons, setCoupons] = useState<any[]>([]);
-  const [issuanceLogs] = useState<any[]>([]);
+  const [issuanceLogs, setIssuanceLogs] = useState<any[]>([]);
 
   const branchId = getBranchId();
 
@@ -110,9 +110,21 @@ export default function CouponManagement() {
     setLoading(false);
   }, [branchId]);
 
+  const fetchIssuanceLogs = useCallback(async () => {
+    const { data, error } = await supabase
+      .from('coupon_issuance_logs')
+      .select('*')
+      .eq('branchId', branchId)
+      .order('createdAt', { ascending: false });
+    if (!error && data) {
+      setIssuanceLogs(data);
+    }
+  }, [branchId]);
+
   useEffect(() => {
     fetchCoupons();
-  }, [fetchCoupons]);
+    fetchIssuanceLogs();
+  }, [fetchCoupons, fetchIssuanceLogs]);
 
   // --- Handlers ---
   const handleTabChange = (key: string) => {
@@ -541,10 +553,16 @@ export default function CouponManagement() {
                 .from('coupons')
                 .update({
                   name: data.name,
+                  code: data.code,
                   type: data.type,
                   value: Number(data.discountValue ?? data.value ?? 0),
                   validFrom: data.startDate || null,
                   validUntil: data.endDate || null,
+                  maxUsage: data.maxUsage ?? null,
+                  conditions: data.conditions ?? null,
+                  memo: data.memo ?? null,
+                  validityType: data.validityType ?? 'period',
+                  validDays: data.validDays ?? null,
                   isActive: true,
                 })
                 .eq('id', editingCoupon.id);
@@ -553,12 +571,18 @@ export default function CouponManagement() {
                 .from('coupons')
                 .insert({
                   name: data.name,
+                  code: data.code,
                   type: data.type,
                   value: Number(data.discountValue ?? data.value ?? 0),
                   validFrom: data.startDate || null,
                   validUntil: data.endDate || null,
                   totalIssued: 0,
                   totalUsed: 0,
+                  maxUsage: data.maxUsage ?? null,
+                  conditions: data.conditions ?? null,
+                  memo: data.memo ?? null,
+                  validityType: data.validityType ?? 'period',
+                  validDays: data.validDays ?? null,
                   isActive: true,
                   branchId,
                 })
@@ -575,8 +599,9 @@ export default function CouponManagement() {
         <IssueCouponModal
           coupon={selectedCoupon}
           onClose={() => setIsIssueModalOpen(false)}
-          onIssue={(_count: any) => {
+          onIssue={async (_count: any) => {
             setIsIssueModalOpen(false);
+            await Promise.all([fetchCoupons(), fetchIssuanceLogs()]);
             toast.success(`${selectedCoupon.name} 쿠폰이 발급되었습니다.`);
           }}
         />
@@ -877,17 +902,84 @@ function IssueCouponModal({ coupon, onClose, onIssue }: any) {
     }
 
     setIssuing(true);
-    // 실제 발급 처리: coupon_issues 테이블에 insert (테이블 없으면 coupons.totalIssued 업데이트만)
     try {
-      const issueCount = targetType === "all" ? 0 : targetType === "individual" ? selectedMembers.length : 0;
-      // coupons.totalIssued 증가
-      await supabase
+      let targets: { id: number | null; name: string; phone: string | null }[] = [];
+      if (targetType === "individual") {
+        targets = selectedMembers.map((m) => ({ id: m.id, name: m.name, phone: m.phone }));
+      } else if (targetType === "all") {
+        const { data, error } = await supabase
+          .from('members')
+          .select('id, name, phone')
+          .eq('branchId', branchId)
+          .is('deletedAt', null);
+        if (error) throw error;
+        targets = (data ?? []).map((m: any) => ({ id: m.id, name: m.name, phone: m.phone ?? null }));
+      } else {
+        let query = supabase
+          .from('members')
+          .select('id, name, phone, status, registeredAt, membershipExpiry, lastVisitAt')
+          .eq('branchId', branchId)
+          .is('deletedAt', null);
+        const today = new Date().toISOString().slice(0, 10);
+        const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
+        if (condition === "active") query = query.eq('status', 'ACTIVE');
+        if (condition === "expired") query = query.lt('membershipExpiry', today);
+        if (condition === "new") query = query.gte('registeredAt', thirtyDaysAgo);
+        if (condition === "absence") query = query.or(`lastVisitAt.is.null,lastVisitAt.lt.${thirtyDaysAgo}`);
+        const { data, error } = await query;
+        if (error) throw error;
+        targets = (data ?? []).map((m: any) => ({ id: m.id, name: m.name, phone: m.phone ?? null }));
+      }
+
+      if (targets.length === 0) {
+        toast.warning("발급 대상 회원이 없습니다.");
+        return;
+      }
+
+      const totalIssueCount = targets.length * count;
+      if (coupon.maxUsage && (coupon.totalIssued ?? 0) + totalIssueCount > coupon.maxUsage) {
+        toast.warning("최대 사용 한도를 초과하여 발급할 수 없습니다.");
+        return;
+      }
+
+      const baseExpiry = validityType === "custom"
+        ? expiryDate
+        : coupon.validUntil
+        ? String(coupon.validUntil).slice(0, 10)
+        : coupon.validDays
+        ? new Date(Date.now() + Number(coupon.validDays) * 24 * 60 * 60 * 1000).toISOString().slice(0, 10)
+        : null;
+
+      const rows = targets.flatMap((member) =>
+        Array.from({ length: count }, (_, index) => ({
+          branchId,
+          couponId: coupon.id,
+          couponName: coupon.name,
+          memberId: member.id,
+          memberName: member.name,
+          memberNo: member.id ? String(member.id) : null,
+          issuedDate: new Date().toISOString().slice(0, 10),
+          expiryDate: baseExpiry,
+          status: "unused",
+          code: `${coupon.code ?? `CP-${coupon.id}`}-${member.id ?? 'G'}-${Date.now()}-${index + 1}`,
+        }))
+      );
+
+      const { error: issueError } = await supabase
+        .from('coupon_issuance_logs')
+        .insert(rows);
+      if (issueError) throw issueError;
+
+      const { error: couponError } = await supabase
         .from('coupons')
-        .update({ totalIssued: (coupon.totalIssued ?? 0) + (issueCount || count) })
+        .update({ totalIssued: (coupon.totalIssued ?? 0) + totalIssueCount })
         .eq('id', coupon.id);
-      onIssue(issueCount || count);
-    } catch {
-      toast.error("발급 처리 중 오류가 발생했습니다.");
+      if (couponError) throw couponError;
+
+      await onIssue(totalIssueCount);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "발급 처리 중 오류가 발생했습니다.";
+      toast.error(message);
     } finally {
       setIssuing(false);
     }

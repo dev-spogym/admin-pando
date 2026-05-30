@@ -6,7 +6,7 @@ export const dynamic = 'force-dynamic';
 // 반영: 이벤트 목록(추천인·피추천인 혜택/기간/참여수/상태), 등록/삭제(진행 중 안내),
 //       실적 현황(추천·전환·지급 포인트), 추천/피추천 이력, 빈 상태 CTA, 로딩/오류 상태
 
-import React, { useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Share2, Gift, Plus, Trash2, RefreshCw, Users, CheckCircle2, Coins, ChevronRight } from 'lucide-react';
 import AppLayout from '@/components/layout/AppLayout';
 import PageHeader from '@/components/common/PageHeader';
@@ -20,13 +20,18 @@ import Input from '@/components/ui/Input';
 import ConfirmDialog from '@/components/ui/ConfirmDialog';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
+import { supabase } from '@/lib/supabase';
 import {
-  MOCK_REFERRAL_EVENTS,
-  MOCK_REFERRAL_RECORDS,
   type ReferralEvent,
+  type ReferralRecord,
   type ReferralStatus,
   type ReferralMatchStatus,
 } from '@/mocks/marketing';
+
+const getBranchId = () => {
+  if (typeof window === 'undefined') return 1;
+  return Number(localStorage.getItem('branchId') || '1');
+};
 
 const EVENT_BADGE: Record<ReferralStatus, { variant: 'success' | 'warning' | 'default'; label: string }> = {
   준비: { variant: 'warning', label: '준비 중' },
@@ -54,14 +59,62 @@ const EMPTY_FORM = {
 
 export default function ReferralPage() {
   const [loadState, setLoadState] = useState<LoadState>('ready');
-  const [events, setEvents] = useState<ReferralEvent[]>(MOCK_REFERRAL_EVENTS);
-  const [records] = useState(MOCK_REFERRAL_RECORDS);
+  const [events, setEvents] = useState<ReferralEvent[]>([]);
+  const [records, setRecords] = useState<ReferralRecord[]>([]);
   const [tab, setTab] = useState<Tab>('이벤트');
 
   const [createOpen, setCreateOpen] = useState(false);
   const [editTarget, setEditTarget] = useState<ReferralEvent | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<ReferralEvent | null>(null);
   const [form, setForm] = useState({ ...EMPTY_FORM });
+
+  const loadReferral = useCallback(async () => {
+    setLoadState('loading');
+    const [{ data: eventRows, error: eventError }, { data: recordRows, error: recordError }] = await Promise.all([
+      supabase
+        .from('referral_events')
+        .select('*')
+        .eq('branchId', getBranchId())
+        .order('createdAt', { ascending: false }),
+      supabase
+        .from('referral_records')
+        .select('*')
+        .eq('branchId', getBranchId())
+        .order('date', { ascending: false }),
+    ]);
+
+    if (eventError || recordError) {
+      setLoadState('error');
+      toast.error(`리퍼럴 정보를 불러오지 못했습니다: ${eventError?.message ?? recordError?.message}`);
+      return;
+    }
+
+    setEvents((eventRows ?? []).map((row: any) => ({
+      id: row.id,
+      name: row.name,
+      referrerReward: row.referrerReward,
+      refereeReward: row.refereeReward,
+      startDate: row.startDate,
+      endDate: row.endDate,
+      status: row.status,
+      participants: Number(row.participants ?? 0),
+      active: Boolean(row.active),
+    })));
+    setRecords((recordRows ?? []).map((row: any) => ({
+      id: row.id,
+      eventName: row.eventName,
+      referrer: row.referrer,
+      referee: row.referee,
+      date: row.date,
+      reward: row.reward,
+      status: row.status,
+    })));
+    setLoadState('ready');
+  }, []);
+
+  useEffect(() => {
+    void loadReferral();
+  }, [loadReferral]);
 
   const stats = useMemo(() => {
     const totalReferrals = records.length;
@@ -86,7 +139,7 @@ export default function ReferralPage() {
     });
   };
 
-  const handleSave = (e: React.FormEvent) => {
+  const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!form.name.trim()) { toast.error('이벤트명을 입력하세요.'); return; }
     if (!form.referrerReward.trim()) { toast.error('추천인 혜택을 입력하세요.'); return; }
@@ -100,15 +153,30 @@ export default function ReferralPage() {
         toast.error('진행 중 이벤트의 혜택은 변경할 수 없습니다. 신규 이벤트로 등록하세요.');
         return;
       }
-      setEvents((prev) => prev.map((ev) => ev.id === editTarget.id
-        ? { ...ev, name: form.name.trim(), referrerReward: form.referrerReward.trim(), refereeReward: form.refereeReward.trim() || '-', startDate: form.startDate, endDate: form.endDate }
-        : ev));
+      const { error } = await supabase
+        .from('referral_events')
+        .update({
+          name: form.name.trim(),
+          referrerReward: form.referrerReward.trim(),
+          refereeReward: form.refereeReward.trim() || '-',
+          startDate: form.startDate,
+          endDate: form.endDate,
+          updatedAt: new Date().toISOString(),
+        })
+        .eq('id', editTarget.id)
+        .eq('branchId', getBranchId());
+      if (error) {
+        toast.error(`리퍼럴 이벤트 저장 실패: ${error.message}`);
+        return;
+      }
+      await loadReferral();
       setEditTarget(null);
       toast.success('저장되었습니다.');
     } else {
-      setEvents((prev) => [
-        {
-          id: Math.max(0, ...prev.map((ev) => ev.id)) + 1,
+      const { error } = await supabase
+        .from('referral_events')
+        .insert({
+          branchId: getBranchId(),
           name: form.name.trim(),
           referrerReward: form.referrerReward.trim(),
           refereeReward: form.refereeReward.trim() || '-',
@@ -117,23 +185,44 @@ export default function ReferralPage() {
           status: '준비',
           participants: 0,
           active: true,
-        },
-        ...prev,
-      ]);
+        });
+      if (error) {
+        toast.error(`리퍼럴 이벤트 등록 실패: ${error.message}`);
+        return;
+      }
+      await loadReferral();
       setCreateOpen(false);
       toast.success('저장되었습니다.');
     }
     resetForm();
   };
 
-  const handleToggleActive = (ev: ReferralEvent) => {
-    setEvents((prev) => prev.map((item) => (item.id === ev.id ? { ...item, active: !item.active } : item)));
+  const handleToggleActive = async (ev: ReferralEvent) => {
+    const { error } = await supabase
+      .from('referral_events')
+      .update({ active: !ev.active, updatedAt: new Date().toISOString() })
+      .eq('id', ev.id)
+      .eq('branchId', getBranchId());
+    if (error) {
+      toast.error(`상태 변경 실패: ${error.message}`);
+      return;
+    }
+    await loadReferral();
     toast.success('저장되었습니다.');
   };
 
-  const handleDelete = () => {
+  const handleDelete = async () => {
     if (!deleteTarget) return;
-    setEvents((prev) => prev.filter((ev) => ev.id !== deleteTarget.id));
+    const { error } = await supabase
+      .from('referral_events')
+      .delete()
+      .eq('id', deleteTarget.id)
+      .eq('branchId', getBranchId());
+    if (error) {
+      toast.error(`리퍼럴 이벤트 삭제 실패: ${error.message}`);
+      return;
+    }
+    await loadReferral();
     setDeleteTarget(null);
     toast.success('처리되었습니다.');
   };
@@ -146,7 +235,7 @@ export default function ReferralPage() {
         actions={
           <div className="flex items-center gap-sm">
             <Button type="button" variant="outline" size="md" icon={<RefreshCw size={14} className={loadState === 'loading' ? 'animate-spin' : ''} />}
-              onClick={() => { setLoadState('loading'); setTimeout(() => { setEvents(MOCK_REFERRAL_EVENTS); setLoadState('ready'); }, 500); }}>
+              onClick={() => { void loadReferral(); }}>
               새로고침
             </Button>
             <Button type="button" variant="primary" size="md" icon={<Plus size={14} />} onClick={() => { resetForm(); setCreateOpen(true); }}>

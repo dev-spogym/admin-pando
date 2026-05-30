@@ -88,6 +88,7 @@ export default function ClassFeedbackPage() {
   const [instructorFilter, setInstructorFilter] = useState('ALL');
   const [sessionTab, setSessionTab] = useState<'ALL' | SessionType>('ALL');
   const [detail, setDetail] = useState<ClassFeedback | null>(null);
+  const [savingId, setSavingId] = useState<number | null>(null);
 
   const loadFeedbacks = async () => {
     setLoading(true);
@@ -110,6 +111,26 @@ export default function ClassFeedbackPage() {
   useEffect(() => {
     loadFeedbacks();
   }, [branchId]);
+
+  const toggleHidden = async (feedback: ClassFeedback) => {
+    setSavingId(feedback.id);
+    const nextHidden = !feedback.hidden;
+    const { error } = await supabase
+      .from('class_feedbacks')
+      .update({ hidden: nextHidden })
+      .eq('id', feedback.id);
+    setSavingId(null);
+
+    if (error) {
+      console.error(error);
+      return;
+    }
+
+    setFeedbacks((current) =>
+      current.map((item) => item.id === feedback.id ? { ...item, hidden: nextHidden } : item)
+    );
+    setDetail((current) => current && current.id === feedback.id ? { ...current, hidden: nextHidden } : current);
+  };
 
   const range = useMemo(() => getPeriodRange(period, customStart, customEnd), [period, customStart, customEnd]);
 
@@ -329,7 +350,17 @@ export default function ClassFeedbackPage() {
         title="피드백 상세"
         size="md"
         footer={
-          <div className="flex justify-end">
+          <div className="flex justify-end gap-sm">
+            {detail && (
+              <Button
+                variant={detail.hidden ? 'primary' : 'outline'}
+                size="sm"
+                onClick={() => toggleHidden(detail)}
+                loading={savingId === detail.id}
+              >
+                {detail.hidden ? '노출 승인' : '숨김 처리'}
+              </Button>
+            )}
             <Button variant="outline" size="sm" onClick={() => setDetail(null)}>닫기</Button>
           </div>
         }

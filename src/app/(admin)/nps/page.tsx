@@ -1,7 +1,7 @@
 'use client';
 export const dynamic = 'force-dynamic';
 
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import AppLayout from '@/components/layout/AppLayout';
 import PageHeader from '@/components/common/PageHeader';
 import ChartCard from '@/components/common/ChartCard';
@@ -16,6 +16,8 @@ import {
   Send, ThumbsUp, ThumbsDown, Minus, Smile, TrendingUp, Inbox,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { supabase } from '@/lib/supabase';
+import { loadBranchSetting, saveBranchSetting } from '@/lib/branchSettings';
 
 /**
  * SCR-H1005 NPS 설문 (슈퍼관리자/Owner 전용 — 권한은 permissions.ts에서 bypass 처리)
@@ -29,6 +31,15 @@ interface NpsResponse {
   comment: string;
   date: string;
   branch: string;
+}
+
+interface NpsCampaign {
+  id: string;
+  sentAt: string;
+  target: string;
+  channel: string;
+  recipients: number;
+  status: string;
 }
 
 // 분기별 NPS 추이 (선 차트용)
@@ -83,6 +94,11 @@ const PERIOD_OPTIONS = [
   { value: 'empty', label: '25년 1분기 (응답 없음)' },
 ];
 
+const DEFAULT_CAMPAIGNS: NpsCampaign[] = [
+  { id: 'CMP-001', sentAt: '2026-04-26 14:00', target: '전체 활성 회원', channel: 'SMS', recipients: 842, status: '발송 완료' },
+  { id: 'CMP-002', sentAt: '2026-04-12 10:30', target: '신규 가입 30일 회원', channel: '카카오', recipients: 124, status: '응답 수집 중' },
+];
+
 type FilterKey = 'all' | 'promoter' | 'neutral' | 'detractor';
 
 export default function NpsPage() {
@@ -92,10 +108,42 @@ export default function NpsPage() {
   const [channel, setChannel] = useState<'SMS' | '카카오' | '앱 푸시'>('SMS');
   const [target, setTarget] = useState('전체 활성 회원');
   const [cycle, setCycle] = useState('quarter');
-  const [campaigns, setCampaigns] = useState([
-    { id: 'CMP-001', sentAt: '2026-04-26 14:00', target: '전체 활성 회원', channel: 'SMS', recipients: 842, status: '발송 완료' },
-    { id: 'CMP-002', sentAt: '2026-04-12 10:30', target: '신규 가입 30일 회원', channel: '카카오', recipients: 124, status: '응답 수집 중' },
-  ]);
+  const [campaigns, setCampaigns] = useState<NpsCampaign[]>(DEFAULT_CAMPAIGNS);
+  const [recipientCounts, setRecipientCounts] = useState<Record<string, number>>({
+    '전체 활성 회원': 0,
+    '이번 달 수업 참여 회원': 0,
+    '신규 가입 30일 회원': 0,
+  });
+
+  useEffect(() => {
+    let mounted = true;
+    loadBranchSetting<NpsCampaign[]>('nps_campaigns', DEFAULT_CAMPAIGNS).then((saved) => {
+      if (mounted) setCampaigns(saved.length ? saved : DEFAULT_CAMPAIGNS);
+    });
+    return () => { mounted = false; };
+  }, []);
+
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      const now = new Date();
+      const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
+      const thirtyDaysAgo = new Date(now);
+      thirtyDaysAgo.setDate(now.getDate() - 30);
+      const [active, classParticipants, newMembers] = await Promise.all([
+        supabase.from('members').select('id', { count: 'exact', head: true }).eq('status', 'ACTIVE'),
+        supabase.from('lesson_bookings').select('memberId', { count: 'exact', head: true }).gte('createdAt', monthStart),
+        supabase.from('members').select('id', { count: 'exact', head: true }).gte('registeredAt', thirtyDaysAgo.toISOString()),
+      ]);
+      if (!mounted) return;
+      setRecipientCounts({
+        '전체 활성 회원': active.count ?? 0,
+        '이번 달 수업 참여 회원': classParticipants.count ?? 0,
+        '신규 가입 30일 회원': newMembers.count ?? 0,
+      });
+    })();
+    return () => { mounted = false; };
+  }, []);
 
   // 선택 기간에 응답 없음 케이스
   const noResponses = period === 'empty';
@@ -132,13 +180,9 @@ export default function NpsPage() {
     비추천: 'bg-red-100 text-red-700',
   };
 
-  const recipientMap: Record<string, number> = {
-    '전체 활성 회원': 842,
-    '이번 달 수업 참여 회원': 316,
-    '신규 가입 30일 회원': 124,
-  };
+  const recipientMap = recipientCounts;
 
-  const handleSendSurvey = () => {
+  const handleSendSurvey = async () => {
     const recipients = recipientMap[target] ?? 0;
     if (recipients === 0) {
       toast.error('발송 대상 회원이 없습니다. 발송 조건을 확인해주세요.');
@@ -152,7 +196,13 @@ export default function NpsPage() {
       recipients,
       status: '응답 수집 중',
     };
-    setCampaigns((prev) => [newCampaign, ...prev]);
+    const nextCampaigns = [newCampaign, ...campaigns];
+    setCampaigns(nextCampaigns);
+    const error = await saveBranchSetting('nps_campaigns', nextCampaigns);
+    if (error) {
+      toast.error(`NPS 발송 이력 저장 실패: ${error}`);
+      return;
+    }
     setTab('결과');
     toast.success(`${channel} 채널로 NPS 설문을 발송했습니다.`);
   };

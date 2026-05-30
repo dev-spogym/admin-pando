@@ -3,7 +3,7 @@ export const dynamic = 'force-dynamic';
 
 ﻿import React, { useState, useEffect } from 'react';
 import { Eye, EyeOff, Lock, User, Loader2, Check, X, KeyRound, Copy } from 'lucide-react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { moveToPage } from '@/internal';
 import { cn } from '@/lib/utils';
 import { useLogin } from '@/api/hooks/useAuth';
@@ -104,8 +104,9 @@ function clearFailCount() {
   localStorage.removeItem(LOCKED_UNTIL_KEY);
 }
 
-export default function Login() {
+function LoginContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [isPreview, setIsPreview] = useState<boolean | null>(null);
   const [id, setId] = useState('');
   const [password, setPassword] = useState('');
@@ -146,6 +147,8 @@ export default function Login() {
 
   const isFormValid = id.trim() !== '' && password.trim() !== '';
   const isLoading = loginMutation.isPending;
+  const returnTo = searchParams?.get('returnTo') ?? '';
+  const sessionReason = searchParams?.get('reason') === 'session_expired';
 
   useEffect(() => {
     setIsPreview(isPreviewMode());
@@ -249,6 +252,11 @@ export default function Login() {
             accessToken,
           );
 
+          if (returnTo.startsWith('/') && !returnTo.startsWith('/login')) {
+            router.replace(returnTo);
+            return;
+          }
+
           const workspace = getDefaultWorkspace(user.role, isSuperAdmin);
           moveToPage(workspace.viewId ?? 966);
         },
@@ -272,6 +280,12 @@ export default function Login() {
         </div>
 
         <form className="w-full space-y-md" onSubmit={handleLogin}>
+          {sessionReason && (
+            <div className="rounded-lg border border-amber-200 bg-amber-50 px-md py-sm text-[12px] leading-relaxed text-amber-800">
+              세션이 만료되어 재로그인이 필요합니다. 로그인 후 이전 화면으로 복귀합니다.
+            </div>
+          )}
+
           {/* 지점 선택 */}
           <div>
             <Select
@@ -415,6 +429,20 @@ export default function Login() {
         />
       )}
     </div>
+  );
+}
+
+export default function Login() {
+  return (
+    <React.Suspense
+      fallback={
+        <div className="min-h-screen flex items-center justify-center bg-surface-secondary p-md">
+          <div className="text-[13px] text-content-tertiary">로그인 화면을 불러오는 중...</div>
+        </div>
+      }
+    >
+      <LoginContent />
+    </React.Suspense>
   );
 }
 

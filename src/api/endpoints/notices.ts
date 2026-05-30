@@ -13,6 +13,9 @@ export interface Notice {
   authorName: string;
   isPinned: boolean;
   isPublic: boolean;
+  targets: string[];
+  publishStart: string;
+  publishEnd: string;
   branchId: number;
   createdAt: string;
   updatedAt: string;
@@ -37,6 +40,9 @@ export async function getNotices(branchId?: number): Promise<{ data: Notice[] | 
       authorName: (row.authorName as string) ?? '',
       isPinned: (row.isPinned as boolean) ?? false,
       isPublic: (row.isPublished as boolean) ?? true,
+      targets: (row.targetRoles as string[]) ?? ['all'],
+      publishStart: (row.publishStart as string) ?? '',
+      publishEnd: (row.publishEnd as string) ?? '',
       branchId: (row.branchId as number),
       createdAt: (row.createdAt as string) ?? '',
       updatedAt: (row.updatedAt as string) ?? '',
@@ -51,6 +57,9 @@ export async function createNotice(data: {
   authorName: string;
   isPinned: boolean;
   isPublic: boolean;
+  targets?: string[];
+  publishStart?: string;
+  publishEnd?: string;
 }): Promise<{ error: string | null }> {
   const { error } = await supabase.from('notices').insert({
     title: data.title,
@@ -58,6 +67,9 @@ export async function createNotice(data: {
     authorName: data.authorName,
     isPinned: data.isPinned,
     isPublished: data.isPublic,
+    targetRoles: data.targets ?? ['all'],
+    publishStart: data.publishStart || null,
+    publishEnd: data.publishEnd || null,
     branchId: getBranchId(),
   });
   return { error: error?.message ?? null };
@@ -68,6 +80,9 @@ export async function updateNotice(id: number, data: Partial<{
   content: string;
   isPinned: boolean;
   isPublic: boolean;
+  targets: string[];
+  publishStart: string;
+  publishEnd: string;
 }>): Promise<{ error: string | null }> {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const dbData: Record<string, any> = { updatedAt: new Date().toISOString() };
@@ -75,6 +90,9 @@ export async function updateNotice(id: number, data: Partial<{
   if (data.content !== undefined) dbData.content = data.content;
   if (data.isPinned !== undefined) dbData.isPinned = data.isPinned;
   if (data.isPublic !== undefined) dbData.isPublished = data.isPublic;
+  if (data.targets !== undefined) dbData.targetRoles = data.targets;
+  if (data.publishStart !== undefined) dbData.publishStart = data.publishStart || null;
+  if (data.publishEnd !== undefined) dbData.publishEnd = data.publishEnd || null;
   const { error } = await supabase.from('notices').update(dbData).eq('id', id);
   return { error: error?.message ?? null };
 }

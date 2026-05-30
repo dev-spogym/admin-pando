@@ -6,12 +6,14 @@ import { toast } from 'sonner';
 import {
   Download,
   AlertCircle,
-  CheckCircle,
   DollarSign,
   Clock,
   TrendingDown,
   Pencil,
   Link2,
+  CreditCard,
+  Banknote,
+  Landmark,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { moveToPage } from '@/internal';
@@ -36,14 +38,56 @@ import { exportToExcel } from '@/lib/exportExcel';
 type UnpaidItem = {
   id: number;
   no: number;
+  branchId: number;
   memberName: string;
   memberId: number;
+  productId: number | null;
   productName: string;
   amount: number;
+  originalAmount: number;
+  paidAmount: number;
+  approvalNo: string | null;
+  paymentMethod: string;
   dueDate: string;
   status: string; // PENDING / PARTIAL / OVERDUE / PAID
   memo: string;
   createdAt: string;
+};
+
+type PaymentMethod = 'card' | 'cash' | 'transfer';
+type CashReceiptType = 'income' | 'expense';
+
+type UnpaidPaymentForm = {
+  amount: string;
+  method: PaymentMethod;
+  paidAt: string;
+  approvalNo: string;
+  terminalId: string;
+  externalTransactionId: string;
+  bankPayerName: string;
+  transferConfirmNo: string;
+  cashReceiptIssued: boolean;
+  cashReceiptType: CashReceiptType;
+  cashReceiptIdentifier: string;
+  memo: string;
+};
+
+const PAYMENT_METHOD_LABEL: Record<PaymentMethod, string> = {
+  card: '카드',
+  cash: '현금',
+  transfer: '계좌이체',
+};
+
+const PAYMENT_METHOD_CODE: Record<PaymentMethod, 'CARD' | 'CASH' | 'TRANSFER'> = {
+  card: 'CARD',
+  cash: 'CASH',
+  transfer: 'TRANSFER',
+};
+
+const PAYMENT_METHOD_ICON: Record<PaymentMethod, React.ReactNode> = {
+  card: <CreditCard size={14} />,
+  cash: <Banknote size={14} />,
+  transfer: <Landmark size={14} />,
 };
 
 // 로컬 날짜 포맷
@@ -52,6 +96,45 @@ const fmtLocal = (d: Date) => {
   const m = String(d.getMonth() + 1).padStart(2, '0');
   const day = String(d.getDate()).padStart(2, '0');
   return `${y}-${m}-${day}`;
+};
+
+const toDateTimeLocalValue = (date = new Date()) => {
+  const tzOffsetMs = date.getTimezoneOffset() * 60 * 1000;
+  return new Date(date.getTime() - tzOffsetMs).toISOString().slice(0, 16);
+};
+
+const createDefaultPaymentForm = (amount = 0): UnpaidPaymentForm => ({
+  amount: amount > 0 ? String(amount) : '',
+  method: 'card',
+  paidAt: toDateTimeLocalValue(),
+  approvalNo: '',
+  terminalId: '',
+  externalTransactionId: '',
+  bankPayerName: '',
+  transferConfirmNo: '',
+  cashReceiptIssued: false,
+  cashReceiptType: 'income',
+  cashReceiptIdentifier: '',
+  memo: '',
+});
+
+const parseMoney = (value: string | number | null | undefined) => {
+  if (typeof value === 'number') return Number.isFinite(value) ? value : 0;
+  const normalized = String(value ?? '').replace(/[^\d.-]/g, '');
+  const parsed = Number(normalized);
+  return Number.isFinite(parsed) ? parsed : 0;
+};
+
+const extractInternalApprovalNo = (memo: string | null | undefined, approvalNo: string | null | undefined) => {
+  const memoMatch = String(memo ?? '').match(/CRM 내부 승인번호:\s*([^\n]+)/);
+  if (memoMatch?.[1]) return memoMatch[1].trim();
+  const approval = String(approvalNo ?? '').trim();
+  return approval || null;
+};
+
+const appendMemoLine = (memo: string | null | undefined, line: string) => {
+  const current = String(memo ?? '').trim();
+  return current ? `${current}\n${line}` : line;
 };
 
 const getBranchId = (): number => {
@@ -106,10 +189,16 @@ const buildFallbackUnpaid = (salesRows: Record<string, unknown>[]): UnpaidItem[]
     return {
       id: Number(row.id) || idx + 1,
       no: sourceRows.length - idx,
+      branchId: Number(row.branchId) || getBranchId(),
       memberName: (row.memberName as string) ?? `회원 ${idx + 1}`,
       memberId: Number(row.memberId) || idx + 1,
+      productId: Number(row.productId) || null,
       productName: (row.productName as string) ?? '기본 상품',
       amount: baseAmount,
+      originalAmount: Number(row.amount) || Number(row.salePrice) || baseAmount,
+      paidAmount: Math.max(0, (Number(row.amount) || Number(row.salePrice) || baseAmount) - baseAmount),
+      approvalNo: extractInternalApprovalNo(row.memo as string | null, row.approvalNo as string | null),
+      paymentMethod: String(row.paymentMethod ?? ''),
       dueDate: dueDate.toISOString().slice(0, 10),
       status,
       memo: status === '일부결제' ? '일부 금액 수납 완료' : status === '연체' ? '연체 고객 추적 필요' : '',
@@ -130,6 +219,12 @@ export default function UnpaidManagement() {
   });
   // DLG-S016 결제링크 발송 모달 상태
   const [linkTarget, setLinkTarget] = useState<PaymentLinkTarget | null>(null);
+  const [paymentModal, setPaymentModal] = useState<{ open: boolean; item: UnpaidItem | null }>({
+    open: false,
+    item: null,
+  });
+  const [paymentForm, setPaymentForm] = useState<UnpaidPaymentForm>(() => createDefaultPaymentForm());
+  const [isPaymentSubmitting, setIsPaymentSubmitting] = useState(false);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // 결제링크 발송 권한 (Owner/manager 이상)
@@ -141,7 +236,7 @@ export default function UnpaidManagement() {
     setIsLoading(true);
     const { data, error } = await supabase
       .from('sales')
-      .select('id, memberId, memberName, productName, amount, unpaid, saleDate, status, createdAt, branchId, memo')
+      .select('id, branchId, memberId, memberName, productId, productName, amount, salePrice, unpaid, paymentMethod, approvalNo, saleDate, status, createdAt, memo')
       .eq('branchId', getBranchId())
       .gt('unpaid', 0)
       .order('createdAt', { ascending: false });
@@ -156,15 +251,31 @@ export default function UnpaidManagement() {
 
     const mapped = (data ?? []).map((row: Record<string, unknown>, idx: number) => {
       const statusEn = (row.status as string) ?? 'UNPAID';
-      const statusMapped = STATUS_KO[statusEn] ?? '미결제';
+      const currentUnpaid = Number(row.unpaid) || 0;
+      const originalAmount = Number(row.amount) || Number(row.salePrice) || currentUnpaid;
+      const paidAmount = Math.max(0, originalAmount - currentUnpaid);
+      const dueDate = (row.saleDate as string)?.slice(0, 10) ?? '';
+      const statusMapped = currentUnpaid <= 0
+        ? '완료'
+        : paidAmount > 0
+          ? '일부결제'
+          : isOverdue(dueDate)
+            ? '연체'
+            : STATUS_KO[statusEn] ?? '미결제';
       return {
         id: row.id as number,
         no: (data ?? []).length - idx,
+        branchId: Number(row.branchId) || getBranchId(),
         memberName: (row.memberName as string) ?? '',
         memberId: (row.memberId as number) ?? 0,
+        productId: row.productId ? Number(row.productId) : null,
         productName: (row.productName as string) ?? '',
-        amount: Number(row.unpaid) || Number(row.amount) || 0,
-        dueDate: (row.saleDate as string)?.slice(0, 10) ?? '',
+        amount: currentUnpaid,
+        originalAmount,
+        paidAmount,
+        approvalNo: extractInternalApprovalNo(row.memo as string | null, row.approvalNo as string | null),
+        paymentMethod: String(row.paymentMethod ?? ''),
+        dueDate,
         status: statusMapped,
         memo: String(row.memo ?? ''),
         createdAt: (row.createdAt as string)?.slice(0, 10) ?? '',
@@ -218,7 +329,7 @@ export default function UnpaidManagement() {
   const handleMarkPaid = async (id: number) => {
     const { error } = await supabase
       .from('sales')
-      .update({ status: 'PAID', unpaid: 0 })
+      .update({ status: 'COMPLETED', unpaid: 0 })
       .eq('id', id);
     if (error) {
       toast.error('상태 변경에 실패했습니다.');
@@ -243,6 +354,80 @@ export default function UnpaidManagement() {
       return;
     }
     toast.success('상태가 변경되었습니다.');
+    fetchUnpaid();
+  };
+
+  const openPaymentModal = (item: UnpaidItem) => {
+    setPaymentForm(createDefaultPaymentForm(item.amount));
+    setPaymentModal({ open: true, item });
+  };
+
+  const updatePaymentForm = (patch: Partial<UnpaidPaymentForm>) => {
+    setPaymentForm(prev => ({ ...prev, ...patch }));
+  };
+
+  const validatePaymentForm = (item: UnpaidItem, form: UnpaidPaymentForm) => {
+    const amount = parseMoney(form.amount);
+    if (!item.approvalNo) return '원 결제의 CRM 내부 승인번호가 없어 미수금 납부를 처리할 수 없습니다.';
+    if (amount <= 0) return '납부액은 0원보다 커야 합니다.';
+    if (amount > item.amount) return '납부액은 현재 미수 잔액을 초과할 수 없습니다.';
+    if (!form.paidAt) return '납부 일시를 입력해주세요.';
+    if (form.method === 'card' && !form.approvalNo.trim()) return '카드 납부는 카드 승인번호를 입력해야 합니다.';
+    if (form.method === 'transfer' && !form.bankPayerName.trim()) return '계좌이체 납부는 입금자명을 입력해야 합니다.';
+    if (form.method === 'transfer' && !form.transferConfirmNo.trim()) return '계좌이체 납부는 이체확인번호를 입력해야 합니다.';
+    if ((form.method === 'cash' || form.method === 'transfer') && form.cashReceiptIssued && !form.cashReceiptIdentifier.trim()) {
+      return '현금영수증 처리 시 식별번호를 입력해야 합니다.';
+    }
+    if (Number.isNaN(new Date(form.paidAt).getTime())) return '납부 일시 형식이 올바르지 않습니다.';
+    return null;
+  };
+
+  const handleSubmitUnpaidPayment = async () => {
+    const item = paymentModal.item;
+    if (!item) return;
+
+    const validationMessage = validatePaymentForm(item, paymentForm);
+    if (validationMessage) {
+      toast.error(validationMessage);
+      return;
+    }
+
+    const amount = parseMoney(paymentForm.amount);
+    const remaining = Math.max(0, item.amount - amount);
+    setIsPaymentSubmitting(true);
+
+    const { error } = await supabase.rpc('process_unpaid_collection', {
+      p_sale_id: item.id,
+      p_branch_id: item.branchId,
+      p_member_id: item.memberId,
+      p_internal_approval_no: item.approvalNo,
+      p_method: PAYMENT_METHOD_CODE[paymentForm.method],
+      p_amount: amount,
+      p_paid_at: new Date(paymentForm.paidAt).toISOString(),
+      p_approval_no: paymentForm.method === 'card' ? paymentForm.approvalNo.trim() : null,
+      p_terminal_id: paymentForm.terminalId.trim() || null,
+      p_external_transaction_id: paymentForm.externalTransactionId.trim() || null,
+      p_bank_payer_name: paymentForm.method === 'transfer' ? paymentForm.bankPayerName.trim() : null,
+      p_transfer_confirm_no: paymentForm.method === 'transfer' ? paymentForm.transferConfirmNo.trim() : null,
+      p_cash_receipt_issued: paymentForm.method === 'cash' || paymentForm.method === 'transfer'
+        ? paymentForm.cashReceiptIssued
+        : false,
+      p_cash_receipt_type: paymentForm.cashReceiptIssued ? paymentForm.cashReceiptType : null,
+      p_cash_receipt_identifier: paymentForm.cashReceiptIssued ? paymentForm.cashReceiptIdentifier.trim() : null,
+      p_memo: paymentForm.memo.trim() || null,
+      p_processed_by: authUser?.name ?? null,
+    });
+
+    setIsPaymentSubmitting(false);
+
+    if (error) {
+      toast.error(`미수금 납부 처리 실패: ${error.message}`);
+      return;
+    }
+
+    toast.success(remaining === 0 ? '미수금이 완납 처리되었습니다.' : `미수금 ${formatKRW(amount)} 납부 처리되었습니다.`);
+    setPaymentModal({ open: false, item: null });
+    setPaymentForm(createDefaultPaymentForm());
     fetchUnpaid();
   };
 
@@ -278,6 +463,9 @@ export default function UnpaidManagement() {
     const exportColumns = [
       { key: 'memberName', header: '회원명' },
       { key: 'productName', header: '상품명' },
+      { key: 'approvalNo', header: '원결제ID' },
+      { key: 'originalAmount', header: '원결제금액' },
+      { key: 'paidAmount', header: '기납부액' },
       { key: 'amount', header: '미수금액' },
       { key: 'dueDate', header: '결제기한' },
       { key: 'status', header: '상태' },
@@ -313,6 +501,18 @@ export default function UnpaidManagement() {
     },
     { key: 'productName', header: '상품명', width: 200 },
     {
+      key: 'approvalNo', header: '원결제ID', width: 160,
+      render: (v: string | null) => (
+        <span className={cn('font-mono text-[12px]', v ? 'text-content-secondary' : 'text-state-error')}>
+          {v ?? '확인 필요'}
+        </span>
+      ),
+    },
+    {
+      key: 'paidAmount', header: '기납부액', width: 120, align: 'right' as const,
+      render: (v: number) => <span className="tabular-nums text-content-secondary">{formatKRW(v)}</span>,
+    },
+    {
       key: 'amount', header: '미수금액', width: 130, align: 'right' as const,
       render: (v: number) => (
         <span className="font-semibold tabular-nums text-state-error">{formatKRW(v)}</span>
@@ -334,11 +534,20 @@ export default function UnpaidManagement() {
     },
     { key: 'createdAt', header: '등록일', width: 120 },
     {
-      key: 'id', header: '액션', width: 300, align: 'center' as const,
+      key: 'id', header: '액션', width: 360, align: 'center' as const,
       render: (_val: unknown, row: UnpaidItem) => {
         const nextStatuses = getNextStatuses(row.status);
         return (
           <div className="flex items-center justify-center gap-xs">
+            {row.status !== '완료' && (
+              <button
+                onClick={() => openPaymentModal(row)}
+                className="flex items-center gap-[4px] px-sm py-[3px] bg-primary text-white rounded-md text-[11px] font-semibold hover:bg-primary-dark transition-colors"
+              >
+                <DollarSign size={11} />
+                납부
+              </button>
+            )}
             {nextStatuses.length > 0 && (
               <Select
                 options={nextStatuses.map(s => ({ value: s, label: s }))}
@@ -377,6 +586,10 @@ export default function UnpaidManagement() {
       },
     },
   ];
+
+  const paymentItem = paymentModal.item;
+  const paymentAmount = parseMoney(paymentForm.amount);
+  const paymentRemaining = paymentItem ? Math.max(0, paymentItem.amount - paymentAmount) : 0;
 
   return (
     <AppLayout>
@@ -473,6 +686,268 @@ export default function UnpaidManagement() {
                 className="px-md py-sm bg-primary text-surface rounded-button text-[13px] font-semibold hover:bg-primary-dark transition-colors"
               >
                 저장
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* DLG-S008 미수금 납입 처리 모달 */}
+      {paymentModal.open && paymentItem && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-lg">
+          <div className="flex max-h-[92vh] w-full max-w-[760px] flex-col overflow-hidden rounded-xl border border-line bg-surface shadow-xl">
+            <div className="border-b border-line px-xl py-lg">
+              <h2 className="text-Section-Title text-content">미수금 납부 처리</h2>
+              <p className="mt-xs text-[13px] text-content-secondary">
+                원 결제의 CRM 내부 승인번호를 유지하고 이번 납부 수납 행만 추가합니다.
+              </p>
+            </div>
+
+            <div className="overflow-y-auto px-xl py-lg">
+              <div className="grid grid-cols-1 gap-md rounded-lg border border-line bg-surface-secondary p-md sm:grid-cols-2">
+                <div>
+                  <span className="block text-[11px] font-bold uppercase tracking-[0.08em] text-content-tertiary">회원</span>
+                  <span className="mt-1 block text-[14px] font-semibold text-content">{paymentItem.memberName}</span>
+                </div>
+                <div>
+                  <span className="block text-[11px] font-bold uppercase tracking-[0.08em] text-content-tertiary">상품</span>
+                  <span className="mt-1 block text-[14px] font-semibold text-content">{paymentItem.productName || '-'}</span>
+                </div>
+                <div>
+                  <span className="block text-[11px] font-bold uppercase tracking-[0.08em] text-content-tertiary">CRM 내부 승인번호</span>
+                  <span className="mt-1 block font-mono text-[13px] font-semibold text-content">
+                    {paymentItem.approvalNo ?? '확인 필요'}
+                  </span>
+                </div>
+                <div className="grid grid-cols-3 gap-sm">
+                  <div>
+                    <span className="block text-[11px] font-bold uppercase tracking-[0.08em] text-content-tertiary">원결제</span>
+                    <span className="mt-1 block text-[13px] font-semibold text-content">{formatKRW(paymentItem.originalAmount)}</span>
+                  </div>
+                  <div>
+                    <span className="block text-[11px] font-bold uppercase tracking-[0.08em] text-content-tertiary">기납부</span>
+                    <span className="mt-1 block text-[13px] font-semibold text-content-secondary">{formatKRW(paymentItem.paidAmount)}</span>
+                  </div>
+                  <div>
+                    <span className="block text-[11px] font-bold uppercase tracking-[0.08em] text-content-tertiary">현재 미수</span>
+                    <span className="mt-1 block text-[13px] font-semibold text-state-error">{formatKRW(paymentItem.amount)}</span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="mt-lg grid grid-cols-1 gap-lg lg:grid-cols-[1fr_280px]">
+                <div className="space-y-md">
+                  <label className="block">
+                    <span className="mb-xs block text-[12px] font-semibold text-content-secondary">납부액</span>
+                    <input
+                      type="number"
+                      min={1}
+                      max={paymentItem.amount}
+                      value={paymentForm.amount}
+                      onChange={e => updatePaymentForm({ amount: e.target.value })}
+                      className="w-full rounded-button border border-line bg-surface px-md py-sm text-[14px] text-content focus:border-primary focus:outline-none"
+                      placeholder="납부액"
+                    />
+                  </label>
+
+                  <div>
+                    <span className="mb-xs block text-[12px] font-semibold text-content-secondary">수납 방식</span>
+                    <div className="grid grid-cols-3 gap-sm">
+                      {(['card', 'cash', 'transfer'] as PaymentMethod[]).map(method => (
+                        <button
+                          key={method}
+                          type="button"
+                          onClick={() => updatePaymentForm({
+                            method,
+                            cashReceiptIssued: method === 'card' ? false : paymentForm.cashReceiptIssued,
+                          })}
+                          className={cn(
+                            'flex h-10 items-center justify-center gap-xs rounded-button border px-sm text-[13px] font-semibold transition-colors',
+                            paymentForm.method === method
+                              ? 'border-primary bg-primary text-white'
+                              : 'border-line bg-surface text-content-secondary hover:bg-surface-tertiary'
+                          )}
+                        >
+                          {PAYMENT_METHOD_ICON[method]}
+                          {PAYMENT_METHOD_LABEL[method]}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <label className="block">
+                    <span className="mb-xs block text-[12px] font-semibold text-content-secondary">납부 일시</span>
+                    <input
+                      type="datetime-local"
+                      value={paymentForm.paidAt}
+                      onChange={e => updatePaymentForm({ paidAt: e.target.value })}
+                      className="w-full rounded-button border border-line bg-surface px-md py-sm text-[14px] text-content focus:border-primary focus:outline-none"
+                    />
+                  </label>
+
+                  {paymentForm.method === 'card' && (
+                    <div className="grid grid-cols-1 gap-md sm:grid-cols-3">
+                      <label className="block">
+                        <span className="mb-xs block text-[12px] font-semibold text-content-secondary">카드 승인번호</span>
+                        <input
+                          type="text"
+                          value={paymentForm.approvalNo}
+                          onChange={e => updatePaymentForm({ approvalNo: e.target.value })}
+                          className="w-full rounded-button border border-line bg-surface px-md py-sm text-[14px] text-content focus:border-primary focus:outline-none"
+                          placeholder="승인번호"
+                        />
+                      </label>
+                      <label className="block">
+                        <span className="mb-xs block text-[12px] font-semibold text-content-secondary">단말 ID</span>
+                        <input
+                          type="text"
+                          value={paymentForm.terminalId}
+                          onChange={e => updatePaymentForm({ terminalId: e.target.value })}
+                          className="w-full rounded-button border border-line bg-surface px-md py-sm text-[14px] text-content focus:border-primary focus:outline-none"
+                          placeholder="선택"
+                        />
+                      </label>
+                      <label className="block">
+                        <span className="mb-xs block text-[12px] font-semibold text-content-secondary">외부 거래번호</span>
+                        <input
+                          type="text"
+                          value={paymentForm.externalTransactionId}
+                          onChange={e => updatePaymentForm({ externalTransactionId: e.target.value })}
+                          className="w-full rounded-button border border-line bg-surface px-md py-sm text-[14px] text-content focus:border-primary focus:outline-none"
+                          placeholder="선택"
+                        />
+                      </label>
+                    </div>
+                  )}
+
+                  {paymentForm.method === 'transfer' && (
+                    <div className="grid grid-cols-1 gap-md sm:grid-cols-2">
+                      <label className="block">
+                        <span className="mb-xs block text-[12px] font-semibold text-content-secondary">입금자명</span>
+                        <input
+                          type="text"
+                          value={paymentForm.bankPayerName}
+                          onChange={e => updatePaymentForm({ bankPayerName: e.target.value })}
+                          className="w-full rounded-button border border-line bg-surface px-md py-sm text-[14px] text-content focus:border-primary focus:outline-none"
+                          placeholder="실제 입금자명"
+                        />
+                      </label>
+                      <label className="block">
+                        <span className="mb-xs block text-[12px] font-semibold text-content-secondary">이체확인번호</span>
+                        <input
+                          type="text"
+                          value={paymentForm.transferConfirmNo}
+                          onChange={e => updatePaymentForm({ transferConfirmNo: e.target.value })}
+                          className="w-full rounded-button border border-line bg-surface px-md py-sm text-[14px] text-content focus:border-primary focus:outline-none"
+                          placeholder="이체확인번호"
+                        />
+                      </label>
+                    </div>
+                  )}
+
+                  {(paymentForm.method === 'cash' || paymentForm.method === 'transfer') && (
+                    <div className="rounded-lg border border-line p-md">
+                      <div className="flex items-center justify-between gap-md">
+                        <div>
+                          <p className="text-[13px] font-semibold text-content">현금영수증 처리</p>
+                          <p className="text-[12px] text-content-tertiary">현금/계좌이체 납부 시 발행 정보를 남깁니다.</p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => updatePaymentForm({ cashReceiptIssued: !paymentForm.cashReceiptIssued })}
+                          className={cn(
+                            'rounded-full px-3 py-1 text-[12px] font-bold transition-colors',
+                            paymentForm.cashReceiptIssued
+                              ? 'bg-primary text-white'
+                              : 'border border-line bg-surface text-content-secondary'
+                          )}
+                        >
+                          {paymentForm.cashReceiptIssued ? '처리' : '미처리'}
+                        </button>
+                      </div>
+                      {paymentForm.cashReceiptIssued && (
+                        <div className="mt-md grid grid-cols-1 gap-md sm:grid-cols-2">
+                          <label className="block">
+                            <span className="mb-xs block text-[12px] font-semibold text-content-secondary">발행 유형</span>
+                            <select
+                              value={paymentForm.cashReceiptType}
+                              onChange={e => updatePaymentForm({ cashReceiptType: e.target.value as CashReceiptType })}
+                              className="w-full rounded-button border border-line bg-surface px-md py-sm text-[14px] text-content focus:border-primary focus:outline-none"
+                            >
+                              <option value="income">소득공제</option>
+                              <option value="expense">지출증빙</option>
+                            </select>
+                          </label>
+                          <label className="block">
+                            <span className="mb-xs block text-[12px] font-semibold text-content-secondary">식별번호</span>
+                            <input
+                              type="text"
+                              value={paymentForm.cashReceiptIdentifier}
+                              onChange={e => updatePaymentForm({ cashReceiptIdentifier: e.target.value })}
+                              className="w-full rounded-button border border-line bg-surface px-md py-sm text-[14px] text-content focus:border-primary focus:outline-none"
+                              placeholder="휴대폰/사업자번호"
+                            />
+                          </label>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  <label className="block">
+                    <span className="mb-xs block text-[12px] font-semibold text-content-secondary">처리 메모</span>
+                    <Textarea
+                      value={paymentForm.memo}
+                      onChange={e => updatePaymentForm({ memo: e.target.value })}
+                      rows={3}
+                      placeholder="납부 관련 메모를 입력하세요."
+                    />
+                  </label>
+                </div>
+
+                <div className="h-fit rounded-lg border border-line bg-surface-secondary p-md">
+                  <h3 className="text-[13px] font-bold text-content">납부 후 잔액</h3>
+                  <div className="mt-md space-y-sm text-[13px]">
+                    <div className="flex justify-between">
+                      <span className="text-content-secondary">현재 미수</span>
+                      <span className="font-semibold text-content">{formatKRW(paymentItem.amount)}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-content-secondary">이번 납부</span>
+                      <span className="font-semibold text-primary">{formatKRW(paymentAmount)}</span>
+                    </div>
+                    <div className="border-t border-line pt-sm">
+                      <div className="flex justify-between">
+                        <span className="font-semibold text-content">잔액</span>
+                        <span className={cn('font-bold', paymentRemaining > 0 ? 'text-state-error' : 'text-state-success')}>
+                          {formatKRW(paymentRemaining)}
+                        </span>
+                      </div>
+                      <p className="mt-xs text-[12px] text-content-tertiary">
+                        {paymentRemaining > 0 ? '잔액이 남아 일부결제로 유지됩니다.' : '잔액 0원으로 완료 처리됩니다.'}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-sm border-t border-line px-xl py-md">
+              <button
+                onClick={() => {
+                  setPaymentModal({ open: false, item: null });
+                  setPaymentForm(createDefaultPaymentForm());
+                }}
+                disabled={isPaymentSubmitting}
+                className="px-md py-sm border border-line text-content-secondary rounded-button text-[13px] font-semibold hover:bg-surface-tertiary transition-colors disabled:opacity-50"
+              >
+                취소
+              </button>
+              <button
+                onClick={handleSubmitUnpaidPayment}
+                disabled={isPaymentSubmitting}
+                className="px-md py-sm bg-primary text-surface rounded-button text-[13px] font-semibold hover:bg-primary-dark transition-colors disabled:opacity-50"
+              >
+                {isPaymentSubmitting ? '처리 중...' : '납부 처리'}
               </button>
             </div>
           </div>

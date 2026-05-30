@@ -33,6 +33,31 @@ const getBranchId = (): number => {
   return stored ? Number(stored) : 1;
 };
 
+const getTenantId = (): number => {
+  if (typeof window === 'undefined') return 1;
+  const stored = localStorage.getItem('tenantId');
+  return stored ? Number(stored) : 1;
+};
+
+const getCurrentUser = (): { id: number; name: string } => {
+  if (typeof window === 'undefined') return { id: 0, name: '' };
+  try {
+    const raw = localStorage.getItem('auth_user');
+    const parsed = raw ? JSON.parse(raw) : null;
+    return {
+      id: parsed?.id ? Number(parsed.id) : 0,
+      name: parsed?.name ?? parsed?.email ?? '',
+    };
+  } catch {
+    return { id: 0, name: '' };
+  }
+};
+
+const getLockerDbId = (uiId: string): number => {
+  const last = uiId.split('-').pop();
+  return Number(last ?? uiId);
+};
+
 /**
  * SCR-051: 락커 배정 관리
  * UI-089 회원 검색 AutoComplete
@@ -168,31 +193,43 @@ export default function LockerManagement() {
   const [newLockerZone, setNewLockerZone] = useState<'A' | 'B' | 'C'>('A');
   const [isAddingSaving, setIsAddingSaving] = useState(false);
 
-  /** 락커 추가 핸들러 — DB insert 시도, 실패 시 로컬 상태에만 추가 */
+  const writeLockerAudit = async (
+    action: 'ASSIGN' | 'BULK_RELEASE' | 'CREATE',
+    lockerId: number,
+    detail: Record<string, unknown>,
+  ) => {
+    const user = getCurrentUser();
+    await supabase.from('audit_log').insert({
+      tenantId: getTenantId(),
+      userId: user.id,
+      action,
+      targetType: 'locker',
+      targetId: lockerId,
+      fromBranchId: getBranchId(),
+      detail: {
+        userName: user.name,
+        ...detail,
+      },
+      userAgent: typeof navigator === 'undefined' ? null : navigator.userAgent,
+    }).then(() => undefined);
+  };
+
+  /** 락커 추가 핸들러 */
   const handleAddLocker = async () => {
     const trimmed = newLockerNumber.trim();
     if (!trimmed) { toast.warning('락커 번호를 입력해주세요.'); return; }
     setIsAddingSaving(true);
     try {
-      const { error } = await supabase.from('lockers').insert({
+      const { data, error } = await supabase.from('lockers').insert({
         number: trimmed,
         zone: newLockerZone,
         status: 'AVAILABLE',
         branchId: getBranchId(),
-      });
+      }).select('id').single();
       if (error) {
-        // lockers 테이블이 없거나 insert 실패 시 로컬 상태에만 추가
-        const newLocker: Locker = {
-          id: `${activeTab}-local-${Date.now()}`,
-          number: trimmed,
-          type: activeTab,
-          status: 'available',
-          userName: null,
-          expiryDate: null,
-        };
-        setCurrentLockers(prev => [...prev, newLocker].sort((a, b) => Number(a.number) - Number(b.number)));
-        toast.success(`락커 ${trimmed}번이 추가되었습니다. (로컬)`);
+        toast.error('락커 추가에 실패했습니다.');
       } else {
+        await writeLockerAudit('CREATE', Number(data?.id ?? 0), { number: trimmed, zone: newLockerZone });
         toast.success(`락커 ${trimmed}번이 추가되었습니다.`);
         fetchLockers();
       }
@@ -287,8 +324,30 @@ export default function LockerManagement() {
   // UI-091: 배정 버튼 — 회원 + 락커 모두 선택 시 활성화
   const canAssign = !!selectedMember && !!selectedLockerId;
 
-  const handleAssign = () => {
+  const handleAssign = async () => {
     if (!canAssign || !selectedMember || !selectedLockerId) return;
+    const lockerDbId = getLockerDbId(selectedLockerId);
+    const selectedLocker = currentLockers.find(l => l.id === selectedLockerId);
+    const { error } = await supabase
+      .from('lockers')
+      .update({
+        status: 'IN_USE',
+        memberId: Number(selectedMember.id),
+        memberName: selectedMember.name,
+        assignedAt: new Date().toISOString(),
+        expiresAt: `${expiryDate}T23:59:59`,
+      })
+      .eq('id', lockerDbId);
+    if (error) {
+      toast.error('락커 배정 저장에 실패했습니다.');
+      return;
+    }
+    await writeLockerAudit('ASSIGN', lockerDbId, {
+      lockerNumber: selectedLocker?.number,
+      memberId: selectedMember.id,
+      memberName: selectedMember.name,
+      expiryDate,
+    });
     setCurrentLockers(prev => prev.map(l =>
       l.id === selectedLockerId
         ? { ...l, status: "in_use", userName: selectedMember.name, expiryDate }
@@ -302,13 +361,32 @@ export default function LockerManagement() {
   };
 
   // UI-092: 일괄 해제 — 만료 락커 전부
-  const handleBulkRelease = () => {
+  const handleBulkRelease = async () => {
+    const dbIds = overtimeLockers.map(locker => getLockerDbId(locker.id));
+    if (dbIds.length === 0) {
+      setIsBulkDialogOpen(false);
+      return;
+    }
+    const { error } = await supabase
+      .from('lockers')
+      .update({ status: 'AVAILABLE', memberId: null, memberName: null, assignedAt: null, expiresAt: null })
+      .in('id', dbIds);
+    if (error) {
+      toast.error('만료 사물함 일괄 해제에 실패했습니다.');
+      setIsBulkDialogOpen(false);
+      return;
+    }
+    await Promise.all(overtimeLockers.map(locker => writeLockerAudit('BULK_RELEASE', getLockerDbId(locker.id), {
+      lockerNumber: locker.number,
+      memberName: locker.userName,
+    })));
     setCurrentLockers(prev => prev.map(l =>
       l.status === "overtime"
         ? { ...l, status: "available", userName: null, expiryDate: null }
         : l
     ));
     setIsBulkDialogOpen(false);
+    toast.success(`${dbIds.length}개 사물함이 일괄 해제되었습니다.`);
   };
 
   const tabDefs = [

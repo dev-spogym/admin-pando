@@ -1,7 +1,7 @@
 'use client';
 export const dynamic = 'force-dynamic';
 
-import React, { useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   CreditCard,
   CheckCircle2,
@@ -34,8 +34,69 @@ import DataTable from "@/components/common/DataTable";
 import TabNav from "@/components/common/TabNav";
 import ConfirmDialog from "@/components/ui/ConfirmDialog";
 import { toast } from 'sonner';
+import { loadBranchSetting, saveBranchSetting } from '@/lib/branchSettings';
 
-const currentPlan = {
+type BillingCycle = 'monthly' | 'annual';
+type PlanStatus = 'active' | 'cancel_pending' | 'expired';
+
+interface CurrentPlan {
+  name: string;
+  status: PlanStatus;
+  billingCycle: BillingCycle;
+  nextBillingDate: string;
+  amount: number;
+  usage: {
+    members: { current: number; limit: number };
+    branches: { current: number; limit: number };
+    staff: { current: number; limit: number };
+    points: { current: number; limit: number };
+  };
+}
+
+interface PaymentMethod {
+  id: number;
+  type: string;
+  last4: string;
+  isDefault: boolean;
+  expiry: string;
+  bank: string;
+}
+
+interface BillingHistory {
+  id: number;
+  date: string;
+  plan: string;
+  amount: number;
+  method: string;
+  status: string;
+}
+
+interface PlanOption {
+  id: string;
+  name: string;
+  price: Record<BillingCycle, number>;
+  features: {
+    members: string;
+    branches: string;
+    staff: string;
+    points: string;
+    alarms: string;
+    kiosk: string;
+    iot: string;
+    contract: string;
+    mileage: string;
+    api: string;
+    support: string;
+  };
+}
+
+interface SubscriptionSettings {
+  currentPlan: CurrentPlan;
+  paymentMethods: PaymentMethod[];
+  billingHistory: BillingHistory[];
+}
+
+const DEFAULT_CURRENT_PLAN: CurrentPlan = {
   name: 'Pro',
   status: 'active',
   billingCycle: 'annual',
@@ -49,18 +110,18 @@ const currentPlan = {
   }
 };
 
-const paymentMethods = [
+const DEFAULT_PAYMENT_METHODS: PaymentMethod[] = [
   { id: 1, type: 'visa', last4: '4242', isDefault: true, expiry: '12/28', bank: '신한카드' },
   { id: 2, type: 'master', last4: '8888', isDefault: false, expiry: '05/27', bank: '국민카드' },
 ];
 
-const billingHistory = [
+const DEFAULT_BILLING_HISTORY: BillingHistory[] = [
   { id: 1, date: '2025-05-15', plan: 'Pro (Annual)', amount: 1200000, method: 'Visa **** 4242', status: 'success' },
   { id: 2, date: '2024-05-15', plan: 'Pro (Annual)', amount: 1200000, method: 'Visa **** 4242', status: 'success' },
   { id: 3, date: '2024-04-15', plan: 'Starter (Monthly)', amount: 55000, method: 'Visa **** 4242', status: 'success' },
 ];
 
-const plans = [
+const DEFAULT_PLANS: PlanOption[] = [
   {
     id: 'starter',
     name: 'Starter',
@@ -74,7 +135,6 @@ const plans = [
   {
     id: 'pro',
     name: 'Pro',
-    isCurrent: true,
     price: { monthly: 110000, annual: 88000 },
     features: {
       members: '최대 1,000명', branches: '최대 3개', staff: '20개', points: '월 5,000건',
@@ -93,6 +153,17 @@ const plans = [
     }
   }
 ];
+
+const SUBSCRIPTION_SETTING_KEY = 'subscription_settings';
+
+async function loadSubscriptionSettings(): Promise<SubscriptionSettings> {
+  const saved = await loadBranchSetting<Partial<SubscriptionSettings>>(SUBSCRIPTION_SETTING_KEY, {});
+  return {
+    currentPlan: { ...DEFAULT_CURRENT_PLAN, ...(saved.currentPlan ?? {}) },
+    paymentMethods: saved.paymentMethods?.length ? saved.paymentMethods : DEFAULT_PAYMENT_METHODS,
+    billingHistory: saved.billingHistory?.length ? saved.billingHistory : DEFAULT_BILLING_HISTORY,
+  };
+}
 
 // 사용량 진행 바
 function UsageBar({ label, current, limit, icon: Icon, unit = '' }: {
@@ -132,14 +203,124 @@ function UsageBar({ label, current, limit, icon: Icon, unit = '' }: {
 export default function Subscription() {
   const [activeTab, setActiveTab] = useState('current');
   const [isCancelDialogOpen, setIsCancelDialogOpen] = useState(false);
-  const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
-  const [selectedBilling, setSelectedBilling] = useState<any>(null);
-  const [billingCycle, setBillingCycle] = useState<'monthly' | 'annual'>('annual');
+  const [isPlanChangeDialogOpen, setIsPlanChangeDialogOpen] = useState(false);
+  const [pendingPlan, setPendingPlan] = useState<PlanOption | null>(null);
+  const [billingCycle, setBillingCycle] = useState<BillingCycle>('annual');
+  const [currentPlan, setCurrentPlan] = useState<CurrentPlan>(DEFAULT_CURRENT_PLAN);
+  const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>(DEFAULT_PAYMENT_METHODS);
+  const [billingHistory, setBillingHistory] = useState<BillingHistory[]>(DEFAULT_BILLING_HISTORY);
+  const [isLoading, setIsLoading] = useState(true);
 
-  const handleCancelSubscription = () => {
+  const plans = useMemo(() => DEFAULT_PLANS.map(plan => ({
+    ...plan,
+    isCurrent: plan.name.toLowerCase() === currentPlan.name.toLowerCase(),
+  })), [currentPlan.name]);
+
+  const persistSubscription = async (next?: Partial<SubscriptionSettings>) => {
+    const error = await saveBranchSetting(SUBSCRIPTION_SETTING_KEY, {
+      currentPlan: next?.currentPlan ?? currentPlan,
+      paymentMethods: next?.paymentMethods ?? paymentMethods,
+      billingHistory: next?.billingHistory ?? billingHistory,
+    });
+    return error;
+  };
+
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      const saved = await loadSubscriptionSettings();
+      if (!mounted) return;
+      setCurrentPlan(saved.currentPlan);
+      setPaymentMethods(saved.paymentMethods);
+      setBillingHistory(saved.billingHistory);
+      setBillingCycle(saved.currentPlan.billingCycle);
+      setIsLoading(false);
+    })();
+    return () => { mounted = false; };
+  }, []);
+
+  const handleCancelSubscription = async () => {
+    const nextPlan: CurrentPlan = { ...currentPlan, status: 'cancel_pending' };
+    setCurrentPlan(nextPlan);
     setIsCancelDialogOpen(false);
+    const error = await persistSubscription({ currentPlan: nextPlan });
+    if (error) {
+      toast.error(`구독 취소 저장 실패: ${error}`);
+      return;
+    }
     toast.success('구독 취소 신청이 완료되었습니다. 현재 구독 기간 종료 시까지 서비스를 이용하실 수 있습니다.');
   };
+
+  const handlePlanSelect = (plan: PlanOption & { isCurrent: boolean }) => {
+    if (plan.isCurrent) return;
+    setPendingPlan(plan);
+    setIsPlanChangeDialogOpen(true);
+  };
+
+  const confirmPlanChange = async () => {
+    if (!pendingPlan) return;
+    const today = new Date().toISOString().slice(0, 10);
+    const nextPlan: CurrentPlan = {
+      ...currentPlan,
+      name: pendingPlan.name,
+      status: 'active',
+      billingCycle,
+      amount: pendingPlan.price[billingCycle],
+    };
+    const defaultMethod = paymentMethods.find(method => method.isDefault);
+    const nextHistory: BillingHistory[] = [{
+      id: Date.now(),
+      date: today,
+      plan: `${pendingPlan.name} (${billingCycle === 'annual' ? 'Annual' : 'Monthly'})`,
+      amount: billingCycle === 'annual' ? pendingPlan.price.annual * 12 : pendingPlan.price.monthly,
+      method: defaultMethod ? `${defaultMethod.type.toUpperCase()} **** ${defaultMethod.last4}` : '결제수단 미등록',
+      status: defaultMethod ? 'success' : 'pending_method',
+    }, ...billingHistory];
+    setCurrentPlan(nextPlan);
+    setBillingHistory(nextHistory);
+    setIsPlanChangeDialogOpen(false);
+    setPendingPlan(null);
+    const error = await persistSubscription({ currentPlan: nextPlan, billingHistory: nextHistory });
+    if (error) {
+      toast.error(`플랜 변경 저장 실패: ${error}`);
+      return;
+    }
+    toast.success('플랜 변경이 반영되었습니다. 청구 이력에 변경 내역을 추가했습니다.');
+  };
+
+  const handleAddPaymentMethod = async () => {
+    const nextMethod: PaymentMethod = {
+      id: Date.now(),
+      type: 'visa',
+      last4: String(Math.floor(1000 + Math.random() * 9000)),
+      isDefault: paymentMethods.length === 0,
+      expiry: '12/30',
+      bank: '신규 카드',
+    };
+    const nextMethods = [...paymentMethods, nextMethod];
+    setPaymentMethods(nextMethods);
+    const error = await persistSubscription({ paymentMethods: nextMethods });
+    if (error) {
+      toast.error(`결제 수단 저장 실패: ${error}`);
+      return;
+    }
+    toast.success('결제 수단 등록 흐름을 완료 처리했습니다. 실제 PG 연동 전까지 테스트 카드로 저장됩니다.');
+  };
+
+  if (isLoading) {
+    return (
+      <AppLayout>
+        <div className="space-y-lg animate-pulse">
+          <div className="h-20 rounded-xl border border-line bg-surface" />
+          <div className="h-12 rounded-xl border border-line bg-surface" />
+          <div className="grid grid-cols-1 gap-lg lg:grid-cols-3">
+            <div className="h-72 rounded-xl border border-line bg-surface lg:col-span-2" />
+            <div className="h-72 rounded-xl border border-line bg-surface" />
+          </div>
+        </div>
+      </AppLayout>
+    );
+  }
 
   // ── 구독 현황 탭 ──
   const renderCurrent = () => (
@@ -151,8 +332,8 @@ export default function Subscription() {
           <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-primary to-accent" />
           <div className="absolute top-lg right-lg">
             <StatusBadge
-              variant={currentPlan.status === 'active' ? 'success' : 'error'}
-              label={currentPlan.status === 'active' ? '구독 중' : '만료'}
+              variant={currentPlan.status === 'active' ? 'success' : currentPlan.status === 'cancel_pending' ? 'warning' : 'error'}
+              label={currentPlan.status === 'active' ? '구독 중' : currentPlan.status === 'cancel_pending' ? '해지 예정' : '만료'}
               dot
             />
           </div>
@@ -214,8 +395,19 @@ export default function Subscription() {
                 </div>
               </div>
             ))}
+            {paymentMethods.length === 0 && (
+              <div className="rounded-xl border border-dashed border-line bg-surface p-lg text-center text-Label text-content-secondary">
+                등록된 결제 수단이 없습니다.
+              </div>
+            )}
           </div>
-          <Button variant="outline" fullWidth className="mt-lg border-dashed border-primary text-primary" icon={<Plus size={14} />}>
+          <Button
+            variant="outline"
+            fullWidth
+            className="mt-lg border-dashed border-primary text-primary"
+            icon={<Plus size={14} />}
+            onClick={handleAddPaymentMethod}
+          >
             새 카드 추가
           </Button>
         </div>
@@ -335,6 +527,7 @@ export default function Subscription() {
                 variant={plan.isCurrent ? "secondary" : "primary"}
                 fullWidth
                 disabled={plan.isCurrent}
+                onClick={() => handlePlanSelect(plan)}
               >
                 {plan.isCurrent ? '현재 플랜' : '선택하기'}
               </Button>
@@ -380,7 +573,13 @@ export default function Subscription() {
             { key: 'method', header: '결제수단', width: 180 },
             {
               key: 'status', header: '상태', width: 120,
-              render: () => <StatusBadge variant="success" label="결제 완료" dot />
+              render: (value: string) => (
+                <StatusBadge
+                  variant={value === 'success' ? 'success' : 'warning'}
+                  label={value === 'success' ? '결제 완료' : '결제수단 필요'}
+                  dot
+                />
+              )
             },
             {
               key: 'invoice', header: '증빙서류',
@@ -398,7 +597,7 @@ export default function Subscription() {
               { key: 'method', header: '결제수단' },
               { key: 'status', header: '상태' },
             ];
-            exportToExcel(billingHistory as Record<string, unknown>[], exportColumns, { filename: '구독결제내역' });
+            exportToExcel(billingHistory.map(row => ({ ...row })), exportColumns, { filename: '구독결제내역' });
             toast.success(`${billingHistory.length}건 엑셀 다운로드 완료`);
           }}
         />
@@ -447,6 +646,22 @@ export default function Subscription() {
         confirmationText="구독취소"
         onConfirm={handleCancelSubscription}
         onCancel={() => setIsCancelDialogOpen(false)}
+      />
+
+      <ConfirmDialog
+        open={isPlanChangeDialogOpen}
+        title="플랜 변경 확인"
+        description={
+          pendingPlan
+            ? `${pendingPlan.name} 플랜으로 변경합니다.\n${billingCycle === 'annual' ? '연간' : '월간'} 결제 기준 청구 예정 금액은 ${formatKRW(billingCycle === 'annual' ? pendingPlan.price.annual * 12 : pendingPlan.price.monthly)}입니다.`
+            : '선택한 플랜으로 변경합니다.'
+        }
+        confirmLabel="플랜 변경"
+        onConfirm={confirmPlanChange}
+        onCancel={() => {
+          setIsPlanChangeDialogOpen(false);
+          setPendingPlan(null);
+        }}
       />
     </AppLayout>
   );

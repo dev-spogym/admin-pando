@@ -38,6 +38,15 @@ interface ClassStat {
   attendeeCount: number;
   bookingRate: number;
   attendRate: number;
+  lessonStatus: string | null;
+}
+
+interface RosterMember {
+  bookingId: number;
+  name: string;
+  phone: string;
+  status: string;
+  attended: boolean;
 }
 
 interface MonthlyBar {
@@ -91,6 +100,8 @@ export default function ClassStats() {
   const [capacityValue, setCapacityValue] = useState('');
   // 회원 명단 드로어
   const [rosterTarget, setRosterTarget] = useState<ClassStat | null>(null);
+  const [rosterMembers, setRosterMembers] = useState<RosterMember[]>([]);
+  const [rosterLoading, setRosterLoading] = useState(false);
 
   // 데이터 조회
   const fetchStats = async () => {
@@ -98,9 +109,9 @@ export default function ClassStats() {
     const { start, end } = getPeriodRange(period);
 
     // 수업 목록 + 예약(출석) 수 조회
-    const { data: classes } = await supabase
+      const { data: classes } = await supabase
       .from('classes')
-      .select('id, title, type, room, capacity, startTime')
+      .select('id, title, type, room, capacity, startTime, lesson_status')
       .eq('branchId', branchId)
       .gte('startTime', `${start}T00:00:00`)
       .lte('startTime', `${end}T23:59:59`)
@@ -144,6 +155,7 @@ export default function ClassStats() {
         attendeeCount,
         bookingRate: Math.round((bookedCount / cap) * 100),
         attendRate: bookedCount > 0 ? Math.round((attendeeCount / bookedCount) * 100) : 0,
+        lessonStatus: c.lesson_status ?? null,
       };
     });
     setClassStats(stats);
@@ -219,7 +231,7 @@ export default function ClassStats() {
     setCapacityValue(String(row.capacity));
   };
 
-  const handleSaveCapacity = () => {
+  const handleSaveCapacity = async () => {
     if (!capacityTarget) return;
     const next = Number(capacityValue);
     if (!Number.isFinite(next) || next <= 0) {
@@ -231,6 +243,17 @@ export default function ClassStats() {
       toast.error('예약 인원보다 정원이 작아요. 정원을 조정할 수 없어요.');
       return;
     }
+
+    const { error } = await supabase
+      .from('classes')
+      .update({ capacity: next, updatedAt: new Date().toISOString() })
+      .eq('id', capacityTarget.id);
+
+    if (error) {
+      toast.error(`정원 저장에 실패했습니다: ${error.message}`);
+      return;
+    }
+
     setClassStats((prev) =>
       prev.map((c) =>
         c.id === capacityTarget.id
@@ -242,21 +265,73 @@ export default function ClassStats() {
     setCapacityTarget(null);
   };
 
-  const handleCancelClass = (row: ClassStat) => {
+  const handleCancelClass = async (row: ClassStat) => {
     if (!canOperate) return;
-    // 취소 진입 — 실제 취소는 수업 캘린더/관리에서 수행하는 목업 안내
-    toast.success(`'${row.title}' 폐강 검토를 시작합니다. 수업 관리에서 취소를 확정하세요.`);
+    if (!window.confirm(`'${row.title}' 수업을 취소 처리할까요? 예약 회원 상태도 취소로 변경됩니다.`)) return;
+
+    const now = new Date().toISOString();
+    const { error: classError } = await supabase
+      .from('classes')
+      .update({ lesson_status: 'cancelled', updatedAt: now })
+      .eq('id', row.id);
+
+    if (classError) {
+      toast.error(`수업 취소에 실패했습니다: ${classError.message}`);
+      return;
+    }
+
+    const { error: bookingError } = await supabase
+      .from('lesson_bookings')
+      .update({ status: 'CANCELLED', cancelReason: '그룹 수업 현황에서 수업 취소', updatedAt: now })
+      .eq('scheduleId', row.id)
+      .in('status', ['BOOKED', 'ATTENDED', 'WAITLIST', 'PENDING']);
+
+    if (bookingError) {
+      toast.error(`예약자 취소 반영에 실패했습니다: ${bookingError.message}`);
+      return;
+    }
+
+    toast.success(`'${row.title}' 수업을 취소 처리했습니다.`);
+    fetchStats();
   };
 
-  // 회원 명단 mock (행 클릭 시) — 실제 예약자 수 기준으로 더미 명단 생성
-  const rosterMembers = useMemo(() => {
-    if (!rosterTarget) return [];
-    const names = ['김민수', '이서연', '박지훈', '최유진', '정도윤', '강하늘', '윤서아', '임준호', '한지민', '오세훈'];
-    return Array.from({ length: rosterTarget.bookedCount }).map((_, i) => ({
-      name: names[i % names.length],
-      attended: i < rosterTarget.attendeeCount,
+  const openRoster = async (row: ClassStat) => {
+    setRosterTarget(row);
+    setRosterMembers([]);
+    setRosterLoading(true);
+
+    const { data: bookings, error } = await supabase
+      .from('lesson_bookings')
+      .select('id, memberId, memberName, status')
+      .eq('scheduleId', row.id)
+      .order('createdAt', { ascending: true });
+
+    if (error) {
+      toast.error('예약 회원 명단을 불러오지 못했습니다.');
+      setRosterLoading(false);
+      return;
+    }
+
+    const rows = (bookings ?? []) as Array<{ id: number; memberId: number | null; memberName: string | null; status: string | null }>;
+    const memberIds = Array.from(new Set(rows.map((booking) => booking.memberId).filter((id): id is number => Number.isFinite(id ?? NaN))));
+    const { data: members } = memberIds.length > 0
+      ? await supabase.from('members').select('id,name,phone').in('id', memberIds)
+      : { data: [] as Array<{ id: number; name: string | null; phone: string | null }> };
+    const memberMap = new Map((members ?? []).map((member: any) => [Number(member.id), member]));
+
+    setRosterMembers(rows.map((booking) => {
+      const member = booking.memberId ? memberMap.get(booking.memberId) : null;
+      const status = (booking.status ?? 'BOOKED').toUpperCase();
+      return {
+        bookingId: booking.id,
+        name: member?.name ?? booking.memberName ?? '-',
+        phone: member?.phone ?? '-',
+        status,
+        attended: status === 'ATTENDED',
+      } satisfies RosterMember;
     }));
-  }, [rosterTarget]);
+    setRosterLoading(false);
+  };
 
   // 바 차트 최대값
   const maxBar = useMemo(() => Math.max(...monthlyBars.map((b) => b.count), 1), [monthlyBars]);
@@ -446,7 +521,7 @@ export default function ClassStats() {
         onSearch={setSearchValue}
         searchValue={searchValue}
         searchPlaceholder="수업명 검색..."
-        onRowClick={(row) => setRosterTarget(row)}
+        onRowClick={(row) => openRoster(row)}
       />
 
       {/* 정원 조정 모달 (Owner/매니저 — SCR-C005) */}
@@ -504,15 +579,20 @@ export default function ClassStats() {
               </button>
             </div>
             <div className="flex-1 overflow-y-auto p-md">
-              {rosterMembers.length === 0 ? (
+              {rosterLoading ? (
+                <p className="text-[13px] text-content-tertiary text-center py-lg">예약자 명단을 불러오는 중입니다.</p>
+              ) : rosterMembers.length === 0 ? (
                 <p className="text-[13px] text-content-tertiary text-center py-lg">예약자가 없습니다.</p>
               ) : (
                 <ul className="space-y-xs">
-                  {rosterMembers.map((m, i) => (
-                    <li key={i} className="flex items-center justify-between px-3 py-2 rounded-lg bg-surface-secondary">
-                      <span className="text-[13px] text-content">{m.name}</span>
-                      <span className={`text-[11px] font-semibold ${m.attended ? 'text-state-success' : 'text-content-tertiary'}`}>
-                        {m.attended ? '출석' : '예약'}
+                  {rosterMembers.map((m) => (
+                    <li key={m.bookingId} className="flex items-center justify-between px-3 py-2 rounded-lg bg-surface-secondary">
+                      <span className="text-[13px] text-content">
+                        {m.name}
+                        <span className="ml-2 text-[11px] text-content-tertiary">{m.phone}</span>
+                      </span>
+                      <span className={`text-[11px] font-semibold ${m.attended ? 'text-state-success' : m.status === 'CANCELLED' ? 'text-content-tertiary' : m.status === 'NOSHOW' ? 'text-state-error' : 'text-content-tertiary'}`}>
+                        {m.status === 'ATTENDED' ? '출석' : m.status === 'NOSHOW' ? '노쇼' : m.status === 'CANCELLED' ? '취소' : m.status === 'WAITLIST' ? '대기' : '예약'}
                       </span>
                     </li>
                   ))}

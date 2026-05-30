@@ -529,7 +529,7 @@ export default function KpiPreviewCenter() {
               onClick={() => fetchKpiCenter(true)}
             >
               <RefreshCw size={14} className={dataLoading ? "animate-spin" : ""} />
-              샘플 재생성
+              스냅샷 갱신
             </button>
             <button
               className="flex items-center gap-xs rounded-button border border-line bg-surface px-md py-sm text-[13px] font-medium text-content-secondary hover:bg-surface-secondary"

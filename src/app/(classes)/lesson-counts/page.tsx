@@ -57,6 +57,8 @@ interface DeductionLog {
   id: number;
   deductedAt: string;
   lessonName: string | null;
+  delta: number | null;
+  reason: string | null;
   note: string | null;
 }
 
@@ -210,6 +212,16 @@ export default function LessonCounts() {
     if (error) {
       toast.error('차감에 실패했습니다.');
     } else {
+      await supabase.from('lesson_count_logs').insert({
+        lessonCountId: row.id,
+        memberId: row.memberId,
+        branchId,
+        deductedAt: new Date().toISOString(),
+        lessonName: row.productName,
+        delta: 1,
+        reason: 'manual_deduct',
+        note: '횟수 관리 화면에서 1회 차감',
+      });
       toast.success(`${row.memberName} - 1회 차감되었습니다. (잔여: ${row.totalCount - newUsed}회)`);
       fetchCounts();
     }
@@ -234,7 +246,7 @@ export default function LessonCounts() {
       return;
     }
     setAdjustLoading(true);
-    const delta = adjustType === 'add' ? adjustCount : -adjustCount;
+    const delta = adjustType === 'add' ? -adjustCount : adjustCount;
     const newUsed = adjustType === 'add'
       ? adjustTarget.usedCount - adjustCount  // 추가 = usedCount 감소 (잔여 증가)
       : adjustTarget.usedCount + adjustCount; // 차감 = usedCount 증가 (잔여 감소)
@@ -258,6 +270,16 @@ export default function LessonCounts() {
     if (error) {
       toast.error('횟수 조정에 실패했습니다.');
     } else {
+      await supabase.from('lesson_count_logs').insert({
+        lessonCountId: adjustTarget.id,
+        memberId: adjustTarget.memberId,
+        branchId,
+        deductedAt: new Date().toISOString(),
+        lessonName: adjustTarget.productName,
+        delta,
+        reason: 'manual_adjust',
+        note: adjustReason.trim(),
+      });
       const remain = adjustTarget.totalCount - newUsed;
       toast.success(`${adjustTarget.memberName} - ${adjustType === 'add' ? `${adjustCount}회 추가` : `${adjustCount}회 차감`} 완료 (잔여: ${remain}회)`);
       setAdjustOpen(false);
@@ -273,7 +295,7 @@ export default function LessonCounts() {
     setHistoryLoading(true);
     const { data } = await supabase
       .from('lesson_count_logs')
-      .select('id, deductedAt, lessonName, note')
+      .select('id, deductedAt, lessonName, delta, reason, note')
       .eq('lessonCountId', row.id)
       .order('deductedAt', { ascending: false });
     setHistoryLogs((data ?? []) as DeductionLog[]);
@@ -560,18 +582,22 @@ export default function LessonCounts() {
         <AsyncBoundary isLoading={historyLoading} isEmpty={historyLogs.length === 0} emptyMessage="차감 이력이 없습니다.">
           <div className="flex flex-col gap-xs max-h-80 overflow-y-auto">
             {/* 이력 테이블 헤더 */}
-            <div className="grid grid-cols-3 px-md py-xs text-[11px] font-medium text-content-secondary bg-surface-secondary rounded-lg">
+            <div className="grid grid-cols-[48px_120px_80px_1fr] px-md py-xs text-[11px] font-medium text-content-secondary bg-surface-secondary rounded-lg">
               <span>No</span>
               <span>차감 일시</span>
+              <span>변동</span>
               <span>수업명 / 메모</span>
             </div>
             {historyLogs.map((log, idx) => (
-              <div key={log.id} className="grid grid-cols-3 items-center px-md py-sm bg-surface-secondary rounded-lg text-[12px]">
+              <div key={log.id} className="grid grid-cols-[48px_120px_80px_1fr] items-center px-md py-sm bg-surface-secondary rounded-lg text-[12px]">
                 <span className="w-5 h-5 flex items-center justify-center rounded-full bg-primary text-white text-[10px] font-bold">
                   {idx + 1}
                 </span>
                 <span className="text-content">{log.deductedAt ? log.deductedAt.slice(0, 16).replace('T', ' ') : '-'}</span>
-                <span className="text-content-secondary truncate">{log.lessonName ?? log.note ?? '-'}</span>
+                <span className={log.delta && log.delta < 0 ? 'font-semibold text-state-success' : 'font-semibold text-state-error'}>
+                  {log.delta && log.delta < 0 ? `+${Math.abs(log.delta)}` : `-${log.delta ?? 1}`}회
+                </span>
+                <span className="text-content-secondary truncate">{log.lessonName ?? log.note ?? log.reason ?? '-'}</span>
               </div>
             ))}
           </div>

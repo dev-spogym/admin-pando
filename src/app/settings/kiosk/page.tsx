@@ -31,7 +31,7 @@ import Textarea from '@/components/ui/Textarea';
 import SimpleTable from '@/components/common/SimpleTable';
 import Input from '@/components/ui/Input';
 import { toast } from "sonner";
-import { supabase } from "@/lib/supabase";
+import { loadBranchSetting, saveBranchSetting } from "@/lib/branchSettings";
 
 type KioskStatus = "online" | "offline";
 type TabKey = "basic" | "screen" | "tts" | "access" | "locker";
@@ -234,33 +234,22 @@ function KioskPreview({ settings }: { settings: SettingsData }) {
   );
 }
 
-// --- settings 저장/불러오기 헬퍼 ---
-const KIOSK_SETTINGS_KEY = "kiosk_settings";
-function getBranchId() { if (typeof window === "undefined") return "1"; return localStorage.getItem("branchId") || "1"; }
-function getKioskStorageKey() { return `settings_${getBranchId()}_${KIOSK_SETTINGS_KEY}`; }
-
 async function loadKioskSettings(): Promise<SettingsData | null> {
-  // settings 테이블에 key/value 컬럼 없음 → localStorage만 사용
-  const saved = localStorage.getItem(getKioskStorageKey());
-  if (saved) {
-    try {
-      const parsed = JSON.parse(saved);
-      if (parsed?.kioskType) {
-        // 신규 필드 누락 시 기본값으로 보정 (마이그레이션)
-        return {
-          ...INITIAL_DATA,
-          ...parsed,
-          features: { ...INITIAL_DATA.features, ...(parsed.features ?? {}) },
-        };
-      }
-    } catch {}
-  }
-  return null;
+  const parsed = await loadBranchSetting<Partial<SettingsData>>("kiosk_settings", {});
+  if (!parsed?.kioskType) return null;
+  return {
+    ...INITIAL_DATA,
+    ...parsed,
+    features: { ...INITIAL_DATA.features, ...(parsed.features ?? {}) },
+  };
 }
 
 async function saveKioskSettings(data: SettingsData): Promise<boolean> {
-  const jsonValue = JSON.stringify(data);
-  localStorage.setItem(getKioskStorageKey(), jsonValue);
+  const error = await saveBranchSetting("kiosk_settings", data);
+  if (error) {
+    console.error("[KioskSettings] save failed:", error);
+    return false;
+  }
   return true;
 }
 

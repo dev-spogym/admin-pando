@@ -55,6 +55,7 @@ interface RfidCard {
   cardNo: string;
   memberName: string | null;
   memberId: number | null;
+  memberPhone?: string | null;
   status: CardStatus;
   registeredAt: string;
   issuedAt: string | null;
@@ -67,45 +68,44 @@ interface Member {
   name: string;
   contact: string;
   memberNo: string;
+  type?: "회원" | "직원";
 }
-
-// --- 카드 목록 localStorage persist (rfid 테이블 없으므로 목업으로 로컬 영속) ---
-const CARDS_STORAGE_KEY = 'rfidCards';
 
 // 카드 번호 형식: RF-XXXXXXXX(스캔 시뮬) 또는 16자리 HEX 허용
 const CARD_NO_PATTERN = /^(RF-\d{8}|[0-9A-Fa-f]{16})$/;
 
-const loadCards = (initial: RfidCard[]): RfidCard[] => {
-  if (typeof window === 'undefined') return initial;
-  try {
-    const raw = localStorage.getItem(CARDS_STORAGE_KEY);
-    if (raw) return JSON.parse(raw) as RfidCard[];
-  } catch {
-    /* 손상된 저장값 무시 */
-  }
-  return initial;
+const getTenantId = (): number => {
+  if (typeof window === "undefined") return 1;
+  const stored = localStorage.getItem("tenantId");
+  return stored ? Number(stored) : 1;
 };
 
-const saveCards = (cards: RfidCard[]) => {
-  if (typeof window === 'undefined') return;
+const getCurrentUser = (): { id: number; name: string } => {
+  if (typeof window === "undefined") return { id: 0, name: "" };
   try {
-    localStorage.setItem(CARDS_STORAGE_KEY, JSON.stringify(cards));
+    const raw = localStorage.getItem("auth_user");
+    const parsed = raw ? JSON.parse(raw) : null;
+    return {
+      id: parsed?.id ? Number(parsed.id) : 0,
+      name: parsed?.name ?? parsed?.email ?? "",
+    };
   } catch {
-    /* 저장 실패 무시 */
+    return { id: 0, name: "" };
   }
 };
 
-// --- 카드 초기 데이터 (저장값 없을 때 seed) ---
-const INITIAL_CARDS: RfidCard[] = [
-  { no: 1, cardNo: "RF-10293847", memberName: "홍길동",  memberId: 10234, status: "활성", registeredAt: "2026-01-10", issuedAt: "2026-02-01", lockerNo: "A-102", userType: "회원" },
-  { no: 2, cardNo: "RF-55667788", memberName: "김민수",  memberId: null,  status: "활성", registeredAt: "2026-01-12", issuedAt: "2026-02-05", lockerNo: null,    userType: "직원" },
-  { no: 3, cardNo: "RF-99881122", memberName: null,     memberId: null,  status: "해제", registeredAt: "2026-01-15", issuedAt: null,          lockerNo: null,    userType: null  },
-  { no: 4, cardNo: "RF-33445566", memberName: "이영희",  memberId: 10567, status: "활성", registeredAt: "2026-01-20", issuedAt: "2026-02-10", lockerNo: "B-205", userType: "회원" },
-  { no: 5, cardNo: "RF-77112233", memberName: null,     memberId: null,  status: "해제", registeredAt: "2026-01-25", issuedAt: null,          lockerNo: null,    userType: null  },
-  { no: 6, cardNo: "RF-44332211", memberName: "박지성",  memberId: 10890, status: "분실", registeredAt: "2026-02-01", issuedAt: "2026-02-15", lockerNo: "C-301", userType: "회원" },
-  { no: 7, cardNo: "RF-88776655", memberName: "최유나",  memberId: 10901, status: "활성", registeredAt: "2026-02-05", issuedAt: "2026-02-20", lockerNo: null,    userType: "회원" },
-  { no: 8, cardNo: "RF-11223344", memberName: "정재욱",  memberId: 10456, status: "활성", registeredAt: "2026-02-10", issuedAt: "2026-02-25", lockerNo: "A-201", userType: "회원" },
-];
+const mapRfidCard = (row: Record<string, unknown>): RfidCard => ({
+  no: Number(row.id),
+  cardNo: String(row.cardNo ?? ""),
+  memberName: (row.memberName as string | null) ?? null,
+  memberId: row.memberId == null ? null : Number(row.memberId),
+  memberPhone: (row.memberPhone as string | null) ?? null,
+  status: (row.status as CardStatus) ?? "활성",
+  registeredAt: row.registeredAt ? String(row.registeredAt).slice(0, 10) : "",
+  issuedAt: row.issuedAt ? String(row.issuedAt).slice(0, 10) : null,
+  lockerNo: (row.lockerNo as string | null) ?? null,
+  userType: (row.userType as "회원" | "직원" | null) ?? null,
+});
 
 
 const CARD_STATUS_VARIANT: Record<CardStatus, "success" | "error" | "default"> = {
@@ -114,10 +114,46 @@ const CARD_STATUS_VARIANT: Record<CardStatus, "success" | "error" | "default"> =
   해제: "default",
 };
 
+interface RfidHistoryEntry {
+  date: string;
+  cardNo: string;
+  user: string;
+  status: CardStatus;
+  action: string;
+}
+
 // --- 이력 상세 모달 ---
-const HistoryModal = ({ card, onClose }: { card: RfidCard; onClose: () => void }) => (
+const HistoryModal = ({ card, onClose }: { card: RfidCard; onClose: () => void }) => {
+  const [history, setHistory] = useState<RfidHistoryEntry[]>([]);
+
+  useEffect(() => {
+    (async () => {
+      const { data } = await supabase
+        .from("audit_log")
+        .select("createdAt, action, detail, afterValue, beforeValue")
+        .eq("targetType", "rfid_card")
+        .eq("targetId", card.no)
+        .order("createdAt", { ascending: false });
+
+      setHistory((data ?? []).map((row: Record<string, unknown>) => {
+        const detail = (row.detail ?? {}) as Record<string, unknown>;
+        const afterValue = (row.afterValue ?? {}) as Partial<RfidCard>;
+        const beforeValue = (row.beforeValue ?? {}) as Partial<RfidCard>;
+        const source = afterValue.cardNo ? afterValue : beforeValue;
+        return {
+          date: new Date(row.createdAt as string).toLocaleString("ko-KR"),
+          cardNo: source.cardNo ?? card.cardNo,
+          user: source.memberName ?? card.memberName ?? "-",
+          status: (source.status as CardStatus) ?? card.status,
+          action: String(detail.title ?? row.action ?? ""),
+        };
+      }));
+    })();
+  }, [card]);
+
+  return (
   <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 p-md">
-    <div className="bg-surface rounded-xl w-full max-w-[600px] shadow-2xl animate-in fade-in zoom-in duration-200 overflow-hidden flex flex-col max-h-[85vh]">
+    <div className="bg-surface rounded-xl w-full max-w-[680px] shadow-2xl animate-in fade-in zoom-in duration-200 overflow-hidden flex flex-col max-h-[85vh]">
       <div className="flex items-center justify-between px-xl py-lg border-b border-line">
         <div>
           <h2 className="text-[16px] font-bold text-content flex items-center gap-sm">
@@ -146,13 +182,9 @@ const HistoryModal = ({ card, onClose }: { card: RfidCard; onClose: () => void }
             { key: 'cardNo', header: '카드번호', render: (v: string) => <span className="text-[12px] text-content font-mono">{v}</span> },
             { key: 'user', header: '회원명', render: (v: string) => <Button variant="ghost" size="sm" onClick={() => moveToPage(985)}>{v}</Button> },
             { key: 'status', header: '상태', align: 'center', render: (v: CardStatus) => <StatusBadge variant={CARD_STATUS_VARIANT[v]} label={v} dot /> },
+            { key: 'action', header: '처리 내용' },
           ]}
-          data={[
-            { date: "2026-02-01 10:20", cardNo: card.cardNo, user: "홍길동", status: "활성" as CardStatus },
-            { date: "2026-01-20 15:45", cardNo: card.cardNo, user: "이수진", status: "해제" as CardStatus },
-            { date: "2026-01-05 09:10", cardNo: card.cardNo, user: "박철수", status: "활성" as CardStatus },
-            { date: "2025-12-28 18:30", cardNo: card.cardNo, user: "정미영", status: "분실" as CardStatus },
-          ]}
+          data={history}
         />
       </div>
 
@@ -161,7 +193,8 @@ const HistoryModal = ({ card, onClose }: { card: RfidCard; onClose: () => void }
       </div>
     </div>
   </div>
-);
+  );
+};
 
 // --- 등록/수정 모달 ---
 const CardModal = ({
@@ -173,14 +206,14 @@ const CardModal = ({
 }: {
   card: Partial<RfidCard> | null;
   onClose: () => void;
-  onSave: (data: { cardNo: string; memberName: string; userType: "회원" | "직원"; lockerNo: string }) => void;
+  onSave: (data: { cardNo: string; memberId: number | null; memberName: string; memberPhone: string | null; userType: "회원" | "직원"; lockerNo: string }) => void;
   memberList?: Member[];
   existingCards?: RfidCard[];
 }) => {
   const [cardNo,     setCardNo]     = useState(card?.cardNo || "");
   const [memberSearch, setMemberSearch] = useState(card?.memberName || "");
   const [selectedMember, setSelectedMember] = useState<Member | null>(
-    card?.memberName ? { id: "", name: card.memberName, contact: "", memberNo: "" } : null
+    card?.memberName ? { id: String(card.memberId ?? ""), name: card.memberName, contact: card.memberPhone ?? "", memberNo: card.memberId ? `M-${card.memberId}` : "" } : null
   );
   const [userType, setUserType]     = useState<"회원" | "직원">(card?.userType || "회원");
   const [lockerNo, setLockerNo]     = useState(card?.lockerNo || "");
@@ -188,7 +221,10 @@ const CardModal = ({
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
 
   const filteredMembers = memberSearch.trim()
-    ? memberList.filter(m => m.name.includes(memberSearch) || m.memberNo.includes(memberSearch))
+    ? memberList.filter(m =>
+        (m.type ?? "회원") === userType &&
+        (m.name.includes(memberSearch) || m.memberNo.includes(memberSearch))
+      )
     : [];
 
   // UI-108 스캔 시뮬레이션
@@ -357,7 +393,14 @@ const CardModal = ({
             disabled={!isValid}
             onClick={() => {
               if (!isValid || !selectedMember) return;
-              onSave({ cardNo, memberName: selectedMember.name, userType, lockerNo });
+              onSave({
+                cardNo,
+                memberId: userType === "회원" && selectedMember.id ? Number(selectedMember.id) : null,
+                memberName: selectedMember.name,
+                memberPhone: selectedMember.contact || null,
+                userType,
+                lockerNo,
+              });
               onClose();
             }}
           >
@@ -370,32 +413,91 @@ const CardModal = ({
 };
 
 export default function RfidManagement() {
-  const [cards, setCards]         = useState<RfidCard[]>(INITIAL_CARDS);
+  const [cards, setCards]         = useState<RfidCard[]>([]);
   const [memberList, setMemberList] = useState<Member[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  // 최초 마운트 시 localStorage 에서 카드 목록 복원
+  const writeCardAudit = async (
+    action: "CREATE" | "UPDATE" | "DELETE" | "MARK_LOST",
+    targetId: number,
+    beforeValue: RfidCard | null,
+    afterValue: RfidCard | null,
+  ) => {
+    const user = getCurrentUser();
+    const card = afterValue ?? beforeValue;
+    const titleMap = {
+      CREATE: "카드 등록",
+      UPDATE: "카드 수정",
+      DELETE: "카드 삭제",
+      MARK_LOST: "분실 처리",
+    };
+    await supabase.from("audit_log").insert({
+      tenantId: getTenantId(),
+      userId: user.id,
+      action,
+      targetType: "rfid_card",
+      targetId,
+      fromBranchId: getBranchId(),
+      beforeValue,
+      afterValue,
+      detail: {
+        userName: user.name,
+        title: titleMap[action],
+        cardNo: card?.cardNo,
+        memberName: card?.memberName,
+      },
+      userAgent: typeof navigator === "undefined" ? null : navigator.userAgent,
+    }).then(() => undefined);
+  };
+
+  const fetchCards = async () => {
+    setLoading(true);
+    const { data, error } = await supabase
+      .from("rfid_cards")
+      .select("*")
+      .eq("branchId", getBranchId())
+      .order("registeredAt", { ascending: false });
+    if (error) {
+      toast.error("카드 목록을 불러오지 못했습니다.");
+    } else {
+      setCards((data ?? []).map((row: Record<string, unknown>) => mapRfidCard(row)));
+    }
+    setLoading(false);
+  };
+
   useEffect(() => {
-    setCards(loadCards(INITIAL_CARDS));
+    fetchCards();
   }, []);
-
-  // 카드 목록 변경 시 localStorage 에 영속
-  useEffect(() => {
-    saveCards(cards);
-  }, [cards]);
 
   useEffect(() => {
     const fetchMembers = async () => {
-      const { data, error } = await supabase
+      const [{ data: memberData, error: memberError }, { data: staffData }] = await Promise.all([
+        supabase
         .from('members')
         .select('id, name, phone')
-        .eq('branchId', getBranchId());
-      if (!error && data) {
-        setMemberList(data.map((m: any, i: number) => ({
+          .eq('branchId', getBranchId()),
+        supabase
+          .from('staff')
+          .select('id, name, phone')
+          .eq('branchId', getBranchId())
+          .eq('isActive', true),
+      ]);
+      if (!memberError) {
+        const members = (memberData ?? []).map((m: any, i: number) => ({
           id: String(m.id),
           name: m.name,
           contact: m.phone,
           memberNo: `M-${10234 + i}`,
-        })));
+          type: "회원" as const,
+        }));
+        const staff = (staffData ?? []).map((s: any) => ({
+          id: String(s.id),
+          name: s.name,
+          contact: s.phone ?? "",
+          memberNo: `ST-${s.id}`,
+          type: "직원" as const,
+        }));
+        setMemberList([...members, ...staff]);
       }
     };
     fetchMembers();
@@ -415,31 +517,102 @@ export default function RfidManagement() {
     return matchStatus && matchSearch;
   });
 
-  const handleSave = (data: { cardNo: string; memberName: string; userType: "회원" | "직원"; lockerNo: string }) => {
+  const handleSave = async (data: { cardNo: string; memberId: number | null; memberName: string; memberPhone: string | null; userType: "회원" | "직원"; lockerNo: string }) => {
     if (selectedCard) {
-      setCards(prev => prev.map(c =>
-        c.no === selectedCard.no
-          ? { ...c, cardNo: data.cardNo, memberName: data.memberName, userType: data.userType, lockerNo: data.lockerNo || null, status: "활성" }
-          : c
-      ));
+      const { data: updated, error } = await supabase
+        .from("rfid_cards")
+        .update({
+          cardNo: data.cardNo,
+          memberId: data.memberId,
+          memberName: data.memberName,
+          memberPhone: data.memberPhone,
+          userType: data.userType,
+          lockerNo: data.lockerNo || null,
+          status: "활성",
+          issuedAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        })
+        .eq("id", selectedCard.no)
+        .select("*")
+        .single();
+      if (error || !updated) {
+        toast.error("카드 수정에 실패했습니다.");
+        return;
+      }
+      const mapped = mapRfidCard(updated as Record<string, unknown>);
+      await writeCardAudit("UPDATE", selectedCard.no, selectedCard, mapped);
+      setCards(prev => prev.map(c => c.no === selectedCard.no ? mapped : c));
+      toast.success("카드 정보가 수정되었습니다.");
     } else {
-      const newNo = Math.max(...cards.map(c => c.no), 0) + 1;
-      setCards(prev => [{
-        no: newNo,
-        cardNo: data.cardNo,
-        memberName: data.memberName,
-        memberId: newNo * 100,
-        status: "활성",
-        registeredAt: new Date().toISOString().split("T")[0],
-        issuedAt: new Date().toISOString().split("T")[0],
-        lockerNo: data.lockerNo || null,
-        userType: data.userType,
-      }, ...prev]);
+      const { data: inserted, error } = await supabase
+        .from("rfid_cards")
+        .insert({
+          branchId: getBranchId(),
+          cardNo: data.cardNo,
+          memberId: data.memberId,
+          memberName: data.memberName,
+          memberPhone: data.memberPhone,
+          userType: data.userType,
+          lockerNo: data.lockerNo || null,
+          status: "활성",
+          registeredAt: new Date().toISOString(),
+          issuedAt: new Date().toISOString(),
+        })
+        .select("*")
+        .single();
+      if (error || !inserted) {
+        toast.error("카드 등록에 실패했습니다.");
+        return;
+      }
+      const mapped = mapRfidCard(inserted as Record<string, unknown>);
+      await writeCardAudit("CREATE", mapped.no, null, mapped);
+      setCards(prev => [mapped, ...prev]);
+      toast.success("신규 카드가 등록되었습니다.");
     }
   };
 
-  const handleMarkLost = (card: RfidCard) => {
-    setCards(prev => prev.map(c => c.no === card.no ? { ...c, status: "분실" } : c));
+  const handleMarkLost = async (card: RfidCard) => {
+    const { data, error } = await supabase
+      .from("rfid_cards")
+      .update({ status: "분실", updatedAt: new Date().toISOString() })
+      .eq("id", card.no)
+      .select("*")
+      .single();
+    if (error || !data) {
+      toast.error("분실 처리에 실패했습니다.");
+      return;
+    }
+    const mapped = mapRfidCard(data as Record<string, unknown>);
+    await writeCardAudit("MARK_LOST", card.no, card, mapped);
+    setCards(prev => prev.map(c => c.no === card.no ? mapped : c));
+    toast.success("분실 처리되었습니다.");
+  };
+
+  const handleDelete = async () => {
+    if (!selectedCard) return;
+    const before = selectedCard;
+    const { error } = await supabase
+      .from("rfid_cards")
+      .update({ status: "해제", memberId: null, memberName: null, memberPhone: null, lockerNo: null, issuedAt: null, updatedAt: new Date().toISOString() })
+      .eq("id", selectedCard.no);
+    if (error) {
+      toast.error("카드 해제에 실패했습니다.");
+      return;
+    }
+    const after: RfidCard = {
+      ...before,
+      memberId: null,
+      memberName: null,
+      memberPhone: null,
+      lockerNo: null,
+      issuedAt: null,
+      status: "해제",
+    };
+    await writeCardAudit("DELETE", selectedCard.no, before, after);
+    setCards(prev => prev.map(c => c.no === selectedCard.no ? after : c));
+    setDeleteOpen(false);
+    setSelectedCard(null);
+    toast.success("카드가 해제되었습니다.");
   };
 
   // UI-110 카드 이력 테이블 컬럼 (등록일/카드번호/회원명/상태)
@@ -548,7 +721,7 @@ export default function RfidManagement() {
         <DataTable
           columns={columns}
           data={filteredCards}
-          title="카드 이력 목록"
+          title={loading ? "카드 이력 목록 로딩 중" : "카드 이력 목록"}
           pagination={{ page: 1, pageSize: 20, total: filteredCards.length }}
           onDownloadExcel={() => {
             const exportColumns = [
@@ -586,16 +759,12 @@ export default function RfidManagement() {
       {/* 삭제 확인 */}
       <ConfirmDialog
         open={isDeleteOpen}
-        title="카드 삭제"
-        description={`카드 ID: ${selectedCard?.cardNo} 를 삭제하시겠습니까?\n삭제된 정보는 복구할 수 없으며, 연결된 회원과의 관계가 끊어집니다.`}
-        confirmLabel="삭제하기"
+        title="카드 해제"
+        description={`카드 ID: ${selectedCard?.cardNo} 를 해제하시겠습니까?\n연결된 회원/직원, 사물함 매핑이 해제되고 이력은 유지됩니다.`}
+        confirmLabel="해제하기"
         variant="danger"
-        confirmationText="삭제"
-        onConfirm={() => {
-          if (selectedCard) setCards(prev => prev.filter(c => c.no !== selectedCard.no));
-          setDeleteOpen(false);
-          setSelectedCard(null);
-        }}
+        confirmationText="해제"
+        onConfirm={handleDelete}
         onCancel={() => { setDeleteOpen(false); setSelectedCard(null); }}
       />
     </AppLayout>

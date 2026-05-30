@@ -4,6 +4,13 @@
  */
 import { supabase } from '@/lib/supabase';
 
+const getCurrentBranchId = (): number => {
+  if (typeof window === 'undefined') return 1;
+  const stored = localStorage.getItem('branchId');
+  const parsed = Number(stored);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : 1;
+};
+
 /** 운동 프로그램 난이도 */
 export type ProgramLevel = '입문' | '초급' | '중급' | '고급';
 
@@ -67,7 +74,7 @@ function rowToMemberProgram(row: Record<string, any>): MemberExerciseProgram {
     programId: row.programId ?? row.program_id,
     programName: row.programName ?? row.exercise_programs?.name ?? '',
     category: row.category ?? row.exercise_programs?.category ?? null,
-    level: row.level ?? row.exercise_programs?.level ?? null,
+    level: row.level ?? row.exercise_programs?.difficulty ?? null,
     assignedBy: row.assignedBy ?? row.assigned_by ?? null,
     assignedByName: row.assignedByName ?? row.assigned_by_name ?? null,
     assignedAt: row.assignedAt ?? row.assigned_at ?? row.createdAt ?? '',
@@ -91,7 +98,7 @@ export async function getExercisePrograms(branchId: number): Promise<ExercisePro
 export async function getMemberPrograms(memberId: number): Promise<MemberExerciseProgram[]> {
   const { data, error } = await supabase
     .from('member_exercise_programs')
-    .select('*, exercise_programs(name, category, level)')
+    .select('*, exercise_programs(name, category, difficulty)')
     .eq('memberId', memberId)
     .order('assignedAt', { ascending: false });
 
@@ -100,13 +107,14 @@ export async function getMemberPrograms(memberId: number): Promise<MemberExercis
 }
 
 /** 운동 프로그램 배정 */
-export async function assignProgram(memberId: number, programId: number, assignedBy: number): Promise<void> {
+export async function assignProgram(memberId: number, programId: number, assignedBy: number, branchId = getCurrentBranchId()): Promise<void> {
   const { error } = await supabase
     .from('member_exercise_programs')
     .insert({
       memberId,
       programId,
       assignedBy,
+      branchId,
       assignedAt: new Date().toISOString(),
       status: 'ACTIVE',
     });
@@ -165,6 +173,10 @@ export async function updateExerciseProgram(id: number, data: {
 }): Promise<{ error: string | null }> {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const payload: Record<string, any> = { ...data };
+  if (data.level !== undefined) {
+    payload.difficulty = data.level;
+    delete payload.level;
+  }
   if (data.exercises !== undefined) {
     payload.exercises = JSON.stringify(data.exercises);
   }

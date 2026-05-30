@@ -1,29 +1,57 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Mail, Lock, ArrowLeft, CheckCircle, Loader2 } from 'lucide-react';
 import Link from 'next/link';
+import { toast } from 'sonner';
+import { supabase } from '@/lib/supabase';
 
 type Step = 'email' | 'sent' | 'newPassword' | 'done';
 
 export default function ResetPasswordPage() {
   const [step, setStep] = useState<Step>('email');
   const [email, setEmail] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('type') === 'recovery' || params.get('access_token')) {
+      setStep('newPassword');
+    }
+  }, []);
 
   const handleSendEmail = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-    await new Promise(r => setTimeout(r, 1000));
+    const redirectTo = typeof window !== 'undefined' ? `${window.location.origin}/reset-password?type=recovery` : undefined;
+    const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo });
     setLoading(false);
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
     setStep('sent');
   };
 
   const handleReset = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (newPassword.length < 8) {
+      toast.error('새 비밀번호는 8자 이상이어야 합니다.');
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      toast.error('새 비밀번호가 일치하지 않습니다.');
+      return;
+    }
     setLoading(true);
-    await new Promise(r => setTimeout(r, 1000));
+    const { error } = await supabase.auth.updateUser({ password: newPassword });
     setLoading(false);
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
     setStep('done');
   };
 
@@ -93,12 +121,22 @@ export default function ResetPasswordPage() {
           <form onSubmit={handleReset} className="space-y-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">새 비밀번호</label>
-              <input type="password" required placeholder="8자 이상 입력"
+              <input
+                type="password"
+                required
+                placeholder="8자 이상 입력"
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
                 className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">새 비밀번호 확인</label>
-              <input type="password" required placeholder="동일하게 입력"
+              <input
+                type="password"
+                required
+                placeholder="동일하게 입력"
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
                 className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
             </div>
             <button type="submit" disabled={loading}

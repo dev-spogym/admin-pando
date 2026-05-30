@@ -13,6 +13,7 @@ import {
   BadgePercent,
   ChevronRight,
   Link2,
+  Pencil,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { moveToPage } from '@/internal';
@@ -498,16 +499,49 @@ export default function Sales() {
   // 매출 상세 모달 상태
   const [selectedSale, setSelectedSale] = useState<SaleItem | null>(null);
   const [showDetailModal, setShowDetailModal] = useState(false);
+  const [isEditingMemo, setIsEditingMemo] = useState(false);
+  const [memoDraft, setMemoDraft] = useState('');
+  const [isSavingMemo, setIsSavingMemo] = useState(false);
   // DLG-S016 결제링크 발송 모달 상태
   const [linkTarget, setLinkTarget] = useState<PaymentLinkTarget | null>(null);
   const authUser = useAuthStore((s) => s.user);
   const canSendLink = hasPermission(authUser?.role ?? '', '/sales', authUser?.isSuperAdmin);
+  const canEditMemo = hasPermission(authUser?.role ?? '', '/sales', authUser?.isSuperAdmin);
 
   const handleRowClick = (row: SaleItem) => {
     if (!['TAB-002', 'TAB-003', 'TAB-004', 'TAB-005'].includes(activeTab)) {
       setSelectedSale(row);
+      setMemoDraft(row.memo ?? '');
+      setIsEditingMemo(false);
       setShowDetailModal(true);
     }
+  };
+
+  const handleSaveMemo = async () => {
+    if (!selectedSale || isSavingMemo) return;
+    const nextMemo = memoDraft.trim();
+    if (nextMemo.length > 1000) {
+      toast.error('메모는 1000자 이하로 입력해주세요.');
+      return;
+    }
+
+    setIsSavingMemo(true);
+    const { error } = await supabase
+      .from('sales')
+      .update({ memo: nextMemo, updatedAt: new Date().toISOString() })
+      .eq('id', selectedSale.id)
+      .eq('branchId', getBranchId());
+    setIsSavingMemo(false);
+
+    if (error) {
+      toast.error(`메모 저장 실패: ${error.message}`);
+      return;
+    }
+
+    setSalesData((prev) => prev.map((item) => item.id === selectedSale.id ? { ...item, memo: nextMemo } : item));
+    setSelectedSale((prev) => prev ? { ...prev, memo: nextMemo } : prev);
+    setIsEditingMemo(false);
+    toast.success('매출 메모를 저장했습니다.');
   };
 
   // round 필터 상태
@@ -780,6 +814,8 @@ export default function Sales() {
                       size="sm"
                       onClick={() => {
                         setSelectedSale(item);
+                        setMemoDraft(item.memo ?? '');
+                        setIsEditingMemo(false);
                         setShowDetailModal(true);
                       }}
                     >
@@ -958,6 +994,19 @@ export default function Sales() {
                   결제링크 V2/후속
                 </Button>
               )}
+              {canEditMemo && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  icon={<Pencil size={14} />}
+                  onClick={() => {
+                    setMemoDraft(selectedSale.memo ?? '');
+                    setIsEditingMemo(true);
+                  }}
+                >
+                  메모 편집
+                </Button>
+              )}
               <button
                 onClick={() => {
                   setShowDetailModal(false);
@@ -1115,15 +1164,46 @@ export default function Sales() {
             )}
 
             {/* 메모 */}
-            {selectedSale.memo && (
-              <>
-                <div className="h-px bg-line" />
-                <div>
-                  <p className="text-[12px] font-semibold text-content-secondary mb-sm">메모</p>
-                  <p className="text-[13px] text-content-secondary whitespace-pre-wrap">{selectedSale.memo}</p>
+            <div className="h-px bg-line" />
+            <div>
+              <div className="mb-sm flex items-center justify-between gap-sm">
+                <p className="text-[12px] font-semibold text-content-secondary">메모</p>
+                {isEditingMemo && (
+                  <span className={cn('text-[11px]', memoDraft.length > 1000 ? 'text-state-error' : 'text-content-tertiary')}>
+                    {memoDraft.length}/1000
+                  </span>
+                )}
+              </div>
+              {isEditingMemo ? (
+                <div className="space-y-sm">
+                  <textarea
+                    value={memoDraft}
+                    onChange={(event) => setMemoDraft(event.target.value)}
+                    className="min-h-[120px] w-full resize-y rounded-lg border border-line bg-surface px-md py-sm text-[13px] text-content outline-none transition-colors focus:border-primary"
+                    placeholder="고객 요청 사항, 특이 사항, 내부 공유 메모를 입력하세요."
+                  />
+                  <div className="flex justify-end gap-sm">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        setMemoDraft(selectedSale.memo ?? '');
+                        setIsEditingMemo(false);
+                      }}
+                    >
+                      취소
+                    </Button>
+                    <Button size="sm" onClick={handleSaveMemo} disabled={isSavingMemo || memoDraft.length > 1000}>
+                      {isSavingMemo ? '저장 중...' : '저장'}
+                    </Button>
+                  </div>
                 </div>
-              </>
-            )}
+              ) : (
+                <p className="min-h-[38px] rounded-lg bg-surface-secondary px-md py-sm text-[13px] text-content-secondary whitespace-pre-wrap">
+                  {selectedSale.memo || '등록된 메모가 없습니다.'}
+                </p>
+              )}
+            </div>
           </div>
         </Modal>
       )}

@@ -2,10 +2,11 @@ import { getBranchId } from '@/lib/getBranchId';
 import React, { useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import { formatNumber } from '@/lib/format';
-import { ChevronDown, ChevronRight, Plus, Save, Search, Trash2, X, History } from 'lucide-react';
+import { ChevronDown, ChevronRight, History, Image as ImageIcon, Plus, Save, Search, Trash2, Upload, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/lib/supabase';
 import StatusBadge from "@/components/common/StatusBadge";
+import ConfirmDialog from '@/components/ui/ConfirmDialog';
 import Modal from "@/components/ui/Modal";
 import Timeline, { type TimelineItem } from '@/components/common/Timeline';
 import { createAuditLog } from '@/api/endpoints/auditLog';
@@ -63,6 +64,9 @@ export interface ProductRow {
   salesChannel: string | null;
   usage_restrictions?: UsageRestrictions | null;
   createdAt?: string;
+  imageUrl?: string | null;
+  imageMimeType?: string | null;
+  imageUpdatedAt?: string | null;
 }
 
 interface ProductGroup {
@@ -214,6 +218,14 @@ export default function ProductDetailPanel({ product, isNew, onSave, onDelete, o
   const [priceHistoryLoading, setPriceHistoryLoading] = useState(false);
   const [productGroupId, setProductGroupId] = useState('');
   const [productGroups, setProductGroups] = useState<ProductGroup[]>([]);
+  const [imageUrl, setImageUrl] = useState<string | null>(null);
+  const [imageMimeType, setImageMimeType] = useState<string | null>(null);
+  const [imageModalOpen, setImageModalOpen] = useState(false);
+  const [imageDraftUrl, setImageDraftUrl] = useState<string | null>(null);
+  const [imageDraftMimeType, setImageDraftMimeType] = useState<string | null>(null);
+  const [imageError, setImageError] = useState<string | null>(null);
+  const [formDirty, setFormDirty] = useState(false);
+  const [cancelConfirmOpen, setCancelConfirmOpen] = useState(false);
 
   const resetForm = () => {
     setName('');
@@ -254,6 +266,12 @@ export default function ProductDetailPanel({ product, isNew, onSave, onDelete, o
     setPackageItems([]);
     setPackagePrice('');
     setPackageSelectId('');
+    setImageUrl(null);
+    setImageMimeType(null);
+    setImageDraftUrl(null);
+    setImageDraftMimeType(null);
+    setImageError(null);
+    setFormDirty(false);
   };
 
   const applyProductToForm = (source: ProductRow, options?: { markAsCopy?: boolean }) => {
@@ -287,6 +305,12 @@ export default function ProductDetailPanel({ product, isNew, onSave, onDelete, o
     setLimitCount(source.dailyUseLimit ? `${source.dailyUseLimit}회` : '1회');
     setSalesChannel(source.salesChannel ?? 'ALL');
     setProductGroupId(source.productGroupId?.toString() ?? '');
+    setImageUrl(source.imageUrl ?? null);
+    setImageMimeType(source.imageMimeType ?? null);
+    setImageDraftUrl(null);
+    setImageDraftMimeType(null);
+    setImageError(null);
+    setFormDirty(false);
 
     const restrictions = source.usage_restrictions;
     const availableDays = restrictions?.availableDays ?? [];
@@ -333,10 +357,19 @@ export default function ProductDetailPanel({ product, isNew, onSave, onDelete, o
 
     if (options?.markAsCopy) {
       setCopiedFromProductId(source.id);
+      setFormDirty(true);
     }
   };
 
   const isCreateMode = isNew || copiedFromProductId !== null;
+
+  const handleCloseRequest = () => {
+    if (formDirty) {
+      setCancelConfirmOpen(true);
+      return;
+    }
+    onClose();
+  };
 
   useEffect(() => {
     const fetchProductGroups = async () => {
@@ -427,6 +460,41 @@ export default function ProductDetailPanel({ product, isNew, onSave, onDelete, o
     const raw = value.replace(/[^0-9]/g, '');
     const num = parseInt(raw, 10);
     setter(Number.isNaN(num) ? '' : formatNumber(num));
+  };
+
+  const openImageUpload = () => {
+    setImageDraftUrl(imageUrl);
+    setImageDraftMimeType(imageMimeType);
+    setImageError(null);
+    setImageModalOpen(true);
+  };
+
+  const handleImageFile = (file: File | null) => {
+    if (!file) return;
+    if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) {
+      setImageError('JPG, PNG, WebP 형식만 업로드할 수 있습니다.');
+      return;
+    }
+    if (file.size > 2 * 1024 * 1024) {
+      setImageError('이미지는 2MB 이하로 업로드해주세요.');
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      setImageDraftUrl(typeof reader.result === 'string' ? reader.result : null);
+      setImageDraftMimeType(file.type);
+      setImageError(null);
+    };
+    reader.onerror = () => setImageError('이미지를 읽지 못했습니다.');
+    reader.readAsDataURL(file);
+  };
+
+  const applyImageDraft = () => {
+    setImageUrl(imageDraftUrl);
+    setImageMimeType(imageDraftMimeType);
+    setFormDirty(true);
+    setImageModalOpen(false);
   };
 
   const handleSave = async () => {
@@ -550,6 +618,9 @@ export default function ProductDetailPanel({ product, isNew, onSave, onDelete, o
       salesChannel,
       productGroupId: productGroupId ? Number(productGroupId) : null,
       usage_restrictions: usageRestrictions,
+      imageUrl,
+      imageMimeType: imageUrl ? imageMimeType : null,
+      imageUpdatedAt: imageUrl !== (product?.imageUrl ?? null) ? new Date().toISOString() : product?.imageUpdatedAt ?? null,
       // 패키지 플래그 + 구성 항목 저장 (description에 JSON 직렬화)
       ...(isPackage && packageItems.length > 0
         ? {
@@ -589,6 +660,7 @@ export default function ProductDetailPanel({ product, isNew, onSave, onDelete, o
       }
 
       toast.success('상품이 수정되었습니다.');
+      setFormDirty(false);
       onSave(product.id);
       return;
     }
@@ -600,6 +672,7 @@ export default function ProductDetailPanel({ product, isNew, onSave, onDelete, o
       return;
     }
     toast.success('상품이 등록되었습니다.');
+    setFormDirty(false);
     onSave((data as { id: number }).id);
   };
 
@@ -671,12 +744,12 @@ export default function ProductDetailPanel({ product, isNew, onSave, onDelete, o
               </StatusBadge>
             )}
           </div>
-          <button type="button" onClick={onClose} className="text-[#4b5563] hover:text-[#111]">
+          <button type="button" onClick={handleCloseRequest} className="text-[#4b5563] hover:text-[#111]">
             <X size={16} />
           </button>
         </div>
 
-        <div className="flex-1 overflow-y-auto bg-[#f4f4f4] p-1.5">
+        <div className="flex-1 overflow-y-auto bg-[#f4f4f4] p-1.5" onChangeCapture={() => setFormDirty(true)}>
           <div className="space-y-1">
             <div className={cn(rowClass, 'border-b border-[#d7dbe2] pb-1')}>
               <RowLabel>상품구분</RowLabel>
@@ -770,6 +843,34 @@ export default function ProductDetailPanel({ product, isNew, onSave, onDelete, o
             <div className={rowClass}>
               <RowLabel>상품명</RowLabel>
               <input value={name} onChange={e => setName(e.target.value)} className={fieldClass} />
+            </div>
+
+            <div className="grid grid-cols-[62px_minmax(0,1fr)] items-start gap-2 rounded-sm border border-[#d8dde6] bg-[#f8f9fb] px-1.5 py-1">
+              <RowLabel>대표이미지</RowLabel>
+              <div className="flex min-w-0 items-center gap-2">
+                <div className="flex h-12 w-16 shrink-0 items-center justify-center overflow-hidden border border-[#c8d0dc] bg-white">
+                  {imageUrl ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={imageUrl} alt="상품 대표 이미지" className="h-full w-full object-cover" />
+                  ) : (
+                    <ImageIcon size={18} className="text-[#9ca3af]" />
+                  )}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <div className="truncate text-[11px] text-[#444]">
+                    {imageUrl ? '대표 이미지 적용됨' : '대표 이미지 미등록'}
+                  </div>
+                  <div className="mt-0.5 text-[10px] text-[#777]">JPG · PNG · WebP, 권장 800x800, 최대 2MB</div>
+                </div>
+                <button
+                  type="button"
+                  onClick={openImageUpload}
+                  className="inline-flex items-center gap-1 border border-[#5a91d8] bg-white px-2 py-0.5 text-[11px] text-[#305f9f] hover:bg-[#eef3fb]"
+                >
+                  <Upload size={12} />
+                  업로드
+                </button>
+              </div>
             </div>
 
             <div className="grid grid-cols-3 gap-1.5">
@@ -1315,7 +1416,7 @@ export default function ProductDetailPanel({ product, isNew, onSave, onDelete, o
                     삭제
                   </button>
                 )}
-                <button type="button" onClick={onClose} className="border border-[#b7bdc7] bg-white px-3 py-0.5 text-[11px]">
+                <button type="button" onClick={handleCloseRequest} className="border border-[#b7bdc7] bg-white px-3 py-0.5 text-[11px]">
                   닫기
                 </button>
                 <button
@@ -1382,6 +1483,95 @@ export default function ProductDetailPanel({ product, isNew, onSave, onDelete, o
           </div>
         </div>
       </Modal>
+
+      <Modal
+        isOpen={imageModalOpen}
+        onClose={() => setImageModalOpen(false)}
+        title="상품 대표 이미지 업로드"
+        size="md"
+        footer={
+          <div className="flex justify-end gap-2">
+            <button
+              type="button"
+              onClick={() => setImageModalOpen(false)}
+              className="rounded-lg border border-line bg-white px-3 py-2 text-sm text-content-secondary hover:bg-surface-secondary"
+            >
+              취소
+            </button>
+            <button
+              type="button"
+              onClick={applyImageDraft}
+              className="rounded-lg bg-primary px-3 py-2 text-sm font-semibold text-white hover:bg-primary-dark"
+            >
+              적용
+            </button>
+          </div>
+        }
+      >
+        <div className="space-y-3">
+          <label
+            className="flex min-h-[180px] cursor-pointer flex-col items-center justify-center gap-3 rounded-xl border border-dashed border-line bg-surface-secondary px-4 py-6 text-center hover:border-primary"
+            onDragOver={event => event.preventDefault()}
+            onDrop={event => {
+              event.preventDefault();
+              handleImageFile(event.dataTransfer.files?.[0] ?? null);
+            }}
+          >
+            {imageDraftUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={imageDraftUrl} alt="업로드 미리보기" className="max-h-[160px] rounded-lg object-contain" />
+            ) : (
+              <>
+                <ImageIcon size={32} className="text-content-tertiary" />
+                <div>
+                  <p className="text-sm font-semibold text-content">파일을 드롭하거나 선택하세요</p>
+                  <p className="mt-1 text-xs text-content-tertiary">JPG, PNG, WebP · 권장 800x800 · 최대 2MB</p>
+                </div>
+              </>
+            )}
+            <input
+              type="file"
+              accept="image/jpeg,image/png,image/webp"
+              className="hidden"
+              onChange={event => handleImageFile(event.target.files?.[0] ?? null)}
+            />
+          </label>
+
+          {imageError && (
+            <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-600">
+              {imageError}
+            </div>
+          )}
+
+          {imageDraftUrl && (
+            <button
+              type="button"
+              onClick={() => {
+                setImageDraftUrl(null);
+                setImageDraftMimeType(null);
+              }}
+              className="text-xs font-semibold text-red-600 hover:underline"
+            >
+              이미지 제거
+            </button>
+          )}
+        </div>
+      </Modal>
+
+      <ConfirmDialog
+        open={cancelConfirmOpen}
+        title="작업 취소"
+        description="수정 중인 상품 정보가 저장되지 않고 사라집니다. 닫으시겠습니까?"
+        confirmLabel="닫기"
+        cancelLabel="계속 작성"
+        variant="danger"
+        onConfirm={() => {
+          setCancelConfirmOpen(false);
+          setFormDirty(false);
+          onClose();
+        }}
+        onCancel={() => setCancelConfirmOpen(false)}
+      />
     </div>
   );
 }

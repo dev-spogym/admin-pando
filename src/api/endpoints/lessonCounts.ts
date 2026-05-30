@@ -131,8 +131,16 @@ export const deductCount = async (id: number): Promise<ApiResponse<LessonCount>>
 
     // 차감 이력 기록 (fire-and-forget)
     supabase
-      .from('lesson_count_histories')
-      .insert({ lessonCountId: id, memberId: (data as LessonCount).memberId, deductedAt: new Date().toISOString() })
+      .from('lesson_count_logs')
+      .insert({
+        lessonCountId: id,
+        memberId: (data as LessonCount).memberId,
+        deductedAt: new Date().toISOString(),
+        lessonName: (data as LessonCount).productName,
+        delta: 1,
+        reason: 'api_deduct',
+        note: 'API deductCount 호출',
+      })
       .then(({ error: histError }) => {
           if (histError) console.error('횟수 이력 기록 오류:', histError);
       });
@@ -162,7 +170,7 @@ export const getLessonCountHistory = async (
 ): Promise<ApiResponse<LessonCountHistory[]>> => {
   try {
     const { data, error } = await supabase
-      .from('lesson_count_histories')
+      .from('lesson_count_logs')
       .select('*')
       .eq('memberId', memberId)
       .order('deductedAt', { ascending: false });

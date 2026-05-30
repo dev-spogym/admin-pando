@@ -7,7 +7,7 @@ export const dynamic = 'force-dynamic';
 //       템플릿 선택/편집, 즉시·예약 발송, 발송 확인(예상 비용·잔여 캐시·제외), 발송 이력(성공/실패/제외)
 //       예외처리: 잔여 캐시 부족, 수신자 0명, 미승인 템플릿, 글자수 LMS 자동 전환, 야간 광고 차단
 
-import React, { useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Send, MessageSquare, Coins, Wallet, RefreshCw, Users, FileText, AlertTriangle } from 'lucide-react';
 import AppLayout from '@/components/layout/AppLayout';
 import PageHeader from '@/components/common/PageHeader';
@@ -22,17 +22,21 @@ import Select from '@/components/ui/Select';
 import Textarea from '@/components/ui/Textarea';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
+import { supabase } from '@/lib/supabase';
 import {
   BULK_SEND_SUMMARY,
   SEND_TARGET_GROUPS,
   CHANNEL_UNIT_COST,
-  MOCK_SEND_HISTORY,
-  MOCK_SMS_TEMPLATES,
   type BulkSendHistory,
   type SmsTemplate,
   type SendChannel,
   type SendHistoryStatus,
 } from '@/mocks/marketing';
+
+const getBranchId = () => {
+  if (typeof window === 'undefined') return 1;
+  return Number(localStorage.getItem('branchId') || '1');
+};
 
 const HISTORY_BADGE: Record<SendHistoryStatus, { variant: 'success' | 'warning' | 'info' | 'error'; label: string }> = {
   완료: { variant: 'success', label: '완료' },
@@ -53,8 +57,8 @@ function classifySms(text: string): SendChannel {
 
 export default function SmsKakaoPage() {
   const [loadState, setLoadState] = useState<LoadState>('ready');
-  const [history, setHistory] = useState<BulkSendHistory[]>(MOCK_SEND_HISTORY);
-  const [templates, setTemplates] = useState<SmsTemplate[]>(MOCK_SMS_TEMPLATES);
+  const [history, setHistory] = useState<BulkSendHistory[]>([]);
+  const [templates, setTemplates] = useState<SmsTemplate[]>([]);
   const [tab, setTab] = useState<Tab>('발송');
 
   // 발송 작성 상태
@@ -71,6 +75,55 @@ export default function SmsKakaoPage() {
   const [editTemplate, setEditTemplate] = useState<SmsTemplate | null>(null);
   const [draftTemplate, setDraftTemplate] = useState('');
 
+  const loadBulkSend = useCallback(async () => {
+    setLoadState('loading');
+    const [{ data: historyRows, error: historyError }, { data: templateRows, error: templateError }] = await Promise.all([
+      supabase
+        .from('bulk_send_histories')
+        .select('*')
+        .eq('branchId', getBranchId())
+        .order('sentAt', { ascending: false }),
+      supabase
+        .from('sms_templates')
+        .select('*')
+        .eq('branchId', getBranchId())
+        .order('id', { ascending: true }),
+    ]);
+
+    if (historyError || templateError) {
+      setLoadState('error');
+      toast.error(`발송 정보를 불러오지 못했습니다: ${historyError?.message ?? templateError?.message}`);
+      return;
+    }
+
+    setHistory((historyRows ?? []).map((row: any) => ({
+      id: row.id,
+      channel: row.channel,
+      title: row.title,
+      target: row.target,
+      sentAt: String(row.sentAt ?? '').slice(0, 16).replace('T', ' '),
+      recipients: Number(row.recipients ?? 0),
+      success: Number(row.success ?? 0),
+      failed: Number(row.failed ?? 0),
+      excluded: Number(row.excluded ?? 0),
+      cost: Number(row.cost ?? 0),
+      status: row.status,
+      failReason: row.failReason ?? null,
+    })));
+    setTemplates((templateRows ?? []).map((row: any) => ({
+      id: row.id,
+      name: row.name,
+      channel: row.channel,
+      content: row.content,
+      approved: Boolean(row.approved),
+    })));
+    setLoadState('ready');
+  }, []);
+
+  useEffect(() => {
+    void loadBulkSend();
+  }, [loadBulkSend]);
+
   const targetSize = SEND_TARGET_GROUPS.find((g) => g.value === target)?.size ?? 0;
   // 제외(수신거부/휴면/비친구) 근사 5% — docs4 예외처리 시연
   const excluded = Math.round(targetSize * 0.05);
@@ -83,7 +136,14 @@ export default function SmsKakaoPage() {
   // 카카오 미승인 템플릿 발송 차단
   const kakaoUnapproved = channel === '카카오' && selectedTemplate !== null && !selectedTemplate.approved;
 
-  const stats = BULK_SEND_SUMMARY;
+  const stats = useMemo(() => ({
+    ...BULK_SEND_SUMMARY,
+    smsCount: history.filter((h) => h.channel !== '카카오').reduce((sum, h) => sum + h.recipients, 0),
+    kakaoCount: history.filter((h) => h.channel === '카카오').reduce((sum, h) => sum + h.recipients, 0),
+    monthlyCost: history.reduce((sum, h) => sum + h.cost, 0),
+    approvedTemplates: templates.filter((t) => t.approved).length,
+    lastSync: new Date().toISOString().slice(0, 16).replace('T', ' '),
+  }), [history, templates]);
 
   // ─── 발송 흐름 ─────────────────────────────────────────────────────────────
   const openConfirm = () => {
@@ -100,13 +160,13 @@ export default function SmsKakaoPage() {
     setConfirmOpen(true);
   };
 
-  const handleSend = () => {
+  const handleSend = async () => {
     const newRow: BulkSendHistory = {
-      id: Math.max(0, ...history.map((h) => h.id)) + 1,
+      id: 0,
       channel: effectiveChannel,
       title: message.slice(0, 14),
       target,
-      sentAt: scheduleType === '예약' ? scheduleAt.replace('T', ' ') : '2026-05-29 16:10',
+      sentAt: scheduleType === '예약' ? scheduleAt.replace('T', ' ') : new Date().toISOString().slice(0, 16).replace('T', ' '),
       recipients: targetSize,
       success: scheduleType === '즉시' ? sendable : 0,
       failed: 0,
@@ -114,7 +174,43 @@ export default function SmsKakaoPage() {
       cost: scheduleType === '즉시' ? estimatedCost : 0,
       status: scheduleType === '즉시' ? '완료' : '예약',
     };
-    setHistory((prev) => [newRow, ...prev]);
+
+    const sentAt = scheduleType === '예약' ? new Date(scheduleAt).toISOString() : new Date().toISOString();
+    const { error: historyError } = await supabase
+      .from('bulk_send_histories')
+      .insert({
+        branchId: getBranchId(),
+        channel: newRow.channel,
+        title: newRow.title,
+        target: newRow.target,
+        recipients: newRow.recipients,
+        success: newRow.success,
+        failed: newRow.failed,
+        excluded: newRow.excluded,
+        cost: newRow.cost,
+        status: newRow.status,
+        sentAt,
+        content: message,
+      });
+    if (historyError) {
+      toast.error(`발송 이력 저장 실패: ${historyError.message}`);
+      return;
+    }
+
+    await supabase
+      .from('messages')
+      .insert({
+        branchId: getBranchId(),
+        type: effectiveChannel === '카카오' ? 'KAKAO' : 'SMS',
+        title: newRow.title,
+        content: message,
+        recipients: [{ target, recipients: targetSize, sendable, excluded }],
+        status: scheduleType === '즉시' ? 'SENT' : 'SCHEDULED',
+        sentAt: scheduleType === '즉시' ? sentAt : null,
+        scheduledAt: scheduleType === '예약' ? sentAt : null,
+      });
+
+    await loadBulkSend();
     setConfirmOpen(false);
     setMessage('');
     setSelectedTemplateId(null);
@@ -130,10 +226,19 @@ export default function SmsKakaoPage() {
     toast.success('템플릿을 불러왔습니다.');
   };
 
-  const handleSaveTemplate = (e: React.FormEvent) => {
+  const handleSaveTemplate = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editTemplate || !draftTemplate.trim()) { toast.error('템플릿 내용을 입력하세요.'); return; }
-    setTemplates((prev) => prev.map((t) => (t.id === editTemplate.id ? { ...t, content: draftTemplate.trim() } : t)));
+    const { error } = await supabase
+      .from('sms_templates')
+      .update({ content: draftTemplate.trim(), updatedAt: new Date().toISOString() })
+      .eq('id', editTemplate.id)
+      .eq('branchId', getBranchId());
+    if (error) {
+      toast.error(`템플릿 저장 실패: ${error.message}`);
+      return;
+    }
+    await loadBulkSend();
     setEditTemplate(null);
     setDraftTemplate('');
     toast.success('저장되었습니다.');
@@ -149,7 +254,7 @@ export default function SmsKakaoPage() {
         actions={
           <div className="flex items-center gap-sm">
             <Button type="button" variant="outline" size="md" icon={<RefreshCw size={14} className={loadState === 'loading' ? 'animate-spin' : ''} />}
-              onClick={() => { setLoadState('loading'); setTimeout(() => { setHistory(MOCK_SEND_HISTORY); setLoadState('ready'); }, 500); }}>
+              onClick={() => { void loadBulkSend(); }}>
               새로고침
             </Button>
             <Button type="button" variant="primary" size="md" icon={<Send size={14} />} onClick={() => setTab('발송')}>

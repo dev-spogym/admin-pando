@@ -13,33 +13,16 @@ import Timeline from "@/components/common/Timeline";
 import { cn } from '@/lib/utils';
 import { formatKRW } from '@/lib/format';
 import Button from '@/components/ui/Button';
+import { supabase } from '@/lib/supabase';
 import {
   getDiscountPolicies,
+  getDiscountPolicyHistory,
   createDiscountPolicy,
   updateDiscountPolicy,
   deleteDiscountPolicy,
   type DiscountPolicy,
+  type DiscountPolicyHistoryEntry,
 } from '@/api/endpoints/discountPolicies';
-
-const HISTORY_KEY = 'discount_policy_history';
-
-interface HistoryEntry {
-  date: string;
-  title: string;
-  description: string;
-}
-
-function loadHistory(): HistoryEntry[] {
-  if (typeof window === 'undefined') return [];
-  try { return JSON.parse(localStorage.getItem(HISTORY_KEY) ?? '[]') as HistoryEntry[]; }
-  catch { return []; }
-}
-
-function saveHistory(entry: HistoryEntry) {
-  const prev = loadHistory();
-  const next = [entry, ...prev].slice(0, 50);
-  localStorage.setItem(HISTORY_KEY, JSON.stringify(next));
-}
 
 const EMPTY_FORM = {
   name: '',
@@ -47,8 +30,18 @@ const EMPTY_FORM = {
   value: '',
   minDuration: '',
   maxDiscount: '',
+  startDate: '',
+  endDate: '',
+  appliesToAllProducts: true,
+  productIds: [] as number[],
   isActive: true,
 };
+
+interface ProductOption {
+  id: number;
+  name: string;
+  price: number;
+}
 
 export default function DiscountSettings() {
   const [policies, setPolicies] = useState<DiscountPolicy[]>([]);
@@ -59,7 +52,8 @@ export default function DiscountSettings() {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<number | null>(null);
   const [isSaving, setIsSaving] = useState(false);
-  const [history, setHistory] = useState<HistoryEntry[]>(() => loadHistory());
+  const [history, setHistory] = useState<DiscountPolicyHistoryEntry[]>([]);
+  const [products, setProducts] = useState<ProductOption[]>([]);
 
   const fetchPolicies = async () => {
     setIsLoading(true);
@@ -69,7 +63,31 @@ export default function DiscountSettings() {
     setPolicies(data ?? []);
   };
 
-  useEffect(() => { fetchPolicies(); }, []);
+  const fetchHistory = async () => {
+    const { data } = await getDiscountPolicyHistory();
+    setHistory(data);
+  };
+
+  const fetchProducts = async () => {
+    const branchId = typeof window === 'undefined' ? 1 : Number(localStorage.getItem('branchId') || 1);
+    const { data } = await supabase
+      .from('products')
+      .select('id, name, price, cashPrice')
+      .eq('branchId', branchId)
+      .eq('isActive', true)
+      .order('name');
+    setProducts(((data ?? []) as Array<Record<string, unknown>>).map(item => ({
+      id: Number(item.id),
+      name: String(item.name ?? ''),
+      price: Number(item.cashPrice ?? item.price ?? 0),
+    })));
+  };
+
+  useEffect(() => {
+    fetchPolicies();
+    fetchHistory();
+    fetchProducts();
+  }, []);
 
   const openCreate = () => {
     setEditTarget(null);
@@ -78,6 +96,10 @@ export default function DiscountSettings() {
   };
 
   const openEdit = (policy: DiscountPolicy) => {
+    const conditions = policy.conditions ?? {};
+    const productIds = Array.isArray(conditions.productIds)
+      ? (conditions.productIds as unknown[]).map(Number)
+      : [];
     setEditTarget(policy);
     setForm({
       name: policy.name,
@@ -85,22 +107,60 @@ export default function DiscountSettings() {
       value: String(policy.value),
       minDuration: policy.minDuration != null ? String(policy.minDuration) : '',
       maxDiscount: policy.maxDiscount != null ? String(policy.maxDiscount) : '',
+      startDate: typeof conditions.startDate === 'string' ? conditions.startDate : '',
+      endDate: typeof conditions.endDate === 'string' ? conditions.endDate : '',
+      appliesToAllProducts: conditions.appliesToAllProducts !== false,
+      productIds,
       isActive: policy.isActive,
     });
     setModalOpen(true);
   };
 
+  const toggleProduct = (id: number) => {
+    setForm(prev => ({
+      ...prev,
+      productIds: prev.productIds.includes(id)
+        ? prev.productIds.filter(productId => productId !== id)
+        : [...prev.productIds, id],
+    }));
+  };
+
   const handleSave = async () => {
     if (!form.name.trim()) { toast.error('할인명을 입력해주세요.'); return; }
     if (!form.value || isNaN(Number(form.value))) { toast.error('할인 값을 입력해주세요.'); return; }
+    if (form.type === 'percentage' && (Number(form.value) <= 0 || Number(form.value) > 100)) {
+      toast.error('정률 할인은 1~100% 사이로 입력해주세요.');
+      return;
+    }
+    if (form.type === 'fixed' && Number(form.value) <= 0) {
+      toast.error('정액 할인은 0보다 큰 금액으로 입력해주세요.');
+      return;
+    }
+    if (form.startDate && form.endDate && new Date(form.startDate) > new Date(form.endDate)) {
+      toast.error('종료일은 시작일 이후여야 합니다.');
+      return;
+    }
+    if (!form.appliesToAllProducts && form.productIds.length === 0) {
+      toast.error('적용 상품을 선택해주세요.');
+      return;
+    }
     setIsSaving(true);
+
+    const selectedProducts = products.filter(product => form.productIds.includes(product.id));
 
     const payload = {
       name: form.name.trim(),
       type: form.type,
       value: Number(form.value),
       minDuration: form.minDuration ? Number(form.minDuration) : null,
-      maxDiscount: form.maxDiscount ? Number(form.maxDiscount) : null,
+      maxDiscount: form.type === 'percentage' && form.maxDiscount ? Number(form.maxDiscount) : null,
+      conditions: {
+        startDate: form.startDate || null,
+        endDate: form.endDate || null,
+        appliesToAllProducts: form.appliesToAllProducts,
+        productIds: form.appliesToAllProducts ? [] : selectedProducts.map(product => product.id),
+        productNames: form.appliesToAllProducts ? [] : selectedProducts.map(product => product.name),
+      },
       isActive: form.isActive,
     };
 
@@ -108,29 +168,16 @@ export default function DiscountSettings() {
       const { error } = await updateDiscountPolicy(editTarget.id, payload);
       if (error) { toast.error('수정에 실패했습니다.'); setIsSaving(false); return; }
       toast.success('할인 정책이 수정되었습니다.');
-      const entry: HistoryEntry = {
-        date: new Date().toLocaleString('ko-KR', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }),
-        title: `수정: ${payload.name}`,
-        description: `${payload.type === 'percentage' ? `${payload.value}%` : formatKRW(payload.value)} · ${payload.isActive ? '활성' : '비활성'}`,
-      };
-      saveHistory(entry);
-      setHistory(loadHistory());
     } else {
       const { error } = await createDiscountPolicy(payload);
       if (error) { toast.error('등록에 실패했습니다.'); setIsSaving(false); return; }
       toast.success('할인 정책이 등록되었습니다.');
-      const entry: HistoryEntry = {
-        date: new Date().toLocaleString('ko-KR', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }),
-        title: `등록: ${payload.name}`,
-        description: `${payload.type === 'percentage' ? `${payload.value}%` : formatKRW(payload.value)} · ${payload.isActive ? '활성' : '비활성'}`,
-      };
-      saveHistory(entry);
-      setHistory(loadHistory());
     }
 
     setIsSaving(false);
     setModalOpen(false);
     fetchPolicies();
+    fetchHistory();
   };
 
   const handleDelete = async () => {
@@ -139,18 +186,11 @@ export default function DiscountSettings() {
     const { error } = await deleteDiscountPolicy(deleteTarget);
     if (error) { toast.error('삭제에 실패했습니다.'); return; }
     toast.success('할인 정책이 삭제되었습니다.');
-    if (target) {
-      const entry: HistoryEntry = {
-        date: new Date().toLocaleString('ko-KR', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }),
-        title: `삭제: ${target.name}`,
-        description: `${target.type === 'percentage' ? `${target.value}%` : formatKRW(target.value)}`,
-      };
-      saveHistory(entry);
-      setHistory(loadHistory());
-    }
+    void target;
     setDeleteDialogOpen(false);
     setDeleteTarget(null);
     fetchPolicies();
+    fetchHistory();
   };
 
   const columns = [
@@ -178,6 +218,21 @@ export default function DiscountSettings() {
     {
       key: 'maxDiscount', header: '한도', width: 120, align: 'right' as const,
       render: (v: number | null) => v != null ? formatKRW(v) : '-',
+    },
+    {
+      key: 'conditions', header: '적용 조건', width: 180,
+      render: (v: Record<string, unknown> | null) => {
+        const appliesAll = v?.appliesToAllProducts !== false;
+        const start = typeof v?.startDate === 'string' && v.startDate ? v.startDate : '';
+        const end = typeof v?.endDate === 'string' && v.endDate ? v.endDate : '';
+        const productNames = Array.isArray(v?.productNames) ? (v.productNames as string[]) : [];
+        return (
+          <div className="space-y-0.5 text-[11px] text-content-secondary">
+            <div>{appliesAll ? '전체 상품' : productNames.length > 0 ? `${productNames[0]}${productNames.length > 1 ? ` 외 ${productNames.length - 1}개` : ''}` : '상품 미선택'}</div>
+            <div>{start || end ? `${start || '-'} ~ ${end || '-'}` : '기간 제한 없음'}</div>
+          </div>
+        );
+      },
     },
     {
       key: 'isActive', header: '상태', width: 90, align: 'center' as const,
@@ -308,11 +363,68 @@ export default function DiscountSettings() {
                 <input
                   type="number"
                   min={0}
+                  disabled={form.type === 'fixed'}
                   className="w-full h-[38px] px-md bg-surface-secondary rounded-lg text-[13px] border border-line focus:border-primary focus:outline-none"
                   placeholder="예: 100000"
                   value={form.maxDiscount}
                   onChange={e => setForm({ ...form, maxDiscount: e.target.value })}
                 />
+                {form.type === 'fixed' && <p className="mt-1 text-[11px] text-content-tertiary">정액 할인은 한도 필드를 사용하지 않습니다.</p>}
+              </div>
+
+              <div className="grid grid-cols-2 gap-md">
+                <div>
+                  <label className="text-[12px] font-semibold text-content-secondary mb-[4px] block">적용 시작일</label>
+                  <input
+                    type="date"
+                    className="w-full h-[38px] px-md bg-surface-secondary rounded-lg text-[13px] border border-line focus:border-primary focus:outline-none"
+                    value={form.startDate}
+                    onChange={e => setForm({ ...form, startDate: e.target.value })}
+                  />
+                </div>
+                <div>
+                  <label className="text-[12px] font-semibold text-content-secondary mb-[4px] block">적용 종료일</label>
+                  <input
+                    type="date"
+                    className="w-full h-[38px] px-md bg-surface-secondary rounded-lg text-[13px] border border-line focus:border-primary focus:outline-none"
+                    value={form.endDate}
+                    onChange={e => setForm({ ...form, endDate: e.target.value })}
+                  />
+                </div>
+              </div>
+
+              <div className="rounded-lg border border-line bg-surface-secondary p-md">
+                <label className="mb-sm flex items-center justify-between text-[13px] font-semibold text-content">
+                  <span>적용 상품</span>
+                  <button
+                    type="button"
+                    onClick={() => setForm(prev => ({ ...prev, appliesToAllProducts: !prev.appliesToAllProducts }))}
+                    className={cn('relative inline-flex h-5 w-9 items-center rounded-full transition-colors', form.appliesToAllProducts ? 'bg-accent' : 'bg-line')}
+                  >
+                    <span className={cn('inline-block h-4 w-4 transform rounded-full bg-surface shadow transition-transform', form.appliesToAllProducts ? 'translate-x-4' : 'translate-x-0.5')} />
+                  </button>
+                </label>
+                <p className="mb-sm text-[11px] text-content-tertiary">
+                  {form.appliesToAllProducts ? '전체 상품에 적용합니다.' : '명시한 상품에만 적용합니다.'}
+                </p>
+                {!form.appliesToAllProducts && (
+                  <div className="max-h-32 overflow-y-auto rounded-lg border border-line bg-white p-sm">
+                    {products.length === 0 ? (
+                      <div className="px-sm py-md text-center text-[12px] text-content-tertiary">선택 가능한 상품이 없습니다.</div>
+                    ) : products.map(product => (
+                      <label key={product.id} className="flex cursor-pointer items-center gap-sm rounded px-sm py-xs text-[12px] text-content hover:bg-surface-secondary">
+                        <input
+                          type="checkbox"
+                          checked={form.productIds.includes(product.id)}
+                          onChange={() => toggleProduct(product.id)}
+                          className="accent-primary"
+                        />
+                        <span className="flex-1">{product.name}</span>
+                        <span className="text-content-tertiary">{formatKRW(product.price)}</span>
+                      </label>
+                    ))}
+                  </div>
+                )}
               </div>
 
               {/* 활성 토글 */}

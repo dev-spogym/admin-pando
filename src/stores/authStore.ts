@@ -33,6 +33,7 @@ interface AuthState {
 
 const STORAGE_KEY_TOKEN = 'auth_token';
 const STORAGE_KEY_USER = 'auth_user';
+const SESSION_EXPIRED_KEY = 'session_expired';
 
 // localStorage에서 초기값 복원
 function restoreFromStorage(): Pick<AuthState, 'user' | 'token' | 'isAuthenticated'> {
@@ -131,6 +132,7 @@ export function initAuthListener() {
       // mock 토큰(fallback 로그인)인 경우 Supabase Auth 세션이 없어도 정상
       // SIGNED_OUT 이벤트만 처리 (초기 INITIAL_SESSION 등은 무시)
       if (store.isAuthenticated && store.token && !store.token.startsWith('mock-') && event === 'SIGNED_OUT') {
+        sessionStorage.setItem(SESSION_EXPIRED_KEY, '1');
         store.logout();
       }
       return;
@@ -165,6 +167,7 @@ export async function restoreSupabaseSession() {
 
   if (!session) {
     // Supabase 세션 없음 → 로그아웃 처리
+    sessionStorage.setItem(SESSION_EXPIRED_KEY, '1');
     store.logout();
   }
 }
